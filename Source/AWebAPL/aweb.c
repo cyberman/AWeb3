@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -26,6 +27,7 @@
 #include "jslib.h"
 #include "startup.h"
 #include "task.h"
+#include "locale.h"
 #include <intuition/intuition.h>
 #include <intuition/intuitionbase.h>
 #include <intuition/gadgetclass.h>
@@ -36,14 +38,42 @@
 #include <workbench/workbench.h>
 #include <utility/date.h>
 #include <libraries/locale.h>
-#include <clib/exec_protos.h>
-#include <clib/alib_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/icon_protos.h>
-#include <clib/locale_protos.h>
-#include <clib/layers_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/utility_protos.h>
+#include <proto/exec.h>
+#include <proto/alib.h>
+#include <proto/dos.h>
+#include <proto/intuition.h>
+#include <proto/icon.h>
+#include <proto/locale.h>
+#include <proto/layers.h>
+#include <proto/graphics.h>
+#include <proto/utility.h>
+#include <proto/wb.h>
+#include <proto/iffparse.h>
+#include <proto/gadtools.h>
+#include <proto/asl.h>
+#include <proto/datatypes.h>
+#include <proto/keymap.h>
+#include <proto/diskfont.h>
+#include <proto/button.h>
+#include <proto/bitmap.h>
+#include <proto/bevel.h>
+#include <proto/glyph.h>
+#include <proto/window.h>
+#include <proto/layout.h>
+#include <proto/string.h>
+#include <proto/space.h>
+#include <proto/label.h>
+#include <proto/drawlist.h>
+#include <proto/checkbox.h>
+#include <proto/integer.h>
+#include <proto/chooser.h>
+#include <proto/listbrowser.h>
+#include <proto/speedbar.h>
+#include <proto/scroller.h>
+#include <proto/fuelgauge.h>
+#include <proto/penmap.h>
+#include <proto/colorwheel.h>
+#include <proto/timer.h>
 
 __near long __stack=16384;
 
@@ -57,21 +87,10 @@ extern BOOL ookdebug;
 #include "profile.h"
 
 #ifdef BETAKEYFILE
-struct Library *IntuitionBase,*UtilityBase,*GfxBase,*DiskfontBase,*LayersBase,
-   *ColorWheelBase,*GadToolsBase,*DataTypesBase,*AslBase,*KeymapBase,*IconBase,
-   *LocaleBase,*GradientSliderBase,*IFFParseBase,*AWebJSBase,*WorkbenchBase;
-#endif
-#ifdef NOKEYFILE
-struct Library *IntuitionBase,*UtilityBase,*GfxBase,*LayersBase,*ColorWheelBase,
-   *GadToolsBase,*DataTypesBase,*DiskfontBase,*AslBase,*KeymapBase,*IconBase,
-   *LocaleBase,*GradientSliderBase,*IFFParseBase,*AWebJSBase,*WorkbenchBase;
+/* extern struct Library *AWebJSBase; */
 #endif
 
-struct ClassLibrary *WindowBase,*LayoutBase,*ButtonBase,*ListBrowserBase,
-   *ChooserBase,*IntegerBase,*SpaceBase,*CheckBoxBase,*StringBase,
-   *LabelBase,*PaletteBase,*GlyphBase,*ClickTabBase,*FuelGaugeBase,
-   *BitMapBase,*BevelBase,*DrawListBase,*SpeedBarBase,*ScrollerBase,
-   *PenMapBase;
+struct Library *AWebJSBase;
 
 static void *StartupBase;
 
@@ -894,7 +913,7 @@ struct Library *Openaweblib(UBYTE *name)
 struct Library *Openjslib(void)
 {  if(!AWebJSBase)
    {  if(!(AWebJSBase=OpenLibrary("aweblib/awebjs.aweblib",0))
-      && !(AWebJSBase=OpenLibrary("AWebPath:aweblib/awebjs.aweblib",0))
+      && !(AWebJSBase=OpenLibrary("AWeb:aweblib/awebjs.aweblib",0))
       && !(AWebJSBase=OpenLibrary("PROGDIR:aweblib/awebjs.aweblib",0)))
       {  Lowlevelreq(AWEBSTR(MSG_ERROR_CANTOPEN),"awebjs.aweblib");
       }
@@ -924,7 +943,7 @@ BOOL Awebactive(void)
 
 void Openloadreq(struct Screen *screen)
 {  if(!StartupBase) StartupBase=OpenLibrary("aweblib/startup.aweblib",0);
-   if(!StartupBase) StartupBase=OpenLibrary("AWebPath:aweblib/startup.aweblib",0);
+   if(!StartupBase) StartupBase=OpenLibrary("AWeb:aweblib/startup.aweblib",0);
    if(StartupBase) Startupopen(screen,awebversion);
 }
 
@@ -1032,7 +1051,7 @@ void Lowlevelreq(UBYTE *msg,...)
    va_list args;
    va_start(args,msg);
    if(!IntuitionBase)
-   {  if(IntuitionBase=OpenLibrary("intuition.library",36)) opened=TRUE;
+   {  if(IntuitionBase=(struct IntuitionBase *)OpenLibrary("intuition.library",36)) opened=TRUE;
    }
    if(IntuitionBase)
    {  es.es_StructSize=sizeof(struct EasyStruct);
@@ -1069,9 +1088,9 @@ struct ClassLibrary *Openclass(UBYTE *name,long version)
    {  UBYTE *msg=AWEBSTR(MSG_ERROR_CANTOPEN);
 #ifdef DEMOVERSION
       UBYTE *extramsg=
-         "\nYou need a recent version of ClassAct."
+         "\nYou need a recent version of Reaction."
          "\nAvailable via FTP from"
-         "\nftp.thule.no/pub/classact/";
+         "\nftp.thule.no/pub/reaction/";
       UBYTE *buf;
       buf=ALLOCTYPE(UBYTE,strlen(msg)+strlen(extramsg)+4,0);
       if(buf)
@@ -1094,7 +1113,7 @@ static BOOL Initall(void)
 {  long lock;
    /* Must be done here before classes initialize */
    if(lock=Lock("PROGDIR:",ACCESS_READ))
-   {  if(AssignLock("AWebPath",lock)) awebpath=TRUE;
+   {  if(AssignLock("AWeb",lock)) awebpath=TRUE;
       else UnLock(lock);
    }
    if(!(locale=OpenLocale(NULL))) return FALSE;
@@ -1488,20 +1507,17 @@ int main(int fromcli,struct WBStartup *wbs)
    }
    Closeloadreq();
    Cleanup();
-   if(awebpath) AssignLock("AWebPath",NULL);
+   if(awebpath) AssignLock("AWeb",NULL);
    return 0;
 }
 
 #ifdef PROFILE
-#include <clib/timer_protos.h>
-#include <pragmas/timer_pragmas.h>
 struct prof
 {  long secs,mics,n;
    char *string;
 };
 static struct prof profs[100];
 static long nprof;
-static void *TimerBase;
 static struct MsgPort *profport;
 static struct timerequest *profrequest;
 

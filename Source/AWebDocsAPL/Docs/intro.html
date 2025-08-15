@@ -1,7 +1,7 @@
 <!--
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  *
@@ -26,7 +26,7 @@ Introduction
 <h1><img src=aweb.iff width=192 height=93 alt=(logo)>&nbsp; Introduction</h1>
 AWeb is a fast and powerful World Wide Web browser for the Amiga computer.
 <p>
-Some of the most important features of AWeb-II are listed below.
+Some of the most important features of AWeb are listed below.
 
 <h2>HTML and browsing</h2>
 AWeb offers complete <a HREF="html.html">HTML support</a>, including:
@@ -76,8 +76,8 @@ A public <a HREF="api.html">plugin interface</a> allows seamless integration
 of extension programs within AWeb.
 
 <h2>Networking </h2>
-AWeb can use a wide range of TCP-stacks: AmiTCP/IP, I-Net225, AS-225
-or compatible, like Miami or TermiteTCP. The TCP stack can be
+AWeb can use a wide range of TCP-stacks: AmiTCP/IP or compatible. RoadShow and UAE bsdsocket.library are known to be compatible. Other stacks like Miami or TermiteTCP may work but are not tested. 
+I-Net225 and AS-225 are deprecated and no longer supported. The TCP stack can be
 <a HREF="starttcp.html">started
 automatically</a>  when it is needed to fetch a document from the net.
 Without a TCP stack running, you can still view local files.
@@ -119,7 +119,7 @@ so the alert requester will not be shown again for those cookies. Cookies
 are stored in a readable and editable ASCII file.
 <p>
 AWeb supports <a HREF="secure.html">secure connections</a> by use of
-MiamiSSL. 
+AmiSSL 5.20 or later. <small><i>MiamiSSL is deprecated and no longer supported.</i></small>  
 <p>
 AWeb lets you load all images, or delay all image loading. A third option
 is to load only clickable maps, so you know where to click on.
@@ -154,7 +154,7 @@ frame has no scroller.
 You can <a HREF="print.html">print</a>  the page graphically, or
 save it as IFF file  and process or print it later.<br>
 Instead of a graphical printout, you can also print a page textually using the
-HTTX conversion utility that is included in the AWeb-II package.
+HTTX conversion utility that is included in the AWeb package.
 You can save the document as text (using HTTX) or as HTML source.
 Functions that use the HTTX utility are installed automatically as
 an option.

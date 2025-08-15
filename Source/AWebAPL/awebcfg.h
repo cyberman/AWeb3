@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -35,43 +36,74 @@
 #include <libraries/gadtools.h>
 #include <gadgets/colorwheel.h>
 #include <gadgets/gradientslider.h>
-#include <clib/exec_protos.h>
-#include <clib/alib_protos.h>
-#include <clib/dos_protos.h>
-#include <clib/icon_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/locale_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/gadtools_protos.h>
-#include <clib/asl_protos.h>
-#include <clib/colorwheel_protos.h>
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <ezlists.h>
-#include <classact.h>
+#include "ezlists.h"
+#include <classes/window.h>
+
+/* Proto headers must be included before Reaction headers to ensure DoMethod is declared */
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/intuition.h>
+#include <proto/graphics.h>
+#include <proto/utility.h>
+#include <proto/icon.h>
+#include <proto/locale.h>
+#include <proto/gadtools.h>
+#include <proto/asl.h>
+#include <proto/colorwheel.h>
+/* Note: proto/gradientslider.h is not available in the Amiga NDK, 
+   so we declare the base pointer manually in the .c file */
+#include <proto/window.h>
+#include <proto/layout.h>
+#include <proto/button.h>
+#include <proto/listbrowser.h>
+#include <proto/chooser.h>
+#include <proto/integer.h>
+#include <proto/space.h>
+#include <proto/checkbox.h>
+#include <proto/string.h>
+#include <proto/palette.h>
+#include <proto/glyph.h>
+#include <proto/clicktab.h>
+#include <proto/label.h>
+#include <proto/penmap.h>
+#include <proto/drawlist.h>
+#include <proto/keymap.h>
+#include <proto/bevel.h>
+
+/* Reaction headers after proto headers */
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <reaction/reaction_author.h>
 #include "keyfile.h"
 #include "awebprefs.h"
+
+/* Missing Reaction defines that are not in the NDK */
+
+#ifndef REACTION_Dummy
+#define REACTION_Dummy (TAG_USER + 0x5000000)
+#endif
+
+#ifndef REACTION_BackFill
+#define REACTION_BackFill    (REACTION_Dummy + 1)
+#endif
+
+#ifndef REACTION_Underscore
+#define REACTION_Underscore GA_Underscore
+#endif
+
+#ifndef REACTION_CommKey
+#define REACTION_CommKey   GA_ActivateKey
+#endif
 
 #ifndef NOCFGLOCALE
 #define CATCOMP_NUMBERS
 #include "cfglocale.h"
 #endif
-
-#include <pragmas/exec_sysbase_pragmas.h>
-#include <pragmas/dos_pragmas.h>
-#include <pragmas/intuition_pragmas.h>
-#include <pragmas/graphics_pragmas.h>
-#include <pragmas/utility_pragmas.h>
-#include <pragmas/colorwheel_pragmas.h>
-#include <pragmas/gadtools_pragmas.h>
-#include <pragmas/datatypes_pragmas.h>
-#include <pragmas/asl_pragmas.h>
-#include <pragmas/locale_pragmas.h>
-#include <pragmas/icon_pragmas.h>
-#include <pragmas/colorwheel_pragmas.h>
 
 #ifndef ALLOCTYPE
 #define ALLOCPLUS(t,n,p,f) (t*)Allocmem((n)*sizeof(t)+(p),(f)|MEMF_PUBLIC)
@@ -109,18 +141,14 @@ extern BOOL has35;
 extern struct LocaleInfo localeinfo;
 extern STRPTR __asm GetString(register __a0 struct LocaleInfo *li,
                               register __d0 long stringnum);
-#define AWEBSTR(n)   GetString(&localeinfo,(n))
+#ifndef CFGAWEBSTR
+#define CFGAWEBSTR(n)   GetString(&localeinfo,(n))
+#endif
 
 extern void *maincatalog;
 extern UBYTE *Getmainstr(ULONG msg);
 
-extern struct Library *IntuitionBase,*IconBase,*LocaleBase,*GfxBase,
-   *GadToolsBase,*AslBase,*ColorWheelBase,*GradientSliderBase,
-   *SysBase,*DOSBase;
-
-extern struct ClassLibrary *WindowBase,*LayoutBase,*ButtonBase,
-   *ListBrowserBase,*ChooserBase,*IntegerBase,*SpaceBase,*CheckBoxBase,
-   *StringBase,*LabelBase,*PaletteBase,*GlyphBase,*ClickTabBase;
+// Library base pointers are now provided by proto headers
 
 extern UBYTE config[];              /* configuration name */
 extern struct Screen *pubscreen;
@@ -176,7 +204,10 @@ extern void Dimensions(struct Window *window,short *dim);
 extern BOOL Initmemory(void);
 extern void Freememory(void);
 
-extern void *Allocmem(long size,ULONG flags);
+#ifndef ALLOCMEM_DECLARED
+#define ALLOCMEM_DECLARED
+extern APTR Allocmem(ULONG size,ULONG flags);
+#endif
 extern void Freemem(void *mem);
 
 /* cfgbr */

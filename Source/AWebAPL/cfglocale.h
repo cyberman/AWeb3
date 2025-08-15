@@ -1,20 +1,3 @@
-/**********************************************************************
- * 
- * This file is part of the AWeb-II distribution
- *
- * Copyright (C) 2002 Yvon Rozijn
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the AWeb Public License as included in this
- * distribution.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * AWeb Public License for more details.
- *
- **********************************************************************/
-
 #ifndef CFGLOCALE_H
 #define CFGLOCALE_H
 
@@ -2139,30 +2122,43 @@ struct LocaleInfo
 
 #ifdef CATCOMP_CODE
 
-STRPTR GetString(struct LocaleInfo *li, LONG stringNum)
+struct CatCompBlockType
 {
-LONG   *l;
-UWORD  *w;
-STRPTR  builtIn;
+	LONG	ccb_ID;
+	UWORD	ccb_StringSize;
+};
 
-    l = (LONG *)CatCompBlock;
+STRPTR GetString(struct LocaleInfo * li, LONG stringNum)
+{
+	const struct CatCompBlockType * ccb = (APTR)CatCompBlock;
+	const struct CatCompBlockType * ccb_stop = (APTR)&((BYTE *)ccb)[sizeof(CatCompBlock)];
 
-    while (*l != stringNum)
-    {
-        w = (UWORD *)((ULONG)l + 4);
-        l = (LONG *)((ULONG)l + (ULONG)*w + 6);
-    }
-    builtIn = (STRPTR)((ULONG)l + 6);
+	STRPTR builtin = NULL;
+	STRPTR result = NULL;
 
-#define XLocaleBase LocaleBase
-#define LocaleBase li->li_LocaleBase
-    
-    if (LocaleBase)
-        return(GetCatalogStr(li->li_Catalog,stringNum,builtIn));
-#define LocaleBase XLocaleBase
-#undef XLocaleBase
+	while(ccb < ccb_stop && ccb->ccb_StringSize > 0)
+	{
+		if(ccb->ccb_ID == stringNum)
+		{
+			builtin = (STRPTR)&ccb[1];
+			break;
+		}
 
-    return(builtIn);
+		ccb = (struct CatCompBlockType *)&((BYTE *)ccb)[sizeof(*ccb) + ccb->ccb_StringSize];
+	}
+
+	if(li != NULL && li->li_LocaleBase != NULL)
+	{
+		struct Library * LocaleBase = li->li_LocaleBase;
+
+		result = GetCatalogStr(li->li_Catalog, stringNum, builtin);
+	}
+	else
+	{
+		result = builtin;
+	}
+
+	return(result);
 }
 
 

@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -17,6 +18,9 @@
 
 /* html.c - AWeb document html engine */
 
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/utility.h>
 #include "aweb.h"
 #include "source.h"
 #include "html.h"
@@ -68,7 +72,7 @@ struct Number  /* number or percentage */
 
 static struct Tagattr dummyta={0};
 
-#define DINGBATPATH  "file:///AWebPath:Images/"
+#define DINGBATPATH  "file:///AWeb:Images/"
 
 /*---------------------------------------------------------------------*/
 

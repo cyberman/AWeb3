@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -19,7 +20,8 @@
 
 extern void *AwebPluginBase;
 extern struct ExecBase *SysBase;
-extern void *DOSBase,*IntuitionBase,*GfxBase,*UtilityBase;
+/* Library base pointers declared in proto headers - no need to redeclare */
 extern struct ClassLibrary *WindowBase,*LayoutBase,*ButtonBase,*ListBrowserBase,
-   *StringBase,*ChooserBase,*CheckBoxBase,*SpaceBase,*LabelBase,*GlyphBase;
+   *StringBase,*ChooserBase,*CheckBoxBase,*SpaceBase,*LabelBase;
+/* GlyphBase declared in proto/glyph.h - no need to redeclare */
 

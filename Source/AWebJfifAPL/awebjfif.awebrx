@@ -6,7 +6,7 @@ if left(address(),5)~="AWEB." then do
    ports=show("P")
    parse var ports dummy "AWEB." portnr .
    if portnr="" then do
-      address command "run AWeb3:AWeb-II"
+      address command "run AWeb:AWeb"
       address command "WaitForPort AWEB.1"
       portnr=1
    end
@@ -28,7 +28,7 @@ if args='' then do
    call writeln tf,"<html><head><title>AWeb JFIF Setup</title></head>"
    call writeln tf,"<body><h1>AWeb JFIF Setup</h1>"
    
-   if exists("AWebPath:awebplugin/awebjfif.awebplugin") then do
+   if exists("AWeb:awebplugin/awebjfif.awebplugin") then do
       installed=0
       progress=4
       multipass=1
@@ -70,7 +70,7 @@ if args='' then do
       call writeln tf,"This form configures AWeb-II to use the <strong> AWeb JFIF plugin</strong>."
       call writeln tf,"<input type=hidden name=defprogress value="progress">"
       call writeln tf,"<ol><li>Select the required modes of operation "
-      call writeln tf,"(see <a href='file:///AWebPath:awebplugin/docs/awebjfif.html#parameters'>documentation</a> for details)"
+      call writeln tf,"(see <a href='file:///AWeb:awebplugin/docs/awebjfif.html#parameters'>documentation</a> for details)"
 
       call writeln tf,"<p><ul><li>Progressive display:<br>"
       call writeln tf,"<input type=radio name=progress value=0"
@@ -135,7 +135,7 @@ if args='' then do
       call writeln tf,"Plugin file not found. You have to run the install script first."
    end
    
-   call writeln tf,"<p><hr><p><a href='file:///AWebPath:awebplugin/docs/awebjfif.html'>Back to documentation</a>"
+   call writeln tf,"<p><hr><p><a href='file:///AWeb:awebplugin/docs/awebjfif.html'>Back to documentation</a>"
    
    call close tf
    'open "file:///T:awebjfifsetup.html" reload'
@@ -176,7 +176,7 @@ else do
       end
       
       if progress="" then progress=defprogress
-      mime="IMAGE/JPEG;"ext";A;AWebPath:awebplugin/awebjfif.awebplugin;PROGRESS="progress" MULTIPASS="multipass" DITHER="dither" "grayscale" MAXMEM="maxmem lowpri
+      mime="IMAGE/JPEG;"ext";A;AWeb:awebplugin/awebjfif.awebplugin;PROGRESS="progress" MULTIPASS="multipass" DITHER="dither" "grayscale" MAXMEM="maxmem lowpri
    end
    
    'setcfg MIME "'mime'" ADD'
@@ -185,7 +185,7 @@ else do
       'savesettings'
    end
 
-   'open "file:///AWebPath:awebplugin/docs/awebjfif.html"'
+   'open "file:///AWeb:awebplugin/docs/awebjfif.html"'
 
 end
 

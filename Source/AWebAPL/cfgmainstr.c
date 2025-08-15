@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -17,11 +18,15 @@
 
 /* cfgmainstr.c - AWebCfg main locale */
 
-#define NOCFGLOCALE
-#include "awebcfg.h"
+#include <exec/types.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/locale.h>
 
 #define CATCOMP_ARRAY
 #include "locale.h"
+
+extern void *maincatalog;
 
 UBYTE *Getmainstr(ULONG msg)
 {  long i;

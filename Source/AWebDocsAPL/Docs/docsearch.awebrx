@@ -2,7 +2,7 @@
  *                                                                 *
  * Docsearch.awebrx                                                *
  *                                                                 *
- * © 1997 Yvon Rozijn                                              *
+ * ï¿½ 1997 Yvon Rozijn                                              *
  *                                                                 *
  * Search in AWeb documentation. Generate index if requested or    *
  * no index file exists yet. Search the index file and pass        *
@@ -24,7 +24,7 @@ index = 'AWebPAth:docs/docsearch.index'
  * DIR = directories to search for #?.html files (not recursive)   *
  * TO = name of index file to create                               */
 
-makeindex = 'AWebPath:docs/makeindex AWebPath:docs AWebPath:docs/plugins AWebPath:docs/settings AWebPath:docs/arexx' index
+makeindex = 'AWeb:docs/makeindex AWeb:docs AWeb:docs/plugins AWeb:docs/settings AWeb:docs/arexx' index
 
 /* resultfile = path of file to store search result                */
 
@@ -37,7 +37,7 @@ resultfile = 'T:docsearch'
  * TO = path of search result                                      *
  * SEARCH = string to search                                       */
 
-searchindex = 'AWebPath:docs/searchindex' index resultfile
+searchindex = 'AWeb:docs/searchindex' index resultfile
 
 /* and adjust the HTML used in the search result to fit your       *
  * application.                                                    *
@@ -94,7 +94,7 @@ ch=result
 'chanheader' ch '"pragma: no-cache"'
 
 doc='<HTML><TITLE>Search result:' search '</TITLE>*N'
-doc=doc || '<BASE HREF=file:///AWebPath:docs/aweb.html>*N'
+doc=doc || '<BASE HREF=file:///AWeb:docs/aweb.html>*N'
 doc=doc || '<BODY BACKGROUND=awebbg.iff>*N'
 doc=doc || '<H1><IMG SRC=aweb.iff width=192 height=93 alt=(logo)>&nbsp; Search result:' search '</H1>*N'
 
@@ -125,7 +125,7 @@ if open(f,resultfile,'R') then do
 end
 
 doc='</OL>*N'
-doc=doc || '<HR><A HREF=file:///AWebPath:docs/aweb.html>Back to index</a>*N'
+doc=doc || '<HR><A HREF=file:///AWeb:docs/aweb.html>Back to index</a>*N'
 
 doc=doc || '<BR><BR><HR><FORM ACTION=x-aweb:rexx/' || programname || '>*N'
 doc=doc || '<B>TIP:</B> After you have added new documentation files,*N'

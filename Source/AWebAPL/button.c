@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -25,11 +26,15 @@
 #include "url.h"
 #include "window.h"
 #include "jslib.h"
-#include <classact.h>
+#include <proto/exec.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
 #include <intuition/imageclass.h>
-#include <clib/graphics_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/utility_protos.h>
+#include <images/bevel.h>
+#include <proto/graphics.h>
+#include <proto/intuition.h>
+#include <proto/utility.h>
+#include <proto/bevel.h>
 
 /*------------------------------------------------------------------------*/
 
@@ -252,7 +257,7 @@ static long Renderbutton(struct Button *but,struct Amrender *amr)
          BEVEL_TextPen,tpen,
          BEVEL_ColorMap,colormap,
          BEVEL_Flags,BFLG_XENFILL,
-         CLASSACT_SpecialPens,but->capens,
+         REACTION_SpecialPens,but->capens,
          TAG_END);
       DrawImageState(rp,bevel,but->aox+coo->dx,but->aoy+coo->dy,state,coo->dri);
       if(but->body)

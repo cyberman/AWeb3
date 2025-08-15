@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -18,6 +19,21 @@
 /* cfgpr.c - AWebCfg program window */
 
 #include "awebcfg.h"
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+
+/* Missing Reaction defines - not available in proto headers */
+#ifndef REACTION_Underscore
+#define REACTION_Underscore 0x80000000
+#endif
+#include <images/bevel.h>
+#include <gadgets/layout.h>
+#include <gadgets/button.h>
+#include <classes/window.h>
+#include <proto/intuition.h>
+
+
+
 
 ULONG prmask=0;
 
@@ -92,7 +108,7 @@ static void *Makescreenpage(void)
          CHOOSER_Labels,&scrlist,
          CHOOSER_Active,pgp.screentype,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_SCREEN_OPENON)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_SCREEN_OPENON)),
       StartMember,scrpagelayout=HLayoutObject,
          StartMember,scrpage=PageObject,
             PAGE_Add,VLayoutObject,
@@ -103,27 +119,27 @@ static void *Makescreenpage(void)
                   STRINGA_TextVal,pgp.screenname,
                   STRINGA_MaxChars,64,
                EndMember,
-               MemberLabel(AWEBSTR(MSG_SET_SCREEN_NAME)),
+               MemberLabel(CFGAWEBSTR(MSG_SET_SCREEN_NAME)),
             End,
             PAGE_Add,VLayoutObject,
                StartMember,HLayoutObject,
                   LAYOUT_InnerSpacing,1,
                   LAYOUT_VertAlignment,LALIGN_CENTER,
                   StartImage,LabelObject,
-                     LABEL_Text,AWEBSTR(MSG_SET_SCREEN_MODE),
+                     LABEL_Text,CFGAWEBSTR(MSG_SET_SCREEN_MODE),
                   EndImage,
                   StartMember,scrmgad=ButtonObject,
                      GA_Text," ",
                      GA_ReadOnly,TRUE,
                      BUTTON_Justification,BCJ_LEFT,
-                     CLASSACT_Underscore,0,
+                     REACTION_Underscore,0,
                   EndMember,
                   CHILD_NominalSize,TRUE,
                   StartMember,ButtonObject,
                      GA_ID,PGID_SCRPOP,
                      GA_RelVerify,TRUE,
                      BUTTON_AutoButton,BAG_POPSCREEN,
-                     CLASSACT_CommKey,Hotkey(AWEBSTR(MSG_SET_SCREEN_MODE)),
+                     REACTION_CommKey,Hotkey(CFGAWEBSTR(MSG_SET_SCREEN_MODE)),
                   EndMember,
                   CHILD_MaxWidth,20,
                EndMember,
@@ -133,7 +149,7 @@ static void *Makescreenpage(void)
                   CHOOSER_Active,pgp.loadpalette,
                   GA_Disabled,pgp.screendepth>8,
                EndMember,
-               MemberLabel(AWEBSTR(MSG_SET_SCREEN_PALETTE)),
+               MemberLabel(CFGAWEBSTR(MSG_SET_SCREEN_PALETTE)),
                CHILD_WeightedWidth,0,
             End,
          EndMember,
@@ -178,7 +194,7 @@ static void *Makepalettepage(void)
       StartMember,VLayoutObject,
          LAYOUT_SpaceOuter,TRUE,
          LAYOUT_BevelStyle,BVS_GROUP,
-         LAYOUT_Label,AWEBSTR(MSG_SET_PALL_PENLABEL),
+         LAYOUT_Label,CFGAWEBSTR(MSG_SET_PALL_PENLABEL),
 /* palette gadget bug makes this unusable
          StartMember,VLayoutObject,
             StartMember,col4gad=ChooserObject,
@@ -189,7 +205,7 @@ static void *Makepalettepage(void)
                CHOOSER_Active,pgp.fourcolors,
                GA_Disabled,!ownscreen,
             EndMember,
-            MemberLabel(AWEBSTR(MSG_SET_PALL_NRCOLOURS)),
+            MemberLabel(CFGAWEBSTR(MSG_SET_PALL_NRCOLOURS)),
             CHILD_WeightedWidth,0,
          EndMember,
          CHILD_WeightedHeight,0,
@@ -214,20 +230,20 @@ static void *Makepalettepage(void)
          EndMember,
          CHILD_MinHeight,16,
          CHILD_WeightedHeight,0,
-         MemberLabel(AWEBSTR(MSG_SET_PALL_PEN)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_PALL_PEN)),
       EndMember,
       StartMember,HLayoutObject,
          LAYOUT_SpaceOuter,TRUE,
          LAYOUT_BevelStyle,BVS_GROUP,
-         LAYOUT_Label,AWEBSTR(MSG_SET_PALL_PALLETTELABEL),
+         LAYOUT_Label,CFGAWEBSTR(MSG_SET_PALL_PALLETTELABEL),
          StartMember,scrpalgad=PaletteObject,
             PALETTE_NumColors,pgp.fourcolors?4:8,
             GA_Disabled,!ownscreen,
          EndMember,
          CHILD_MinHeight,16,
-         MemberLabel(AWEBSTR(MSG_SET_PALL_PALLPEN)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_PALL_PALLPEN)),
          StartMember,poppalgad=ButtonObject,
-            GA_Text,AWEBSTR(MSG_SET_PALL_CHGCOLOUR),
+            GA_Text,CFGAWEBSTR(MSG_SET_PALL_CHGCOLOUR),
             GA_ID,PGID_SCRPOPCOLOR,
             GA_RelVerify,TRUE,
             GA_Disabled,!ownscreen,
@@ -260,7 +276,7 @@ static void *Makeoptionspage(void)
             EndMember,
             CHILD_MaxWidth,20,
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_PROGRAM_SAVEPATH)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_PROGRAM_SAVEPATH)),
          StartMember,HLayoutObject,
             LAYOUT_SpaceInner,FALSE,
             StartMember,tempgad=StringObject,
@@ -275,7 +291,7 @@ static void *Makeoptionspage(void)
             EndMember,
             CHILD_MaxWidth,20,
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_CACHE_TEMPPATH)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_CACHE_TEMPPATH)),
       EndMember,
       StartMember,VLayoutObject,
          StartMember,ovlpgad=IntegerObject,
@@ -285,12 +301,12 @@ static void *Makeoptionspage(void)
             INTEGER_Number,pgp.overlap,
          EndMember,
          CHILD_MaxWidth,120,
-         MemberLabel(AWEBSTR(MSG_SET_PROGRAM_OVERLAP)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_PROGRAM_OVERLAP)),
       EndMember,
       StartMember,HLayoutObject,
          StartMember,VLayoutObject,
             StartMember,cmdsgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_PROGRAM_ALLOW),
+               GA_Text,CFGAWEBSTR(MSG_SET_PROGRAM_ALLOW),
                GA_Selected,pgp.commands,
 #ifdef DEMOVERSION
                GA_Disabled,TRUE,
@@ -298,22 +314,22 @@ static void *Makeoptionspage(void)
             EndMember,
             CHILD_WeightedWidth,0,
             StartMember,hlacgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_PROGRAM_HOTCLOSE),
+               GA_Text,CFGAWEBSTR(MSG_SET_PROGRAM_HOTCLOSE),
                GA_Selected,pgp.hlautoclose,
             EndMember,
             CHILD_WeightedWidth,0,
             StartMember,hlrqgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_PROGRAM_HOTREQ),
+               GA_Text,CFGAWEBSTR(MSG_SET_PROGRAM_HOTREQ),
                GA_Selected,pgp.hlrequester,
             EndMember,
             CHILD_WeightedWidth,0,
             StartMember,whacgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_PROGRAM_WHISCLOSE),
+               GA_Text,CFGAWEBSTR(MSG_SET_PROGRAM_WHISCLOSE),
                GA_Selected,pgp.whautoclose,
             EndMember,
             CHILD_WeightedWidth,0,
             StartMember,draggad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_PROGRAM_DRAGGING),
+               GA_Text,CFGAWEBSTR(MSG_SET_PROGRAM_DRAGGING),
                GA_Selected,pgp.clipdrag,
 #ifdef DEMOVERSION
                GA_Disabled,TRUE,
@@ -323,7 +339,7 @@ static void *Makeoptionspage(void)
          EndMember,
          StartMember,VLayoutObject,
             StartMember,savigad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_PROGRAM_SAVEICONS),
+               GA_Text,CFGAWEBSTR(MSG_SET_PROGRAM_SAVEICONS),
                GA_Selected,pgp.saveicons,
 #ifdef DEMOVERSION
                GA_Disabled,TRUE,
@@ -331,22 +347,22 @@ static void *Makeoptionspage(void)
             EndMember,
             CHILD_WeightedWidth,0,
             StartMember,aahlgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_PROGRAM_AAHOTLIST),
+               GA_Text,CFGAWEBSTR(MSG_SET_PROGRAM_AAHOTLIST),
                GA_Selected,pgp.aahotlist,
             EndMember,
             CHILD_WeightedWidth,0,
             StartMember,aawhgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_PROGRAM_AAWINHIS),
+               GA_Text,CFGAWEBSTR(MSG_SET_PROGRAM_AAWINHIS),
                GA_Selected,pgp.aawinhis,
             EndMember,
             CHILD_WeightedWidth,0,
             StartMember,aansgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_PROGRAM_AANETSTAT),
+               GA_Text,CFGAWEBSTR(MSG_SET_PROGRAM_AANETSTAT),
                GA_Selected,pgp.aanetstat,
             EndMember,
             CHILD_WeightedWidth,0,
             StartMember,cenrgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_PROGRAM_CENTERREQS),
+               GA_Text,CFGAWEBSTR(MSG_SET_PROGRAM_CENTERREQS),
                GA_Selected,pgp.centerreq,
             EndMember,
             CHILD_WeightedWidth,0,
@@ -367,7 +383,7 @@ static void *Makeprogramspage(void)
          GA_ID,PGID_PROGTYPE,
          GA_RelVerify,TRUE,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_PRPROGRAMS_TYPE)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_PRPROGRAMS_TYPE)),
       StartMember,HLayoutObject,
          LAYOUT_SpaceInner,FALSE,
          StartMember,progcmdgad=StringObject,
@@ -384,7 +400,7 @@ static void *Makeprogramspage(void)
          EndMember,
          CHILD_MaxWidth,20,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_EDITOR_CMD)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_EDITOR_CMD)),
       StartMember,HLayoutObject,
          LAYOUT_SpaceInner,FALSE,
          StartMember,progargsgad=StringObject,
@@ -400,7 +416,7 @@ static void *Makeprogramspage(void)
             CHOOSER_AutoFit,TRUE,
          EndMember,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_EDITOR_ARGS)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_EDITOR_ARGS)),
       StartMember,VLayoutObject,
          LAYOUT_BevelStyle,BVS_SBAR_VERT,
       EndMember,
@@ -417,7 +433,7 @@ static void *Makeprogramspage(void)
             CHOOSER_AutoFit,TRUE,
          EndMember,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_CONSOLE)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_CONSOLE)),
    End;
 }
 
@@ -428,7 +444,7 @@ static void Doscrpop(void)
    UBYTE *p;
    if(sm=AllocAslRequestTags(ASL_ScreenModeRequest,
       ASLSM_Window,window,
-      ASLSM_TitleText,AWEBSTR(MSG_SET_REQTITLE_SCREEN),
+      ASLSM_TitleText,CFGAWEBSTR(MSG_SET_REQTITLE_SCREEN),
       ASLSM_InitialHeight,Reqheight(window->WScreen),
       ASLSM_InitialDisplayID,pgp.screenmode,
       ASLSM_InitialDisplayDepth,pgp.screendepth,
@@ -505,12 +521,12 @@ static void Doscrpopcolor(void)
 }
 
 static void Doprgpopsave(void)
-{  Popdrawer(winobject,window,toplayout,AWEBSTR(MSG_SET_REQTITLE_SAVEPATH),savegad);
+{  Popdrawer(winobject,window,toplayout,CFGAWEBSTR(MSG_SET_REQTITLE_SAVEPATH),savegad);
 }
 
 /* handle temp file popup */
 static void Doprgpoptemp(void)
-{  Popdrawer(winobject,window,toplayout,AWEBSTR(MSG_SET_REQTITLE_TEMPPATH),tempgad);
+{  Popdrawer(winobject,window,toplayout,CFGAWEBSTR(MSG_SET_REQTITLE_TEMPPATH),tempgad);
 }
 
 /* return pointer to ext program string for code */
@@ -564,7 +580,7 @@ static void Doprprgcmd(void)
 /* handle program command popup */
 static void Doprprgpop(void)
 {  short code=Getvalue(progtypegad,CHOOSER_Active);
-   Popfile(winobject,window,toplayout,AWEBSTR(progmsgid[code]),progcmdgad);
+   Popfile(winobject,window,toplayout,CFGAWEBSTR(progmsgid[code]),progcmdgad);
    Doprprgcmd();
 }
 
@@ -683,49 +699,49 @@ static void Setdata(void)
 /*---------------------------------------------------------------------------*/
 
 static void Localize(void)
-{  tablabels[0]=AWEBSTR(MSG_SET_CTPR_SCREEN);
-   tablabels[1]=AWEBSTR(MSG_SET_CTPR_PALETTE);
-   tablabels[2]=AWEBSTR(MSG_SET_CTPR_OPTIONS);
-   tablabels[3]=AWEBSTR(MSG_SET_CTPR_PROGRAMS);
+{  tablabels[0]=CFGAWEBSTR(MSG_SET_CTPR_SCREEN);
+   tablabels[1]=CFGAWEBSTR(MSG_SET_CTPR_PALETTE);
+   tablabels[2]=CFGAWEBSTR(MSG_SET_CTPR_OPTIONS);
+   tablabels[3]=CFGAWEBSTR(MSG_SET_CTPR_PROGRAMS);
    tablabels[4]=NULL;
-   progtypelabels[0]=AWEBSTR(MSG_SET_EDITOR_LABEL);
-   progtypelabels[1]=AWEBSTR(MSG_SET_VIEWER_LABEL);
-   progtypelabels[2]=AWEBSTR(MSG_SET_IMGVIEWER_LABEL);
-   progtypelabels[3]=AWEBSTR(MSG_SET_STARTUP_LABEL);
-   progtypelabels[4]=AWEBSTR(MSG_SET_SHUTDOWN_LABEL);
+   progtypelabels[0]=CFGAWEBSTR(MSG_SET_EDITOR_LABEL);
+   progtypelabels[1]=CFGAWEBSTR(MSG_SET_VIEWER_LABEL);
+   progtypelabels[2]=CFGAWEBSTR(MSG_SET_IMGVIEWER_LABEL);
+   progtypelabels[3]=CFGAWEBSTR(MSG_SET_STARTUP_LABEL);
+   progtypelabels[4]=CFGAWEBSTR(MSG_SET_SHUTDOWN_LABEL);
    progtypelabels[5]=NULL;
-   proghelplabels[0]=AWEBSTR(MSG_SET_HLP_F);
-   proghelplabels[1]=AWEBSTR(MSG_SET_HLP_N);
+   proghelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_F);
+   proghelplabels[1]=CFGAWEBSTR(MSG_SET_HLP_N);
    proghelplabels[2]=NULL;
-   imgvhelplabels[0]=AWEBSTR(MSG_SET_HLP_F);
-   imgvhelplabels[1]=AWEBSTR(MSG_SET_HLP_N);
-   imgvhelplabels[2]=AWEBSTR(MSG_SET_HLP_M);
+   imgvhelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_F);
+   imgvhelplabels[1]=CFGAWEBSTR(MSG_SET_HLP_N);
+   imgvhelplabels[2]=CFGAWEBSTR(MSG_SET_HLP_M);
    imgvhelplabels[3]=NULL;
-   conshelplabels[0]=AWEBSTR(MSG_SET_HLP_T);
-   conshelplabels[1]=AWEBSTR(MSG_SET_HLP_N);
+   conshelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_T);
+   conshelplabels[1]=CFGAWEBSTR(MSG_SET_HLP_N);
    conshelplabels[2]=NULL;
-   screenlabels[0]=AWEBSTR(MSG_SET_SCRT_DEFAULT);
-   screenlabels[1]=AWEBSTR(MSG_SET_SCRT_NAMED);
-   screenlabels[2]=AWEBSTR(MSG_SET_SCRT_OWN);
+   screenlabels[0]=CFGAWEBSTR(MSG_SET_SCRT_DEFAULT);
+   screenlabels[1]=CFGAWEBSTR(MSG_SET_SCRT_NAMED);
+   screenlabels[2]=CFGAWEBSTR(MSG_SET_SCRT_OWN);
    screenlabels[3]=NULL;
-   scrplabels[0]=AWEBSTR(MSG_SET_LPAL_OFF);
-   scrplabels[1]=AWEBSTR(MSG_SET_LPAL_COLOURS);
-   scrplabels[2]=AWEBSTR(MSG_SET_LPAL_GRAY);
+   scrplabels[0]=CFGAWEBSTR(MSG_SET_LPAL_OFF);
+   scrplabels[1]=CFGAWEBSTR(MSG_SET_LPAL_COLOURS);
+   scrplabels[2]=CFGAWEBSTR(MSG_SET_LPAL_GRAY);
    scrplabels[3]=NULL;
 /*
-   col4labels[0]=AWEBSTR(MSG_SET_4COL_8);
-   col4labels[1]=AWEBSTR(MSG_SET_4COL_4);
+   col4labels[0]=CFGAWEBSTR(MSG_SET_4COL_8);
+   col4labels[1]=CFGAWEBSTR(MSG_SET_4COL_4);
    col4labels[2]=NULL;
 */
-   scrcolorpennames[0]=AWEBSTR(MSG_SET_SCRPEN_TEXT);
-   scrcolorpennames[1]=AWEBSTR(MSG_SET_SCRPEN_SHINE);
-   scrcolorpennames[2]=AWEBSTR(MSG_SET_SCRPEN_SHADOW);
-   scrcolorpennames[3]=AWEBSTR(MSG_SET_SCRPEN_FILL);
-   scrcolorpennames[4]=AWEBSTR(MSG_SET_SCRPEN_FILLTEXT);
-   scrcolorpennames[5]=AWEBSTR(MSG_SET_SCRPEN_BACKGROUND);
-   scrcolorpennames[6]=AWEBSTR(MSG_SET_SCRPEN_HIGHLIGHTTEXT);
-   scrcolorpennames[7]=AWEBSTR(MSG_SET_SCRPEN_BARDETAIL);
-   scrcolorpennames[8]=AWEBSTR(MSG_SET_SCRPEN_BARBLOCK);
+   scrcolorpennames[0]=CFGAWEBSTR(MSG_SET_SCRPEN_TEXT);
+   scrcolorpennames[1]=CFGAWEBSTR(MSG_SET_SCRPEN_SHINE);
+   scrcolorpennames[2]=CFGAWEBSTR(MSG_SET_SCRPEN_SHADOW);
+   scrcolorpennames[3]=CFGAWEBSTR(MSG_SET_SCRPEN_FILL);
+   scrcolorpennames[4]=CFGAWEBSTR(MSG_SET_SCRPEN_FILLTEXT);
+   scrcolorpennames[5]=CFGAWEBSTR(MSG_SET_SCRPEN_BACKGROUND);
+   scrcolorpennames[6]=CFGAWEBSTR(MSG_SET_SCRPEN_HIGHLIGHTTEXT);
+   scrcolorpennames[7]=CFGAWEBSTR(MSG_SET_SCRPEN_BARDETAIL);
+   scrcolorpennames[8]=CFGAWEBSTR(MSG_SET_SCRPEN_BARBLOCK);
    scrcolorpennames[9]=NULL;
 }
 
@@ -736,15 +752,33 @@ BOOL Openprogram(void)
       ActivateWindow(window);
       return FALSE;
    }
-   NEWLIST(&tablist);
-   NEWLIST(&scrlist);
-   NEWLIST(&scrplist);
-   NEWLIST(&col4list);
-   NEWLIST(&scrpenlist);
-   NEWLIST(&progtypelist);
-   NEWLIST(&proghelplist);
-   NEWLIST(&imgvhelplist);
-   NEWLIST(&conshelplist);
+   (&tablist)->lh_Head = (struct Node *)&((&tablist)->lh_Tail);
+   (&tablist)->lh_Tail = NULL;
+   (&tablist)->lh_TailPred = (struct Node *)&((&tablist)->lh_Head);
+   (&scrlist)->lh_Head = (struct Node *)&((&scrlist)->lh_Tail);
+   (&scrlist)->lh_Tail = NULL;
+   (&scrlist)->lh_TailPred = (struct Node *)&((&scrlist)->lh_Head);
+   (&scrplist)->lh_Head = (struct Node *)&((&scrplist)->lh_Tail);
+   (&scrplist)->lh_Tail = NULL;
+   (&scrplist)->lh_TailPred = (struct Node *)&((&scrplist)->lh_Head);
+   (&col4list)->lh_Head = (struct Node *)&((&col4list)->lh_Tail);
+   (&col4list)->lh_Tail = NULL;
+   (&col4list)->lh_TailPred = (struct Node *)&((&col4list)->lh_Head);
+   (&scrpenlist)->lh_Head = (struct Node *)&((&scrpenlist)->lh_Tail);
+   (&scrpenlist)->lh_Tail = NULL;
+   (&scrpenlist)->lh_TailPred = (struct Node *)&((&scrpenlist)->lh_Head);
+   (&progtypelist)->lh_Head = (struct Node *)&((&progtypelist)->lh_Tail);
+   (&progtypelist)->lh_Tail = NULL;
+   (&progtypelist)->lh_TailPred = (struct Node *)&((&progtypelist)->lh_Head);
+   (&proghelplist)->lh_Head = (struct Node *)&((&proghelplist)->lh_Tail);
+   (&proghelplist)->lh_Tail = NULL;
+   (&proghelplist)->lh_TailPred = (struct Node *)&((&proghelplist)->lh_Head);
+   (&imgvhelplist)->lh_Head = (struct Node *)&((&imgvhelplist)->lh_Tail);
+   (&imgvhelplist)->lh_Tail = NULL;
+   (&imgvhelplist)->lh_TailPred = (struct Node *)&((&imgvhelplist)->lh_Head);
+   (&conshelplist)->lh_Head = (struct Node *)&((&conshelplist)->lh_Tail);
+   (&conshelplist)->lh_Tail = NULL;
+   (&conshelplist)->lh_TailPred = (struct Node *)&((&conshelplist)->lh_Head);
    if(!tablabels[0]) Localize();
    if(nport=CreateMsgPort())
    {  strcpy(prefsname,"ENV:" DEFAULTCFG);
@@ -770,7 +804,7 @@ BOOL Openprogram(void)
       Makechooserlist(&imgvhelplist,imgvhelplabels,TRUE);
       Makechooserlist(&conshelplist,conshelplabels,TRUE);
       winobject=WindowObject,
-            WA_Title,AWEBSTR(MSG_SET_REQTITLE_PROGRAMWINDOW),
+            WA_Title,CFGAWEBSTR(MSG_SET_REQTITLE_PROGRAMWINDOW),
             WA_Left,setprefs.prgx,
             WA_Top,setprefs.prgy,
             WA_InnerWidth,setprefs.prgw,
@@ -809,22 +843,22 @@ BOOL Openprogram(void)
                   LAYOUT_BevelStyle,BVS_SBAR_VERT,
                   LAYOUT_SpaceOuter,TRUE,
                   StartMember,ButtonObject,
-                     GA_Text,AWEBSTR(MSG_SET_SAVE),
+                     GA_Text,CFGAWEBSTR(MSG_SET_SAVE),
                      GA_ID,PGID_SAVE,
                      GA_RelVerify,TRUE,
                   EndMember,
                   StartMember,ButtonObject,
-                     GA_Text,AWEBSTR(MSG_SET_USE),
+                     GA_Text,CFGAWEBSTR(MSG_SET_USE),
                      GA_ID,PGID_USE,
                      GA_RelVerify,TRUE,
                   EndMember,
                   StartMember,ButtonObject,
-                     GA_Text,AWEBSTR(MSG_SET_TEST),
+                     GA_Text,CFGAWEBSTR(MSG_SET_TEST),
                      GA_ID,PGID_TEST,
                      GA_RelVerify,TRUE,
                   EndMember,
                   StartMember,ButtonObject,
-                     GA_Text,AWEBSTR(MSG_SET_CANCEL),
+                     GA_Text,CFGAWEBSTR(MSG_SET_CANCEL),
                      GA_ID,PGID_CANCEL,
                      GA_RelVerify,TRUE,
                   EndMember,
@@ -833,7 +867,7 @@ BOOL Openprogram(void)
             End,
          EndWindow;
       if(winobject)
-      {  if(window=(struct Window *)CA_OpenWindow(winobject))
+      {  if(window=(struct Window *)RA_OpenWindow(winobject))
          {  if((menubar=CreateMenus(menubase,
                   GTMN_FrontPen,drawinfo->dri_Pens[BARDETAILPEN],
                   TAG_END))
@@ -862,7 +896,7 @@ BOOL Processprogram(void)
    struct Message *msg;
    UBYTE *path;
    while(!done
-    && (result=CA_HandleInput(winobject,&code))!=WMHI_LASTMSG)
+    && (result=RA_HandleInput(winobject,&code))!=WMHI_LASTMSG)
    {  switch(result&WMHI_CLASSMASK)
       {  case WMHI_CLOSEWINDOW:
             done=TRUE;
@@ -957,7 +991,7 @@ BOOL Processprogram(void)
             switch(menuid)
             {  case MID_OPEN:
                   if(path=Filereq(winobject,window,toplayout,
-                     AWEBSTR(MSG_SET_REQTITLE_OPENPROGRAM),"program",FALSE))
+                     CFGAWEBSTR(MSG_SET_REQTITLE_OPENPROGRAM),"program",FALSE))
                   {  Disposeprogramprefs(&pgp);
                      Copyprogramprefs(&defprefs.program,&pgp);
                      Loadprogramprefs(&pgp,FALSE,path);
@@ -967,7 +1001,7 @@ BOOL Processprogram(void)
                   break;
                case MID_SAVEAS:
                   if(path=Filereq(winobject,window,toplayout,
-                     AWEBSTR(MSG_SET_REQTITLE_SAVEPROGRAM),"program",TRUE))
+                     CFGAWEBSTR(MSG_SET_REQTITLE_SAVEPROGRAM),"program",TRUE))
                   {  Copydata();
                      Saveprogramprefs(&pgp,FALSE,path);
                      FREE(path);

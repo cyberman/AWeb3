@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -130,16 +131,7 @@ extern struct Hook requestbackfillhook;
 extern UBYTE programname[];
 extern struct Locale *locale;
 
-extern struct Library *IntuitionBase,*UtilityBase,*GfxBase,*DiskfontBase,
-   *LayersBase,*ColorWheelBase,*GadToolsBase,*DataTypesBase,*AslBase,
-   *KeymapBase,*DOSBase,*SysBase,*GradientSliderBase,*IconBase,*LocaleBase,
-   *IFFParseBase,*AWebJSBase,*WorkbenchBase;
-
-extern struct ClassLibrary *WindowBase,*LayoutBase,*ButtonBase,
-   *ListBrowserBase,*ChooserBase,*IntegerBase,*SpaceBase,*CheckBoxBase,
-   *StringBase,*LabelBase,*PaletteBase,*GlyphBase,*ClickTabBase,
-   *FuelGaugeBase,*BitMapBase,*BevelBase,*DrawListBase,*SpeedBarBase,
-   *ScrollerBase,*PenMapBase;
+extern struct Library *AWebJSBase;
 
 /* boopsi status gadget tags: */
 #define STATGA_Dummy          (TAG_USER+0x0AEB0000)
@@ -166,6 +158,8 @@ extern struct ClassLibrary *WindowBase,*LayoutBase,*ButtonBase,
 #ifndef AWEBPROTOS_H
 #include "awebprotos.h"
 #endif
+
+
 
 extern BOOL httpdebug;
 extern BOOL specdebug;

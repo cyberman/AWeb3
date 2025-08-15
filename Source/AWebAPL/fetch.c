@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -26,7 +27,10 @@
 #include "window.h"
 #include "jslib.h"
 #include "form.h"
-#include <clib/utility_protos.h>
+#include "awebtcp.h"
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/utility.h>
 
 /*------------------------------------------------------------------------*/
 
@@ -489,32 +493,23 @@ static void Driverfunction(struct Fetch *fch)
       fch->channelid=++channelid;
    }
    else if(STRNIEQUAL(fch->name,"HTTP://",7))
-   {  if(prefs.httpproxy && !(fch->flags&FCHF_NOPROXY))
-      {  fch->driverfun=Httptask;
-         fch->fd->name=fch->name;
-         Setproxy(fch->fd,prefs.httpproxy);
-         fch->flags|=FCHF_NETSLOT;
+   {  /* Use original bsdsocket-based implementation */
+      fch->driverfun=Httptask;
+      fch->fd->name=fch->name;
+      if(prefs.httpproxy && !(fch->flags&FCHF_NOPROXY))
+      {  Setproxy(fch->fd,prefs.httpproxy);
       }
-      else
-      {  fch->driverfun=Httptask;
-         fch->fd->name=fch->name;
-         fch->flags|=FCHF_NETSLOT;
-      }
+      fch->flags|=FCHF_NETSLOT;
    }
    else if(STRNIEQUAL(fch->name,"HTTPS://",8))
-   {  if(prefs.httpproxy && !(fch->flags&FCHF_NOPROXY))
-      {  fch->driverfun=Httptask;
-         fch->fd->name=fch->name;
-         Setproxy(fch->fd,prefs.httpproxy);
-         fch->fd->flags|=FDVF_SSL;
-         fch->flags|=FCHF_NETSLOT;
+   {  /* Use original bsdsocket-based implementation */
+      fch->driverfun=Httptask;
+      fch->fd->name=fch->name;
+      fch->fd->flags|=FDVF_SSL;
+      if(prefs.httpproxy && !(fch->flags&FCHF_NOPROXY))
+      {  Setproxy(fch->fd,prefs.httpproxy);
       }
-      else
-      {  fch->driverfun=Httptask;
-         fch->fd->name=fch->name;
-         fch->fd->flags|=FDVF_SSL;
-         fch->flags|=FCHF_NETSLOT;
-      }
+      fch->flags|=FCHF_NETSLOT;
    }
    else if(STRNIEQUAL(fch->name,"FTP://",6))
    {  if(prefs.ftpproxy && !(fch->flags&FCHF_NOPROXY))
@@ -523,7 +518,7 @@ static void Driverfunction(struct Fetch *fch)
          Setproxy(fch->fd,prefs.ftpproxy);
          fch->flags|=FCHF_NETSLOT;
       }
-      else if(fch->fdbase=Openaweblib("AWebPath:aweblib/ftp.aweblib"))
+      else if(fch->fdbase=Openaweblib("AWeb:aweblib/ftp.aweblib"))
       {  fch->driverfun=AWEBLIBENTRY(fch->fdbase,0);
          fch->fd->name=Unescape(fch->name+6);
          fch->flags|=FCHF_NETSLOT;
@@ -534,67 +529,18 @@ static void Driverfunction(struct Fetch *fch)
          fch->fd->validate=MSG_EPART_NOAWEBLIB;
       }
    }
+   /* Legacy protocol removed - Gopher support discontinued */
    else if(STRNIEQUAL(fch->name,"GOPHER://",9))
-   {  if(prefs.gopherproxy && !(fch->flags&FCHF_NOPROXY))
-      {  fch->driverfun=Httptask;
-         fch->fd->name=fch->name;
-         Setproxy(fch->fd,prefs.gopherproxy);
-         fch->flags|=FCHF_NETSLOT;
-      }
-      else if(fch->fdbase=Openaweblib("AWebPath:aweblib/gopher.aweblib"))
-      {  fch->driverfun=AWEBLIBENTRY(fch->fdbase,0);
-         fch->fd->name=Unescape(fch->name+9);
-         fch->flags|=FCHF_NETSLOT;
-      }
-      else
-      {  fch->driverfun=Errorschemetask;
-         fch->fd->name=fch->name;
-         fch->fd->validate=MSG_EPART_NOAWEBLIB;
-      }
+   {  fch->driverfun=Errorschemetask;
+      fch->fd->name=fch->name;
+      fch->fd->validate=MSG_EPART_ADDRSCHEME;
    }
-#ifndef DEMOVERSION
+   /* Legacy protocols removed - Telnet support discontinued */
    else if(STRNIEQUAL(fch->name,"TELNET:",7))
-   {  if(prefs.telnetproxy && !(fch->flags&FCHF_NOPROXY))
-      {  fch->driverfun=Httptask;
-         fch->fd->name=fch->name;
-         Setproxy(fch->fd,prefs.telnetproxy);
-         fch->flags|=FCHF_NETSLOT;
-      }
-      else if(prefs.telnetcmd)
-      {  UBYTE *p,*q,*path=Dupstr(fch->name+7,-1);
-         UBYTE *ln="",*pw="(none)",*hn="",*pn="23";
-         if(path)
-         {  q=path;
-            if(q[0]=='/' && q[1]=='/') q+=2;
-            if(p=strchr(q,'@'))
-            {  ln=q;
-               *p='\0';
-               hn=p+1;
-               if(p=strchr(ln,':'))
-               {  *p='\0';
-                  pw=p+1;
-               }
-            }
-            else hn=q;
-            if(p=strchr(hn,'/')) *p='\0';
-            if(p=strchr(hn,':'))
-            {  *p='\0';
-               pn=p+1;
-            }
-            Spawn(FALSE,prefs.telnetcmd,
-               prefs.telnetargs?prefs.telnetargs:NULLSTRING,
-               "lwhpn",
-               ln,pw,hn,pn,Agetattr(Aweb(),AOAPP_Screenname));
-            FREE(path);
-         }
-      }
-      else
-      {  fch->driverfun=Errorschemetask;
-         fch->fd->name=fch->name;
-         fch->fd->validate=MSG_EPART_NOPROGRAM;
-      }
+   {  fch->driverfun=Errorschemetask;
+      fch->fd->name=fch->name;
+      fch->fd->validate=MSG_EPART_ADDRSCHEME;
    }
-#endif
    else if(STRNIEQUAL(fch->name,"MAILTO:",7))
    {  if(prefs.extmailer && prefs.mailtocmd)
       {  Spawn(FALSE,prefs.mailtocmd,
@@ -602,7 +548,7 @@ static void Driverfunction(struct Fetch *fch)
             "en",
             Unescape(fch->name+7),Agetattr(Aweb(),AOAPP_Screenname));
       }
-      else if(fch->fdbase=Openaweblib("AWebPath:aweblib/mail.aweblib"))
+      else if(fch->fdbase=Openaweblib("AWeb:aweblib/mail.aweblib"))
       {  fch->driverfun=AWEBLIBENTRY(fch->fdbase,0);
          fch->fd->name=fch->name;
          Asetattrs(fch->url,
@@ -616,26 +562,11 @@ static void Driverfunction(struct Fetch *fch)
          fch->fd->validate=MSG_EPART_NOPROGRAM;
       }
    }
+   /* Legacy protocols removed - News/NNTP support discontinued */
    else if(STRNIEQUAL(fch->name,"NEWS:",5) || STRNIEQUAL(fch->name,"NNTP://",7))
-   {  if(prefs.extnewsreader && prefs.newscmd)
-      {  Spawn(FALSE,prefs.newscmd,
-            prefs.newsargs?prefs.newsargs:NULLSTRING,
-            "an",
-            Unescape(fch->name+5),Agetattr(Aweb(),AOAPP_Screenname));
-      }
-      else if(fch->fdbase=Openaweblib("AWebPath:aweblib/news.aweblib"))
-      {  fch->driverfun=AWEBLIBENTRY(fch->fdbase,0);
-         fch->fd->name=Unescape(fch->name);
-         Asetattrs(fch->url,
-            AOURL_Cacheable,FALSE,
-            AOURL_Volatile,TRUE,
-            TAG_END);
-      }
-      else
-      {  fch->driverfun=Errorschemetask;
-         fch->fd->name=fch->name;
-         fch->fd->validate=MSG_EPART_NOPROGRAM;
-      }
+   {  fch->driverfun=Errorschemetask;
+      fch->fd->name=fch->name;
+      fch->fd->validate=MSG_EPART_ADDRSCHEME;
    }
    else
 #endif /* !LOCALONLY */
@@ -670,7 +601,7 @@ static void Driverfunction(struct Fetch *fch)
       }
    }
    else if(STRNIEQUAL(fch->name,"X-AWEB:MAIL/",12))
-   {  if(fch->fdbase=Openaweblib("AWebPath:aweblib/mail.aweblib"))
+   {  if(fch->fdbase=Openaweblib("AWeb:aweblib/mail.aweblib"))
       {  fch->driverfun=AWEBLIBENTRY(fch->fdbase,0);
          fch->fd->name=fch->name;
          Asetattrs(fch->url,
@@ -680,7 +611,7 @@ static void Driverfunction(struct Fetch *fch)
       }
    }
    else if(STRNIEQUAL(fch->name,"X-AWEB:NEWS",11))
-   {  if(fch->fdbase=Openaweblib("AWebPath:aweblib/news.aweblib"))
+   {  if(fch->fdbase=Openaweblib("AWeb:aweblib/news.aweblib"))
       {  fch->driverfun=AWEBLIBENTRY(fch->fdbase,0);
          fch->fd->name=fch->name;
          Asetattrs(fch->url,

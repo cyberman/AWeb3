@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -21,20 +22,14 @@
 #include <dos/dos.h>
 #include <dos/dosextens.h>
 
-#include <clib/exec_protos.h>
-#include <clib/dos_protos.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
 
-#include <pragmas/exec_pragmas.h>
-#include <pragmas/dos_pragmas.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
 
 #include "asyncio.h"
 
-
-/*****************************************************************************/
-
-
-extern struct Library *DOSBase;
-extern struct Library *SysBase;
 
 
 /*****************************************************************************/

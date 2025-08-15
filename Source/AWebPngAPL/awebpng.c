@@ -20,17 +20,21 @@
 #include "pluginlib.h"
 #include "awebpng.h"
 #include <libraries/awebplugin.h>
-#include <clib/awebplugin_protos.h>
-#include <clib/exec_protos.h>
-#include <pragmas/awebplugin_pragmas.h>
-#include <pragmas/exec_sysbase_pragmas.h>
+#include <proto/awebplugin.h>
+#include <proto/exec.h>
+#include <proto/graphics.h>
+#include <proto/utility.h>
+#include <proto/Picasso96.h>
 
-void *GfxBase,*UtilityBase,*CyberGfxBase,*AwebPluginBase;
+
+/* Library bases */
+struct Library *P96Base;
+struct Library *AwebPluginBase;
 
 ULONG Initpluginlib(struct AwebPngBase *base)
-{  GfxBase=OpenLibrary("graphics.library",39);
+{  GfxBase=(struct GfxBase *)OpenLibrary("graphics.library",39);
    UtilityBase=OpenLibrary("utility.library",39);
-   CyberGfxBase=OpenLibrary("cybergraphics.library",0);
+   P96Base=OpenLibrary("Picasso96.library",0);
    AwebPluginBase=OpenLibrary("awebplugin.library",0);
    return (ULONG)(GfxBase && UtilityBase && AwebPluginBase);
 }
@@ -38,7 +42,7 @@ ULONG Initpluginlib(struct AwebPngBase *base)
 void Expungepluginlib(struct AwebPngBase *base)
 {  if(base->sourcedriver) Amethod(NULL,AOM_INSTALL,base->sourcedriver,NULL);
    if(base->copydriver) Amethod(NULL,AOM_INSTALL,base->copydriver,NULL);
-   if(CyberGfxBase) CloseLibrary(CyberGfxBase);
+   if(P96Base) CloseLibrary(P96Base);
    if(AwebPluginBase) CloseLibrary(AwebPluginBase);
    if(UtilityBase) CloseLibrary(UtilityBase);
    if(GfxBase) CloseLibrary(GfxBase);

@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -18,6 +19,13 @@
 /* cfgui.c - AWebCfg user interface window */
 
 #include "awebcfg.h"
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <images/bevel.h>
+#include <gadgets/layout.h>
+#include <gadgets/button.h>
+#include <classes/window.h>
+#include <proto/intuition.h>
 
 ULONG uimask=0;
 
@@ -134,12 +142,12 @@ static void *Makeoptionspage(void)
       StartMember,HLayoutObject,
          StartMember,VLayoutObject,
             StartMember,navsgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_GUIOPT_SHOWNAV),
+               GA_Text,CFGAWEBSTR(MSG_SET_GUIOPT_SHOWNAV),
                GA_Selected,uip.shownav,
             EndMember,
             CHILD_WeightedWidth,0,
             StartMember,ubusgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_GUIOPT_SHOWBUTTONS),
+               GA_Text,CFGAWEBSTR(MSG_SET_GUIOPT_SHOWBUTTONS),
                GA_Selected,uip.showbuttons,
             EndMember,
             CHILD_WeightedWidth,0,
@@ -147,30 +155,30 @@ static void *Makeoptionspage(void)
          CHILD_WeightedHeight,0,
          StartMember,VLayoutObject,
             LAYOUT_BevelStyle,BVS_GROUP,
-            LAYOUT_Label,AWEBSTR(MSG_SET_BROPT_POPUPLABEL),
+            LAYOUT_Label,CFGAWEBSTR(MSG_SET_BROPT_POPUPLABEL),
             LAYOUT_SpaceOuter,TRUE,
             StartMember,pushiftgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_BROPT_POPUPSHIFT),
+               GA_Text,CFGAWEBSTR(MSG_SET_BROPT_POPUPSHIFT),
                GA_Selected,(uip.popupkey&(IEQUALIFIER_LSHIFT|IEQUALIFIER_RSHIFT))!=0,
             EndMember,
             CHILD_WeightedWidth,0,
             StartMember,pualtgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_BROPT_POPUPALT),
+               GA_Text,CFGAWEBSTR(MSG_SET_BROPT_POPUPALT),
                GA_Selected,(uip.popupkey&(IEQUALIFIER_LALT|IEQUALIFIER_RALT))!=0,
             EndMember,
             CHILD_WeightedWidth,0,
             StartMember,puctrlgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_BROPT_POPUPCONTROL),
+               GA_Text,CFGAWEBSTR(MSG_SET_BROPT_POPUPCONTROL),
                GA_Selected,(uip.popupkey&IEQUALIFIER_CONTROL)!=0,
             EndMember,
             CHILD_WeightedWidth,0,
             StartMember,purbutgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_BROPT_POPUPRBUTTON),
+               GA_Text,CFGAWEBSTR(MSG_SET_BROPT_POPUPRBUTTON),
                GA_Selected,(uip.popupkey&IEQUALIFIER_RBUTTON)!=0,
             EndMember,
             CHILD_WeightedWidth,0,
             StartMember,pumidbutgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_BROPT_POPUPMIDBUTTON),
+               GA_Text,CFGAWEBSTR(MSG_SET_BROPT_POPUPMIDBUTTON),
                GA_Selected,(uip.popupkey&IEQUALIFIER_MIDBUTTON)!=0,
             EndMember,
             CHILD_WeightedWidth,0,
@@ -223,7 +231,7 @@ void Makemenulist(struct List *list)
             LBNCA_BGPen,drawinfo->dri_Pens[pens?BARDETAILPEN:BARBLOCKPEN],
          LBNA_Column,3,
             LBNCA_CopyText,TRUE,
-            LBNCA_Text,hassub?(UBYTE *)"»":me->scut,
+            LBNCA_Text,hassub?(UBYTE *)"ï¿½":me->scut,
             LBNCA_FGPen,drawinfo->dri_Pens[pens?BARBLOCKPEN:BARDETAILPEN],
             LBNCA_BGPen,drawinfo->dri_Pens[pens?BARDETAILPEN:BARBLOCKPEN],
          LBNA_Column,4,
@@ -260,8 +268,8 @@ static void *Makemenupage(void)
       StartMember,HLayoutObject,
          StartMember,menuvalidgad=ButtonObject,
             GA_ReadOnly,TRUE,
-            GA_Text,menuvalid?NULLSTRING:AWEBSTR(MSG_SET_MENUS_INVALID),
-            BUTTON_DomainString,AWEBSTR(MSG_SET_MENUS_INVALID),
+            GA_Text,menuvalid?NULLSTRING:CFGAWEBSTR(MSG_SET_MENUS_INVALID),
+            BUTTON_DomainString,CFGAWEBSTR(MSG_SET_MENUS_INVALID),
             BUTTON_TextPen,drawinfo->dri_Pens[BARDETAILPEN],
             BUTTON_BackgroundPen,drawinfo->dri_Pens[menuvalid?BACKGROUNDPEN:BARBLOCKPEN],
             BUTTON_SoftStyle,FSF_BOLD,
@@ -283,12 +291,12 @@ static void *Makemenupage(void)
          StartMember,ButtonObject,
             GA_ID,PGID_MENUADD,
             GA_RelVerify,TRUE,
-            GA_Text,AWEBSTR(MSG_SET_AREXX_ADD),
+            GA_Text,CFGAWEBSTR(MSG_SET_AREXX_ADD),
          EndMember,
          StartMember,menudelgad=ButtonObject,
             GA_ID,PGID_MENUDEL,
             GA_RelVerify,TRUE,
-            GA_Text,AWEBSTR(MSG_SET_AREXX_DEL),
+            GA_Text,CFGAWEBSTR(MSG_SET_AREXX_DEL),
             GA_Disabled,!hasitem,
          EndMember,
       EndMember,
@@ -303,7 +311,7 @@ static void *Makemenupage(void)
             GA_Disabled,!hasitem,
          EndMember,
          CHILD_WeightedWidth,0,
-         MemberLabel(AWEBSTR(MSG_SET_MENUS_TYPE)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_MENUS_TYPE)),
          StartMember,menutitlegad=StringObject,
             GA_ID,PGID_MENUTITLE,
             GA_TabCycle,TRUE,
@@ -312,7 +320,7 @@ static void *Makemenupage(void)
             STRINGA_MaxChars,30,
             GA_Disabled,!(hasitem && menuhastitle[menuentry->type]),
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_AREXX_TITLE)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_AREXX_TITLE)),
          StartMember,menuscutgad=StringObject,
             GA_ID,PGID_MENUSCUT,
             GA_TabCycle,TRUE,
@@ -345,7 +353,7 @@ static void *Makemenupage(void)
          EndMember,
       EndMember,
       CHILD_WeightedHeight,0,
-      MemberLabel(AWEBSTR(MSG_SET_MENUS_COMMAND)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_MENUS_COMMAND)),
 #ifdef DEMOVERSION
       GA_Disabled,TRUE,
 #endif
@@ -393,7 +401,7 @@ static void *Makebuttonspage(void)
          StartMember,butsortgad=ButtonObject,
             GA_ID,PGID_BUTSORT,
             GA_RelVerify,TRUE,
-            GA_Text,AWEBSTR(MSG_SET_BUTTON_SORT),
+            GA_Text,CFGAWEBSTR(MSG_SET_BUTTON_SORT),
             GA_Disabled,!hasitem,
          EndMember,
          StartMember,butupgad=ButtonObject,
@@ -413,12 +421,12 @@ static void *Makebuttonspage(void)
          StartMember,ButtonObject,
             GA_ID,PGID_BUTADD,
             GA_RelVerify,TRUE,
-            GA_Text,AWEBSTR(MSG_SET_BUTTON_ADD),
+            GA_Text,CFGAWEBSTR(MSG_SET_BUTTON_ADD),
          EndMember,
          StartMember,butdelgad=ButtonObject,
             GA_ID,PGID_BUTDEL,
             GA_RelVerify,TRUE,
-            GA_Text,AWEBSTR(MSG_SET_BUTTON_DEL),
+            GA_Text,CFGAWEBSTR(MSG_SET_BUTTON_DEL),
             GA_Disabled,!hasitem,
          EndMember,
       EndMember,
@@ -432,7 +440,7 @@ static void *Makebuttonspage(void)
          GA_Disabled,!hasitem,
       EndMember,
       CHILD_WeightedHeight,0,
-      MemberLabel(AWEBSTR(MSG_SET_BUTTON_LABEL)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_BUTTON_LABEL)),
       StartMember,HLayoutObject,
          LAYOUT_SpaceInner,FALSE,
          StartMember,butcmdgad=StringObject,
@@ -450,7 +458,7 @@ static void *Makebuttonspage(void)
          EndMember,
       EndMember,
       CHILD_WeightedHeight,0,
-      MemberLabel(AWEBSTR(MSG_SET_BUTTON_CMD)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_BUTTON_CMD)),
    End;
 }
 
@@ -491,7 +499,7 @@ static void *Makepopuppage(void)
             CHOOSER_Active,popuptype,
             CHOOSER_PopUp,TRUE,
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_POPUP_TYPE)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_POPUP_TYPE)),
       EndMember,
       CHILD_WeightedHeight,0,
       StartMember,puplistgad=ListBrowserObject,
@@ -507,7 +515,7 @@ static void *Makepopuppage(void)
          StartMember,pupsortgad=ButtonObject,
             GA_ID,PGID_PUPSORT,
             GA_RelVerify,TRUE,
-            GA_Text,AWEBSTR(MSG_SET_POPUP_SORT),
+            GA_Text,CFGAWEBSTR(MSG_SET_POPUP_SORT),
             GA_Disabled,!hasitem,
          EndMember,
          StartMember,pupupgad=ButtonObject,
@@ -527,12 +535,12 @@ static void *Makepopuppage(void)
          StartMember,ButtonObject,
             GA_ID,PGID_PUPADD,
             GA_RelVerify,TRUE,
-            GA_Text,AWEBSTR(MSG_SET_POPUP_ADD),
+            GA_Text,CFGAWEBSTR(MSG_SET_POPUP_ADD),
          EndMember,
          StartMember,pupdelgad=ButtonObject,
             GA_ID,PGID_PUPDEL,
             GA_RelVerify,TRUE,
-            GA_Text,AWEBSTR(MSG_SET_POPUP_DEL),
+            GA_Text,CFGAWEBSTR(MSG_SET_POPUP_DEL),
             GA_Disabled,!hasitem,
          EndMember,
       EndMember,
@@ -546,7 +554,7 @@ static void *Makepopuppage(void)
          GA_Disabled,!hasitem,
       EndMember,
       CHILD_WeightedHeight,0,
-      MemberLabel(AWEBSTR(MSG_SET_POPUP_TITLE)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_POPUP_TITLE)),
       StartMember,HLayoutObject,
          LAYOUT_SpaceInner,FALSE,
          StartMember,pupcmdgad=StringObject,
@@ -564,23 +572,23 @@ static void *Makepopuppage(void)
          EndMember,
       EndMember,
       CHILD_WeightedHeight,0,
-      MemberLabel(AWEBSTR(MSG_SET_POPUP_CMD)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_POPUP_CMD)),
       StartMember,HLayoutObject,
          StartMember,HLayoutObject,
             StartMember,pupinmgad=CheckBoxObject,
                GA_ID,PGID_PUPINM,
                GA_RelVerify,TRUE,
-               GA_Text,AWEBSTR(MSG_SET_POPUP_INMEM),
+               GA_Text,CFGAWEBSTR(MSG_SET_POPUP_INMEM),
                GA_Selected,hasitem?BOOLVAL(popupitem->flags&PUPF_INMEM):FALSE,
                GA_Disabled,!hasitem,
             EndMember,
             CHILD_WeightedWidth,0,
-            MemberLabel(AWEBSTR(MSG_SET_POPUP_SHOWIF)),
+            MemberLabel(CFGAWEBSTR(MSG_SET_POPUP_SHOWIF)),
          EndMember,
          StartMember,pupnomgad=CheckBoxObject,
             GA_ID,PGID_PUPNOM,
             GA_RelVerify,TRUE,
-            GA_Text,AWEBSTR(MSG_SET_POPUP_NOTINMEM),
+            GA_Text,CFGAWEBSTR(MSG_SET_POPUP_NOTINMEM),
             GA_Selected,hasitem?BOOLVAL(popupitem->flags&PUPF_NOTINMEM):FALSE,
             GA_Disabled,!hasitem,
          EndMember,
@@ -666,23 +674,23 @@ static struct Keydef wheeldef[2]=
 
 void Makekbdlist(struct List *list)
 {  UBYTE *buf;
-   UBYTE *shift=AWEBSTR(MSG_SET_KEYS_SHIFT);
-   UBYTE *num=AWEBSTR(MSG_SET_KEYS_NUM);
+   UBYTE *shift=CFGAWEBSTR(MSG_SET_KEYS_SHIFT);
+   UBYTE *num=CFGAWEBSTR(MSG_SET_KEYS_NUM);
    short i,l,lshift,lnum,lkey=0;
    lshift=strlen(shift);
    lnum=strlen(num);
    if(!keydef[11].name)
-   {  keydef[11].name=AWEBSTR(MSG_SET_KEYS_BS);
-      keydef[14].name=AWEBSTR(MSG_SET_KEYS_TAB);
-      keydef[15].name=AWEBSTR(MSG_SET_KEYS_ENTER);
-      keydef[16].name=AWEBSTR(MSG_SET_KEYS_SPACE);
-      keydef[17].name=AWEBSTR(MSG_SET_KEYS_UP);
-      keydef[18].name=AWEBSTR(MSG_SET_KEYS_LEFT);
-      keydef[19].name=AWEBSTR(MSG_SET_KEYS_RIGHT);
-      keydef[20].name=AWEBSTR(MSG_SET_KEYS_DOWN);
-      keydef[27].name=AWEBSTR(MSG_SET_KEYS_ENTER);
-      wheeldef[0].name=AWEBSTR(MSG_SET_KEYS_WHEELUP);
-      wheeldef[1].name=AWEBSTR(MSG_SET_KEYS_WHEELDOWN);
+   {  keydef[11].name=CFGAWEBSTR(MSG_SET_KEYS_BS);
+      keydef[14].name=CFGAWEBSTR(MSG_SET_KEYS_TAB);
+      keydef[15].name=CFGAWEBSTR(MSG_SET_KEYS_ENTER);
+      keydef[16].name=CFGAWEBSTR(MSG_SET_KEYS_SPACE);
+      keydef[17].name=CFGAWEBSTR(MSG_SET_KEYS_UP);
+      keydef[18].name=CFGAWEBSTR(MSG_SET_KEYS_LEFT);
+      keydef[19].name=CFGAWEBSTR(MSG_SET_KEYS_RIGHT);
+      keydef[20].name=CFGAWEBSTR(MSG_SET_KEYS_DOWN);
+      keydef[27].name=CFGAWEBSTR(MSG_SET_KEYS_ENTER);
+      wheeldef[0].name=CFGAWEBSTR(MSG_SET_KEYS_WHEELUP);
+      wheeldef[1].name=CFGAWEBSTR(MSG_SET_KEYS_WHEELDOWN);
    }
    for(i=0;i<39;i++)
    {  l=strlen(keydef[i].name);
@@ -741,7 +749,7 @@ static void *Makekeybdpage(void)
          BUTTON_Justification,BCJ_LEFT,
       EndMember,
       CHILD_WeightedHeight,0,
-      MemberLabel(AWEBSTR(MSG_SET_KEYS_KEY)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_KEYS_KEY)),
       StartMember,HLayoutObject,
          LAYOUT_SpaceInner,FALSE,
          StartMember,kbdcmdgad=StringObject,
@@ -757,7 +765,7 @@ static void *Makekeybdpage(void)
          EndMember,
       EndMember,
       CHILD_WeightedHeight,0,
-      MemberLabel(AWEBSTR(MSG_SET_KEYS_COMMAND)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_KEYS_COMMAND)),
 #ifdef DEMOVERSION
       GA_Disabled,TRUE,
 #endif
@@ -805,7 +813,7 @@ static void *Makenavspage(void)
          BUTTON_Justification,BCJ_LEFT,
       EndMember,
       CHILD_WeightedHeight,0,
-      MemberLabel(AWEBSTR(MSG_SET_NAVS_BUTTON)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_NAVS_BUTTON)),
       StartMember,HLayoutObject,
          LAYOUT_SpaceInner,FALSE,
          StartMember,navcmdgad=StringObject,
@@ -821,7 +829,7 @@ static void *Makenavspage(void)
          EndMember,
       EndMember,
       CHILD_WeightedHeight,0,
-      MemberLabel(AWEBSTR(MSG_SET_NAVS_COMMAND)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_NAVS_COMMAND)),
 #ifdef DEMOVERSION
       GA_Disabled,TRUE,
 #endif
@@ -837,7 +845,7 @@ static void Domenulist(WORD code)
    else menuentry=NULL;
    menuselected=code;
    Setgadgetattrs(menuvalidgad,window,NULL,
-      GA_Text,menuvalid?NULLSTRING:AWEBSTR(MSG_SET_MENUS_INVALID),
+      GA_Text,menuvalid?NULLSTRING:CFGAWEBSTR(MSG_SET_MENUS_INVALID),
       BUTTON_BackgroundPen,drawinfo->dri_Pens[menuvalid?BACKGROUNDPEN:BARBLOCKPEN],
       TAG_END);
    Setgadgetattrs(menuupgad,window,NULL,
@@ -918,7 +926,7 @@ static void Domenuadd(void)
       Changemenulist(menuselected);
       Validatemenus();
       Domenulist(menuselected);  /* clear gadgets and set current ptrs */
-      ActivateLayoutGadget(toplayout,window,NULL,menutitlegad);
+      ActivateLayoutGadget(toplayout,window,NULL,(ULONG)menutitlegad);
    }
 }
 
@@ -1042,7 +1050,7 @@ static void Dobutadd(void)
    {  for(ub=uip.buttons.first,select=-1;ub->next;ub=ub->next,select++);
       Changebutlist(select);
       Dobutlist(select);  /* clear gadgets and set current ptrs */
-      ActivateLayoutGadget(toplayout,window,NULL,butlabelgad);
+      ActivateLayoutGadget(toplayout,window,NULL,(ULONG)butlabelgad);
    }
 }
 
@@ -1085,7 +1093,9 @@ static void Dobutsort(void)
 {  struct Userbutton *ub,*uc;
    long select;
    LIST(Userbutton) list;
-   NEWLIST(&list);
+   list.first = NULL;
+   list.tail = NULL;
+   list.last = NULL;
    while(ub=REMHEAD(&uip.buttons))
    {  for(uc=list.first;uc->next;uc=uc->next)
       {  if(stricmp(ub->label,uc->label)<0) break;
@@ -1185,7 +1195,7 @@ static void Dopupadd(void)
    {  for(pi=uip.popupmenu[popuptype].first,select=-1;pi->next;pi=pi->next,select++);
       Changepuplist(select);
       Dopuplist(select);  /* clear gadgets and set current ptrs */
-      ActivateLayoutGadget(toplayout,window,NULL,puptitlegad);
+      ActivateLayoutGadget(toplayout,window,NULL,(ULONG)puptitlegad);
    }
 }
 
@@ -1228,7 +1238,9 @@ static void Dopupsort(void)
 {  struct Popupitem *pi,*pj;
    long select;
    LIST(Popupitem) list;
-   NEWLIST(&list);
+   list.first = NULL;
+   list.tail = NULL;
+   list.last = NULL;
    while(pi=REMHEAD(&uip.popupmenu[popuptype]))
    {  for(pj=list.first;pj->next;pj=pj->next)
       {  if(stricmp(pi->title,pj->title)<0) break;
@@ -1463,7 +1475,7 @@ static void Setdata(void)
       LISTBROWSER_Top,0,
       TAG_END);
    Setgadgetattrs(menuvalidgad,win,NULL,
-      GA_Text,menuvalid?NULLSTRING:AWEBSTR(MSG_SET_MENUS_INVALID),
+      GA_Text,menuvalid?NULLSTRING:CFGAWEBSTR(MSG_SET_MENUS_INVALID),
       BUTTON_BackgroundPen,drawinfo->dri_Pens[menuvalid?BACKGROUNDPEN:BARBLOCKPEN],
       TAG_END);
    Setgadgetattrs(menuupgad,win,NULL,GA_Disabled,TRUE,TAG_END);
@@ -1601,68 +1613,68 @@ static long __saveds __asm Idcmphook(register __a0 struct Hook *hook,
 }
 
 static void Localize(void)
-{  tablabels[0]=AWEBSTR(MSG_SET_CTUI_OPTIONS);
-   tablabels[1]=AWEBSTR(MSG_SET_CTUI_MENUS);
-   tablabels[2]=AWEBSTR(MSG_SET_CTUI_BUTTONS);
-   tablabels[3]=AWEBSTR(MSG_SET_CTUI_POPUP);
-   tablabels[4]=AWEBSTR(MSG_SET_CTUI_KEYS);
-   tablabels[5]=AWEBSTR(MSG_SET_CTUI_NAV);
+{  tablabels[0]=CFGAWEBSTR(MSG_SET_CTUI_OPTIONS);
+   tablabels[1]=CFGAWEBSTR(MSG_SET_CTUI_MENUS);
+   tablabels[2]=CFGAWEBSTR(MSG_SET_CTUI_BUTTONS);
+   tablabels[3]=CFGAWEBSTR(MSG_SET_CTUI_POPUP);
+   tablabels[4]=CFGAWEBSTR(MSG_SET_CTUI_KEYS);
+   tablabels[5]=CFGAWEBSTR(MSG_SET_CTUI_NAV);
    tablabels[6]=NULL;
-   buthelplabels[0]=AWEBSTR(MSG_SET_HLP_U2);
-   buthelplabels[1]=AWEBSTR(MSG_SET_HLP_N);
-   buthelplabels[2]=AWEBSTR(MSG_SET_HLP_I4);
-   buthelplabels[3]=AWEBSTR(MSG_SET_HLP_T);
-   buthelplabels[4]=AWEBSTR(MSG_SET_HLP_C);
+   buthelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_U2);
+   buthelplabels[1]=CFGAWEBSTR(MSG_SET_HLP_N);
+   buthelplabels[2]=CFGAWEBSTR(MSG_SET_HLP_I4);
+   buthelplabels[3]=CFGAWEBSTR(MSG_SET_HLP_T);
+   buthelplabels[4]=CFGAWEBSTR(MSG_SET_HLP_C);
    buthelplabels[5]=NULL;
-   puptypelabels[0]=AWEBSTR(MSG_SET_PUPTYPE_IMAGE);
-   puptypelabels[1]=AWEBSTR(MSG_SET_PUPTYPE_LINK);
-   puptypelabels[2]=AWEBSTR(MSG_SET_PUPTYPE_FRAME);
+   puptypelabels[0]=CFGAWEBSTR(MSG_SET_PUPTYPE_IMAGE);
+   puptypelabels[1]=CFGAWEBSTR(MSG_SET_PUPTYPE_LINK);
+   puptypelabels[2]=CFGAWEBSTR(MSG_SET_PUPTYPE_FRAME);
    puptypelabels[3]=NULL;
-   pupihelplabels[0]=AWEBSTR(MSG_SET_HLP_U3);
+   pupihelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_U3);
    pupihelplabels[1]=NULL;
-   puplhelplabels[0]=AWEBSTR(MSG_SET_HLP_U3);
-   puplhelplabels[1]=AWEBSTR(MSG_SET_HLP_I2);
-   puplhelplabels[2]=AWEBSTR(MSG_SET_HLP_T);
+   puplhelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_U3);
+   puplhelplabels[1]=CFGAWEBSTR(MSG_SET_HLP_I2);
+   puplhelplabels[2]=CFGAWEBSTR(MSG_SET_HLP_T);
    puplhelplabels[3]=NULL;
-   pupfhelplabels[0]=AWEBSTR(MSG_SET_HLP_U2);
-   pupfhelplabels[1]=AWEBSTR(MSG_SET_HLP_I);
+   pupfhelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_U2);
+   pupfhelplabels[1]=CFGAWEBSTR(MSG_SET_HLP_I);
    pupfhelplabels[2]=NULL;
-   kbdhelplabels[0]=AWEBSTR(MSG_SET_HLP_U2);
-   kbdhelplabels[1]=AWEBSTR(MSG_SET_HLP_N);
-   kbdhelplabels[2]=AWEBSTR(MSG_SET_HLP_I4);
-   kbdhelplabels[3]=AWEBSTR(MSG_SET_HLP_T);
-   kbdhelplabels[4]=AWEBSTR(MSG_SET_HLP_C);
+   kbdhelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_U2);
+   kbdhelplabels[1]=CFGAWEBSTR(MSG_SET_HLP_N);
+   kbdhelplabels[2]=CFGAWEBSTR(MSG_SET_HLP_I4);
+   kbdhelplabels[3]=CFGAWEBSTR(MSG_SET_HLP_T);
+   kbdhelplabels[4]=CFGAWEBSTR(MSG_SET_HLP_C);
    kbdhelplabels[5]=NULL;
-   menucolumnlabels[0]=AWEBSTR(MSG_SET_MENULABEL_MENU);
-   menucolumnlabels[1]=AWEBSTR(MSG_SET_MENULABEL_ITEM);
-   menucolumnlabels[2]="»";
+   menucolumnlabels[0]=CFGAWEBSTR(MSG_SET_MENULABEL_MENU);
+   menucolumnlabels[1]=CFGAWEBSTR(MSG_SET_MENULABEL_ITEM);
+   menucolumnlabels[2]="ï¿½";
    menucolumnlabels[3]="";
-   menutypelabels[0]=AWEBSTR(MSG_SET_MENUTYPE_MENU);
-   menutypelabels[1]=AWEBSTR(MSG_SET_MENUTYPE_ITEM);
-   menutypelabels[2]=AWEBSTR(MSG_SET_MENUTYPE_SUB);
+   menutypelabels[0]=CFGAWEBSTR(MSG_SET_MENUTYPE_MENU);
+   menutypelabels[1]=CFGAWEBSTR(MSG_SET_MENUTYPE_ITEM);
+   menutypelabels[2]=CFGAWEBSTR(MSG_SET_MENUTYPE_SUB);
    menutypelabels[3]="----";
    menutypelabels[4]=NULL;
-   menuhelplabels[0]=AWEBSTR(MSG_SET_HLP_U2);
-   menuhelplabels[1]=AWEBSTR(MSG_SET_HLP_N);
-   menuhelplabels[2]=AWEBSTR(MSG_SET_HLP_I4);
-   menuhelplabels[3]=AWEBSTR(MSG_SET_HLP_T);
-   menuhelplabels[4]=AWEBSTR(MSG_SET_HLP_C);
+   menuhelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_U2);
+   menuhelplabels[1]=CFGAWEBSTR(MSG_SET_HLP_N);
+   menuhelplabels[2]=CFGAWEBSTR(MSG_SET_HLP_I4);
+   menuhelplabels[3]=CFGAWEBSTR(MSG_SET_HLP_T);
+   menuhelplabels[4]=CFGAWEBSTR(MSG_SET_HLP_C);
    menuhelplabels[5]=NULL;
-   navlabels[0]=AWEBSTR(MSG_SET_NAVS_BACK);
-   navlabels[1]=AWEBSTR(MSG_SET_NAVS_FORWARD);
-   navlabels[2]=AWEBSTR(MSG_SET_NAVS_HOME);
-   navlabels[3]=AWEBSTR(MSG_SET_NAVS_ADDHOT);
-   navlabels[4]=AWEBSTR(MSG_SET_NAVS_HOTLIST);
-   navlabels[5]=AWEBSTR(MSG_SET_NAVS_CANCEL);
-   navlabels[6]=AWEBSTR(MSG_SET_NAVS_NETSTATUS);
-   navlabels[7]=AWEBSTR(MSG_SET_NAVS_SEARCH);
-   navlabels[8]=AWEBSTR(MSG_SET_NAVS_RELOAD);
-   navlabels[9]=AWEBSTR(MSG_SET_NAVS_LOADIMAGES);
-   navhelplabels[0]=AWEBSTR(MSG_SET_HLP_U2);
-   navhelplabels[1]=AWEBSTR(MSG_SET_HLP_N);
-   navhelplabels[2]=AWEBSTR(MSG_SET_HLP_I4);
-   navhelplabels[3]=AWEBSTR(MSG_SET_HLP_T);
-   navhelplabels[4]=AWEBSTR(MSG_SET_HLP_C);
+   navlabels[0]=CFGAWEBSTR(MSG_SET_NAVS_BACK);
+   navlabels[1]=CFGAWEBSTR(MSG_SET_NAVS_FORWARD);
+   navlabels[2]=CFGAWEBSTR(MSG_SET_NAVS_HOME);
+   navlabels[3]=CFGAWEBSTR(MSG_SET_NAVS_ADDHOT);
+   navlabels[4]=CFGAWEBSTR(MSG_SET_NAVS_HOTLIST);
+   navlabels[5]=CFGAWEBSTR(MSG_SET_NAVS_CANCEL);
+   navlabels[6]=CFGAWEBSTR(MSG_SET_NAVS_NETSTATUS);
+   navlabels[7]=CFGAWEBSTR(MSG_SET_NAVS_SEARCH);
+   navlabels[8]=CFGAWEBSTR(MSG_SET_NAVS_RELOAD);
+   navlabels[9]=CFGAWEBSTR(MSG_SET_NAVS_LOADIMAGES);
+   navhelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_U2);
+   navhelplabels[1]=CFGAWEBSTR(MSG_SET_HLP_N);
+   navhelplabels[2]=CFGAWEBSTR(MSG_SET_HLP_I4);
+   navhelplabels[3]=CFGAWEBSTR(MSG_SET_HLP_T);
+   navhelplabels[4]=CFGAWEBSTR(MSG_SET_HLP_C);
    navhelplabels[5]=NULL;
 }
 
@@ -1674,31 +1686,77 @@ BOOL Opengui(void)
       ActivateWindow(window);
       return FALSE;
    }
-   NEWLIST(&uip.menus);
-   NEWLIST(&uip.buttons);
-   NEWLIST(&uip.keys);
-   NEWLIST(&orguip.menus);
-   NEWLIST(&orguip.buttons);
-   NEWLIST(&orguip.keys);
+   uip.menus.first = NULL;
+   uip.menus.tail = NULL;
+   uip.menus.last = NULL;
+   uip.buttons.first = NULL;
+   uip.buttons.tail = NULL;
+   uip.buttons.last = NULL;
+   uip.keys.first = NULL;
+   uip.keys.tail = NULL;
+   uip.keys.last = NULL;
+   orguip.menus.first = NULL;
+   orguip.menus.tail = NULL;
+   orguip.menus.last = NULL;
+   orguip.buttons.first = NULL;
+   orguip.buttons.tail = NULL;
+   orguip.buttons.last = NULL;
+   orguip.keys.first = NULL;
+   orguip.keys.tail = NULL;
+   orguip.keys.last = NULL;
    for(i=0;i<NRPOPUPMENUS;i++)
-   {  NEWLIST(&uip.popupmenu[i]);
-      NEWLIST(&orguip.popupmenu[i]);
+   {  uip.popupmenu[i].first = NULL;
+      uip.popupmenu[i].tail = NULL;
+      uip.popupmenu[i].last = NULL;
+      orguip.popupmenu[i].first = NULL;
+      orguip.popupmenu[i].tail = NULL;
+      orguip.popupmenu[i].last = NULL;
    }
-   NEWLIST(&tablist);
-   NEWLIST(&menulist);
-   NEWLIST(&menutypelist);
-   NEWLIST(&menuhelplist);
-   NEWLIST(&butlist);
-   NEWLIST(&buthelplist);
-   NEWLIST(&puptypelist);
-   NEWLIST(&puplist),
-   NEWLIST(&pupihelplist);
-   NEWLIST(&puplhelplist);
-   NEWLIST(&pupfhelplist);
-   NEWLIST(&kbdlist);
-   NEWLIST(&kbdhelplist);
-   NEWLIST(&navlist);
-   NEWLIST(&navhelplist);
+   (&tablist)->lh_Head = (struct Node *)&((&tablist)->lh_Tail);
+   (&tablist)->lh_Tail = NULL;
+   (&tablist)->lh_TailPred = (struct Node *)&((&tablist)->lh_Head);
+   (&menulist)->lh_Head = (struct Node *)&((&menulist)->lh_Tail);
+   (&menulist)->lh_Tail = NULL;
+   (&menulist)->lh_TailPred = (struct Node *)&((&menulist)->lh_Head);
+   (&menutypelist)->lh_Head = (struct Node *)&((&menutypelist)->lh_Tail);
+   (&menutypelist)->lh_Tail = NULL;
+   (&menutypelist)->lh_TailPred = (struct Node *)&((&menutypelist)->lh_Head);
+   (&menuhelplist)->lh_Head = (struct Node *)&((&menuhelplist)->lh_Tail);
+   (&menuhelplist)->lh_Tail = NULL;
+   (&menuhelplist)->lh_TailPred = (struct Node *)&((&menuhelplist)->lh_Head);
+   (&butlist)->lh_Head = (struct Node *)&((&butlist)->lh_Tail);
+   (&butlist)->lh_Tail = NULL;
+   (&butlist)->lh_TailPred = (struct Node *)&((&butlist)->lh_Head);
+   (&buthelplist)->lh_Head = (struct Node *)&((&buthelplist)->lh_Tail);
+   (&buthelplist)->lh_Tail = NULL;
+   (&buthelplist)->lh_TailPred = (struct Node *)&((&buthelplist)->lh_Head);
+   (&puptypelist)->lh_Head = (struct Node *)&((&puptypelist)->lh_Tail);
+   (&puptypelist)->lh_Tail = NULL;
+   (&puptypelist)->lh_TailPred = (struct Node *)&((&puptypelist)->lh_Head);
+   (&puplist)->lh_Head = (struct Node *)&((&puplist)->lh_Tail);
+   (&puplist)->lh_Tail = NULL;
+   (&puplist)->lh_TailPred = (struct Node *)&((&puplist)->lh_Head);
+   (&pupihelplist)->lh_Head = (struct Node *)&((&pupihelplist)->lh_Tail);
+   (&pupihelplist)->lh_Tail = NULL;
+   (&pupihelplist)->lh_TailPred = (struct Node *)&((&pupihelplist)->lh_Head);
+   (&puplhelplist)->lh_Head = (struct Node *)&((&puplhelplist)->lh_Tail);
+   (&puplhelplist)->lh_Tail = NULL;
+   (&puplhelplist)->lh_TailPred = (struct Node *)&((&puplhelplist)->lh_Head);
+   (&pupfhelplist)->lh_Head = (struct Node *)&((&pupfhelplist)->lh_Tail);
+   (&pupfhelplist)->lh_Tail = NULL;
+   (&pupfhelplist)->lh_TailPred = (struct Node *)&((&pupfhelplist)->lh_Head);
+   (&kbdlist)->lh_Head = (struct Node *)&((&kbdlist)->lh_Tail);
+   (&kbdlist)->lh_Tail = NULL;
+   (&kbdlist)->lh_TailPred = (struct Node *)&((&kbdlist)->lh_Head);
+   (&kbdhelplist)->lh_Head = (struct Node *)&((&kbdhelplist)->lh_Tail);
+   (&kbdhelplist)->lh_Tail = NULL;
+   (&kbdhelplist)->lh_TailPred = (struct Node *)&((&kbdhelplist)->lh_Head);
+   (&navlist)->lh_Head = (struct Node *)&((&navlist)->lh_Tail);
+   (&navlist)->lh_Tail = NULL;
+   (&navlist)->lh_TailPred = (struct Node *)&((&navlist)->lh_Head);
+   (&navhelplist)->lh_Head = (struct Node *)&((&navhelplist)->lh_Tail);
+   (&navhelplist)->lh_Tail = NULL;
+   (&navhelplist)->lh_TailPred = (struct Node *)&((&navhelplist)->lh_Head);
    if(!tablabels[0]) Localize();
    if(nport=CreateMsgPort())
    {  strcpy(prefsname,"ENV:" DEFAULTCFG);
@@ -1730,7 +1788,7 @@ BOOL Opengui(void)
       Makechooserlist(&navhelplist,navhelplabels,TRUE);
       idcmphook.h_Entry=(HOOKFUNC)Idcmphook;
       winobject=WindowObject,
-            WA_Title,AWEBSTR(MSG_SET_REQTITLE_GUIWINDOW),
+            WA_Title,CFGAWEBSTR(MSG_SET_REQTITLE_GUIWINDOW),
             WA_Left,setprefs.guix,
             WA_Top,setprefs.guiy,
             WA_InnerWidth,setprefs.guiw,
@@ -1773,22 +1831,22 @@ BOOL Opengui(void)
                   LAYOUT_BevelStyle,BVS_SBAR_VERT,
                   LAYOUT_SpaceOuter,TRUE,
                   StartMember,ButtonObject,
-                     GA_Text,AWEBSTR(MSG_SET_SAVE),
+                     GA_Text,CFGAWEBSTR(MSG_SET_SAVE),
                      GA_ID,PGID_SAVE,
                      GA_RelVerify,TRUE,
                   EndMember,
                   StartMember,ButtonObject,
-                     GA_Text,AWEBSTR(MSG_SET_USE),
+                     GA_Text,CFGAWEBSTR(MSG_SET_USE),
                      GA_ID,PGID_USE,
                      GA_RelVerify,TRUE,
                   EndMember,
                   StartMember,ButtonObject,
-                     GA_Text,AWEBSTR(MSG_SET_TEST),
+                     GA_Text,CFGAWEBSTR(MSG_SET_TEST),
                      GA_ID,PGID_TEST,
                      GA_RelVerify,TRUE,
                   EndMember,
                   StartMember,ButtonObject,
-                     GA_Text,AWEBSTR(MSG_SET_CANCEL),
+                     GA_Text,CFGAWEBSTR(MSG_SET_CANCEL),
                      GA_ID,PGID_CANCEL,
                      GA_RelVerify,TRUE,
                   EndMember,
@@ -1797,7 +1855,7 @@ BOOL Opengui(void)
             End,
          EndWindow;
       if(winobject)
-      {  if(window=(struct Window *)CA_OpenWindow(winobject))
+      {  if(window=(struct Window *)RA_OpenWindow(winobject))
          {  if((menubar=CreateMenus(menubase,
                   GTMN_FrontPen,drawinfo->dri_Pens[BARDETAILPEN],
                   TAG_END))
@@ -1823,7 +1881,7 @@ BOOL Processgui(void)
    struct Message *msg;
    UBYTE *path;
    while(!done
-    && (result=CA_HandleInput(winobject,&code))!=WMHI_LASTMSG)
+    && (result=RA_HandleInput(winobject,&code))!=WMHI_LASTMSG)
    {  switch(result&WMHI_CLASSMASK)
       {  case WMHI_CLOSEWINDOW:
             done=TRUE;
@@ -1991,7 +2049,7 @@ BOOL Processgui(void)
             switch(menuid)
             {  case MID_OPEN:
                   if(path=Filereq(winobject,window,toplayout,
-                     AWEBSTR(MSG_SET_REQTITLE_OPENGUI),"gui",FALSE))
+                     CFGAWEBSTR(MSG_SET_REQTITLE_OPENGUI),"gui",FALSE))
                   {  Disposeguiprefs(&uip);
                      Copyguiprefs(&defprefs.gui,&uip);
                      Loadguiprefs(&uip,FALSE,path);
@@ -2001,7 +2059,7 @@ BOOL Processgui(void)
                   break;
                case MID_SAVEAS:
                   if(path=Filereq(winobject,window,toplayout,
-                     AWEBSTR(MSG_SET_REQTITLE_SAVEGUI),"gui",TRUE))
+                     CFGAWEBSTR(MSG_SET_REQTITLE_SAVEGUI),"gui",TRUE))
                   {  Copydata();
                      Saveguiprefs(&uip,FALSE,path);
                      FREE(path);

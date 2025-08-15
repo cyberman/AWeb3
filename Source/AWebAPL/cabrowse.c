@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -25,9 +26,10 @@
 #include "window.h"
 #include <intuition/intuition.h>
 #include <libraries/locale.h>
-#include <classact.h>
-#include <clib/intuition_protos.h>
-#include <clib/utility_protos.h>
+#include <reaction/reaction.h>
+#include <proto/exec.h>
+#include <proto/intuition.h>
+#include <proto/utility.h>
 
 #ifndef LOCALONLY
 
@@ -40,7 +42,7 @@ static struct Cabrwindow *cabrwindow=NULL;
 /* Open aweblib and start task */
 static BOOL Starttask(struct Cabrwindow *cbw)
 {  cbw->currentsize=cadisksize;
-   if(cbw->libbase=Openaweblib("AWebPath:aweblib/cachebrowser.aweblib"))
+   if(cbw->libbase=Openaweblib("AWeb:aweblib/cachebrowser.aweblib"))
    {  cbw->task=Anewobject(AOTP_TASK,
          AOTSK_Entry,AWEBLIBENTRY(cbw->libbase,0),
          AOTSK_Name,"AWeb cachebrowser",

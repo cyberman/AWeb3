@@ -6,7 +6,7 @@ if left(address(),5)~="AWEB." then do
    ports=show("P")
    parse var ports dummy "AWEB." portnr .
    if portnr="" then do
-      address command "run AWeb3:AWeb-II"
+      address command "run AWeb:AWeb"
       address command "WaitForPort AWEB.1"
       portnr=1
    end
@@ -28,7 +28,7 @@ if args='' then do
    call writeln tf,"<html><head><title>AWeb PNG Setup</title></head>"
    call writeln tf,"<body><h1>AWeb PNG Setup</h1>"
    
-   if exists("AWebPath:awebplugin/awebpng.awebplugin") then do
+   if exists("AWeb:awebplugin/awebpng.awebplugin") then do
       installed=0
       progress=4
       gamma=2.0
@@ -62,7 +62,7 @@ if args='' then do
       call writeln tf,"This form configures AWeb-II to use the <strong> AWeb PNG plugin</strong>."
       call writeln tf,"<input type=hidden name=defprogress value="progress">"
       call writeln tf,"<ol><li>Select the required modes of operation "
-      call writeln tf,"(see <a href='file:///AWebPath:awebplugin/docs/awebpng.html#parameters'>documentation</a> for details)"
+      call writeln tf,"(see <a href='file:///AWeb:awebplugin/docs/awebpng.html#parameters'>documentation</a> for details)"
       call writeln tf,"<p><ul><li>Progressive display:<br>"
       call writeln tf,"<input type=radio name=progress value=0"
       if progress=0 then call writeln tf," checked"
@@ -99,7 +99,7 @@ if args='' then do
       call writeln tf,"Plugin file not found. You have to run the install script first."
    end
    
-   call writeln tf,"<p><hr><p><a href='file:///AWebPath:awebplugin/docs/awebpng.html'>Back to documentation</a>"
+   call writeln tf,"<p><hr><p><a href='file:///AWeb:awebplugin/docs/awebpng.html'>Back to documentation</a>"
    
    call close tf
    'open "file:///T:awebpngsetup.html" reload'
@@ -138,7 +138,7 @@ else do
       end
       
       if progress="" then progress=defprogress
-      mime=type";"ext";A;AWebPath:awebplugin/awebpng.awebplugin;PROGRESS="progress" GAMMA="gamma lowpri
+      mime=type";"ext";A;AWeb:awebplugin/awebpng.awebplugin;PROGRESS="progress" GAMMA="gamma lowpri
    end
    
    'setcfg MIME "'mime'" ADD'
@@ -147,7 +147,7 @@ else do
       'savesettings'
    end
 
-   'open "file:///AWebPath:awebplugin/docs/awebpng.html"'
+   'open "file:///AWeb:awebplugin/docs/awebpng.html"'
 
 end
 

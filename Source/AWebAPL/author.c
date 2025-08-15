@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -17,6 +18,10 @@
 
 /* author.c - AWeb Basic HTTP authorization */
 
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/intuition.h>
+#include <proto/utility.h>
 #include "aweb.h"
 #include "url.h"
 #include "fetch.h"
@@ -25,12 +30,9 @@
 #include "fetchdriver.h"
 #include "authorlib.h"
 #include <intuition/intuition.h>
-#include <classact.h>
+#include <reaction/reaction.h>
 
-#include <clib/intuition_protos.h>
-#include <clib/utility_protos.h>
-
-#define AUTHSAVENAME "AWebPath:AWeb.auth"
+#define AUTHSAVENAME "AWeb:AWeb.auth"
 
 static LIST(Authnode) auths;
 static struct SignalSemaphore authsema;
@@ -131,7 +133,7 @@ void Authorize(struct Fetchdriver *fd,struct Authorize *auth,BOOL proxy)
    areq.name=fd->name;
    areq.proxy=proxy;
    areq.Rememberauth=Rememberauth;
-   if(libbase=Openaweblib("AWebPath:aweblib/authorize.aweblib"))
+   if(libbase=Openaweblib("AWeb:aweblib/authorize.aweblib"))
    {  fun=AWEBLIBENTRY(libbase,0);
       fun(&areq);
       CloseLibrary(libbase);
@@ -146,7 +148,7 @@ static BOOL Starttask(struct Authedit *aew)
       AOAPP_Screenname,&aew->screenname,
       AOAPP_Pwfont,&aew->pwfont,
       TAG_END);
-   if(aew->libbase=Openaweblib("AWebPath:aweblib/authorize.aweblib"))
+   if(aew->libbase=Openaweblib("AWeb:aweblib/authorize.aweblib"))
    {  aew->task=Anewobject(AOTP_TASK,
          AOTSK_Entry,AWEBLIBENTRY(aew->libbase,1),
          AOTSK_Name,"AWeb authorization edit",
@@ -483,7 +485,7 @@ void Forgetauthorize(struct Authorize *auth)
 void Setauthorize(struct Authorize *auth,UBYTE *userid,UBYTE *passwd)
 {  void *libbase;
    void (*fun)(struct Authorize *auth,UBYTE *userid,UBYTE *passwd);
-   if(libbase=Openaweblib("AWebPath:aweblib/authorize.aweblib"))
+   if(libbase=Openaweblib("AWeb:aweblib/authorize.aweblib"))
    {  fun=AWEBLIBENTRY(libbase,2);
       fun(auth,userid,passwd);
       CloseLibrary(libbase);

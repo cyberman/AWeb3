@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -22,11 +23,20 @@
 #include "window.h"
 #include "application.h"
 #include <intuition/intuition.h>
-#include <classact.h>
-#include <clib/exec_protos.h>
-#include <clib/alib_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/utility_protos.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <gadgets/layout.h>
+#include <gadgets/button.h>
+#include <images/bevel.h>
+#include <classes/window.h>
+#include <proto/exec.h>
+#include <proto/alib.h>
+#include <proto/intuition.h>
+#include <proto/utility.h>
+#include <proto/layout.h>
+#include <proto/button.h>
+#include <proto/bevel.h>
+#include <proto/window.h>
 
 /*------------------------------------------------------------------------*/
 
@@ -38,8 +48,8 @@ struct Popup
    void *owner;                     /* Owner target that created the popup */
    short left,top;                  /* Our coordinates */
    void *win;                       /* The WINDOW object attached to. */
-   void *cawin;                     /* The ClassAct Window object. */
-   void *layout;                    /* The ClassAct layout object. */
+   void *cawin;                     /* The Reaction Window object. */
+void *layout;                    /* The Reaction layout object. */
    LIST(Label) labels;              /* All the labels. */
    struct Label *selected;          /* Selected label, action still to perform. */
    struct Window *window;           /* The Intuition Window. */
@@ -145,7 +155,7 @@ static void Processpopup(void)
    for(pup=popups.first;pup->next;pup=next)
    {  next=pup->next;
       if(!(pup->flags&PUPF_DONE))
-      {  while((result=CA_HandleInput(pup->cawin,NULL))!=WMHI_LASTMSG)
+      {  while((result=RA_HandleInput(pup->cawin,NULL))!=WMHI_LASTMSG)
          {  switch(result&WMHI_CLASSMASK)
             {  case WMHI_GADGETUP:
                   pup->flags|=PUPF_DONE;
@@ -304,7 +314,7 @@ static struct Popup *Newpopup(struct Amset *ams)
          }
       }
       if(pup->flags&PUPF_VALID)
-      {  pup->window=CA_OpenWindow(pup->cawin);
+      {  pup->window=RA_OpenWindow(pup->cawin);
       }
       if(!pup->window || !(pup->window->Flags&WFLG_WINDOWACTIVE))
       {  Disposepopup(pup);

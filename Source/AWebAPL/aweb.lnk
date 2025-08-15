@@ -8,7 +8,7 @@ FROM     lib:c.o aweb.o locale.o memory.o version.o boopsi.o support.o
          url.o source.o copy.o copyjs.o cache.o cookie.o fetch.o mime.o
          local.o http.o xaweb.o
          tcp.o tcperr.o nameserv.o author.o
-         awebtcp.o awebamitcp.o awebinet225.o amissl.o miamissl.o
+         awebtcp.o awebamitcp.o amissl.o
          sourcedriver.o docsource.o imgsource.o extprog.o saveas.o soundsource.o
          docext.o
          copydriver.o document.o docjs.o imgcopy.o soundcopy.o
@@ -25,6 +25,6 @@ DEFINE   __CXM22=__UCXM22
 DEFINE   __CXD22=__UCXD22
 DEFINE   @__chkabort=@__dummy
 
-LIB      lib:scmnb.lib lib:scnb.lib lib:debug.lib lib:amiga.lib
+LIB      lib:scmnb.lib lib:scnb.lib lib:debug.lib lib:small.lib lib:reaction.lib
 
 MAP      AWeb.map

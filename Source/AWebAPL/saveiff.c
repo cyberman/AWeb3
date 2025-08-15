@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -26,22 +27,90 @@
 #include "arexx.h"
 #include "task.h"
 #include "filereq.h"
-#include <intuition/intuition.h>
-#include <libraries/iffparse.h>
+#include <datatypes/datatypesclass.h>
 #include <datatypes/pictureclass.h>
-#include <cybergraphics/cybergraphics.h>
+#include <datatypes/soundclass.h>
+#include <devices/audio.h>
+#include <devices/clipboard.h>
+#include <devices/printer.h>
+#include <devices/timer.h>
+#include <dos/dos.h>
+#include <dos/dosextens.h>
+#include <dos/dostags.h>
+#include <dos/stdio.h>
+#include <dos/rdargs.h>
+#include <exec/lists.h>
+#include <exec/ports.h>
+#include <exec/types.h>
+#include <exec/memory.h>
+#include <exec/resident.h>
+#include <exec/semaphores.h>
+#include <graphics/gfxmacros.h>
+#include <graphics/gfxbase.h>
+#include <graphics/text.h>
+#include <graphics/displayinfo.h>
+#include <graphics/scale.h>
+#include <intuition/gadgetclass.h>
+#include <intuition/icclass.h>
+#include <intuition/imageclass.h>
+#include <intuition/pointerclass.h>
+#include <intuition/sghooks.h>
+#include <intuition/intuition.h>
+#include <gadgets/colorwheel.h>
+#include <gadgets/gradientslider.h>
+#include <libraries/asl.h>
+#include <libraries/gadtools.h>
+#include <libraries/iffparse.h>
+#include <libraries/locale.h>
+#include <rexx/rxslib.h>
+#include <rexx/storage.h>
+#include <utility/date.h>
+#include <workbench/startup.h>
 #include <workbench/workbench.h>
-#include <classact.h>
+#include <workbench/icon.h>
+#include <libraries/Picasso96.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_author.h>
 
-#include <clib/exec_protos.h>
-#include <clib/alib_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/utility_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/iffparse_protos.h>
-#include <clib/icon_protos.h>
-#include <clib/cybergraphics_protos.h>
-#include <pragmas/cybergraphics_pragmas.h>
+#include <proto/exec.h>
+#include <proto/alib.h>
+#include <proto/intuition.h>
+#include <proto/utility.h>
+#include <proto/graphics.h>
+#include <proto/iffparse.h>
+#include <proto/icon.h>
+#include <proto/Picasso96.h>
+
+#include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <math.h>
+#include <time.h>
+
+#include <ezlists.h>
+
+#include <proto/alib.h>
+#include <proto/asl.h>
+#include <proto/colorwheel.h>
+#include <proto/datatypes.h>
+#include <proto/diskfont.h>
+#include <proto/dos.h>
+#include <proto/exec.h>
+#include <proto/gadtools.h>
+#include <proto/graphics.h>
+#include <proto/icon.h>
+#include <proto/iffparse.h>
+#include <proto/intuition.h>
+#include <proto/keymap.h>
+#include <proto/layers.h>
+#include <proto/locale.h>
+#include <proto/timer.h>
+#include <proto/utility.h>
+#include <proto/wb.h>
+#include <proto/Picasso96.h>
+
 
 /*------------------------------------------------------------------------*/
 
@@ -79,7 +148,7 @@ struct Saveiff
 #define SIFT_CYBER8     2
 #define SIFT_CYBERDEEP  3
 
-#define SIFF_CGFX       0x0001   /* CyberGfx library opened */
+#define SIFF_P96        0x0001   /* Picasso96 library opened */
 #define SIFF_NOICON     0x0002   /* Don't save icon */
 
 #define AOSIF_Dummy        AOBJ_DUMMYTAG(AOTP_SAVEIFF)
@@ -103,7 +172,7 @@ struct Saveiff
 #define AOSIF_Ready        (AOSIF_Dummy+129)
    /* (BOOL) Task is ready */
 
-static struct Library *CyberGfxBase;
+
 
 /*------------------------------------------------------------------------*/
 
@@ -260,7 +329,13 @@ static BOOL Savepart(struct Saveiff *sif)
          }
       }
       else if(sif->type==SIFT_CYBERDEEP)
-      {  ReadPixelArray(sif->rbuf,0,0,3*sif->w,sif->rp,0,y,sif->w,1,RECTFMT_RGB);
+      {  /* For deep color, read pixels one by one and convert to RGB */
+         for(pixel=0;ok && pixel<sif->w;pixel++)
+         {  ULONG color=p96ReadPixel(sif->rp,pixel,y);
+            sif->rbuf[pixel*3]=(color>>16)&0xFF;     /* Red */
+            sif->rbuf[pixel*3+1]=(color>>8)&0xFF;    /* Green */
+            sif->rbuf[pixel*3+2]=color&0xFF;         /* Blue */
+         }
          for(rgb=0;ok && rgb<3;rgb++)
          {  rmask=0x01;
             for(bit=0;ok && bit<8;bit++)
@@ -408,7 +483,7 @@ static long Setsaveiff(struct Saveiff *sif,struct Amset *ams)
          AOPRW_Width,sif->w,
          AOPRW_Height,IFFWINH,
          AOPRW_Layoutheight,sif->h,
-         AOPRW_Turboprint,CyberGfxBase!=NULL,
+         AOPRW_Turboprint,P96Base!=NULL,
          TAG_END);
       sif->rp=(struct RastPort *)Agetattr(sif->prwin,AOWIN_Rastport);
       Asetattrs(sif->prwin,
@@ -488,8 +563,8 @@ static struct Saveiff *Newsaveiff(struct Amset *ams)
    {  Aaddchild(Aweb(),sif,AOREL_APP_USE_SCREEN);
       screen=(struct Screen *)Agetattr(Aweb(),AOAPP_Screen);
       if(!screen) goto err;
-      if(CyberGfxBase=OpenLibrary("cybergraphics.library",0))
-      {  sif->flags|=SIFF_CGFX;
+      if(P96Base=OpenLibrary("Picasso96API.library",0))
+      {  sif->flags|=SIFF_P96;
       }
       Setsaveiff(sif,ams);
       sif->vp=&screen->ViewPort;
@@ -498,9 +573,9 @@ static struct Saveiff *Newsaveiff(struct Amset *ams)
       if(GetBitMapAttr(sif->rp->BitMap,BMA_FLAGS)&BMF_STANDARD)
       {  sif->type=SIFT_STANDARD;
       }
-      else if(CyberGfxBase)
-      {  if(GetCyberMapAttr(sif->rp->BitMap,CYBRMATTR_ISCYBERGFX))
-         {  if(GetCyberMapAttr(sif->rp->BitMap,CYBRMATTR_DEPTH)>8)
+      else if(P96Base)
+      {  if(p96GetBitMapAttr(sif->rp->BitMap,P96BMA_ISP96))
+         {  if(p96GetBitMapAttr(sif->rp->BitMap,P96BMA_DEPTH)>8)
             {  sif->type=SIFT_CYBERDEEP;
                if(!(sif->rbuf=ALLOCTYPE(UBYTE,3*sif->w,0))) goto err;
                if(!(sif->wbuf=ALLOCTYPE(UBYTE,3*sif->w16,MEMF_CLEAR))) goto err;
@@ -535,7 +610,7 @@ static void Disposesaveiff(struct Saveiff *sif)
    if(sif->iobuf) FREE(sif->iobuf);
    if(sif->temprp.BitMap) FreeBitMap(sif->temprp.BitMap);
    if(sif->name) FREE(sif->name);
-   if(sif->flags&SIFF_CGFX) CloseLibrary(CyberGfxBase);
+         if(sif->flags&SIFF_P96) CloseLibrary(P96Base);
    if(sif->wait) Replyarexxcmd(sif->wait);
    Amethodas(AOTP_OBJECT,sif,AOM_DISPOSE);
 }

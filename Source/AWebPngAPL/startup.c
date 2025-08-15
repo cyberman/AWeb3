@@ -31,8 +31,7 @@
 #include <exec/types.h>
 #include <exec/libraries.h>
 #include <exec/resident.h>
-#include <clib/exec_protos.h>
-#include <pragmas/exec_pragmas.h>
+#include <proto/exec.h>
 
 /* Function declarations for the library entry points */
 __asm __saveds struct Library *Initlib(

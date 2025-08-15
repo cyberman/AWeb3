@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -23,11 +24,9 @@
 #include <intuition/intuition.h>
 #include <stdio.h>
 #include <string.h>
-#include <clib/exec_protos.h>
-#include <clib/dos_protos.h>
-#include <pragmas/exec_pragmas.h>
-#include <pragmas/locale_pragmas.h>
-#include <pragmas/dos_pragmas.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/locale.h>
 
 #include "jslib.h"
 #include "keyfile.h"
@@ -37,7 +36,7 @@ char version[]="\0$VER:AWebJS " AWEBVERSION " " __AMIGADATE__;
 __near long __stack=16348;
 
 static void *AWebJSBase;
-extern void *DOSBase;
+// Library base pointers are now provided by proto headers
 
 /* Standard I/O */
 static __saveds __asm void aWrite(register __a0 struct Jcontext *jc)

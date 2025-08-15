@@ -5,5 +5,5 @@ DEFINE   __CXD33=__UCXD33
 DEFINE   __CXM22=__UCXM22
 DEFINE   __CXD22=__UCXD22
 DEFINE   @__chkabort=@__dummy
-LIB      lib:scnb.lib lib:amiga.lib
+LIB      lib:scnb.lib lib:small.lib lib:reaction.lib
 MAP      AWebCfg.map

@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -21,14 +22,57 @@
 #include "scroller.h"
 #include "application.h"
 #include "window.h"
-#include <classact.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
 #include <intuition/imageclass.h>
 #include <intuition/intuition.h>
 #include <graphics/gfxmacros.h>
-#include <clib/intuition_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/layers_protos.h>
-#include <clib/utility_protos.h>
+#include <images/bevel.h>
+#include <images/bitmap.h>
+#include <images/drawlist.h>
+#include <images/glyph.h>
+#include <images/label.h>
+#include <images/led.h>
+#include <images/penmap.h>
+#include <gadgets/button.h>
+#include <gadgets/checkbox.h>
+#include <gadgets/chooser.h>
+#include <gadgets/clicktab.h>
+#include <gadgets/colorwheel.h>
+#include <gadgets/fuelgauge.h>
+#include <gadgets/getfile.h>
+#include <gadgets/getfont.h>
+#include <gadgets/getscreenmode.h>
+#include <gadgets/integer.h>
+#include <gadgets/layout.h>
+#include <gadgets/listbrowser.h>
+#include <gadgets/listview.h>
+#include <gadgets/page.h>
+#include <gadgets/radiobutton.h>
+#include <gadgets/scroller.h>
+#include <gadgets/slider.h>
+#include <gadgets/space.h>
+#include <gadgets/string.h>
+#include <gadgets/tabs.h>
+#include <gadgets/virtual.h>
+#include <intuition/intuition.h>
+#include <intuition/imageclass.h>
+#include <intuition/gadgetclass.h>
+#include <intuition/icclass.h>
+#include <proto/alib.h>
+#include <proto/intuition.h>
+#include <proto/graphics.h>
+#include <proto/layers.h>
+#include <proto/utility.h>
+#include <proto/exec.h>
+
+#include <proto/bevel.h>
+#include <proto/layout.h>
+#include <proto/string.h>
+#include <proto/label.h>
+#include <proto/fuelgauge.h>
+#include <proto/window.h>
+#include <proto/glyph.h>
 
 static struct Image *upimage,*downimage,*leftimage,*rightimage;
 static void *bevel;
@@ -107,7 +151,7 @@ static long Renderscroller(struct Scroller *scr,struct Coords *coo,struct Amrend
                IA_Height,scr->aoh,
                BEVEL_FillPen,~0,
                BEVEL_ColorMap,colormap,
-               CLASSACT_SpecialPens,scr->capens,
+               REACTION_SpecialPens,scr->capens,
                TAG_END);
             DrawImageState(rp,bevel,x,y,IDS_NORMAL,coo->dri);
          }
@@ -119,7 +163,7 @@ static long Renderscroller(struct Scroller *scr,struct Coords *coo,struct Amrend
                BEVEL_FillPen,
                   coo->dri->dri_Pens[scr->active==ACTIVE_KNOB?FILLPEN:BACKGROUNDPEN],
                BEVEL_ColorMap,colormap,
-               CLASSACT_SpecialPens,scr->capens,
+               REACTION_SpecialPens,scr->capens,
                TAG_END);
             DrawImageState(rp,knob,x+bevelw+2+scr->pos,y+bevelh+2,
                scr->active==ACTIVE_KNOB?IDS_SELECTED:IDS_NORMAL,coo->dri);
@@ -151,7 +195,7 @@ static long Renderscroller(struct Scroller *scr,struct Coords *coo,struct Amrend
                IA_Height,HORIZHEIGHT+2*bevelh,
                BEVEL_FillPen,bpen,
                BEVEL_ColorMap,colormap,
-               CLASSACT_SpecialPens,scr->capens,
+               REACTION_SpecialPens,scr->capens,
                TAG_END);
             DrawImageState(rp,bevel,x+scr->aow-2*HORIZWIDTH-4*bevelw,y,state,coo->dri);
             DrawImageState(rp,leftimage,x+scr->aow-2*HORIZWIDTH-3*bevelw,y+bevelh,state,coo->dri);
@@ -171,7 +215,7 @@ static long Renderscroller(struct Scroller *scr,struct Coords *coo,struct Amrend
                IA_Height,HORIZHEIGHT+2*bevelh,
                BEVEL_FillPen,bpen,
                BEVEL_ColorMap,colormap,
-               CLASSACT_SpecialPens,scr->capens,
+               REACTION_SpecialPens,scr->capens,
                TAG_END);
             DrawImageState(rp,bevel,x+scr->aow-HORIZWIDTH-2*bevelw,y,state,coo->dri);
             DrawImageState(rp,rightimage,x+scr->aow-HORIZWIDTH-bevelw,y+bevelh,state,coo->dri);
@@ -185,7 +229,7 @@ static long Renderscroller(struct Scroller *scr,struct Coords *coo,struct Amrend
                IA_Height,scr->aoh-2*VERTHEIGHT-4*bevelh,
                BEVEL_FillPen,~0,
                BEVEL_ColorMap,colormap,
-               CLASSACT_SpecialPens,scr->capens,
+               REACTION_SpecialPens,scr->capens,
                TAG_END);
             DrawImageState(rp,bevel,x,y,IDS_NORMAL,coo->dri);
          }
@@ -197,7 +241,7 @@ static long Renderscroller(struct Scroller *scr,struct Coords *coo,struct Amrend
                BEVEL_FillPen,
                   coo->dri->dri_Pens[(scr->active==ACTIVE_KNOB)?FILLPEN:BACKGROUNDPEN],
                BEVEL_ColorMap,colormap,
-               CLASSACT_SpecialPens,scr->capens,
+               REACTION_SpecialPens,scr->capens,
                TAG_END);
             DrawImageState(rp,knob,x+bevelw+2,y+bevelh+2+scr->pos,
                scr->active==ACTIVE_KNOB?IDS_SELECTED:IDS_NORMAL,coo->dri);
@@ -229,7 +273,7 @@ static long Renderscroller(struct Scroller *scr,struct Coords *coo,struct Amrend
                IA_Height,VERTHEIGHT+2*bevelh,
                BEVEL_FillPen,bpen,
                BEVEL_ColorMap,colormap,
-               CLASSACT_SpecialPens,scr->capens,
+               REACTION_SpecialPens,scr->capens,
                TAG_END);
             DrawImageState(rp,bevel,x,y+scr->aoh-2*VERTHEIGHT-4*bevelh,state,coo->dri);
             DrawImageState(rp,upimage,x+bevelw,y+scr->aoh-2*VERTHEIGHT-3*bevelh,state,coo->dri);
@@ -249,7 +293,7 @@ static long Renderscroller(struct Scroller *scr,struct Coords *coo,struct Amrend
                IA_Height,VERTHEIGHT+2*bevelh,
                BEVEL_FillPen,bpen,
                BEVEL_ColorMap,colormap,
-               CLASSACT_SpecialPens,scr->capens,
+               REACTION_SpecialPens,scr->capens,
                TAG_END);
             DrawImageState(rp,bevel,x,y+scr->aoh-VERTHEIGHT-2*bevelh,state,coo->dri);
             DrawImageState(rp,downimage,x+bevelw,y+scr->aoh-VERTHEIGHT-bevelh,state,coo->dri);

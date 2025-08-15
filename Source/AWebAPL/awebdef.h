@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -21,7 +22,7 @@
 #define AWEBDEF_H
 
 #include <exec/types.h>
-#include <ezlists.h>
+#include "ezlists.h"
 
 #include <clib/exec_protos.h>
 #include <clib/alib_protos.h>
@@ -32,22 +33,22 @@
 #include <stdlib.h>
 #include <stdarg.h>
 
-#include <pragmas/exec_sysbase_pragmas.h>
-#include <pragmas/dos_pragmas.h>
-#include <pragmas/intuition_pragmas.h>
-#include <pragmas/graphics_pragmas.h>
-#include <pragmas/utility_pragmas.h>
-#include <pragmas/diskfont_pragmas.h>
-#include <pragmas/layers_pragmas.h>
-#include <pragmas/colorwheel_pragmas.h>
-#include <pragmas/gadtools_pragmas.h>
-#include <pragmas/datatypes_pragmas.h>
-#include <pragmas/asl_pragmas.h>
-#include <pragmas/keymap_pragmas.h>
-#include <pragmas/icon_pragmas.h>
-#include <pragmas/locale_pragmas.h>
-#include <pragmas/wb_pragmas.h>
-#include <pragmas/iffparse_pragmas.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/intuition.h>
+#include <proto/graphics.h>
+#include <proto/utility.h>
+#include <proto/diskfont.h>
+#include <proto/layers.h>
+#include <proto/colorwheel.h>
+#include <proto/gadtools.h>
+#include <proto/datatypes.h>
+#include <proto/asl.h>
+#include <proto/keymap.h>
+#include <proto/icon.h>
+#include <proto/locale.h>
+#include <proto/wb.h>
+#include <proto/iffparse.h>
 
 #define CATCOMP_NUMBERS
 #include "locale.h"

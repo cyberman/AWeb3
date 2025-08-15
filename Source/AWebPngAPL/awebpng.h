@@ -19,15 +19,12 @@
 
 #include <libraries/awebplugin.h>
 
-/* Base pointers of libraries needed */
-extern void *SysBase;         /* Defined in startup.c */
-extern void *AwebPluginBase;
-extern void *GfxBase;
-extern void *UtilityBase;
-extern void *CyberGfxBase;
-
 /* Pointer to our own library base */
 extern struct AwebPngBase *PluginBase;
+
+/* Library bases */
+extern struct Library *Picasso96Base;
+extern struct Library *AwebPluginBase;
 
 /* Declarations of the OO dispatcher functions */
 extern __saveds __asm ULONG Dispatchsource(

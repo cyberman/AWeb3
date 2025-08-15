@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -22,9 +23,12 @@
 #include "cache.h"
 #include "application.h"
 #include "jslib.h"
-#include <clib/intuition_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/diskfont_protos.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/intuition.h>
+#include <proto/graphics.h>
+#include <proto/diskfont.h>
+#include <proto/utility.h>
 
 #define PCMD_OVERLAP       0x00000001
 #define PCMD_LOADIMG       0x00000002
@@ -640,7 +644,7 @@ void Startsettings(USHORT type)
             default:p=NULL;
          }
          if(p)
-         {  if(q=Fullname("AWebPath:AWebCfg"))
+         {  if(q=Fullname("AWeb:AWebCfg"))
             {  Spawn(FALSE,q,p,"cn",configname,Agetattr(Aweb(),AOAPP_Screenname));
                FREE(q);
             }

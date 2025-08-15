@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -24,18 +25,94 @@
 #include "printwin.h"
 #include "winhis.h"
 #include "print.h"
-#include <intuition/intuition.h>
+#include <datatypes/datatypesclass.h>
+#include <datatypes/pictureclass.h>
+#include <datatypes/soundclass.h>
+#include <devices/audio.h>
+#include <devices/clipboard.h>
 #include <devices/printer.h>
-#include <cybergraphics/cybergraphics.h>
-#include <classact.h>
+#include <devices/timer.h>
+#include <dos/dos.h>
+#include <dos/dosextens.h>
+#include <dos/dostags.h>
+#include <dos/stdio.h>
+#include <dos/rdargs.h>
+#include <exec/lists.h>
+#include <exec/ports.h>
+#include <exec/types.h>
+#include <exec/memory.h>
+#include <exec/resident.h>
+#include <exec/semaphores.h>
+#include <graphics/gfxmacros.h>
+#include <graphics/gfxbase.h>
+#include <graphics/text.h>
+#include <graphics/displayinfo.h>
+#include <graphics/scale.h>
+#include <intuition/gadgetclass.h>
+#include <intuition/icclass.h>
+#include <intuition/imageclass.h>
+#include <intuition/pointerclass.h>
+#include <intuition/sghooks.h>
+#include <intuition/intuition.h>
+#include <classes/window.h>
+#include <gadgets/layout.h>
+#include <images/label.h>
+#include <gadgets/colorwheel.h>
+#include <gadgets/gradientslider.h>
+#include <gadgets/chooser.h>
+#include <gadgets/integer.h>
+#include <gadgets/checkbox.h>
+#include <libraries/asl.h>
+#include <libraries/gadtools.h>
+#include <libraries/iffparse.h>
+#include <libraries/locale.h>
+#include <rexx/rxslib.h>
+#include <rexx/storage.h>
+#include <utility/date.h>
+#include <workbench/startup.h>
+#include <workbench/workbench.h>
+#include <workbench/icon.h>
+#include <libraries/Picasso96.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_author.h>
+#include <reaction/reaction_macros.h>
+#include <reaction/reaction_class.h>
 
-#include <clib/exec_protos.h>
-#include <clib/alib_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/utility_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/cybergraphics_protos.h>
-#include <pragmas/cybergraphics_pragmas.h>
+#include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <math.h>
+#include <time.h>
+
+#include <ezlists.h>
+
+#include <proto/alib.h>
+#include <proto/asl.h>
+#include <proto/colorwheel.h>
+#include <proto/datatypes.h>
+#include <proto/diskfont.h>
+#include <proto/dos.h>
+#include <proto/exec.h>
+#include <proto/gadtools.h>
+#include <proto/graphics.h>
+#include <proto/icon.h>
+#include <proto/iffparse.h>
+#include <proto/intuition.h>
+#include <proto/keymap.h>
+#include <proto/layers.h>
+#include <proto/locale.h>
+#include <proto/timer.h>
+#include <proto/utility.h>
+#include <proto/wb.h>
+#include <proto/chooser.h>
+#include <proto/integer.h>
+#include <proto/checkbox.h>
+#include <proto/window.h>
+#include <proto/layout.h>
+#include <proto/label.h>
+#include <proto/Picasso96.h>
 
 #ifndef NETDEMO
 
@@ -77,7 +154,8 @@ static struct Print *print;
 static short scale=100;
 static USHORT flags=PRTF_FORMFEED|PRTF_BACKGROUND;
 
-static struct Library *CyberGfxBase,*AwebPrintBase;
+static struct Library *AwebPrintBase;
+struct Library *P96Base;
 
 /*---------------------------------------------------------------------*/
 
@@ -136,14 +214,14 @@ static void Startprintdoc(struct Print *prt)
    prt->rp=(struct RastPort *)Agetattr(prt->prwin,AOWIN_Rastport);
    prt->cmap=screen->ViewPort.ColorMap;
    prt->screenmode=GetVPModeID(&screen->ViewPort);
-   CyberGfxBase=OpenLibrary("cybergraphics.library",0);
-   if(!CyberGfxBase || !IsCyberModeID(prt->screenmode))
+   P96Base=OpenLibrary("Picasso96API.library",0);
+   if(!P96Base || !p96GetModeIDAttr(prt->screenmode,P96IDA_ISP96))
    {  /* Get aspect ratio right for old hardware 1:2 screens */
       prt->screenmode=HIRES|LACE;
    }
-   if(CyberGfxBase)
-   {  CloseLibrary(CyberGfxBase);
-      CyberGfxBase=NULL;
+   if(P96Base)
+   {  CloseLibrary(P96Base);
+      P96Base=NULL;
    }
    if(!Finddimensions(prt)) goto err;
    Asetattrs(prt->prwin,
@@ -194,7 +272,7 @@ static void Processparam(void)
    BOOL done=FALSE,doprint=FALSE;
    int sel;
    if(print && print->winobj)
-   {  while((result=CA_HandleInput(print->winobj,NULL))!=WMHI_LASTMSG)
+   {  while((result=RA_HandleInput(print->winobj,NULL))!=WMHI_LASTMSG)
       {  switch(result&WMHI_CLASSMASK)
          {  case WMHI_CLOSEWINDOW:
                done=TRUE;
@@ -326,7 +404,7 @@ static BOOL Openparam(struct Print *prt)
          EndMember,
       End;
       if(prt->winobj)
-      {  prt->window=CA_OpenWindow(prt->winobj);
+      {  prt->window=RA_OpenWindow(prt->winobj);
       }
    }
    return BOOLVAL(prt->window);
@@ -419,7 +497,7 @@ static void Disposeprint(struct Print *prt)
 static struct Print *Newprint(struct Amset *ams)
 {  struct Print *prt=NULL;
    if((AwebPrintBase=OpenLibrary("aweblib/print.aweblib",AWEBLIBVERSION))
-   || (AwebPrintBase=OpenLibrary("AWebPath:aweblib/print.aweblib",AWEBLIBVERSION)))
+   || (AwebPrintBase=OpenLibrary("AWeb:aweblib/print.aweblib",AWEBLIBVERSION)))
    {  if(prt=Allocobject(AOTP_PRINT,sizeof(struct Print),ams))
       {  NewList(&prt->layoutlist);
          prt->scale=scale;

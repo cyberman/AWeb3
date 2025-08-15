@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -22,12 +23,39 @@
 #include "task.h"
 #include <exec/resident.h>
 #include <intuition/intuition.h>
-#include <classact.h>
-#include <clib/exec_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/utility_protos.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <gadgets/listbrowser.h>
+#include <gadgets/string.h>
+#include <gadgets/chooser.h>
+#include <gadgets/checkbox.h>
+#include <gadgets/space.h>
+#include <gadgets/layout.h>
+#include <gadgets/button.h>
+#include <classes/window.h>
+#include <images/label.h>
+#include <images/glyph.h>
+#include <proto/exec.h>
+#include <proto/intuition.h>
+#include <proto/utility.h>
+#include <proto/dos.h>
+#include <proto/listbrowser.h>
+#include <proto/string.h>
+#include <proto/chooser.h>
+#include <proto/checkbox.h>
+#include <proto/space.h>
+#include <proto/layout.h>
+#include <proto/button.h>
+#include <proto/window.h>
+#include <proto/label.h>
+#include <proto/glyph.h>
 
 #include "authorlib.h"
+
+/* Missing Reaction defines - not available in proto headers */
+#ifndef REACTION_Underscore
+#define REACTION_Underscore GA_Underscore
+#endif
 
 enum AUTHGADGET_IDS
 {  AGID_OK=1,AGID_CANCEL,
@@ -55,7 +83,11 @@ static struct Hook idcmphook;
 
 void *AwebPluginBase;
 struct ExecBase *SysBase;
-void *DOSBase,*IntuitionBase,*UtilityBase;
+/* Library base pointers are provided by proto headers:
+   DOSBase - from proto/dos.h
+   IntuitionBase - from proto/intuition.h
+   UtilityBase - from proto/utility.h
+*/
 struct ClassLibrary *WindowBase,*LayoutBase,*ButtonBase,*ListBrowserBase,
    *StringBase,*ChooserBase,*CheckBoxBase,*SpaceBase,*LabelBase,*GlyphBase;
 
@@ -204,9 +236,9 @@ __asm __saveds ULONG Extfunclib(void)
 /*-----------------------------------------------------------------------*/
 
 static ULONG Initaweblib(struct Library *libbase)
-{  if(!(DOSBase=OpenLibrary("dos.library",39))) return FALSE;
-   if(!(IntuitionBase=OpenLibrary("intuition.library",39))) return FALSE;
-   if(!(UtilityBase=OpenLibrary("utility.library",39))) return FALSE;
+{  if(!(DOSBase=(struct DosLibrary *)OpenLibrary("dos.library",39))) return FALSE;
+   if(!(IntuitionBase=(struct IntuitionBase *)OpenLibrary("intuition.library",39))) return FALSE;
+   if(!(UtilityBase=(struct Library *)OpenLibrary("utility.library",39))) return FALSE;
    if(!(WindowBase=(struct ClassLibrary *)OpenLibrary("window.class",OSNEED(0,44)))) return FALSE;
    if(!(LayoutBase=(struct ClassLibrary *)OpenLibrary("gadgets/layout.gadget",OSNEED(0,44)))) return FALSE;
    if(!(ButtonBase=(struct ClassLibrary *)OpenLibrary("gadgets/button.gadget",OSNEED(0,44)))) return FALSE;
@@ -411,13 +443,13 @@ static struct Node *Allocaewnode(struct Authedit *aew,struct Authnode *an)
 {  struct Node *node=NULL;
    struct Aewinfo *ai;
    if(ai=Newauthinfo(an))
-   {  if(node=AllocListBrowserNode(3,
+   {  if((node=(struct Node *)AllocListBrowserNode(3,
          LBNA_UserData,ai,
          LBNA_Column,0,
             LBNCA_Text,ai->server,
          LBNA_Column,1,
             LBNCA_Text,ai->userid,
-         TAG_END))
+         TAG_END)))
       {  ai->node=node;
       }
       else
@@ -629,7 +661,7 @@ static void Buildautheditwindow(struct Authedit *aew)
                      GA_ReadOnly,TRUE,
                      GA_Text,"",
                      BUTTON_Justification,BCJ_LEFT,
-                     CLASSACT_Underscore,0,
+                     REACTION_Underscore,0,
                   EndMember,
                   MemberLabel(AWEBSTR(MSG_AUTHEDIT_SERVER)),
                   StartMember,aew->useridgad=StringObject,
@@ -667,7 +699,7 @@ static void Buildautheditwindow(struct Authedit *aew)
          EndMember,
       EndWindow;
       if(aew->winobj)
-      {  if(aew->window=(struct Window *)CA_OpenWindow(aew->winobj))
+      {  if(aew->window=(struct Window *)RA_OpenWindow(aew->winobj))
          {  GetAttr(WINDOW_SigMask,aew->winobj,&aew->winsigmask);
          }
       }
@@ -678,7 +710,7 @@ static BOOL Handleautheditwindow(struct Authedit *aew)
 {  ULONG result;
    BOOL done=FALSE;
    USHORT click;
-   while((result=CA_HandleInput(aew->winobj,&click))!=WMHI_LASTMSG)
+   while((result=RA_HandleInput(aew->winobj,&click))!=WMHI_LASTMSG)
    {  switch(result&WMHI_CLASSMASK)
       {  case WMHI_CLOSEWINDOW:
             done=TRUE;
@@ -876,16 +908,16 @@ __asm __saveds void Authorreq(register __a0 struct Authorreq *areq)
          End,
       EndWindow;
       if(winobj)
-      {  if(window=CA_OpenWindow(winobj))
+      {  if(window=RA_OpenWindow(winobj))
          {  ULONG sigmask=0,getmask;
             ULONG result;
             BOOL done=FALSE;
             GetAttr(WINDOW_SigMask,winobj,&sigmask);
-            ActivateLayoutGadget(toplayout,window,NULL,useridgad);
+            ActivateLayoutGadget(toplayout,window,(ULONG)NULL,(ULONG)useridgad);
             while(!done)
             {  getmask=Wait(sigmask|SIGBREAKF_CTRL_C);
                if(getmask&SIGBREAKF_CTRL_C) break;
-               while((result=CA_HandleInput(winobj,NULL))!=WMHI_LASTMSG)
+               while((result=RA_HandleInput(winobj,NULL))!=WMHI_LASTMSG)
                {  switch(result&WMHI_CLASSMASK)
                   {  case WMHI_CLOSEWINDOW:
                         done=TRUE;

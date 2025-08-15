@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -19,11 +20,44 @@
 
 #include "aweblib.h"
 #include <exec/resident.h>
-#include <clib/exec_protos.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <gadgets/listbrowser.h>
+#include <gadgets/string.h>
+#include <gadgets/chooser.h>
+#include <gadgets/checkbox.h>
+#include <gadgets/space.h>
+#include <gadgets/layout.h>
+#include <gadgets/button.h>
+#include <classes/window.h>
+#include <images/label.h>
+#include <images/glyph.h>
+#include <images/drawlist.h>
+#include <proto/exec.h>
+#include <proto/intuition.h>
+#include <proto/utility.h>
+#include <proto/dos.h>
+#include <proto/graphics.h>
+#include <proto/listbrowser.h>
+#include <proto/string.h>
+#include <proto/chooser.h>
+#include <proto/checkbox.h>
+#include <proto/space.h>
+#include <proto/layout.h>
+#include <proto/button.h>
+#include <proto/window.h>
+#include <proto/label.h>
+#include <proto/glyph.h>
+#include <proto/drawlist.h>
 
 void *AwebPluginBase;
 struct ExecBase *SysBase;
-void *DOSBase,*IntuitionBase,*GfxBase,*UtilityBase;
+/* Library base pointers are provided by proto headers:
+   DOSBase - from proto/dos.h
+   IntuitionBase - from proto/intuition.h
+   GfxBase - from proto/graphics.h
+   UtilityBase - from proto/utility.h
+*/
 struct ClassLibrary *WindowBase,*LayoutBase,*ButtonBase,*ListBrowserBase,
    *StringBase,*ChooserBase,*CheckBoxBase,*SpaceBase,*LabelBase,*GlyphBase,
    *DrawListBase;
@@ -167,10 +201,10 @@ __asm __saveds ULONG Extfunclib(void)
 /*-----------------------------------------------------------------------*/
 
 static ULONG Initaweblib(struct Library *libbase)
-{  if(!(DOSBase=OpenLibrary("dos.library",39))) return FALSE;
-   if(!(IntuitionBase=OpenLibrary("intuition.library",39))) return FALSE;
-   if(!(GfxBase=OpenLibrary("graphics.library",39))) return FALSE;
-   if(!(UtilityBase=OpenLibrary("utility.library",39))) return FALSE;
+{  if(!(DOSBase=(struct DosLibrary *)OpenLibrary("dos.library",39))) return FALSE;
+   if(!(IntuitionBase=(struct IntuitionBase *)OpenLibrary("intuition.library",39))) return FALSE;
+   if(!(GfxBase=(struct GfxBase *)OpenLibrary("graphics.library",39))) return FALSE;
+   if(!(UtilityBase=(struct Library *)OpenLibrary("utility.library",39))) return FALSE;
    if(!(WindowBase=(struct ClassLibrary *)OpenLibrary("window.class",OSNEED(0,44)))) return FALSE;
    if(!(LayoutBase=(struct ClassLibrary *)OpenLibrary("gadgets/layout.gadget",OSNEED(0,44)))) return FALSE;
    if(!(ButtonBase=(struct ClassLibrary *)OpenLibrary("gadgets/button.gadget",OSNEED(0,44)))) return FALSE;

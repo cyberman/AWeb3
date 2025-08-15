@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -20,20 +21,77 @@
 #include "pluginlib.h"
 #include "awebgif.h"
 #include <libraries/awebplugin.h>
-#include <cybergraphics/cybergraphics.h>
-#include <exec/memory.h>
-#include <graphics/gfx.h>
+#include <exec/types.h>
+#include <exec/libraries.h>
+#include <exec/semaphores.h>
+#include <graphics/gfxbase.h>
+#include <graphics/gfxmacros.h>
 #include <graphics/scale.h>
-#include <clib/awebplugin_protos.h>
-#include <clib/exec_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/utility_protos.h>
-#include <clib/cybergraphics_protos.h>
-#include <pragmas/awebplugin_pragmas.h>
-#include <pragmas/exec_sysbase_pragmas.h>
-#include <pragmas/graphics_pragmas.h>
-#include <pragmas/utility_pragmas.h>
-#include <pragmas/cybergraphics_pragmas.h>
+#include <intuition/intuition.h>
+#include <intuition/screens.h>
+#include <libraries/Picasso96.h>
+#include <utility/tagitem.h>
+#include <utility/utility.h>
+#include <datatypes/pictureclass.h>
+#include <rexx/storage.h>
+#include <rexx/rxslib.h>
+#include <libraries/iffparse.h>
+#include <libraries/asl.h>
+#include <gadgets/colorwheel.h>
+#include <gadgets/gradientslider.h>
+#include <workbench/startup.h>
+#include <workbench/workbench.h>
+#include <workbench/icon.h>
+#include <devices/audio.h>
+#include <devices/clipboard.h>
+#include <devices/printer.h>
+#include <devices/timer.h>
+#include <dos/dos.h>
+#include <dos/dosextens.h>
+#include <dos/dostags.h>
+#include <dos/stdio.h>
+#include <dos/rdargs.h>
+#include <exec/lists.h>
+#include <exec/ports.h>
+#include <exec/memory.h>
+#include <exec/resident.h>
+#include <graphics/text.h>
+#include <graphics/displayinfo.h>
+#include <intuition/gadgetclass.h>
+#include <intuition/icclass.h>
+#include <intuition/imageclass.h>
+#include <intuition/pointerclass.h>
+#include <intuition/sghooks.h>
+#include <libraries/gadtools.h>
+#include <libraries/iffparse.h>
+#include <libraries/locale.h>
+#include <rexx/rxslib.h>
+#include <rexx/storage.h>
+#include <utility/date.h>
+#include <workbench/startup.h>
+#include <workbench/workbench.h>
+#include <workbench/icon.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_author.h>
+#include <reaction/reaction_macros.h>
+
+#include <proto/awebplugin.h>
+#include <proto/Picasso96.h>
+#include <proto/exec.h>
+#include <proto/graphics.h>
+#include <proto/utility.h>
+#include <proto/intuition.h>
+#include <proto/icon.h>
+#include <proto/colorwheel.h>
+#include <proto/iffparse.h>
+#include <proto/asl.h>
+#include <proto/gadtools.h>
+#include <proto/keymap.h>
+#include <proto/layers.h>
+#include <proto/locale.h>
+#include <proto/timer.h>
+#include <proto/wb.h>
+#include <proto/alib.h> 
 
 /*--------------------------------------------------------------------*/
 /* General data structures                                            */
@@ -204,9 +262,9 @@ static void Newbitmap(struct Gifcopy *gc,struct BitMap *bitmap,UBYTE *mask)
                height=gc->bitmap->Rows;
                memfchip=MEMF_CHIP;
             }
-            else if(CyberGfxBase && GetCyberMapAttr(gc->bitmap,CYBRMATTR_ISCYBERGFX))
-            {  width=GetCyberMapAttr(gc->bitmap,CYBRMATTR_WIDTH)/8;
-               height=GetCyberMapAttr(gc->bitmap,CYBRMATTR_HEIGHT);
+            else if(P96Base && p96GetBitMapAttr(gc->bitmap,P96BMA_ISP96))
+            {  width=p96GetBitMapAttr(gc->bitmap,P96BMA_WIDTH)/8;
+               height=p96GetBitMapAttr(gc->bitmap,P96BMA_HEIGHT);
             }
             else width=height=0;
             if(width)
@@ -250,14 +308,14 @@ static void Scalebitmap(struct Gifcopy *gc,long sfrom,long sheight,long dfrom)
          dbm.BytesPerRow=gc->bitmap->BytesPerRow;
          dbm.Rows=gc->bitmap->Rows;
       }
-      else if(CyberGfxBase)
-      {  if(GetCyberMapAttr(gc->srcbitmap,CYBRMATTR_ISCYBERGFX))
-         {  sbm.BytesPerRow=GetCyberMapAttr(gc->srcbitmap,CYBRMATTR_WIDTH)/8;
-            sbm.Rows=GetCyberMapAttr(gc->srcbitmap,CYBRMATTR_HEIGHT);
+      else if(P96Base)
+      {  if(p96GetBitMapAttr(gc->srcbitmap,P96BMA_ISP96))
+         {  sbm.BytesPerRow=p96GetBitMapAttr(gc->srcbitmap,P96BMA_WIDTH)/8;
+            sbm.Rows=p96GetBitMapAttr(gc->srcbitmap,P96BMA_HEIGHT);
          }
-         if(GetCyberMapAttr(gc->bitmap,CYBRMATTR_ISCYBERGFX))
-         {  dbm.BytesPerRow=GetCyberMapAttr(gc->bitmap,CYBRMATTR_WIDTH)/8;
-            dbm.Rows=GetCyberMapAttr(gc->bitmap,CYBRMATTR_HEIGHT);
+         if(p96GetBitMapAttr(gc->bitmap,P96BMA_ISP96))
+         {  dbm.BytesPerRow=p96GetBitMapAttr(gc->bitmap,P96BMA_WIDTH)/8;
+            dbm.Rows=p96GetBitMapAttr(gc->bitmap,P96BMA_HEIGHT);
          }
       }
       if(sbm.BytesPerRow && dbm.BytesPerRow)

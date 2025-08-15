@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -20,18 +21,25 @@
 #include "pluginlib.h"
 #include "awebjfif.h"
 #include <libraries/awebplugin.h>
-#include <clib/awebplugin_protos.h>
-#include <clib/exec_protos.h>
-#include <pragmas/awebplugin_pragmas.h>
-#include <pragmas/exec_sysbase_pragmas.h>
+#include <libraries/Picasso96.h>
 
-void *DISBase,*GfxBase,*UtilityBase,*CyberGfxBase,*AwebPluginBase;
+#include <proto/awebplugin.h>
+#include <proto/exec.h>
+#include <proto/utility.h>
+#include <proto/Picasso96.h>
+
+/* Library base variables */
+struct Library *DOSBase;
+struct Library *GfxBase;
+struct Library *UtilityBase;
+struct Library *P96Base;
+struct Library *AwebPluginBase;
 
 ULONG Initpluginlib(struct AwebJfifBase *base)
 {  DOSBase=OpenLibrary("dos.library",39);
    GfxBase=OpenLibrary("graphics.library",39);
    UtilityBase=OpenLibrary("utility.library",39);
-   CyberGfxBase=OpenLibrary("cybergraphics.library",0);
+   P96Base=OpenLibrary("Picasso96.library",0);
    AwebPluginBase=OpenLibrary("awebplugin.library",0);
    return (ULONG)(DOSBase && GfxBase && UtilityBase && AwebPluginBase);
 }
@@ -39,7 +47,7 @@ ULONG Initpluginlib(struct AwebJfifBase *base)
 void Expungepluginlib(struct AwebJfifBase *base)
 {  if(base->sourcedriver) Amethod(NULL,AOM_INSTALL,base->sourcedriver,NULL);
    if(base->copydriver) Amethod(NULL,AOM_INSTALL,base->copydriver,NULL);
-   if(CyberGfxBase) CloseLibrary(CyberGfxBase);
+   if(P96Base) CloseLibrary(P96Base);
    if(AwebPluginBase) CloseLibrary(AwebPluginBase);
    if(UtilityBase) CloseLibrary(UtilityBase);
    if(GfxBase) CloseLibrary(GfxBase);

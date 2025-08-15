@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -26,10 +27,24 @@
 #include "arexx.h"
 #include <intuition/imageclass.h>
 #include <intuition/gadgetclass.h>
-#include <clib/intuition_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/utility_protos.h>
-#include <classact.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <reaction/reaction_class.h>
+#include <classes/window.h>
+#include <gadgets/listbrowser.h>
+#include <gadgets/button.h>
+#include <gadgets/layout.h>
+#include <images/label.h>
+
+#include <proto/exec.h>
+#include <proto/intuition.h>
+#include <proto/graphics.h>
+#include <proto/utility.h>
+#include <proto/listbrowser.h>
+#include <proto/button.h>
+#include <proto/layout.h>
+#include <proto/window.h>
+#include <proto/label.h>
 
 struct Netstat             /* Also a ListBroeser node */
 {  FULLNODE(Netstat);
@@ -336,7 +351,7 @@ static void Processnetstat(void)
    ULONG result;
    BOOL done=FALSE;
    if(nsw)
-   {  while((result=CA_HandleInput(nsw->winobj,NULL))!=WMHI_LASTMSG)
+   {  while((result=RA_HandleInput(nsw->winobj,NULL))!=WMHI_LASTMSG)
       {  switch(result&WMHI_CLASSMASK)
          {  case WMHI_CLOSEWINDOW:
                done=TRUE;
@@ -445,7 +460,7 @@ static BOOL Opennetstatwin(struct Netstatwin *nsw)
       EndMember,
    EndWindow;
    if(nsw->winobj)
-   {  if(nsw->window=CA_OpenWindow(nsw->winobj))
+   {  if(nsw->window=RA_OpenWindow(nsw->winobj))
       {  Asetattrs(nstimer,AOTIM_Waitseconds,1,TAG_END);
          Initcps();
          gadgetinfo.gi_Screen=scr;

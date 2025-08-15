@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -33,8 +34,19 @@
 #include "filereq.h"
 #include "plugin.h"
 #include "jslib.h"
-#include <classact.h>
-#include <clib/intuition_protos.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <gadgets/layout.h>
+#include <gadgets/button.h>
+#include <images/bevel.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/intuition.h>
+#include <proto/gadtools.h>
+#include <proto/layout.h>
+#include <proto/bevel.h>
+#include <proto/speedbar.h>
+#include <proto/button.h>
 
 static BOOL Doopen(struct Arexxcmd *ac,struct Awindow *win,
    UBYTE *urlname,UBYTE *targetname,BOOL reload,UBYTE *post,BOOL smart);
@@ -611,7 +623,7 @@ static BOOL Dogetcfg(struct Arexxcmd *ac)
 {  struct Library *base;
    aweblibf *entry;
    if(ac->flags&ARXCF_ALLOWGET)
-   {  if(base=Openaweblib("AWebPath:aweblib/arexx.aweblib"))
+   {  if(base=Openaweblib("AWeb:aweblib/arexx.aweblib"))
       {  entry=(aweblibf *)AWEBLIBENTRY(base,AREXXLIB_GETCFG);
          entry(ac,&prefs);
          CloseLibrary(base);
@@ -1167,7 +1179,7 @@ static BOOL Dosearch(struct Arexxcmd *ac,struct Awindow *win,UBYTE *targetname)
 }
 
 static BOOL Dosetcfg(struct Arexxcmd *ac)
-{  struct Library *base=Openaweblib("AWebPath:aweblib/arexx.aweblib");
+{  struct Library *base=Openaweblib("AWeb:aweblib/arexx.aweblib");
    aweblibf *entry;
    if(base)
    {  entry=(aweblibf *)AWEBLIBENTRY(base,AREXXLIB_SETCFG);
@@ -1288,7 +1300,7 @@ static BOOL Dourlfield(struct Arexxcmd *ac,struct Awindow *win,BOOL activate,
             TAG_END);
       }
       if(activate)
-      {  ActivateLayoutGadget(win->layoutgad,win->window,NULL,win->urlgad);
+      {  ActivateLayoutGadget(win->urlgad,win->window,NULL,0);
       }
    }
    return TRUE;

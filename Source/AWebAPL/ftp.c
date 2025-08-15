@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -20,7 +21,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <clib/exec_protos.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
 #include "aweblib.h"
 #include "tcperr.h"
 #include "fetchdriver.h"
@@ -28,8 +30,24 @@
 #include "application.h"
 #include "awebtcp.h"
 #include <exec/resident.h>
-#include <classact.h>
-#include <clib/intuition_protos.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <images/bevel.h>
+#include <gadgets/layout.h>
+#include <gadgets/button.h>
+#include <gadgets/string.h>
+#include <gadgets/space.h>
+#include <classes/window.h>
+#include <images/label.h>
+#include <proto/intuition.h>
+#include <proto/utility.h>
+#include <proto/layout.h>
+#include <proto/button.h>
+#include <proto/string.h>
+#include <proto/space.h>
+#include <proto/window.h>
+#include <proto/label.h>
+#include <proto/bevel.h>
 
 #ifndef LOCALONLY
 
@@ -54,7 +72,11 @@ enum FTPGADGET_IDS
 {  AGID_OK=1,AGID_CANCEL,
 };
 
-struct Library *IntuitionBase,*DOSBase,*AwebTcpBase;
+/* Library base pointers are provided by proto headers:
+   IntuitionBase - from proto/intuition.h
+   DOSBase - from proto/dos.h
+*/
+struct Library *AwebTcpBase;
 struct ClassLibrary *WindowBase,*LayoutBase,*ButtonBase,*StringBase,*LabelBase,*SpaceBase;
 void *AwebPluginBase;
 
@@ -270,16 +292,16 @@ static UBYTE *Getpassword(struct Ftpaddr *fa)
          End,
       EndWindow;
       if(winobj)
-      {  if(window=CA_OpenWindow(winobj))
+      {  if(window=RA_OpenWindow(winobj))
          {  ULONG sigmask=0,getmask;
             ULONG result;
             BOOL done=FALSE;
             GetAttr(WINDOW_SigMask,winobj,&sigmask);
-            ActivateLayoutGadget(toplayout,window,NULL,pwgad);
+            ActivateLayoutGadget(toplayout,window,NULL,(ULONG)pwgad);
             while(!done)
             {  getmask=Wait(sigmask|SIGBREAKF_CTRL_C);
                if(getmask&SIGBREAKF_CTRL_C) break;
-               while((result=CA_HandleInput(winobj,NULL))!=WMHI_LASTMSG)
+               while((result=RA_HandleInput(winobj,NULL))!=WMHI_LASTMSG)
                {  switch(result&WMHI_CLASSMASK)
                   {  case WMHI_CLOSEWINDOW:
                         done=TRUE;
@@ -486,6 +508,20 @@ static long Getresponse(long sock,struct Ftpresponse *fr,struct Library *SocketB
    return r;
 }
 
+/* Set socket timeouts to prevent hanging connections */
+static void SetSocketTimeouts(long sock, struct Library *SocketBase)
+{  struct timeval timeout;
+   
+   timeout.tv_sec = 30;  /* 30 second timeout */
+   timeout.tv_usec = 0;
+   
+   /* Set receive timeout - use Amiga socket library function */
+   a_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout), SocketBase);
+   
+   /* Set send timeout - use Amiga socket library function */
+   a_setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout), SocketBase);
+}
+
 /* Build an FTP command and send it. Return the numeric status. */
 static long Ftpcommand(long sock,struct Ftpresponse *fr,struct Library *SocketBase,
    UBYTE *fmt,...)
@@ -541,6 +577,10 @@ static BOOL Initdatasock(long ctrlsock,struct Fetchdriver *fd,struct Ftpresponse
    UBYTE *a,*p;
    if(a_getsockname(ctrlsock,(struct sockaddr *)&lsad,&len,SocketBase)<0) return FALSE;
    if((lsock=a_socket(addrtype,SOCK_STREAM,0,SocketBase))<0) return FALSE;
+   
+   /* Set socket timeouts to prevent hanging connections */
+   SetSocketTimeouts(lsock, SocketBase);
+   
    *plsock=lsock;
    if(fd->prefs->passiveftp)
    {  UBYTE ap[6];
@@ -558,7 +598,7 @@ static BOOL Initdatasock(long ctrlsock,struct Fetchdriver *fd,struct Ftpresponse
          }
       }
       else return FALSE;
-      if(a_connect2(lsock,addrtype,*(u_long *)ap,*(short *)(ap+4),SocketBase)) return FALSE;
+      if(a_connect2(lsock,addrtype,*(unsigned long *)ap,*(short *)(ap+4),SocketBase)) return FALSE;
    }
    else
    {  lsad.sin_port=0;
@@ -711,7 +751,10 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
          Tcpmessage(fd,TCPMSG_LOOKUP,fa.hostname);
          if(hent=Lookup(fa.hostname,SocketBase))
          {  if((ctrlsock=a_socket(hent->h_addrtype,SOCK_STREAM,0,SocketBase))>=0)
-            {  Updatetaskattrs(AOURL_Netstatus,NWS_CONNECT,TAG_END);
+            {  /* Set socket timeouts to prevent hanging connections */
+               SetSocketTimeouts(ctrlsock, SocketBase);
+               
+               Updatetaskattrs(AOURL_Netstatus,NWS_CONNECT,TAG_END);
                Tcpmessage(fd,TCPMSG_CONNECT,"FTP",hent->h_name);
                if(!a_connect(ctrlsock,hent,fa.port,SocketBase)
                && Getresponse(ctrlsock,&fr,SocketBase)<300)
@@ -797,8 +840,8 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
 /*-----------------------------------------------------------------------*/
 
 static ULONG Initaweblib(struct Library *libbase)
-{  if(!(DOSBase=OpenLibrary("dos.library",39))) return FALSE;
-   if(!(IntuitionBase=OpenLibrary("intuition.library",39))) return FALSE;
+{  if(!(DOSBase=(struct DosLibrary *)OpenLibrary("dos.library",39))) return FALSE;
+   if(!(IntuitionBase=(struct IntuitionBase *)OpenLibrary("intuition.library",39))) return FALSE;
    if(!(WindowBase=(struct ClassLibrary *)OpenLibrary("window.class",OSNEED(0,44)))) return FALSE;
    if(!(LayoutBase=(struct ClassLibrary *)OpenLibrary("gadgets/layout.gadget",OSNEED(0,44)))) return FALSE;
    if(!(ButtonBase=(struct ClassLibrary *)OpenLibrary("gadgets/button.gadget",OSNEED(0,44)))) return FALSE;

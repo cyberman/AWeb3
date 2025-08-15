@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -23,11 +24,23 @@
 #include "application.h"
 #include "window.h"
 #include "jslib.h"
-#include <classact.h>
+#include <proto/exec.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
 #include <intuition/imageclass.h>
-#include <clib/graphics_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/utility_protos.h>
+#include <images/bevel.h>
+#include <images/glyph.h>
+#include <gadgets/listbrowser.h>
+#include <gadgets/layout.h>
+#include <classes/window.h>
+#include <proto/graphics.h>
+#include <proto/intuition.h>
+#include <proto/utility.h>
+#include <proto/listbrowser.h>
+#include <proto/bevel.h>
+#include <proto/layout.h>
+#include <proto/window.h>
+#include <proto/glyph.h>
 
 /*------------------------------------------------------------------------*/
 
@@ -37,7 +50,7 @@ struct Selpopup                  /* The select field popup window */
 {  NODE(Selpopup);
    struct Select *select;
    struct List nodes;            /* Option nodes */
-   void *cawin;                  /* ClassAct Window object */
+   void *cawin;                  /* Reaction Window object */
    void *listgad;                /* Listbrowser object */
    struct Window *window;        /* Window */
    USHORT flags;
@@ -195,7 +208,7 @@ static struct Selpopup *Openselpopup(struct Select *sel)
             End,
          End;
          if(spu->cawin)
-         {  spu->window=(struct Window *)CA_OpenWindow(spu->cawin);
+         {  spu->window=(struct Window *)RA_OpenWindow(spu->cawin);
             Setgadgetattrs(spu->listgad,spu->window,NULL,
                LISTBROWSER_MakeVisible,selected,
                TAG_END);            
@@ -477,7 +490,7 @@ static void Renderpopup(struct Select *sel,struct Coords *coo)
       BEVEL_FillPen,~0,
       BEVEL_ColorMap,colormap,
       BEVEL_Flags,BFLG_XENFILL,
-      CLASSACT_SpecialPens,sel->capens,
+      REACTION_SpecialPens,sel->capens,
       TAG_END);
    DrawImageState(rp,bevel,x,y,select?IDS_SELECTED:IDS_NORMAL,drinfo);
    x+=bevelw;
@@ -561,7 +574,7 @@ static void Processselpopup(void)
    WORD code;
    for(spu=selpopups.first;spu->next;spu=next)
    {  next=spu->next;
-      while((result=CA_HandleInput(spu->cawin,&code))!=WMHI_LASTMSG)
+      while((result=RA_HandleInput(spu->cawin,&code))!=WMHI_LASTMSG)
       {  switch(result&WMHI_CLASSMASK)
          {  case WMHI_INACTIVE:
                spu->flags|=SPUF_DONE;
@@ -680,7 +693,7 @@ static void Renderlist(struct Select *sel,struct Coords *coo)
       IA_Height,sel->aoh,
       BEVEL_FillPen,~0,
       BEVEL_ColorMap,colormap,
-      CLASSACT_SpecialPens,sel->capens,
+      REACTION_SpecialPens,sel->capens,
       TAG_END);
    DrawImageState(rp,bevel,sel->aox+coo->dx,sel->aoy+coo->dy,IDS_NORMAL,drinfo);
    Renderlistcontents(sel,coo);

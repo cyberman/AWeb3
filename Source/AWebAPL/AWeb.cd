@@ -572,7 +572,7 @@ MSG_PRINTP_TITLE (1700//)
 Print parameters
 ;
 MSG_PRINTP_SCALE (//)
-_Scale (%)
+_Scale percentage
 ;
 MSG_PRINTP_PRINTBG (//)
 Print _backgrounds
@@ -963,7 +963,7 @@ MSG_SSLWARN_SSL_BUTTONS (//)
 _Unsecure|_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL (//)
-Secure connections are only supported with the Miami TCP program and MiamiSSL.
+Secure connections are only supported with the Miami TCP program and AmiSSL.
 ;
 MSG_SSLWARN_CERT_TITLE (//)
 AWeb warning
@@ -978,7 +978,7 @@ MSG_SSLWARN_CERT_BUTTONS (//)
 _Ok|_Cancel
 ;
 MSG_SSLWARN_SSL_NO_SSL2 (//)
-Secure connections are only supported when using AmiSSL or MiamiSSL.
+Secure connections are only supported when using AmiSSL.
 ;
 ;
 ;-------------- Unknown MIME type -------------------
@@ -1028,10 +1028,10 @@ MSG_PROJECT_MENU (10000//)
 Project
 ;
 MSG_PROJECT_NEWWINDOW (//)
-N/New window
+N/New Window
 ;
 MSG_PROJECT_CLOSEWINDOW (//)
-K/Close window
+K/Close Window
 ;
 MSG_PROJECT_OPENURL (//)
 U/Open URL
@@ -1040,19 +1040,19 @@ MSG_PROJECT_OPENWWW (//)
 W/Open WWW
 ;
 MSG_PROJECT_OPENLOCAL (//)
-L/Open local...
+L/Open Local...
 ;
 MSG_PROJECT_OPENSEARCH (//)
-E/Search engines
+E/Search
 ;
 MSG_PROJECT_SOURCE (//)
-View source...
+View Source...
 ;
 MSG_PROJECT_SAVEHTML (//)
-S/Save source...
+S/Save Source...
 ;
 MSG_PROJECT_ABOUT (//)
-About...
+?/About...
 ;
 MSG_PROJECT_QUIT (//)
 Q/Quit...
@@ -1064,7 +1064,7 @@ MSG_PROJECT_PRINT (//)
 P/Print...
 ;
 MSG_PROJECT_EDIT (//)
-Edit source...
+Edit Source...
 ;
 MSG_PROJECT_INFO (//)
 Info...
@@ -1083,42 +1083,42 @@ MSG_CONTROL_MENU (10100//)
 Control
 ;
 MSG_CONTROL_LOADNOW (//)
-Load images now
+Load Images
 ;
 MSG_CONTROL_LOADNOWALL (//)
-I/All images
+I/All Images
 ;
 MSG_CONTROL_LOADNOWMAPS (//)
-M/Maps only
+M/Maps Only
 ;
 MSG_CONTROL_NETWORKSTATUS (//)
-?/Network status...
+?/Network Status...
 ;
 MSG_DUMMY_2 (//)
 
 MSG_CONTROL_CANCEL (//)
-Z/Cancel load
+Z/Cancel Load
 ;
 MSG_CONTROL_NEXTWINDOW (//)
-./Next window
+./Next Window
 ;
 MSG_CONTROL_PREVWINDOW (//)
-,/Previous window
+,/Previous Window
 ;
 MSG_CONTROL_NOPROXY (//)
-Y/Disable proxy
+Y/Disable Proxy
 ;
 MSG_CONTROL_RLOAD (//)
 Reload
 ;
 MSG_CONTROL_RLOADDOC (//)
-R/Current document
+R/Current Document
 ;
 MSG_CONTROL_RLOADIMGS (//)
-Images in current
+Current Images
 ;
 MSG_CONTROL_PLAYBGSOUND (//)
-J/Play background sound
+J/Play Background Sounds
 ;
 MSG_CONTROL_COPYURL (//)
 Copy URL
@@ -1127,7 +1127,7 @@ MSG_CONTROL_PASTEURL (//)
 Paste URL
 ;
 MSG_CONTROL_COPYBLOCK (//)
-C/Copy block
+C/Copy Block
 ;
 MSG_CONTROL_DRAGGING (//)
 Dragging
@@ -1139,7 +1139,7 @@ MSG_CONTROL_DEBUGJS (//)
 Debug JavaScript
 ;
 MSG_CONTROL_RESET (//)
-Reset frames
+Reset Frames
 ;
 MSG_CACHE_MENU (10200//)
 Cache
@@ -1153,44 +1153,44 @@ MSG_DUMMY_5 (//)
 MSG_DUMMY_6 (//)
 
 MSG_CACHE_SAVEAUTH (//)
-Save authorizations
+Save Authorizations
 ;
 ;**obsolete**
 MSG_CACHE_FLUSHAUTH (//)
-Flush authorizations
+Flush Authorizations
 ;
 MSG_CACHE_BROWSER (//)
-Cache browser...
+Cache Browser...
 ;
 MSG_CACHE_FLUSH (//)
-Flush from memory
+Flush Memory Cache
 ;
 MSG_CACHE_FLSHIMGSND (//)
-Nondisplayed images
+Nondisplayed Images
 ;
 MSG_CACHE_FLSHIMGS (//)
-All images
+All Images
 ;
 MSG_CACHE_FLSHDOCSND (//)
-Nondisplayed documents
+Nondisplayed Documents
 ;
 MSG_CACHE_DELETE (//)
-Delete from disk
+Delete Disk Cache
 ;
 MSG_CACHE_DELIMGS (//)
-All images
+All Images
 ;
 MSG_CACHE_DELDOCS (//)
-All documents
+All Documents
 ;
 MSG_CACHE_CLEAR (//)
-Erase cache
+Clear Disk Cache
 ;
 MSG_CACHE_FIX (//)
-Fix cache...
+Repair Disk Cache...
 ;
 MSG_CACHE_EDITAUTH (//)
-Edit authorizations...
+Edit Authorizations...
 ;
 MSG_NAVIGATE_MENU (10300//)
 Navigate
@@ -1202,29 +1202,29 @@ MSG_NAVIGATE_FWD (//)
 F/Forward
 ;
 MSG_NAVIGATE_HOME (//)
-D/Home document
+D/Home
 ;
 MSG_NAVIGATE_HISTORY (//)
--/Window history...
+-/History...
 ;
 MSG_HOTLIST_MENU (10400//)
 Hotlist
 ;
 MSG_HOTLIST_ADDHOT (//)
-A/Add to hotlist
+A/Add Hotlist
 ;
 MSG_HOTLIST_SHOWHOT (//)
-H/Show hotlist
+H/Show Hotlist
 ;
 ;**obsolete**
 MSG_HOTLIST_MAINT (//)
 T/Maintenance...
 ;
 MSG_HOTLIST_SAVE (//)
-Save hotlist
+Save Hotlist
 ;
 MSG_HOTLIST_RESTORE (//)
-Restore last saved
+Restore Last Saved
 ;
 MSG_HOTLIST_AMHOTRX (//)
 AMosaic (ARexx)
@@ -1236,22 +1236,22 @@ MSG_HOTLIST_IBHOT (//)
 Other...
 ;
 MSG_HOTLIST_VIEW (//)
-V/View hotlist...
+V/View Hotlist...
 ;
 MSG_HOTLIST_MGR (//)
-T/Hotlist manager...
+T/Manage Hotlist...
 ;
 MSG_SETTINGS_MENU (10500//)
 Settings
 ;
 MSG_SETTINGS_LOADIMG (//)
-Image loading
+Image Loading
 ;
 MSG_SETTINGS_LOADIMGALL (//)
-All images
+All Images
 ;
 MSG_SETTINGS_LOADIMGMAPS (//)
-Maps only
+Maps Only
 ;
 MSG_SETTINGS_LOADIMGOFF (//)
 Off
@@ -1261,41 +1261,41 @@ MSG_DUMMY_7 (//)
 MSG_DUMMY_8 (//)
 
 MSG_SETTINGS_BROWSER (//)
-Browser settings...
+Browser Settings...
 ;
 MSG_SETTINGS_PROGRAM (//)
-Program settings...
+Program Settings...
 ;
 MSG_SETTINGS_NETWORK (//)
-Network settings...
+Network Settings...
 ;
 MSG_SETTINGS_CLASSACT (//)
-ClassAct settings...
+Reaction Settings...
 ;
 MSG_SETTINGS_SAVEALL (//)
-Save current settings
+Save Current Settings
 ;
 MSG_SETTINGS_SNAPSHOT (//)
-Snapshot windows
+Snapshot Windows
 ;
 ;**obsolete
 MSG_SETTINGS_SNAPSHOTALT (//)
-Snapshot as alternate size
+Snapshot Zoom
 ;
 MSG_SETTINGS_BGIMAGES (//)
-Background images
+Background Images
 ;
 MSG_SETTINGS_BGSOUND (//)
-Background sound
+Background Sound
 ;
 MSG_SETTINGS_SAVEAS (//)
-Save settings as...
+Save Settings As...
 ;
 MSG_SETTINGS_LOAD (//)
-Load settings...
+Load Settings...
 ;
 MSG_SETTINGS_GUI (//)
-GUI settings...
+GUI Settings...
 ;
 MSG_HELP_MENU (10600//)
 Help
@@ -1304,10 +1304,10 @@ MSG_HELP_HELP (//)
 Documentation
 ;
 MSG_HELP_AWEBHOME (//)
-AWeb home page
+www.amigazen.com/aweb/
 ;
 MSG_HELP_AWEBFAQ (//)
-AWeb FAQ
+www.amigazen.com/aweb/faq
 ;
 MSG_HELP_REGISTER (//)
 Registration
@@ -1316,7 +1316,7 @@ MSG_AREXX_MENU (10700//)
 ARexx
 ;
 MSG_AREXX_AREXX (//)
-!/Start ARexx macro...
+!/Run ARexx Macro...
 ;
 ;
 ;-------------- Error messages ----------------------
@@ -1330,7 +1330,7 @@ MSG_ERROR_CANTOPENV (//)
 Can't open %s version %ld
 ;
 MSG_ERROR_NEEDOS30 (//)
-AWeb needs OS 3.0 or better
+AWeb needs OS 3.1 or better
 ;
 MSG_ERROR_CANTQUIT (//)
 Cannot quit!\n%s\nis still in use

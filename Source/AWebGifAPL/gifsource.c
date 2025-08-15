@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -23,28 +24,21 @@
 #define USE_BUILTIN_MATH
 #include <string.h>
 #include <stdlib.h>
-#include <ezlists.h>
+#include "ezlists.h"
 #include <libraries/awebplugin.h>
-#include <cybergraphics/cybergraphics.h>
+#include <libraries/Picasso96.h>
 #include <exec/memory.h>
 #include <graphics/gfx.h>
 #include <intuition/intuitionbase.h>
 #include <datatypes/pictureclass.h>
-#include <clib/awebplugin_protos.h>
-#include <clib/exec_protos.h>
-#include <clib/alib_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/utility_protos.h>
-#include <clib/cybergraphics_protos.h>
-#include <clib/dos_protos.h>
-#include <pragmas/awebplugin_pragmas.h>
-#include <pragmas/exec_sysbase_pragmas.h>
-#include <pragmas/graphics_pragmas.h>
-#include <pragmas/intuition_pragmas.h>
-#include <pragmas/utility_pragmas.h>
-#include <pragmas/cybergraphics_pragmas.h>
-#include <pragmas/dos_pragmas.h>
+#include <proto/awebplugin.h>
+#include <proto/Picasso96.h>
+#include <proto/exec.h>
+#include <proto/graphics.h>
+#include <proto/utility.h>
+#include <proto/intuition.h>
+#include <proto/alib.h>
+#include <proto/dos.h>
 
 /* Workaround for missing AOSDV_Displayed, not part of plugin API */
 #define AOSRC_Displayed    (AOSRC_Dummy+2)
@@ -149,6 +143,7 @@ struct Decoder
    UBYTE *chunky;                   /* Row of chunky pixels */
    struct RastPort saverp;          /* Accumulating save of previous frames */
    UBYTE *savemask;                 /* Accumulating save of transparent mask */
+   struct RenderInfo renderinfo;    /* Picasso96 render info for pixel operations */
 };
 
 /* Decoder flags: */
@@ -156,8 +151,8 @@ struct Decoder
 #define DECOF_EOF          0x0002   /* No more data */
 #define DECOF_TRANSPARENT  0x0004   /* Transparent gif */
 #define DECOF_INTERLACED   0x0008   /* Interlaced gif */
-#define DECOF_CYBERMAP     0x0010   /* Bitmap is CyberGfx */
-#define DECOF_CYBERDEEP    0x0020   /* Bitmap is CyberGfx >8 bits */
+#define DECOF_CYBERMAP     0x0010   /* Bitmap is Picasso96 */
+#define DECOF_CYBERDEEP    0x0020   /* Bitmap is Picasso96 >8 bits */
 #define DECOF_ANIMFRAME    0x0040   /* This is a new animation frame */
 #define DECOF_SAVEPREVIOUS 0x0080   /* Save the previous image's bitmap */
 
@@ -524,8 +519,13 @@ static BOOL Buildgifimage(struct Decoder *decoder)
       }
       else
       {  if(decoder->flags&DECOF_CYBERDEEP)
-         {  FillPixelArray(&decoder->rp,0,0,decoder->width,decoder->height,
-               decoder->colorrgb[decoder->background]>>8);
+         {  /* Use Picasso96 pixel array functions for deep bitmaps */
+            struct RenderInfo bgrenderinfo;
+            bgrenderinfo.Memory = (UBYTE *)(&decoder->colorrgb[decoder->background]);
+            bgrenderinfo.BytesPerRow = 3;
+            bgrenderinfo.RGBFormat = RGBFB_R8G8B8;
+            p96WritePixelArray(&bgrenderinfo,0,0,
+               &decoder->rp,0,0,decoder->width,decoder->height);
          }
          else
          {  SetRast(&decoder->rp,Allocatepen(decoder,decoder->background));
@@ -564,8 +564,8 @@ static BOOL Buildgifimage(struct Decoder *decoder)
       {  trow=decoder->mask+row*decoder->maskw;
          if(mergemask)
          {  if(decoder->flags&DECOF_CYBERDEEP)
-            {  ReadPixelArray(decoder->chunky,0,0,3*decoder->width,
-                  &decoder->rp,decoder->ileft,row,decoder->iwidth,1,RECTFMT_RGB);
+            {  p96ReadPixelArray(&decoder->renderinfo,0,0,
+                  &decoder->rp,decoder->ileft,row,decoder->iwidth,1);
             }
             else
             {  ReadPixelLine8(&decoder->rp,decoder->ileft,row,decoder->iwidth,
@@ -597,8 +597,8 @@ static BOOL Buildgifimage(struct Decoder *decoder)
          }
       }
       if(decoder->flags&DECOF_CYBERDEEP)
-      {  WritePixelArray(decoder->chunky,0,0,3*decoder->width,
-            &decoder->rp,decoder->ileft,row,decoder->iwidth,1,RECTFMT_RGB);
+      {  p96WritePixelArray(&decoder->renderinfo,0,0,
+            &decoder->rp,decoder->ileft,row,decoder->iwidth,1);
       }
       else
       {  WritePixelLine8(&decoder->rp,decoder->ileft,row,decoder->iwidth,
@@ -645,9 +645,14 @@ static BOOL Buildgifimage(struct Decoder *decoder)
       case 2:  /* restore to background */
          if(decoder->saverp.BitMap)
          {  if(decoder->flags&DECOF_CYBERDEEP)
-            {  FillPixelArray(&decoder->saverp,decoder->ileft,decoder->itop,
-                  decoder->iwidth,decoder->iheight,
-                  decoder->colorrgb[decoder->background]>>8);
+            {  /* Use Picasso96 pixel array functions for deep bitmaps */
+               struct RenderInfo saverenderinfo;
+               saverenderinfo.Memory = (UBYTE *)(&decoder->colorrgb[decoder->background]);
+               saverenderinfo.BytesPerRow = 3;
+               saverenderinfo.RGBFormat = RGBFB_R8G8B8;
+               p96WritePixelArray(&saverenderinfo,0,0,
+                  &decoder->saverp,decoder->ileft,decoder->itop,
+                  decoder->iwidth,decoder->iheight);
             }
             else
             {  SetAPen(&decoder->saverp,Allocatepen(decoder,decoder->background));
@@ -770,11 +775,11 @@ static BOOL Parsegifimage(struct Decoder *decoder)
     * planes, the colours may be remapped to pen numbers up to 255. */
    decoder->bitmap=NULL;
    decoder->mask=NULL;
-   if(CyberGfxBase)
+   if(P96Base)
    {  decoder->depth=GetBitMapAttr(decoder->source->friendbitmap,BMA_DEPTH);
-      decoder->bitmap=AllocBitMap(decoder->width,decoder->height,decoder->depth,
-         BMF_MINPLANES|BMF_CLEAR,decoder->source->friendbitmap);
-      if(GetCyberMapAttr(decoder->bitmap,CYBRMATTR_ISCYBERGFX))
+      decoder->bitmap=p96AllocBitMap(decoder->width,decoder->height,decoder->depth,
+         BMF_MINPLANES|BMF_CLEAR,decoder->source->friendbitmap,RGBFB_NONE);
+      if(p96GetBitMapAttr(decoder->bitmap,P96BMA_ISP96))
       {  decoder->flags|=DECOF_CYBERMAP;
          if(decoder->depth>8)
          {  decoder->flags|=DECOF_CYBERDEEP;
@@ -788,7 +793,7 @@ static BOOL Parsegifimage(struct Decoder *decoder)
    if(!decoder->bitmap) return FALSE;
    if(decoder->flags&DECOF_TRANSPARENT)
    {  if(decoder->flags&DECOF_CYBERMAP)
-      {  decoder->maskw=GetCyberMapAttr(decoder->bitmap,CYBRMATTR_WIDTH)/8;
+      {  decoder->maskw=p96GetBitMapAttr(decoder->bitmap,P96BMA_WIDTH)/8;
       }
       else
       {  decoder->maskw=decoder->bitmap->BytesPerRow;
@@ -820,7 +825,11 @@ static BOOL Parsegifimage(struct Decoder *decoder)
    if(decoder->flags&DECOF_CYBERMAP)
    {  decoder->chunkyw=decoder->width*3;
       if(decoder->chunky=AllocVec(decoder->chunkyw,MEMF_PUBLIC))
-      {  error=!Buildgifimage(decoder);
+      {  /* Initialize RenderInfo for Picasso96 pixel operations */
+         decoder->renderinfo.Memory = decoder->chunky;
+         decoder->renderinfo.BytesPerRow = decoder->chunkyw;
+         decoder->renderinfo.RGBFormat = RGBFB_R8G8B8;
+         error=!Buildgifimage(decoder);
          FreeVec(decoder->chunky);
       }
    }

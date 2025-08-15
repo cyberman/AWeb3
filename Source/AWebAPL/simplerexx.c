@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -38,6 +39,7 @@
 #include <proto/exec.h>
 
 #include <rexx/storage.h>
+#include <rexx/errors.h>
 #include <rexx/rxslib.h>
 
 #include <string.h>
@@ -69,11 +71,8 @@ struct Library *RexxSysBase;
 /*
  * Prototypes for the RVI ARexx calls...  (link with RexxVars.o)
  */
-/*
- *  __stdargs long CheckRexxMsg(struct RexxMsg *);
- *  __stdargs long GetRexxVar(struct RexxMsg *,char *,char **);
- *  __stdargs long SetRexxVar(struct RexxMsg *,char *,char *,long);
- */
+LONG CheckRexxMsg(struct RexxMsg *msg);
+LONG SetRexxVar(struct RexxMsg *msg, UBYTE *name, UBYTE *value, LONG length);
 
 /*
  * Now, we have made the pragmas needed, let's get to work...

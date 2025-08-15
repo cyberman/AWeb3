@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -30,12 +31,14 @@
 #include "fetch.h"
 #include <datatypes/datatypesclass.h>
 #include <datatypes/pictureclass.h>
-#include <datatypes/pictureclassExt.h> /* 24-bit picture class v43 */
+/* PMODE_V42 and PMODE_V43 constants are defined in pictureclass.h */
 #include <dos/dos.h>
-#include <clib/datatypes_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/utility_protos.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/datatypes.h>
+#include <proto/intuition.h>
+#include <proto/graphics.h>
+#include <proto/utility.h>
 
 #ifdef DEVELOPER
 extern BOOL usetemp;
@@ -124,7 +127,7 @@ static void Makegifmask(struct Imgprocess *imp,long xptcolor)
          DTA_SourceType,DTST_FILE,
          DTA_GroupID,GID_PICTURE,
          PDTA_Remap,FALSE,
-         PDTA_DestMode,MODE_V42,
+         PDTA_DestMode,PMODE_V42, /* Use V42 mode for mask generation */
          PDTA_UseFriendBitMap,TRUE,
          OBP_Precision,PRECISION_IMAGE,
          TAG_END))
@@ -177,7 +180,7 @@ static BOOL Makeobject(struct Imgprocess *imp)
          PDTA_Remap,TRUE,
          PDTA_Screen,imp->screen,
          PDTA_FreeSourceBitMap,TRUE,
-         PDTA_DestMode,MODE_V43,
+         PDTA_DestMode,PMODE_V43, /* Use proper PMODE_V43 constant */
          PDTA_UseFriendBitMap,TRUE,
          OBP_Precision,PRECISION_IMAGE,
          TAG_END))

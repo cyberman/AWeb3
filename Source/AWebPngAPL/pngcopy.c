@@ -20,20 +20,15 @@
 #include "pluginlib.h"
 #include "awebpng.h"
 #include <libraries/awebplugin.h>
-#include <cybergraphics/cybergraphics.h>
+#include <libraries/Picasso96.h>
 #include <exec/memory.h>
 #include <graphics/gfx.h>
 #include <graphics/scale.h>
-#include <clib/awebplugin_protos.h>
-#include <clib/exec_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/utility_protos.h>
-#include <clib/cybergraphics_protos.h>
-#include <pragmas/awebplugin_pragmas.h>
-#include <pragmas/exec_pragmas.h>
-#include <pragmas/graphics_pragmas.h>
-#include <pragmas/utility_pragmas.h>
-#include <pragmas/cybergraphics_pragmas.h>
+#include <proto/awebplugin.h>
+#include <proto/exec.h>
+#include <proto/graphics.h>
+#include <proto/utility.h>
+#include <proto/Picasso96.h>
 
 /*--------------------------------------------------------------------*/
 /* General data structures                                            */
@@ -145,7 +140,7 @@ static void Newbitmap(struct Pngcopy *pc,struct BitMap *bitmap,UBYTE *mask)
    
    if(bitmap && pc->swidth && pc->sheight
    && (pc->srcwidth!=pc->swidth || pc->srcheight!=pc->sheight))
-   {  depth=GetBitMapAttr(bitmap,BMA_DEPTH);
+   {  depth=p96GetBitMapAttr(bitmap,P96BMA_DEPTH);
       if(pc->bitmap=AllocBitMap(pc->swidth,pc->sheight,depth,BMF_MINPLANES,bitmap))
       {  pc->flags|=PNGCF_OURBITMAP;
          pc->mask=NULL;
@@ -160,9 +155,9 @@ static void Newbitmap(struct Pngcopy *pc,struct BitMap *bitmap,UBYTE *mask)
                height=pc->bitmap->Rows;
                memfchip=MEMF_CHIP;
             }
-            else if(CyberGfxBase && GetCyberMapAttr(pc->bitmap,CYBRMATTR_ISCYBERGFX))
-            {  width=GetCyberMapAttr(pc->bitmap,CYBRMATTR_WIDTH)/8;
-               height=GetCyberMapAttr(pc->bitmap,CYBRMATTR_HEIGHT);
+            else if(P96Base && p96GetBitMapAttr(pc->bitmap,P96BMA_ISP96))
+            {  width=p96GetBitMapAttr(pc->bitmap,P96BMA_WIDTH)/8;
+               height=p96GetBitMapAttr(pc->bitmap,P96BMA_HEIGHT);
             }
             else width=0;
             if(width)
@@ -204,14 +199,14 @@ static void Scalebitmap(struct Pngcopy *pc,long sfrom,long sheight,long dfrom)
          dbm.BytesPerRow=pc->bitmap->BytesPerRow;
          dbm.Rows=pc->bitmap->Rows;
       }
-      else if(CyberGfxBase)
-      {  if(GetCyberMapAttr(pc->srcbitmap,CYBRMATTR_ISCYBERGFX))
-         {  sbm.BytesPerRow=GetCyberMapAttr(pc->srcbitmap,CYBRMATTR_WIDTH)/8;
-            sbm.Rows=GetCyberMapAttr(pc->srcbitmap,CYBRMATTR_HEIGHT);
+               else if(P96Base)
+      {  if(p96GetBitMapAttr(pc->srcbitmap,P96BMA_ISP96))
+         {  sbm.BytesPerRow=p96GetBitMapAttr(pc->srcbitmap,P96BMA_WIDTH)/8;
+            sbm.Rows=p96GetBitMapAttr(pc->srcbitmap,P96BMA_HEIGHT);
          }
-         if(GetCyberMapAttr(pc->bitmap,CYBRMATTR_ISCYBERGFX))
-         {  dbm.BytesPerRow=GetCyberMapAttr(pc->bitmap,CYBRMATTR_WIDTH)/8;
-            dbm.Rows=GetCyberMapAttr(pc->bitmap,CYBRMATTR_HEIGHT);
+         if(p96GetBitMapAttr(pc->bitmap,P96BMA_ISP96))
+         {  dbm.BytesPerRow=p96GetBitMapAttr(pc->bitmap,P96BMA_WIDTH)/8;
+            dbm.Rows=p96GetBitMapAttr(pc->bitmap,P96BMA_HEIGHT);
          }
       }
       if(sbm.BytesPerRow && dbm.BytesPerRow)

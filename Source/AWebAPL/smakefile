@@ -7,8 +7,7 @@
    @sc "$*.c"
 
 .h.h:
-   @echo "        Touching  $@..."
-   @touch >nil: $@
+
 
 
 
@@ -49,8 +48,8 @@ aweb:       netstat.o hotlist.o whiswin.o cabrowse.o
 aweb:       url.o source.o copy.o copyjs.o cache.o cookie.o fetch.o mime.o
 #  Fetch drivers
 aweb:       local.o http.o xaweb.o
-aweb:       tcp.o tcperr.o nameserv.o author.o
-aweb:       awebamitcp.o awebinet225.o awebtcp.o amissl.o miamissl.o
+#  TCP/SSL drivers
+aweb:       tcp.o tcperr.o nameserv.o author.o awebamitcp.o awebtcp.o amissl.o
 #  Source drivers
 aweb:       sourcedriver.o docsource.o imgsource.o extprog.o saveas.o
 aweb:       soundsource.o docext.o
@@ -96,9 +95,6 @@ jslib:      aweblib/awebjs.aweblib
 
 #- AWeb constituents, alphabetically -----------------------------------------
 
-amissl.o:   amissl.c aweb.h task.h awebssl.h
-   @echo "        Compiling $*..."
-   @sc idir=netinclude: idir=amissl:sdk/include idir=amissl:sdk/include/amissl idlen=100 $*
 
 application.h: object.h
 application.o: application.c aweb.h application.h timer.h window.h task.h url.h startup.h
@@ -111,6 +107,8 @@ arexx.o:    arexx.c aweb.h arexx.h application.h
 asyncio.o:  asyncio.c
 
 author.o:   author.c aweb.h url.h fetch.h application.h task.h fetchdriver.h authorlib.h
+   @echo "        Compiling $*..."
+   @sc idir=netinclude: $*
 
 aweb.h:     awebdef.h
 
@@ -129,15 +127,21 @@ awebgst:    gst.c
    @echo "        Compiling $*..."
    @sc MAKEGLOBALSYMBOLTABLE=awebgst ignore=105 gst.c
 
-awebinet225.o: awebinet225.c
-   @echo "        Compiling $*..."
-   @sc idir=hd1:InetSDK/include $*
-
 aweblib.h:  awebdef.h awebplugin.h
 
 awebtcp.h:  awebssl.h
 
 awebtcp.o:  awebtcp.c awebtcp.h
+   @echo "        Compiling $*..."
+   @sc idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 $*
+
+awebamitcp.o: awebamitcp.c
+   @echo "        Compiling $*..."
+   @sc idir=netinclude: $*
+
+amissl.o:   amissl.c aweb.h task.h awebssl.h
+   @echo "        Compiling $*..."
+   @sc idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 $*
 
 body.h:     object.h
 body.o:     body.c aweb.h body.h element.h 
@@ -252,6 +256,8 @@ http.o:     http.c aweb.h awebtcp.h tcperr.h fetchdriver.h application.h task.h 
    @echo "        Compiling $*..."
    @sc idir=netinclude: $*
 
+
+
 imgcopy.o:  imgcopy.c aweb.h imgprivate.h copydriver.h copy.h 
 
 imgsource.o: imgsource.c aweb.h source.h sourcedriver.h copy.h url.h file.h
@@ -275,10 +281,6 @@ map.h:      object.h
 map.o:      map.c aweb.h map.h document.h area.h
 
 memory.o:   memory.c aweb.h 
-
-miamissl.o: miamissl.c aweb.h task.h awebssl.h
-   @echo "        Compiling $*..."
-   @sc idir=netinclude: idir=miamissl: idir=miamisslinclude: idlen=40 $*
 
 mime.o:     mime.c aweb.h 
 
@@ -353,7 +355,9 @@ table.o:    table.c aweb.h table.h body.h
 task.h:     object.h
 task.o:     task.c aweb.h task.h window.h
 
-tcp.o:      tcp.c aweb.h tcperr.h application.h awebtcp.h 
+tcp.o:      tcp.c aweb.h tcperr.h application.h awebtcp.h
+   @echo "        Compiling $*..."
+   @sc idir=netinclude: $* 
 
 tcperr.o:   tcperr.c aweb.h tcperr.h url.h fetch.h fetchdriver.h task.h
 
@@ -420,7 +424,7 @@ cfgmainstr.o: cfgmainstr.c awebcfg.h locale.h
 #- arexx ---------
 
 aweblib/arexx.aweblib: cfgrexx.o arexx.lnk
-   remlib >nil: arexx.aweblib
+   c/remlib >nil: arexx.aweblib
    slink with arexx.lnk
 
 cfgrexx.o:  cfgrexx.c aweblib.h arexx.h
@@ -428,7 +432,7 @@ cfgrexx.o:  cfgrexx.c aweblib.h arexx.h
 #- authorize -----
 
 aweblib/authorize.aweblib: authorlib.o authorize.lnk
-   remlib >nil: authorize.aweblib
+   c/remlib >nil: authorize.aweblib
    slink with authorize.lnk
 
 authorlib.o: authorlib.c aweblib.h authorlib.h
@@ -436,7 +440,7 @@ authorlib.o: authorlib.c aweblib.h authorlib.h
 #- cachebrowser --
 
 aweblib/cachebrowser.aweblib: cabrtask.o cachebrowser.lnk
-   remlib >nil: cachebrowser.aweblib
+   c/remlib >nil: cachebrowser.aweblib
    slink with cachebrowser.lnk
 
 cabrtask.o: cabrtask.c aweblib.h task.h caprivate.h url.h
@@ -444,7 +448,7 @@ cabrtask.o: cabrtask.c aweblib.h task.h caprivate.h url.h
 #- ftp -----------
 
 aweblib/ftp.aweblib: ftp.o ftp.lnk
-   remlib >nil: ftp.aweblib
+   c/remlib >nil: ftp.aweblib
    slink with ftp.lnk
 
 ftp.o:      ftp.c aweblib.h tcperr.h fetchdriver.h task.h application.h awebtcp.h
@@ -454,7 +458,7 @@ ftp.o:      ftp.c aweblib.h tcperr.h fetchdriver.h task.h application.h awebtcp.
 #- gopher --------
 
 aweblib/gopher.aweblib: gopher.o gopher.lnk
-   remlib >nil: gopher.aweblib
+   c/remlib >nil: gopher.aweblib
    slink with gopher.lnk
 
 gopher.o:   gopher.c aweblib.h tcperr.h fetchdriver.h task.h awebtcp.h
@@ -464,7 +468,7 @@ gopher.o:   gopher.c aweblib.h tcperr.h fetchdriver.h task.h awebtcp.h
 #- history -------
 
 aweblib/history.aweblib: whistask.o history.lnk
-   remlib >nil: history.aweblib
+   c/remlib >nil: history.aweblib
    slink with history.lnk
 
 whistask.o: whistask.c aweblib.h task.h whisprivate.h url.h
@@ -472,7 +476,7 @@ whistask.o: whistask.c aweblib.h task.h whisprivate.h url.h
 #- hotlist -------
 
 aweblib/hotlist.aweblib: hotlisttask.o hotviewer.o hotmanager.o hotlist.lnk
-   remlib >nil: hotlist.aweblib
+   c/remlib >nil: hotlist.aweblib
    slink with hotlist.lnk
 
 hotlisttask.o: hotlisttask.c aweblib.h 
@@ -484,7 +488,7 @@ hotmanager.o:  hotmanager.c aweblib.h task.h hotlist.h hotlisttask.h
 #- mail ----------
 
 aweblib/mail.aweblib: mail.o mail.lnk
-   remlib >nil: mail.aweblib
+   c/remlib >nil: mail.aweblib
    slink with mail.lnk
 
 mail.o:     mail.c aweblib.h tcperr.h fetchdriver.h task.h application.h awebtcp.h
@@ -494,7 +498,7 @@ mail.o:     mail.c aweblib.h tcperr.h fetchdriver.h task.h application.h awebtcp
 #- news ----------
 
 aweblib/news.aweblib: news.o news.lnk
-   remlib >nil: news.aweblib
+   c/remlib >nil: news.aweblib
    slink with news.lnk
 
 news.o:     news.c aweblib.h tcperr.h fetchdriver.h task.h application.h awebtcp.h
@@ -504,7 +508,7 @@ news.o:     news.c aweblib.h tcperr.h fetchdriver.h task.h application.h awebtcp
 #- print -------
 
 aweblib/print.aweblib: printlib.o print.lnk
-   remlib >nil: print.aweblib
+   c/remlib >nil: print.aweblib
    slink with print.lnk
 
 printlib.o:  printlib.c aweblib.h print.h
@@ -514,7 +518,7 @@ printlib.o:  printlib.c aweblib.h print.h
 #- startup -------
 
 aweblib/startup.aweblib: startup.o startup.lnk
-   remlib >nil: startup.aweblib
+   c/remlib >nil: startup.aweblib
    slink with startup.lnk
 
 startup.o:  startup.c aweblib.h startup.h
@@ -545,7 +549,7 @@ awebjs.o:   awebjs.c jslib.h keyfile.h
 aweblib/awebjs.aweblib:   jslib.o jparse.o jcomp.o jdata.o jexe.o jmemory.o jobject.o jdebug.o
 aweblib/awebjs.aweblib:   jarray.o jboolean.o jdate.o jfunction.o jmath.o jnumber.o jstring.o
 aweblib/awebjs.aweblib:   jslib.lnk
-   remlib awebjs.aweblib
+   c/remlib awebjs.aweblib
    slink with jslib.lnk
 
 #- AWebJS.aweblib constituents, alphabetically -------------------------------

@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -19,8 +20,8 @@
 
 #include "awebjs.h"
 #include "jprotos.h"
-#include <clib/locale_protos.h>
-#include <pragmas/locale_pragmas.h>
+#include <proto/locale.h>
+#include <proto/locale.h>
 
 struct String           /* Used as internal object value */
 {  UBYTE *svalue;

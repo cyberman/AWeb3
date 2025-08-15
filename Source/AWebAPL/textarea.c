@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -25,12 +26,18 @@
 #include "editor.h"
 #include "window.h"
 #include "jslib.h"
-#include <classact.h>
+#include <proto/exec.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
 #include <intuition/imageclass.h>
-#include <clib/graphics_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/keymap_protos.h>
-#include <clib/utility_protos.h>
+#include <images/bevel.h>
+#include <images/drawlist.h>
+#include <proto/graphics.h>
+#include <proto/intuition.h>
+#include <proto/keymap.h>
+#include <proto/utility.h>
+#include <proto/bevel.h>
+#include <proto/drawlist.h>
 
 /*------------------------------------------------------------------------*/
 
@@ -252,7 +259,7 @@ static void Rendertext(struct Textarea *txa,struct Coords *coo,USHORT flags)
             IA_Width,txa->aow-txa->scrw,
             IA_Height,txa->aoh-txa->scrh,
             BEVEL_ColorMap,colormap,
-            CLASSACT_SpecialPens,txa->capens,
+            REACTION_SpecialPens,txa->capens,
             TAG_END);
          DrawImageState(rp,tbevel,x-tbevelw-2,y-tbevelh-2,IDS_NORMAL,drinfo);
       }
@@ -639,7 +646,7 @@ static void Renderbutton(struct Textarea *txa,struct Coords *coo)
          BEVEL_FillPen,bpen,
          BEVEL_ColorMap,colormap,
          BEVEL_Flags,BFLG_XENFILL,
-         CLASSACT_SpecialPens,txa->capens,
+         REACTION_SpecialPens,txa->capens,
          TAG_END);
       DrawImageState(rp,bbevel,
          txa->aox+coo->dx+txa->aow-txa->scrw,txa->aoy+coo->dy+txa->aoh-txa->scrh,

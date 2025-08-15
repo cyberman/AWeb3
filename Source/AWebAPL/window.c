@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -29,12 +30,36 @@
 #include <intuition/gadgetclass.h>
 #include <intuition/icclass.h>
 #include <workbench/workbench.h>
-#include <classact.h>
-#include <clib/intuition_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/gadtools_protos.h>
-#include <clib/utility_protos.h>
-#include <clib/wb_protos.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <reaction/reaction_class.h>
+#include <classes/window.h>
+#include <gadgets/layout.h>
+#include <gadgets/speedbar.h>
+#include <gadgets/chooser.h>
+#include <gadgets/button.h>
+#include <gadgets/string.h>
+#include <gadgets/layout.h>
+#include <gadgets/space.h>
+#include <images/label.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/icon.h>
+#include <proto/intuition.h>
+#include <proto/graphics.h>
+#include <proto/gadtools.h>
+#include <proto/utility.h>
+#include <proto/layers.h>
+#include <proto/wb.h>
+#include <proto/bitmap.h>
+#include <proto/window.h>
+#include <proto/label.h>
+#include <proto/speedbar.h>
+#include <proto/chooser.h>
+#include <proto/button.h>
+#include <proto/string.h>
+#include <proto/layout.h>
+#include <proto/space.h>
 
 LIST(Awindow) windows;
 
@@ -55,9 +80,7 @@ UBYTE *urlpops[]=
    "http://",
    "https://",
    "ftp://ftp.",
-   "gopher://gopher.",
    "mailto:",
-   "news:",
    "file://localhost/",
    NULL,
 };
@@ -350,7 +373,7 @@ static void *Makebuttonrow(struct Awindow *win,struct DrawInfo *dri)
             SPEEDBAR_EvenSize,TRUE,
             SPEEDBAR_Buttons,&win->userbutlist,
             SPEEDBAR_BevelStyle,BVS_NONE,
-            CLASSACT_SpecialPens,&win->capens,
+            REACTION_SpecialPens,&win->capens,
          EndMember,
       End;
    }
@@ -626,7 +649,7 @@ static BOOL Openwindow(struct Awindow *win)
                      STRINGA_UndoBuffer,buf2,
                      STRINGA_WorkBuffer,buf3,
                      STRINGA_TextVal,urlname?urlname:NULLSTRING,
-                     CLASSACT_SpecialPens,&win->capens,
+                     REACTION_SpecialPens,&win->capens,
                   EndMember,
                   StartMember,win->urlpopgad=ChooserObject,
                      GA_ID,GID_URLPOP,
@@ -634,7 +657,7 @@ static BOOL Openwindow(struct Awindow *win)
                      CHOOSER_DropDown,TRUE,
                      CHOOSER_Labels,&win->urlpoplist,
                      CHOOSER_AutoFit,TRUE,
-                     CLASSACT_SpecialPens,&win->capens,
+                     REACTION_SpecialPens,&win->capens,
                   EndMember,
                EndMember,
                StartMember,HLayoutObject,
@@ -647,7 +670,7 @@ static BOOL Openwindow(struct Awindow *win)
                   StartMember,win->securegad=ButtonObject,
                      GA_Image,win->unsecureimg,
                      GA_ReadOnly,TRUE,
-                     CLASSACT_SpecialPens,&win->capens,
+                     REACTION_SpecialPens,&win->capens,
                   EndMember,
                   CHILD_WeightedWidth,0,
 #endif
@@ -665,7 +688,7 @@ static BOOL Openwindow(struct Awindow *win)
                      GA_ID,GID_NAV+0,
                      GA_RelVerify,TRUE,
                      GA_Immediate,TRUE,
-                     CLASSACT_SpecialPens,&win->capens,
+                     REACTION_SpecialPens,&win->capens,
                   EndMember,
                   StartMember,win->fwdgad=ButtonObject,
                      GA_Image,win->fwdimg,
@@ -673,28 +696,28 @@ static BOOL Openwindow(struct Awindow *win)
                      GA_ID,GID_NAV+1,
                      GA_RelVerify,TRUE,
                      GA_Immediate,TRUE,
-                     CLASSACT_SpecialPens,&win->capens,
+                     REACTION_SpecialPens,&win->capens,
                   EndMember,
                   StartMember,win->homegad=ButtonObject,
                      GA_Image,win->homeimg,
                      GA_ID,GID_NAV+2,
                      GA_RelVerify,TRUE,
                      GA_Immediate,TRUE,
-                     CLASSACT_SpecialPens,&win->capens,
+                     REACTION_SpecialPens,&win->capens,
                   EndMember,
                   StartMember,win->addhotgad=ButtonObject,
                      GA_Image,win->addhotimg,
                      GA_ID,GID_NAV+3,
                      GA_RelVerify,TRUE,
                      GA_Immediate,TRUE,
-                     CLASSACT_SpecialPens,&win->capens,
+                     REACTION_SpecialPens,&win->capens,
                   EndMember,
                   StartMember,win->hotgad=ButtonObject,
                      GA_Image,win->hotimg,
                      GA_ID,GID_NAV+4,
                      GA_RelVerify,TRUE,
                      GA_Immediate,TRUE,
-                     CLASSACT_SpecialPens,&win->capens,
+                     REACTION_SpecialPens,&win->capens,
                   EndMember,
                EndMember,
                StartMember,HLayoutObject,
@@ -705,35 +728,35 @@ static BOOL Openwindow(struct Awindow *win)
                      GA_ID,GID_NAV+5,
                      GA_RelVerify,TRUE,
                      GA_Immediate,TRUE,
-                     CLASSACT_SpecialPens,&win->capens,
+                     REACTION_SpecialPens,&win->capens,
                   EndMember,
                   StartMember,win->nwsgad=ButtonObject,
                      GA_Image,win->nwsimg,
                      GA_ID,GID_NAV+6,
                      GA_RelVerify,TRUE,
                      GA_Immediate,TRUE,
-                     CLASSACT_SpecialPens,&win->capens,
+                     REACTION_SpecialPens,&win->capens,
                   EndMember,
                   StartMember,win->searchgad=ButtonObject,
                      GA_Image,win->searchimg,
                      GA_ID,GID_NAV+7,
                      GA_RelVerify,TRUE,
                      GA_Immediate,TRUE,
-                     CLASSACT_SpecialPens,&win->capens,
+                     REACTION_SpecialPens,&win->capens,
                   EndMember,
                   StartMember,win->rldgad=ButtonObject,
                      GA_Image,win->rldimg,
                      GA_ID,GID_NAV+8,
                      GA_RelVerify,TRUE,
                      GA_Immediate,TRUE,
-                     CLASSACT_SpecialPens,&win->capens,
+                     REACTION_SpecialPens,&win->capens,
                   EndMember,
                   StartMember,win->imggad=ButtonObject,
                      GA_Image,win->imgimg,
                      GA_ID,GID_NAV+9,
                      GA_RelVerify,TRUE,
                      GA_Immediate,TRUE,
-                     CLASSACT_SpecialPens,&win->capens,
+                     REACTION_SpecialPens,&win->capens,
                   EndMember,
                EndMember,
             EndMember,

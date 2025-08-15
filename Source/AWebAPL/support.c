@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -21,8 +22,8 @@
 #include "object.h"
 #include "task.h"
 #include "source.h"
-#include <clib/exec_protos.h>
-#include <clib/utility_protos.h>
+#include <proto/exec.h>
+#include <proto/utility.h>
 
 /*-----------------------------------------------------------------------*/
 

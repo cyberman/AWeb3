@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -24,9 +25,29 @@
 #include <exec/resident.h>
 #include <intuition/intuition.h>
 #include <libraries/locale.h>
-#include <classact.h>
-#include <clib/intuition_protos.h>
-#include <clib/utility_protos.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <gadgets/listbrowser.h>
+#include <gadgets/chooser.h>
+#include <gadgets/button.h>
+#include <gadgets/string.h>
+#include <gadgets/space.h>
+#include <gadgets/layout.h>
+#include <gadgets/fuelgauge.h>
+#include <classes/window.h>
+#include <images/label.h>
+#include <proto/intuition.h>
+#include <proto/utility.h>
+#include <proto/dos.h>
+#include <proto/listbrowser.h>
+#include <proto/chooser.h>
+#include <proto/button.h>
+#include <proto/string.h>
+#include <proto/space.h>
+#include <proto/layout.h>
+#include <proto/fuelgauge.h>
+#include <proto/window.h>
+#include <proto/label.h>
 
 #include "caprivate.h"
 
@@ -65,7 +86,11 @@ enum CABR_SORTMODES
 };
 
 static void *AwebPluginBase;
-void *IntuitionBase,*UtilityBase,*DOSBase;
+/* Library base pointers are provided by proto headers:
+   IntuitionBase - from proto/intuition.h
+   UtilityBase - from proto/utility.h
+   DOSBase - from proto/dos.h
+*/
 struct ClassLibrary *WindowBase,*LayoutBase,*ButtonBase,*ListBrowserBase,
    *ChooserBase,*FuelGaugeBase,*LabelBase,*StringBase;
 
@@ -213,9 +238,9 @@ static ULONG Initaweblib(struct Library *libbase)
 #ifdef LOCALONLY
    return FALSE;
 #else
-   if(!(DOSBase=OpenLibrary("dos.library",39))) return FALSE;
-   if(!(IntuitionBase=OpenLibrary("intuition.library",39))) return FALSE;
-   if(!(UtilityBase=OpenLibrary("utility.library",39))) return FALSE;
+   if(!(DOSBase=(struct DosLibrary *)OpenLibrary("dos.library",39))) return FALSE;
+   if(!(IntuitionBase=(struct IntuitionBase *)OpenLibrary("intuition.library",39))) return FALSE;
+   if(!(UtilityBase=(struct Library *)OpenLibrary("utility.library",39))) return FALSE;
    if(!(WindowBase=(struct ClassLibrary *)OpenLibrary("window.class",OSNEED(0,44)))) return FALSE;
    if(!(LayoutBase=(struct ClassLibrary *)OpenLibrary("gadgets/layout.gadget",OSNEED(0,44)))) return FALSE;
    if(!(ButtonBase=(struct ClassLibrary *)OpenLibrary("gadgets/button.gadget",OSNEED(0,44)))) return FALSE;
@@ -322,7 +347,7 @@ static struct Node *Allocbrnode(struct Cabrwindow *cbw,struct Cache *cac)
       sprintf(ci->sizebuf,"%d",cac->disksize);
       for(i=0;cac->mimetype[i];i++) ci->typebuf[i]=tolower(cac->mimetype[i]);
       strncpy(ci->filebuf,cbw->cfnameshort(cac->name),sizeof(ci->filebuf)-1);
-      if(!(node=AllocListBrowserNode(5,
+      if(!((node=(struct Node *)AllocListBrowserNode(5,
          LBNA_UserData,ci,
          LBNA_Column,0,
             LBNCA_Text,ci->urlbuf,
@@ -336,7 +361,7 @@ static struct Node *Allocbrnode(struct Cabrwindow *cbw,struct Cache *cac)
             LBNCA_Text,ci->typebuf,
          LBNA_Column,4,
             LBNCA_Text,ci->filebuf,
-         TAG_END)))
+         TAG_END))))
          FREE(ci);
    }
    return node;
@@ -857,7 +882,7 @@ static void Buildcabrowsewindow(struct Cabrwindow *cbw)
          EndMember,
       EndWindow;
       if(cbw->winobj)
-      {  if(cbw->window=(struct Window *)CA_OpenWindow(cbw->winobj))
+      {  if(cbw->window=(struct Window *)RA_OpenWindow(cbw->winobj))
          {  GetAttr(WINDOW_SigMask,cbw->winobj,&cbw->winsigmask);
             Setcabrstatus(cbw);
          }
@@ -869,7 +894,7 @@ static BOOL Handlecabrowsewindow(struct Cabrwindow *cbw)
 {  ULONG result,relevent;
    BOOL done=FALSE;
    USHORT click;
-   while((result=CA_HandleInput(cbw->winobj,&click))!=WMHI_LASTMSG)
+   while((result=RA_HandleInput(cbw->winobj,&click))!=WMHI_LASTMSG)
    {  switch(result&WMHI_CLASSMASK)
       {  case WMHI_CLOSEWINDOW:
             done=TRUE;
@@ -899,7 +924,7 @@ static BOOL Handlecabrowsewindow(struct Cabrwindow *cbw)
                   }
                   RethinkLayout(cbw->pagelayout,cbw->window,NULL,TRUE);
                   if(cbw->findgad->Flags&GFLG_SELECTED)
-                  {  ActivateLayoutGadget(cbw->toplayout,cbw->window,NULL,cbw->fstrgad);
+                  {  ActivateLayoutGadget(cbw->toplayout,cbw->window,NULL,(ULONG)cbw->fstrgad);
                   }
                   break;
                case CGID_PAT:
@@ -915,7 +940,7 @@ static BOOL Handlecabrowsewindow(struct Cabrwindow *cbw)
                   }
                   RethinkLayout(cbw->pagelayout,cbw->window,NULL,TRUE);
                   if(cbw->patgad->Flags&GFLG_SELECTED)
-                  {  ActivateLayoutGadget(cbw->toplayout,cbw->window,NULL,cbw->pstrgad);
+                  {  ActivateLayoutGadget(cbw->toplayout,cbw->window,NULL,(ULONG)cbw->pstrgad);
                   }
                   break;
                case CGID_FSTRING:
@@ -954,16 +979,16 @@ static BOOL Handlecabrowsewindow(struct Cabrwindow *cbw)
                case 0x44:  /* enter */
                   Docurrent(cbw,AOCBR_Open);
                   break;
-               case 0x42:  /* tab */
-                  switch(Getvalue(cbw->pagegad,PAGE_Current))
-                  {  case CPGC_FIND:
-                        ActivateLayoutGadget(cbw->toplayout,cbw->window,NULL,cbw->fstrgad);
-                        break;
-                     case CPGC_PATTERN:
-                        ActivateLayoutGadget(cbw->toplayout,cbw->window,NULL,cbw->pstrgad);
-                        break;
-                  }
-                  break;
+                     case 0x42:  /* tab */
+                     switch(Getvalue(cbw->pagegad,PAGE_Current))
+                     {  case CPGC_FIND:
+                           ActivateLayoutGadget(cbw->toplayout,cbw->window,NULL,(ULONG)cbw->fstrgad);
+                           break;
+                        case CPGC_PATTERN:
+                           ActivateLayoutGadget(cbw->toplayout,cbw->window,NULL,(ULONG)cbw->pstrgad);
+                           break;
+                     }
+                     break;
             }
             break;
 /*

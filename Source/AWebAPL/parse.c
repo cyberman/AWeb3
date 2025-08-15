@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -17,6 +18,9 @@
 
 /* parse.c aweb html markup parse */
 
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/utility.h>
 #include "aweb.h"
 #include "html.h"
 #include "application.h"
@@ -647,7 +651,7 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
             case 134:n=(UBYTE)'+';break;
             case 135:n=(UBYTE)'+';break;
             case 136:n=(UBYTE)'^';break;
-            case 137:r="°/..";break;
+            case 137:r="ï¿½/..";break;
             case 138:n=(UBYTE)'S';break;   /* S hacek */
             case 139:n=(UBYTE)'{';break;
             case 140:r="OE";break;
@@ -655,7 +659,7 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
             case 146:n=(UBYTE)'\'';break;
             case 147:n=(UBYTE)'"';break;
             case 148:n=(UBYTE)'"';break;
-            case 149:n=(UBYTE)'·';break;
+            case 149:n=(UBYTE)0x95;break;
             case 150:n=(UBYTE)'-';break;
             case 151:n=(UBYTE)'-';break;
             case 152:n=(UBYTE)'~';break;
@@ -674,7 +678,7 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
             case 353:n=(UBYTE)'s';break;
             case 376:n=(UBYTE)'Y';break;
             case 402:n=(UBYTE)'f';break;
-            case 710:n=(UBYTE)'°';break;
+            case 710:n=(UBYTE)0x2C6;break;
             case 732:n=(UBYTE)'~';break;
             case 8194:n=(UBYTE)' ';break;
             case 8195:n=(UBYTE)' ';break;
@@ -691,26 +695,26 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
             case 8222:n=(UBYTE)'"';break;
             case 8224:n=(UBYTE)'+';break;
             case 8225:n=(UBYTE)'+';break;
-            case 8226:n=(UBYTE)'·';break;
+            case 8226:n=(UBYTE)0x95;break;
             case 8230:r="...";break;
-            case 8240:r="°/..";break;
+            case 8240:r="%/..";break;
             case 8242:n=(UBYTE)'\'';break;
             case 8243:n=(UBYTE)'"';break;
             case 8249:n=(UBYTE)'<';break;
             case 8250:n=(UBYTE)'>';break;
-            case 8254:n=(UBYTE)'¯';break;
+            case 8254:n=(UBYTE)0xAF;break;
             case 8260:n=(UBYTE)'/';break;
             case 8482:r="TM";break;
-            case 8709:n=(UBYTE)'ø';break;
+            case 8709:n=(UBYTE)0xD8;break;
             case 8722:n=(UBYTE)'-';break;
             case 8727:n=(UBYTE)'*';break;
             case 8764:n=(UBYTE)'~';break;
             case 8804:r="<=";break;
             case 8805:r=">=";break;
-            case 8901:n=(UBYTE)'·';break;
+            case 8901:n=(UBYTE)0xB7;break;
             case 9001:n=(UBYTE)'<';break;
             case 9002:n=(UBYTE)'>';break;
-            case 9674:n=(UBYTE)'¤';break;
+            case 9674:n=(UBYTE)0x25CA;break;
             default:
                r=ebuf;
          }

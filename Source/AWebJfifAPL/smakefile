@@ -1,19 +1,45 @@
 ## SAS/C makefile for awebjfif aweb plugin module
 
-CPU=68020
+# Compiler and flags
+CC=sc
+CFLAGS= NOSTKCHK PARMS=REG OPTIMIZE OPTGO OPTPEEP OPTINLOCAL OPTINL\
+        OPTLOOP OPTRDEP=4 OPTDEP=4 OPTCOMP=4 define CPU="68020" cpu=68020
 
-.c.o:
-   sc "$*.c" define CPU="$(CPU)" cpu=$(CPU)
+# Linker and flags
+LN=slink
+LDFLAGS= SD ND BATCH
 
-awebjfif.awebplugin:    startup.o awebjfif.o jfifsource.o jfifcopy.o 
-awebjfif.awebplugin:    awebjfif.lnk jpeglib/libjpeg.lib
-	slink with awebjfif.lnk
+# Library tools
+AR=oml
+RM=delete quiet
 
-startup.o:     startup.c pluginlib.h
+# Main plugin object files
+PLUGIN_OBJS = startup.o awebjfif.o jfifsource.o jfifcopy.o
 
-awebjfif.o:    awebjfif.c pluginlib.h awebjfif.h
+# Default target
+all: awebjfif.awebplugin
 
-jfifsource.o:  jfifsource.c pluginlib.h awebjfif.h
+# Build the main plugin
+awebjfif.awebplugin: $(PLUGIN_OBJS) awebjfif.lnk jpeglib/libjpeg.lib
+   $(LN) with awebjfif.lnk
 
-jfifcopy.o:    jfifcopy.c pluginlib.h awebjfif.h
+# Individual object file rules
+startup.o: startup.c pluginlib.h
+   $(CC) startup.c
+
+awebjfif.o: awebjfif.c pluginlib.h awebjfif.h
+   $(CC) awebjfif.c
+
+jfifsource.o: jfifsource.c pluginlib.h awebjfif.h
+   $(CC) jfifsource.c
+
+jfifcopy.o: jfifcopy.c pluginlib.h awebjfif.h
+   $(CC) jfifcopy.c
+
+# Clean targets
+clean:
+   $(RM) *.o
+
+cleanall: clean
+   $(RM) awebjfif.awebplugin
 

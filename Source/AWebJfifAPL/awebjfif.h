@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -18,14 +19,6 @@
 /* awebjfif.h - AWeb jfif plugin general definitions */
 
 #include <libraries/awebplugin.h>
-
-/* Base pointers of libraries needed */
-extern void *SysBase;         /* Defined in startup.c */
-extern void *AwebPluginBase;
-extern void *DOSBase;
-extern void *GfxBase;
-extern void *UtilityBase;
-extern void *CyberGfxBase;
 
 /* Pointer to our own library base */
 extern struct AwebJfifBase *PluginBase;

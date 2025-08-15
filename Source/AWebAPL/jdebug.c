@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -20,17 +21,33 @@
 #include "awebjs.h"
 #include "jprotos.h"
 #include "keyfile.h"
+
+/* Missing Reaction defines - not available in proto headers */
+#ifndef REACTION_Underscore
+#define REACTION_Underscore 0x80000000
+#endif
 #include <intuition/intuition.h>
 #include <dos/dos.h>
 #include <libraries/asl.h>
-#include <classact.h>
-#include <clib/exec_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/dos_protos.h>
-#include <clib/asl_protos.h>
-#include <pragmas/intuition_pragmas.h>
-#include <pragmas/dos_pragmas.h>
-#include <pragmas/asl_pragmas.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <gadgets/layout.h>
+#include <gadgets/button.h>
+#include <gadgets/string.h>
+#include <images/label.h>
+#include <classes/window.h>
+#include <proto/exec.h>
+#include <proto/intuition.h>
+#include <proto/dos.h>
+#include <proto/asl.h>
+#include <proto/intuition.h>
+#include <proto/dos.h>
+#include <proto/asl.h>
+#include <proto/window.h>
+#include <proto/layout.h>
+#include <proto/button.h>
+#include <proto/label.h>
+#include <proto/string.h>
 
 #ifndef DEMOVERSION
 
@@ -41,7 +58,6 @@ static struct Gadget *linenrgad,*linegad,*exprgad,*resultgad;
 static ULONG sigmask;
 
 struct ClassLibrary *WindowBase,*LayoutBase,*ButtonBase,*LabelBase,*StringBase;
-extern struct Library *IntuitionBase,*DOSBase,*AslBase;
 
 enum GADGET_IDS
 {  GID_OVER=1,GID_INTO,GID_TEST,GID_RUN,GID_STOP,GID_EXPR,GID_DUMP,
@@ -103,7 +119,7 @@ static void Opendebug(struct Jcontext *jc)
                   GA_ReadOnly,TRUE,
                   GA_Text," ",
                   BUTTON_Justification,BCJ_LEFT,
-                  CLASSACT_Underscore,0,
+                  REACTION_Underscore,0,
                EndMember,
                CHILD_WeightedWidth,90,
             EndMember,
@@ -151,13 +167,13 @@ static void Opendebug(struct Jcontext *jc)
                GA_ReadOnly,TRUE,
                GA_Text," ",
                BUTTON_Justification,BCJ_LEFT,
-               CLASSACT_Underscore,0,
+               REACTION_Underscore,0,
             EndMember,
             MemberLabel("Result"),
          End,
       EndWindow;
       if(winobj)
-      {  if(window=CA_OpenWindow(winobj))
+      {  if(window=RA_OpenWindow(winobj))
          {  GetAttr(WINDOW_SigMask,winobj,&sigmask);
          }
          else
@@ -251,11 +267,11 @@ void Setdebugger(struct Jcontext *jc,struct Element *elt)
          Setgadgetattrs(linegad,window,NULL,GA_Text,jb->buffer,TAG_END);
       }
       /* First clear event queue, then wait for new events. */
-      while((result=CA_HandleInput(winobj,NULL))!=WMHI_LASTMSG);
+      while((result=RA_HandleInput(winobj,NULL))!=WMHI_LASTMSG);
       ActivateWindow(window);
       while(!go)
       {  Wait(sigmask);
-         while((result=CA_HandleInput(winobj,NULL))!=WMHI_LASTMSG)
+         while((result=RA_HandleInput(winobj,NULL))!=WMHI_LASTMSG)
          {  switch(result&WMHI_CLASSMASK)
             {  case WMHI_CLOSEWINDOW:
                   jc->dflags&=~(DEBF_DEBUG|DEBF_DBREAK);

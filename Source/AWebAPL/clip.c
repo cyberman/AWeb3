@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -20,7 +21,7 @@
 #include "aweb.h"
 #include <libraries/iffparse.h>
 #include <devices/clipboard.h>
-#include <clib/iffparse_protos.h>
+#include <proto/iffparse.h>
 
 #define ID_FTXT   MAKE_ID('F','T','X','T')
 #define ID_CHRS   MAKE_ID('C','H','R','S')

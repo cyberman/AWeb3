@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -19,12 +20,12 @@
 
 /*-----------------------------------------------------------------------*/
 
-#define BETARELEASENR "167APL"
-#define BETALIBREVISION 167
+#define BETARELEASENR "200APL"
+#define BETALIBREVISION 200
 
-#define FULLRELEASE "3.4APL"
+#define FULLRELEASE "3.6APL"
 #define FULLLIBVERSION 3
-#define FULLLIBREVISION 4
+#define FULLLIBREVISION 6
 
 /*-----------------------------------------------------------------------*/
 
@@ -40,8 +41,8 @@
 // #define NEED35          /* needs OS 3.5 or higher */
 
 /* Set these to the correct values when you create your own browser */
-#define EMAILADDRESS "your@email.here"
-#define WWWADDRESS   "http://www.yoursite.com"
+#define EMAILADDRESS "aweb@amigazen.com"
+#define WWWADDRESS   "http://www.amigazen.com"
 
 /*-----------------------------------------------------------------------*/
 /* Special settings, normally not set here */

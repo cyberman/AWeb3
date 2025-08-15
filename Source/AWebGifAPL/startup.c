@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -31,8 +32,7 @@
 #include <exec/types.h>
 #include <exec/libraries.h>
 #include <exec/resident.h>
-#include <clib/exec_protos.h>
-#include <pragmas/exec_sysbase_pragmas.h>
+#include <proto/exec.h>
 
 /* Function declarations for the library entry points */
 __asm struct Library *Initlib(

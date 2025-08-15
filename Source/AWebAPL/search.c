@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -23,9 +24,31 @@
 #include "url.h"
 #include "window.h"
 #include "application.h"
-#include <classact.h>
-#include <clib/utility_protos.h>
-#include <clib/intuition_protos.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <reaction/reaction_class.h>
+#include <gadgets/layout.h>
+#include <gadgets/chooser.h>
+#include <gadgets/button.h>
+#include <gadgets/string.h>
+#include <gadgets/checkbox.h>
+#include <gadgets/integer.h>
+#include <images/label.h>
+#include <classes/window.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/utility.h>
+#include <proto/intuition.h>
+#include <proto/gadtools.h>
+#include <proto/layout.h>
+#include <proto/window.h>
+#include <proto/label.h>
+#include <proto/string.h>
+#include <proto/checkbox.h>
+#include <proto/chooser.h>
+#include <proto/button.h>
+#include <proto/string.h>
+#include <proto/integer.h>
 
 /*------------------------------------------------------------------------*/
 
@@ -120,7 +143,7 @@ static void Opennfwindow(struct Search *sr)
       End,
    EndWindow;
    if(!sr->nfwinobj) goto err;
-   if(!(sr->nfwindow=(struct Window *)CA_OpenWindow(sr->nfwinobj))) goto err;
+   if(!(sr->nfwindow=(struct Window *)RA_OpenWindow(sr->nfwinobj))) goto err;
    return;
 
 err:
@@ -217,8 +240,8 @@ static BOOL Opensearchreq(struct Search *sr)
       End,
    EndWindow;
    if(!sr->winobj) return FALSE;
-   if(!(sr->window=(struct Window *)CA_OpenWindow(sr->winobj))) return FALSE;
-   ActivateLayoutGadget(sr->layout,sr->window,NULL,sr->stringgad);
+   if(!(sr->window=(struct Window *)RA_OpenWindow(sr->winobj))) return FALSE;
+   ActivateLayoutGadget(sr->layout,sr->window,0L,(ULONG)sr->stringgad);
    return TRUE;
 }
 
@@ -346,7 +369,7 @@ static void Processsearch(void)
    {  nextsr=sr->next;
       done=FALSE;
       if(sr->nfwinobj)
-      {  while(!done && (result=CA_HandleInput(sr->nfwinobj,NULL))!=WMHI_LASTMSG)
+      {  while(!done && (result=RA_HandleInput(sr->nfwinobj,NULL))!=WMHI_LASTMSG)
          {  switch(result&WMHI_CLASSMASK)
             {  case WMHI_GADGETUP:
                   if((result&WMHI_GADGETMASK)==SGID_NFOK) done=TRUE;
@@ -359,7 +382,7 @@ static void Processsearch(void)
          if(done) Closenfwindow(sr);
       }
       done=FALSE;
-      while(!done && (result=CA_HandleInput(sr->winobj,NULL))!=WMHI_LASTMSG)
+      while(!done && (result=RA_HandleInput(sr->winobj,NULL))!=WMHI_LASTMSG)
       {  switch(result&WMHI_CLASSMASK)
          {  case WMHI_CLOSEWINDOW:
                done=TRUE;

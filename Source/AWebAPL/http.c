@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -20,7 +21,10 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <clib/exec_protos.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/utility.h>
+#include <proto/socket.h>
 #include "aweb.h"
 #include "tcperr.h"
 #include "fetchdriver.h"
@@ -29,6 +33,18 @@
 #include "form.h"
 #include "awebtcp.h"
 #include <dos/dosextens.h>
+
+/* Socket option constants if not already defined */
+#ifndef SO_RCVTIMEO
+#define SO_RCVTIMEO 0x1006
+#endif
+#ifndef SO_SNDTIMEO
+#define SO_SNDTIMEO 0x1005
+#endif
+
+
+
+
 
 #ifndef LOCALONLY
 
@@ -73,10 +89,10 @@ static UBYTE *httprequest="GET %.7000s HTTP/1.0\r\n";
 
 static UBYTE *httppostrequest="POST %.7000s HTTP/1.0\r\n";
 
-static UBYTE *useragent="User-Agent: Amiga-AWeb/%s\r\n";
+static UBYTE *useragent="User-Agent: Mozilla/3.0 (compatible; Amiga-AWeb/3.6; AmigaOS 3.2)\r\n";
 
 #ifndef DEMOVERSION
-static UBYTE *useragentspoof="User-Agent: %s; (Spoofed by Amiga-AWeb/%s)\r\n";
+static UBYTE *useragentspoof="User-Agent: %s; (Spoofed by Amiga-AWeb/3.6; AmigaOS 3.2)\r\n";
 #endif
 
 static UBYTE *fixedheaders=
@@ -824,27 +840,42 @@ BOOL Httpcertaccept(char *hostname,char *certname)
 static BOOL Openlibraries(struct Httpinfo *hi)
 {  BOOL result=FALSE;
    Opentcp(&hi->socketbase,hi->fd,!hi->fd->validate);
-   if(hi->socketbase)
-   {  result=TRUE;
-      if(hi->flags&HTTPIF_SSL)
-      {  
+   if(!hi->socketbase)
+   {  /* Show GUI error if bsdsocket.library is missing */
+      Lowlevelreq("AWeb requires bsdsocket.library for network access.\nPlease install bsdsocket.library and try again.");
+      return FALSE;
+   }
+   result=TRUE;
+   if(hi->flags&HTTPIF_SSL)
+   {  
 #ifndef DEMOVERSION
-         if(hi->assl=Tcpopenssl(hi->socketbase))
-         {  /* ok */
+      if(hi->assl=Tcpopenssl(hi->socketbase))
+      {  /* ok */
+         /* Additional check for amisslmaster.library (AmiSSL 4+) */
+         struct Library *amisslmaster = OpenLibrary("amisslmaster.library", 0);
+         if(!amisslmaster)
+         {  Lowlevelreq("AWeb requires amisslmaster.library for SSL/TLS connections.\nPlease install AmiSSL 5.20 or newer and try again.");
+            Assl_cleanup(hi->assl);
+            hi->assl = NULL;
+            result = FALSE;
          }
          else
-         {  /* No SSL available */
-            if(Securerequest(hi,haiku?HAIKU12:AWEBSTR(MSG_SSLWARN_SSL_NO_SSL2)))
-            {  hi->flags&=~HTTPIF_SSL;
-            }
-            else
-            {  result=FALSE;
-            }
+         {  CloseLibrary(amisslmaster);
          }
-#else
-         hi->flags&=~HTTPIF_SSL;
-#endif
       }
+      else
+      {  /* No SSL available */
+         Lowlevelreq("AWeb requires amissl.library (AmiSSL 5.20+) for SSL/TLS connections.\nPlease install AmiSSL and try again.");
+         if(Securerequest(hi,haiku?HAIKU12:AWEBSTR(MSG_SSLWARN_SSL_NO_SSL2)))
+         {  hi->flags&=~HTTPIF_SSL;
+         }
+         else
+         {  result=FALSE;
+         }
+      }
+#else
+      hi->flags&=~HTTPIF_SSL;
+#endif
    }
    return result;
 }
@@ -852,6 +883,8 @@ static BOOL Openlibraries(struct Httpinfo *hi)
 /* Create SSL context, SSL and socket */
 static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
 {  long sock;
+   struct timeval timeout;
+   
 #ifndef DEMOVERSION
    if(hi->flags&HTTPIF_SSL)
    {  if(!Assl_openssl(hi->assl)) return -1;
@@ -860,7 +893,23 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
    sock=a_socket(hent->h_addrtype,SOCK_STREAM,0,hi->socketbase);
    if(sock<0)
    {  Assl_closessl(hi->assl);
+      return -1;
    }
+   
+   /* Set socket timeouts to prevent hanging connections */
+   timeout.tv_sec = 30;  /* 30 second timeout */
+   timeout.tv_usec = 0;
+   
+   /* Set receive timeout */
+   if(a_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout), hi->socketbase) < 0)
+   {  /* Timeout setting failed, but continue */
+   }
+   
+   /* Set send timeout */
+   if(a_setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout), hi->socketbase) < 0)
+   {  /* Timeout setting failed, but continue */
+   }
+   
    return sock;
 }
 

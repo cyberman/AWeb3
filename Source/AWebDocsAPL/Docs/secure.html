@@ -1,7 +1,7 @@
 <!--
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  *
@@ -19,7 +19,7 @@
 <html>
 <head>
 <title>Secure connections</title>
-<meta name=keywords content="SSL, security, privacy, AmiSSL, MiamiSSL">
+<meta name=keywords content="SSL, security, privacy, AmiSSL, MiamiSSL, P96">
 </head>
 <body background=awebbg.iff>
 <h1><img src=aweb.iff width=192 height=93 alt=(logo)>&nbsp; Secure connections</h1>
@@ -41,10 +41,6 @@ uses <em>encryption</em> so that no-one can read your data except the one
 you are sending it to. It uses <em>certificates</em> to ensure that no-one
 can forge their identity and claim to be someone else.
 <p>
-You might want to read more about
-<a href="http://home.netscape.com/assist/security/ssl/howitworks.html">
-how SSL works</a>.
-<p>
 Secure connections can only ensure that your information isn't seen by
 others. It can't in any way prevent that the legitimate receiver of your
 data won't abuse it.
@@ -53,17 +49,10 @@ data won't abuse it.
 Before you can use secure connections, you have to install a library
 that implements the secure socket layer (SSL).
 <p>
-AWeb supports the freely available
-<a href="http://www.bigfoot.com/~TheAntony/AmiSSL/">AmiSSL</a> library by Andrija Antonijevic.
+AWeb supports the freely available <a href="https://www.amissl.org/">AmiSSL</a> (version 5.20 or later recommended).
 <p>
-AWeb also supports MiamiSSL, available
-for registered users of the <a href="http://www.nordicglobal.com/Miami.html">
-Miami</a> TCP stack by Holger Kruse. If you have both libraries installed,
-AWeb will use AmiSSL. In case you want AWeb to use MiamiSSL, you should
-remove or rename <code>LIBS:amissl.library</code> <i>before</i> you start AWeb.
+AWeb no longer supports MiamiSSL
 <p>
-The <a href="infowindow.html">information window</a> will tell you which
-SSL library was used.
 
 <h2>Be sure of the sender's identity</h2>
 Next to the status bar field at the top of the browser window, is a small

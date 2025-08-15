@@ -1,20 +1,3 @@
-/**********************************************************************
- * 
- * This file is part of the AWeb-II distribution
- *
- * Copyright (C) 2002 Yvon Rozijn
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the AWeb Public License as included in this
- * distribution.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * AWeb Public License for more details.
- *
- **********************************************************************/
-
 #ifndef LOCALE_H
 #define LOCALE_H
 
@@ -669,7 +652,7 @@
 #define MSG_POPUP_SEARCHFRAME_STR "Search in contents"
 #define MSG_POPUP_INFOFRAME_STR "Info"
 #define MSG_PRINTP_TITLE_STR "Print parameters"
-#define MSG_PRINTP_SCALE_STR "_Scale (%)"
+#define MSG_PRINTP_SCALE_STR "_Scale percentage"
 #define MSG_PRINTP_PRINTBG_STR "Print _backgrounds"
 #define MSG_PRINTP_FORMFEED_STR "_Formfeed"
 #define MSG_PRINTP_CENTER_STR "Ce_nter"
@@ -788,11 +771,11 @@
 #define MSG_SSLWARN_SSL_TITLE_STR "AWeb warning"
 #define MSG_SSLWARN_SSL_TEXT_STR "Cannot make secure connection to %s:\n%s\n \nUse an unsecure connection instead?"
 #define MSG_SSLWARN_SSL_BUTTONS_STR "_Unsecure|_Cancel"
-#define MSG_SSLWARN_SSL_NO_SSL_STR "Secure connections are only supported with the Miami TCP program and MiamiSSL."
+#define MSG_SSLWARN_SSL_NO_SSL_STR "Secure connections are only supported with the Miami TCP program and AmiSSL."
 #define MSG_SSLWARN_CERT_TITLE_STR "AWeb warning"
 #define MSG_SSLWARN_CERT_TEXT_STR "Certificate for %s cannot be verified.\nDetails: %s\n \nIf you continue the data will be encrypted (protection against eavesdropping), but the identity of the server cannot be verified (-NO- protection against fraud).\n \nDo you want to continue?"
 #define MSG_SSLWARN_CERT_BUTTONS_STR "_Ok|_Cancel"
-#define MSG_SSLWARN_SSL_NO_SSL2_STR "Secure connections are only supported when using AmiSSL or MiamiSSL."
+#define MSG_SSLWARN_SSL_NO_SSL2_STR "Secure connections are only supported when using AmiSSL."
 #define MSG_UNKMIME_TITLE_STR "Unknown content type"
 #define MSG_UNKMIME_TEXT_STR "Unrecognized file will be saved\n \nURL:   %s\nContent type:   %s\nExtension:   %s\n \nYou might want to cancel the save now, and reload this file after configuring a viewer or action for this MIME type in the Browser settings (Viewers)."
 #define MSG_UNKMIME_BUTTONS_STR "_Save|_Cancel"
@@ -802,107 +785,107 @@
 #define MSG_OPENURL_BUTTONS_STR "_Ok|_Cancel"
 #define MSG_SAVEIFF_PROGRESS_STR "Saving IFF file..."
 #define MSG_PROJECT_MENU_STR "Project"
-#define MSG_PROJECT_NEWWINDOW_STR "N/New window"
-#define MSG_PROJECT_CLOSEWINDOW_STR "K/Close window"
+#define MSG_PROJECT_NEWWINDOW_STR "N/New Window"
+#define MSG_PROJECT_CLOSEWINDOW_STR "K/Close Window"
 #define MSG_PROJECT_OPENURL_STR "U/Open URL"
 #define MSG_PROJECT_OPENWWW_STR "W/Open WWW"
-#define MSG_PROJECT_OPENLOCAL_STR "L/Open local..."
-#define MSG_PROJECT_OPENSEARCH_STR "E/Search engines"
-#define MSG_PROJECT_SOURCE_STR "View source..."
-#define MSG_PROJECT_SAVEHTML_STR "S/Save source..."
-#define MSG_PROJECT_ABOUT_STR "About..."
+#define MSG_PROJECT_OPENLOCAL_STR "L/Open Local..."
+#define MSG_PROJECT_OPENSEARCH_STR "E/Search"
+#define MSG_PROJECT_SOURCE_STR "View Source..."
+#define MSG_PROJECT_SAVEHTML_STR "S/Save Source..."
+#define MSG_PROJECT_ABOUT_STR "?/About..."
 #define MSG_PROJECT_QUIT_STR "Q/Quit..."
 #define MSG_PROJECT_SEARCH_STR "G/Search..."
 #define MSG_PROJECT_PRINT_STR "P/Print..."
-#define MSG_PROJECT_EDIT_STR "Edit source..."
+#define MSG_PROJECT_EDIT_STR "Edit Source..."
 #define MSG_PROJECT_INFO_STR "Info..."
 #define MSG_PROJECT_OPENNEWS_STR "Open News"
 #define MSG_PROJECT_ICONIFY_STR "\\/Iconify"
 #define MSG_PROJECT_SAVEIFF_STR "Save as IFF..."
 #define MSG_CONTROL_MENU_STR "Control"
-#define MSG_CONTROL_LOADNOW_STR "Load images now"
-#define MSG_CONTROL_LOADNOWALL_STR "I/All images"
-#define MSG_CONTROL_LOADNOWMAPS_STR "M/Maps only"
-#define MSG_CONTROL_NETWORKSTATUS_STR "?/Network status..."
+#define MSG_CONTROL_LOADNOW_STR "Load Images"
+#define MSG_CONTROL_LOADNOWALL_STR "I/All Images"
+#define MSG_CONTROL_LOADNOWMAPS_STR "M/Maps Only"
+#define MSG_CONTROL_NETWORKSTATUS_STR "?/Network Status..."
 #define MSG_DUMMY_2_STR ""
-#define MSG_CONTROL_CANCEL_STR "Z/Cancel load"
-#define MSG_CONTROL_NEXTWINDOW_STR "./Next window"
-#define MSG_CONTROL_PREVWINDOW_STR ",/Previous window"
-#define MSG_CONTROL_NOPROXY_STR "Y/Disable proxy"
+#define MSG_CONTROL_CANCEL_STR "Z/Cancel Load"
+#define MSG_CONTROL_NEXTWINDOW_STR "./Next Window"
+#define MSG_CONTROL_PREVWINDOW_STR ",/Previous Window"
+#define MSG_CONTROL_NOPROXY_STR "Y/Disable Proxy"
 #define MSG_CONTROL_RLOAD_STR "Reload"
-#define MSG_CONTROL_RLOADDOC_STR "R/Current document"
-#define MSG_CONTROL_RLOADIMGS_STR "Images in current"
-#define MSG_CONTROL_PLAYBGSOUND_STR "J/Play background sound"
+#define MSG_CONTROL_RLOADDOC_STR "R/Current Document"
+#define MSG_CONTROL_RLOADIMGS_STR "Current Images"
+#define MSG_CONTROL_PLAYBGSOUND_STR "J/Play Background Sounds"
 #define MSG_CONTROL_COPYURL_STR "Copy URL"
 #define MSG_CONTROL_PASTEURL_STR "Paste URL"
-#define MSG_CONTROL_COPYBLOCK_STR "C/Copy block"
+#define MSG_CONTROL_COPYBLOCK_STR "C/Copy Block"
 #define MSG_CONTROL_DRAGGING_STR "Dragging"
 #define MSG_CONTROL_BREAKJS_STR "X/Break JavaScript"
 #define MSG_CONTROL_DEBUGJS_STR "Debug JavaScript"
-#define MSG_CONTROL_RESET_STR "Reset frames"
+#define MSG_CONTROL_RESET_STR "Reset Frames"
 #define MSG_CACHE_MENU_STR "Cache"
 #define MSG_DUMMY_3_STR ""
 #define MSG_DUMMY_4_STR ""
 #define MSG_DUMMY_5_STR ""
 #define MSG_DUMMY_6_STR ""
-#define MSG_CACHE_SAVEAUTH_STR "Save authorizations"
-#define MSG_CACHE_FLUSHAUTH_STR "Flush authorizations"
-#define MSG_CACHE_BROWSER_STR "Cache browser..."
-#define MSG_CACHE_FLUSH_STR "Flush from memory"
-#define MSG_CACHE_FLSHIMGSND_STR "Nondisplayed images"
-#define MSG_CACHE_FLSHIMGS_STR "All images"
-#define MSG_CACHE_FLSHDOCSND_STR "Nondisplayed documents"
-#define MSG_CACHE_DELETE_STR "Delete from disk"
-#define MSG_CACHE_DELIMGS_STR "All images"
-#define MSG_CACHE_DELDOCS_STR "All documents"
-#define MSG_CACHE_CLEAR_STR "Erase cache"
-#define MSG_CACHE_FIX_STR "Fix cache..."
-#define MSG_CACHE_EDITAUTH_STR "Edit authorizations..."
+#define MSG_CACHE_SAVEAUTH_STR "Save Authorizations"
+#define MSG_CACHE_FLUSHAUTH_STR "Flush Authorizations"
+#define MSG_CACHE_BROWSER_STR "Cache Browser..."
+#define MSG_CACHE_FLUSH_STR "Flush Memory Cache"
+#define MSG_CACHE_FLSHIMGSND_STR "Nondisplayed Images"
+#define MSG_CACHE_FLSHIMGS_STR "All Images"
+#define MSG_CACHE_FLSHDOCSND_STR "Nondisplayed Documents"
+#define MSG_CACHE_DELETE_STR "Delete Disk Cache"
+#define MSG_CACHE_DELIMGS_STR "All Images"
+#define MSG_CACHE_DELDOCS_STR "All Documents"
+#define MSG_CACHE_CLEAR_STR "Clear Disk Cache"
+#define MSG_CACHE_FIX_STR "Repair Disk Cache..."
+#define MSG_CACHE_EDITAUTH_STR "Edit Authorizations..."
 #define MSG_NAVIGATE_MENU_STR "Navigate"
 #define MSG_NAVIGATE_BACK_STR "B/Back"
 #define MSG_NAVIGATE_FWD_STR "F/Forward"
-#define MSG_NAVIGATE_HOME_STR "D/Home document"
-#define MSG_NAVIGATE_HISTORY_STR "-/Window history..."
+#define MSG_NAVIGATE_HOME_STR "D/Home"
+#define MSG_NAVIGATE_HISTORY_STR "-/History..."
 #define MSG_HOTLIST_MENU_STR "Hotlist"
-#define MSG_HOTLIST_ADDHOT_STR "A/Add to hotlist"
-#define MSG_HOTLIST_SHOWHOT_STR "H/Show hotlist"
+#define MSG_HOTLIST_ADDHOT_STR "A/Add Hotlist"
+#define MSG_HOTLIST_SHOWHOT_STR "H/Show Hotlist"
 #define MSG_HOTLIST_MAINT_STR "T/Maintenance..."
-#define MSG_HOTLIST_SAVE_STR "Save hotlist"
-#define MSG_HOTLIST_RESTORE_STR "Restore last saved"
+#define MSG_HOTLIST_SAVE_STR "Save Hotlist"
+#define MSG_HOTLIST_RESTORE_STR "Restore Last Saved"
 #define MSG_HOTLIST_AMHOTRX_STR "AMosaic (ARexx)"
 #define MSG_HOTLIST_AMHOT20_STR "AMosaic (2.0)"
 #define MSG_HOTLIST_IBHOT_STR "Other..."
-#define MSG_HOTLIST_VIEW_STR "V/View hotlist..."
-#define MSG_HOTLIST_MGR_STR "T/Hotlist manager..."
+#define MSG_HOTLIST_VIEW_STR "V/View Hotlist..."
+#define MSG_HOTLIST_MGR_STR "T/Manage Hotlist..."
 #define MSG_SETTINGS_MENU_STR "Settings"
-#define MSG_SETTINGS_LOADIMG_STR "Image loading"
-#define MSG_SETTINGS_LOADIMGALL_STR "All images"
-#define MSG_SETTINGS_LOADIMGMAPS_STR "Maps only"
+#define MSG_SETTINGS_LOADIMG_STR "Image Loading"
+#define MSG_SETTINGS_LOADIMGALL_STR "All Images"
+#define MSG_SETTINGS_LOADIMGMAPS_STR "Maps Only"
 #define MSG_SETTINGS_LOADIMGOFF_STR "Off"
 #define MSG_DUMMY_7_STR ""
 #define MSG_DUMMY_8_STR ""
-#define MSG_SETTINGS_BROWSER_STR "Browser settings..."
-#define MSG_SETTINGS_PROGRAM_STR "Program settings..."
-#define MSG_SETTINGS_NETWORK_STR "Network settings..."
-#define MSG_SETTINGS_CLASSACT_STR "ClassAct settings..."
-#define MSG_SETTINGS_SAVEALL_STR "Save current settings"
-#define MSG_SETTINGS_SNAPSHOT_STR "Snapshot windows"
-#define MSG_SETTINGS_SNAPSHOTALT_STR "Snapshot as alternate size"
-#define MSG_SETTINGS_BGIMAGES_STR "Background images"
-#define MSG_SETTINGS_BGSOUND_STR "Background sound"
-#define MSG_SETTINGS_SAVEAS_STR "Save settings as..."
-#define MSG_SETTINGS_LOAD_STR "Load settings..."
-#define MSG_SETTINGS_GUI_STR "GUI settings..."
+#define MSG_SETTINGS_BROWSER_STR "Browser Settings..."
+#define MSG_SETTINGS_PROGRAM_STR "Program Settings..."
+#define MSG_SETTINGS_NETWORK_STR "Network Settings..."
+#define MSG_SETTINGS_CLASSACT_STR "Reaction Settings..."
+#define MSG_SETTINGS_SAVEALL_STR "Save Current Settings"
+#define MSG_SETTINGS_SNAPSHOT_STR "Snapshot Windows"
+#define MSG_SETTINGS_SNAPSHOTALT_STR "Snapshot Zoom"
+#define MSG_SETTINGS_BGIMAGES_STR "Background Images"
+#define MSG_SETTINGS_BGSOUND_STR "Background Sound"
+#define MSG_SETTINGS_SAVEAS_STR "Save Settings As..."
+#define MSG_SETTINGS_LOAD_STR "Load Settings..."
+#define MSG_SETTINGS_GUI_STR "GUI Settings..."
 #define MSG_HELP_MENU_STR "Help"
 #define MSG_HELP_HELP_STR "Documentation"
-#define MSG_HELP_AWEBHOME_STR "AWeb home page"
-#define MSG_HELP_AWEBFAQ_STR "AWeb FAQ"
+#define MSG_HELP_AWEBHOME_STR "www.amigazen.com/aweb/"
+#define MSG_HELP_AWEBFAQ_STR "www.amigazen.com/aweb/faq"
 #define MSG_HELP_REGISTER_STR "Registration"
 #define MSG_AREXX_MENU_STR "ARexx"
-#define MSG_AREXX_AREXX_STR "!/Start ARexx macro..."
+#define MSG_AREXX_AREXX_STR "!/Run ARexx Macro..."
 #define MSG_ERROR_CANTOPEN_STR "Can't open %s"
 #define MSG_ERROR_CANTOPENV_STR "Can't open %s version %ld"
-#define MSG_ERROR_NEEDOS30_STR "AWeb needs OS 3.0 or better"
+#define MSG_ERROR_NEEDOS30_STR "AWeb needs OS 3.1 or better"
 #define MSG_ERROR_CANTQUIT_STR "Cannot quit!\n%s\nis still in use"
 #define MSG_EPART_ERROR_STR "Error"
 #define MSG_EPART_RETURL_STR "While retrieving URL"
@@ -1752,8 +1735,8 @@ static const char CatCompBlock[] =
     MSG_POPUP_INFOFRAME_STR "\x00\x00"
     "\x00\x00\x06\xA4\x00\x12"
     MSG_PRINTP_TITLE_STR "\x00\x00"
-    "\x00\x00\x06\xA5\x00\x0C"
-    MSG_PRINTP_SCALE_STR "\x00\x00"
+    "\x00\x00\x06\xA5\x00\x12"
+    MSG_PRINTP_SCALE_STR "\x00"
     "\x00\x00\x06\xA6\x00\x14"
     MSG_PRINTP_PRINTBG_STR "\x00\x00"
     "\x00\x00\x06\xA7\x00\x0A"
@@ -1990,7 +1973,7 @@ static const char CatCompBlock[] =
     MSG_SSLWARN_SSL_TEXT_STR "\x00"
     "\x00\x00\x0A\x8E\x00\x12"
     MSG_SSLWARN_SSL_BUTTONS_STR "\x00"
-    "\x00\x00\x0A\x8F\x00\x50"
+    "\x00\x00\x0A\x8F\x00\x4E"
     MSG_SSLWARN_SSL_NO_SSL_STR "\x00\x00"
     "\x00\x00\x0A\x90\x00\x0E"
     MSG_SSLWARN_CERT_TITLE_STR "\x00\x00"
@@ -1998,7 +1981,7 @@ static const char CatCompBlock[] =
     MSG_SSLWARN_CERT_TEXT_STR "\x00"
     "\x00\x00\x0A\x92\x00\x0C"
     MSG_SSLWARN_CERT_BUTTONS_STR "\x00"
-    "\x00\x00\x0A\x93\x00\x46"
+    "\x00\x00\x0A\x93\x00\x3A"
     MSG_SSLWARN_SSL_NO_SSL2_STR "\x00\x00"
     "\x00\x00\x0A\xF0\x00\x16"
     MSG_UNKMIME_TITLE_STR "\x00\x00"
@@ -2028,13 +2011,13 @@ static const char CatCompBlock[] =
     MSG_PROJECT_OPENWWW_STR "\x00\x00"
     "\x00\x00\x27\x15\x00\x10"
     MSG_PROJECT_OPENLOCAL_STR "\x00"
-    "\x00\x00\x27\x16\x00\x12"
+    "\x00\x00\x27\x16\x00\x0A"
     MSG_PROJECT_OPENSEARCH_STR "\x00\x00"
     "\x00\x00\x27\x17\x00\x10"
     MSG_PROJECT_SOURCE_STR "\x00\x00"
     "\x00\x00\x27\x18\x00\x12"
     MSG_PROJECT_SAVEHTML_STR "\x00\x00"
-    "\x00\x00\x27\x19\x00\x0A"
+    "\x00\x00\x27\x19\x00\x0C"
     MSG_PROJECT_ABOUT_STR "\x00\x00"
     "\x00\x00\x27\x1A\x00\x0A"
     MSG_PROJECT_QUIT_STR "\x00"
@@ -2054,7 +2037,7 @@ static const char CatCompBlock[] =
     MSG_PROJECT_SAVEIFF_STR "\x00\x00"
     "\x00\x00\x27\x74\x00\x08"
     MSG_CONTROL_MENU_STR "\x00"
-    "\x00\x00\x27\x75\x00\x10"
+    "\x00\x00\x27\x75\x00\x0C"
     MSG_CONTROL_LOADNOW_STR "\x00"
     "\x00\x00\x27\x76\x00\x0E"
     MSG_CONTROL_LOADNOWALL_STR "\x00\x00"
@@ -2076,10 +2059,10 @@ static const char CatCompBlock[] =
     MSG_CONTROL_RLOAD_STR "\x00\x00"
     "\x00\x00\x27\x7F\x00\x14"
     MSG_CONTROL_RLOADDOC_STR "\x00\x00"
-    "\x00\x00\x27\x80\x00\x12"
-    MSG_CONTROL_RLOADIMGS_STR "\x00"
-    "\x00\x00\x27\x81\x00\x18"
-    MSG_CONTROL_PLAYBGSOUND_STR "\x00"
+    "\x00\x00\x27\x80\x00\x10"
+    MSG_CONTROL_RLOADIMGS_STR "\x00\x00"
+    "\x00\x00\x27\x81\x00\x1A"
+    MSG_CONTROL_PLAYBGSOUND_STR "\x00\x00"
     "\x00\x00\x27\x82\x00\x0A"
     MSG_CONTROL_COPYURL_STR "\x00\x00"
     "\x00\x00\x27\x83\x00\x0A"
@@ -2110,8 +2093,8 @@ static const char CatCompBlock[] =
     MSG_CACHE_FLUSHAUTH_STR "\x00\x00"
     "\x00\x00\x27\xDF\x00\x12"
     MSG_CACHE_BROWSER_STR "\x00\x00"
-    "\x00\x00\x27\xE0\x00\x12"
-    MSG_CACHE_FLUSH_STR "\x00"
+    "\x00\x00\x27\xE0\x00\x14"
+    MSG_CACHE_FLUSH_STR "\x00\x00"
     "\x00\x00\x27\xE1\x00\x14"
     MSG_CACHE_FLSHIMGSND_STR "\x00"
     "\x00\x00\x27\xE2\x00\x0C"
@@ -2119,14 +2102,14 @@ static const char CatCompBlock[] =
     "\x00\x00\x27\xE3\x00\x18"
     MSG_CACHE_FLSHDOCSND_STR "\x00\x00"
     "\x00\x00\x27\xE4\x00\x12"
-    MSG_CACHE_DELETE_STR "\x00\x00"
+    MSG_CACHE_DELETE_STR "\x00"
     "\x00\x00\x27\xE5\x00\x0C"
     MSG_CACHE_DELIMGS_STR "\x00\x00"
     "\x00\x00\x27\xE6\x00\x0E"
     MSG_CACHE_DELDOCS_STR "\x00"
-    "\x00\x00\x27\xE7\x00\x0C"
-    MSG_CACHE_CLEAR_STR "\x00"
-    "\x00\x00\x27\xE8\x00\x0E"
+    "\x00\x00\x27\xE7\x00\x12"
+    MSG_CACHE_CLEAR_STR "\x00\x00"
+    "\x00\x00\x27\xE8\x00\x16"
     MSG_CACHE_FIX_STR "\x00\x00"
     "\x00\x00\x27\xE9\x00\x18"
     MSG_CACHE_EDITAUTH_STR "\x00\x00"
@@ -2136,14 +2119,14 @@ static const char CatCompBlock[] =
     MSG_NAVIGATE_BACK_STR "\x00\x00"
     "\x00\x00\x28\x3E\x00\x0A"
     MSG_NAVIGATE_FWD_STR "\x00"
-    "\x00\x00\x28\x3F\x00\x10"
-    MSG_NAVIGATE_HOME_STR "\x00"
-    "\x00\x00\x28\x40\x00\x14"
-    MSG_NAVIGATE_HISTORY_STR "\x00"
+    "\x00\x00\x28\x3F\x00\x08"
+    MSG_NAVIGATE_HOME_STR "\x00\x00"
+    "\x00\x00\x28\x40\x00\x0E"
+    MSG_NAVIGATE_HISTORY_STR "\x00\x00"
     "\x00\x00\x28\xA0\x00\x08"
     MSG_HOTLIST_MENU_STR "\x00"
-    "\x00\x00\x28\xA1\x00\x12"
-    MSG_HOTLIST_ADDHOT_STR "\x00\x00"
+    "\x00\x00\x28\xA1\x00\x0E"
+    MSG_HOTLIST_ADDHOT_STR "\x00"
     "\x00\x00\x28\xA2\x00\x10"
     MSG_HOTLIST_SHOWHOT_STR "\x00\x00"
     "\x00\x00\x28\xA3\x00\x12"
@@ -2160,8 +2143,8 @@ static const char CatCompBlock[] =
     MSG_HOTLIST_IBHOT_STR "\x00\x00"
     "\x00\x00\x28\xA9\x00\x12"
     MSG_HOTLIST_VIEW_STR "\x00"
-    "\x00\x00\x28\xAA\x00\x16"
-    MSG_HOTLIST_MGR_STR "\x00\x00"
+    "\x00\x00\x28\xAA\x00\x14"
+    MSG_HOTLIST_MGR_STR "\x00"
     "\x00\x00\x29\x04\x00\x0A"
     MSG_SETTINGS_MENU_STR "\x00\x00"
     "\x00\x00\x29\x05\x00\x0E"
@@ -2188,8 +2171,8 @@ static const char CatCompBlock[] =
     MSG_SETTINGS_SAVEALL_STR "\x00"
     "\x00\x00\x29\x10\x00\x12"
     MSG_SETTINGS_SNAPSHOT_STR "\x00\x00"
-    "\x00\x00\x29\x11\x00\x1C"
-    MSG_SETTINGS_SNAPSHOTALT_STR "\x00\x00"
+    "\x00\x00\x29\x11\x00\x0E"
+    MSG_SETTINGS_SNAPSHOTALT_STR "\x00"
     "\x00\x00\x29\x12\x00\x12"
     MSG_SETTINGS_BGIMAGES_STR "\x00"
     "\x00\x00\x29\x13\x00\x12"
@@ -2204,15 +2187,15 @@ static const char CatCompBlock[] =
     MSG_HELP_MENU_STR "\x00\x00"
     "\x00\x00\x29\x69\x00\x0E"
     MSG_HELP_HELP_STR "\x00"
-    "\x00\x00\x29\x6A\x00\x10"
+    "\x00\x00\x29\x6A\x00\x18"
     MSG_HELP_AWEBHOME_STR "\x00\x00"
-    "\x00\x00\x29\x6B\x00\x0A"
-    MSG_HELP_AWEBFAQ_STR "\x00\x00"
+    "\x00\x00\x29\x6B\x00\x1A"
+    MSG_HELP_AWEBFAQ_STR "\x00"
     "\x00\x00\x29\x6C\x00\x0E"
     MSG_HELP_REGISTER_STR "\x00\x00"
     "\x00\x00\x29\xCC\x00\x06"
     MSG_AREXX_MENU_STR "\x00"
-    "\x00\x00\x29\xCD\x00\x18"
+    "\x00\x00\x29\xCD\x00\x16"
     MSG_AREXX_AREXX_STR "\x00\x00"
     "\x00\x00\x4E\x20\x00\x0E"
     MSG_ERROR_CANTOPEN_STR "\x00"
@@ -2319,30 +2302,43 @@ struct LocaleInfo
 
 #ifdef CATCOMP_CODE
 
-STRPTR GetString(struct LocaleInfo *li, LONG stringNum)
+struct CatCompBlockType
 {
-LONG   *l;
-UWORD  *w;
-STRPTR  builtIn;
+	LONG	ccb_ID;
+	UWORD	ccb_StringSize;
+};
 
-    l = (LONG *)CatCompBlock;
+STRPTR GetString(struct LocaleInfo * li, LONG stringNum)
+{
+	const struct CatCompBlockType * ccb = (APTR)CatCompBlock;
+	const struct CatCompBlockType * ccb_stop = (APTR)&((BYTE *)ccb)[sizeof(CatCompBlock)];
 
-    while (*l != stringNum)
-    {
-        w = (UWORD *)((ULONG)l + 4);
-        l = (LONG *)((ULONG)l + (ULONG)*w + 6);
-    }
-    builtIn = (STRPTR)((ULONG)l + 6);
+	STRPTR builtin = NULL;
+	STRPTR result = NULL;
 
-#define XLocaleBase LocaleBase
-#define LocaleBase li->li_LocaleBase
-    
-    if (LocaleBase)
-        return(GetCatalogStr(li->li_Catalog,stringNum,builtIn));
-#define LocaleBase XLocaleBase
-#undef XLocaleBase
+	while(ccb < ccb_stop && ccb->ccb_StringSize > 0)
+	{
+		if(ccb->ccb_ID == stringNum)
+		{
+			builtin = (STRPTR)&ccb[1];
+			break;
+		}
 
-    return(builtIn);
+		ccb = (struct CatCompBlockType *)&((BYTE *)ccb)[sizeof(*ccb) + ccb->ccb_StringSize];
+	}
+
+	if(li != NULL && li->li_LocaleBase != NULL)
+	{
+		struct Library * LocaleBase = li->li_LocaleBase;
+
+		result = GetCatalogStr(li->li_Catalog, stringNum, builtin);
+	}
+	else
+	{
+		result = builtin;
+	}
+
+	return(result);
 }
 
 

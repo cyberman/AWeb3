@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -18,6 +19,19 @@
 /* cfgnw.c - AWebCfg network window */
 
 #include "awebcfg.h"
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <reaction/reaction_author.h>
+#include <intuition/intuition.h>
+#include <images/bevel.h>
+#include <gadgets/layout.h>
+#include <gadgets/button.h>
+#include <gadgets/listbrowser.h>
+#include <classes/window.h>
+#include <proto/intuition.h>
+#include <proto/alib.h>
+
+extern ULONG DoMethod(Object *obj, ULONG methodID, ...);
 
 ULONG nwmask=0;
 
@@ -128,8 +142,8 @@ static void Makenocookielist(struct List *list)
 static void *Makeoptionspage(void)
 {  static UBYTE maxdkey[2],loixkey[2];
    void *object,*layout1,*layout2;
-   maxdkey[0]=*Hotkey(AWEBSTR(MSG_SET_NETWORK_MAXDISK));
-   loixkey[0]=*Hotkey(AWEBSTR(MSG_SET_NETWORK_LOCALINDEX));
+   maxdkey[0]=*Hotkey(CFGAWEBSTR(MSG_SET_NETWORK_MAXDISK));
+   loixkey[0]=*Hotkey(CFGAWEBSTR(MSG_SET_NETWORK_LOCALINDEX));
    object=
    VLayoutObject,
       LAYOUT_VertAlignment,LALIGN_TOP,
@@ -140,15 +154,15 @@ static void *Makeoptionspage(void)
             CHOOSER_Labels,&imgllist,
             CHOOSER_Active,nwp.loadimg,
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_NETWORK_IMGLOAD)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_NETWORK_IMGLOAD)),
          StartImage,LabelObject,
-            LABEL_Text,AWEBSTR(MSG_SET_NETWORK_LOCALINDEX),
+            LABEL_Text,CFGAWEBSTR(MSG_SET_NETWORK_LOCALINDEX),
          EndImage,
          StartMember,loixgad=StringObject,
             GA_TabCycle,TRUE,
             STRINGA_TextVal,nwp.localindex,
             STRINGA_MaxChars,127,
-            CLASSACT_CommKey,loixkey,
+            REACTION_CommKey,loixkey,
          EndMember,
       EndMember,
       CHILD_WeightedHeight,0,
@@ -167,9 +181,9 @@ static void *Makeoptionspage(void)
             GA_Disabled,TRUE,
 #endif
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_NETWORK_MAXCONN)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_NETWORK_MAXCONN)),
          StartImage,LabelObject,
-            LABEL_Text,AWEBSTR(MSG_SET_NETWORK_MAXDISK),
+            LABEL_Text,CFGAWEBSTR(MSG_SET_NETWORK_MAXDISK),
          EndImage,
          StartMember,maxdgad=IntegerObject,
             GA_TabCycle,TRUE,
@@ -180,7 +194,7 @@ static void *Makeoptionspage(void)
             INTEGER_Maximum,2,
 #endif
             INTEGER_Number,nwp.maxdiskread,
-            CLASSACT_CommKey,maxdkey,
+            REACTION_CommKey,maxdkey,
          EndMember,
       EndMember,
       CHILD_WeightedHeight,0,
@@ -190,7 +204,7 @@ static void *Makeoptionspage(void)
             STRINGA_TextVal,nwp.homeurl,
             STRINGA_MaxChars,127,
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_NETWORK_HOMEPAGE)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_NETWORK_HOMEPAGE)),
          StartMember,HLayoutObject,
             LAYOUT_SpaceInner,FALSE,
             StartMember,srchgad=StringObject,
@@ -207,19 +221,19 @@ static void *Makeoptionspage(void)
             GA_Disabled,TRUE,
 #endif
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_NETWORK_AUTOSEARCHURL)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_NETWORK_AUTOSEARCHURL)),
       EndMember,
       CHILD_WeightedHeight,0,
       StartMember,HLayoutObject,
          StartMember,VLayoutObject,
             StartMember,VLayoutObject,
                StartMember,sthpgad=CheckBoxObject,
-                  GA_Text,AWEBSTR(MSG_SET_NETWORK_STARTHOME),
+                  GA_Text,CFGAWEBSTR(MSG_SET_NETWORK_STARTHOME),
                   GA_Selected,nwp.starthomepage,
                EndMember,
                CHILD_WeightedWidth,0,
                StartMember,igsmgad=CheckBoxObject,
-                  GA_Text,AWEBSTR(MSG_SET_NETWORK_IGNORE),
+                  GA_Text,CFGAWEBSTR(MSG_SET_NETWORK_IGNORE),
                   GA_Selected,nwp.ignoremime,
 #ifdef LOCALONLY
                   GA_Disabled,TRUE,
@@ -227,7 +241,7 @@ static void *Makeoptionspage(void)
                EndMember,
                CHILD_WeightedWidth,0,
                StartMember,asrhgad=CheckBoxObject,
-                  GA_Text,AWEBSTR(MSG_SET_NETWORK_AUTOSEARCH),
+                  GA_Text,CFGAWEBSTR(MSG_SET_NETWORK_AUTOSEARCH),
                   GA_Selected,nwp.autosearch,
 #ifdef DEMOVERSION
                   GA_Disabled,TRUE,
@@ -235,12 +249,12 @@ static void *Makeoptionspage(void)
                EndMember,
                CHILD_WeightedWidth,0,
                StartMember,canigad=CheckBoxObject,
-                  GA_Text,AWEBSTR(MSG_SET_NETWORK_CONTANIM),
+                  GA_Text,CFGAWEBSTR(MSG_SET_NETWORK_CONTANIM),
                   GA_Selected,nwp.contanim,
                EndMember,
                CHILD_WeightedWidth,0,
                StartMember,rstigad=CheckBoxObject,
-                  GA_Text,AWEBSTR(MSG_SET_NETWORK_RESTRICT_IMAGES),
+                  GA_Text,CFGAWEBSTR(MSG_SET_NETWORK_RESTRICT_IMAGES),
                   GA_Selected,nwp.restrictimages,
                EndMember,
                CHILD_WeightedWidth,0,
@@ -269,13 +283,13 @@ static void *Makeoptionspage(void)
                GA_Disabled,TRUE,
 #endif
             EndMember,
-            MemberLabel(AWEBSTR(MSG_SET_NETWORK_SPOOFID)),
+            MemberLabel(CFGAWEBSTR(MSG_SET_NETWORK_SPOOFID)),
             StartMember,HLayoutObject,
                LAYOUT_HorizAlignment,LALIGN_RIGHT,
                StartMember,SpaceObject,
                EndMember,
                StartImage,LabelObject,
-                  LABEL_Text,AWEBSTR(MSG_SET_NETWORK_SPOOFID_EXPL),
+                  LABEL_Text,CFGAWEBSTR(MSG_SET_NETWORK_SPOOFID_EXPL),
                   LABEL_Justification,LJ_RIGHT,
                EndImage,
             EndMember,
@@ -313,7 +327,7 @@ static void *Makeprogramspage(void)
          GA_ID,PGID_NWPRGTP,
          GA_RelVerify,TRUE,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_NWPRG_TYPE)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_NWPRG_TYPE)),
       StartMember,HLayoutObject,
          LAYOUT_SpaceInner,FALSE,
          StartMember,prgcmdgad=StringObject,
@@ -330,7 +344,7 @@ static void *Makeprogramspage(void)
          EndMember,
          CHILD_MaxWidth,20,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_NWPRG_CMD)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_NWPRG_CMD)),
       StartMember,HLayoutObject,
          LAYOUT_SpaceInner,FALSE,
          StartMember,prgargsgad=StringObject,
@@ -346,7 +360,7 @@ static void *Makeprogramspage(void)
             CHOOSER_AutoFit,TRUE,
          EndMember,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_NWPRG_ARGS)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_NWPRG_ARGS)),
 #ifdef DEMOVERSION
       GA_Disabled,TRUE,
 #endif
@@ -383,7 +397,7 @@ static void *Makeproxypage(void)
             GA_ID,PGID_PRXTP,
             GA_RelVerify,TRUE,
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_PROXY_TYPE)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_PROXY_TYPE)),
          CHILD_WeightedWidth,0,
          StartMember,proxygad=StringObject,
             GA_TabCycle,TRUE,
@@ -392,17 +406,17 @@ static void *Makeproxypage(void)
             GA_ID,PGID_PROXY,
             GA_RelVerify,TRUE,
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_PROXY_NAME)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_PROXY_NAME)),
       EndMember,
       CHILD_WeightedHeight,0,
       StartMember,lmpxgad=CheckBoxObject,
-         GA_Text,AWEBSTR(MSG_SET_PROXY_LIMITED),
+         GA_Text,CFGAWEBSTR(MSG_SET_PROXY_LIMITED),
          GA_Selected,nwp.limitproxy,
       EndMember,
       CHILD_WeightedWidth,0,
       CHILD_WeightedHeight,0,
       StartMember,pftpgad=CheckBoxObject,
-         GA_Text,AWEBSTR(MSG_SET_PROXY_PASSIVEFTP),
+         GA_Text,CFGAWEBSTR(MSG_SET_PROXY_PASSIVEFTP),
          GA_Selected,nwp.passiveftp,
       EndMember,
       CHILD_WeightedWidth,0,
@@ -410,7 +424,7 @@ static void *Makeproxypage(void)
       StartMember,HLayoutObject,
          LAYOUT_SpaceOuter,TRUE,
          LAYOUT_BevelStyle,BVS_GROUP,
-         LAYOUT_Label,AWEBSTR(MSG_SET_PROXY_NOPROXYLABEL),
+         LAYOUT_Label,CFGAWEBSTR(MSG_SET_PROXY_NOPROXYLABEL),
          StartMember,noprlistgad=ListBrowserObject,
             GA_ID,PGID_NOPRLIST,
             GA_RelVerify,TRUE,
@@ -423,12 +437,12 @@ static void *Makeproxypage(void)
             StartMember,ButtonObject,
                GA_ID,PGID_NOPRADD,
                GA_RelVerify,TRUE,
-               GA_Text,AWEBSTR(MSG_SET_PROXY_NOPROXYADD),
+               GA_Text,CFGAWEBSTR(MSG_SET_PROXY_NOPROXYADD),
             EndMember,
             StartMember,noprdelgad=ButtonObject,
                GA_ID,PGID_NOPRDEL,
                GA_RelVerify,TRUE,
-               GA_Text,AWEBSTR(MSG_SET_PROXY_NOPROXYDEL),
+               GA_Text,CFGAWEBSTR(MSG_SET_PROXY_NOPROXYDEL),
                GA_Disabled,!noproxylist.lh_Head->ln_Succ,
             EndMember,
          EndMember,
@@ -483,7 +497,7 @@ static void *Makecachepage(void)
          GA_Disabled,TRUE,
 #endif
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_CACHE_CACHEPATH)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_CACHE_CACHEPATH)),
       CHILD_WeightedHeight,0,
       CHILD_WeightedHeight,0,
       StartMember,HLayoutObject,
@@ -494,10 +508,10 @@ static void *Makecachepage(void)
             CHOOSER_Labels,&caverifylist,
             CHOOSER_Active,nwp.caverify,
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_CACHE_VERIFY)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_CACHE_VERIFY)),
          CHILD_WeightedWidth,0,
          StartMember,cafrgad=CheckBoxObject,
-            GA_Text,AWEBSTR(MSG_SET_CACHE_FASTRESPONSE),
+            GA_Text,CFGAWEBSTR(MSG_SET_CACHE_FASTRESPONSE),
             GA_Selected,nwp.fastresponse,
             GA_Disabled,(nwp.caverify==CAVERIFY_NEVER),
          EndMember,
@@ -512,7 +526,7 @@ static void *Makecachepage(void)
             StartMember,VLayoutObject,
                LAYOUT_SpaceOuter,TRUE,
                LAYOUT_BevelStyle,BVS_GROUP,
-               LAYOUT_Label,AWEBSTR(MSG_SET_CACHE_SIZELABEL),
+               LAYOUT_Label,CFGAWEBSTR(MSG_SET_CACHE_SIZELABEL),
                StartMember,camegad=IntegerObject,
                   GA_TabCycle,TRUE,
                   INTEGER_Minimum,50,
@@ -520,7 +534,7 @@ static void *Makecachepage(void)
                   INTEGER_Number,nwp.camemsize,
                EndMember,
                CHILD_MaxWidth,120,
-               MemberLabel(AWEBSTR(MSG_SET_CACHE_DOCMEM)),
+               MemberLabel(CFGAWEBSTR(MSG_SET_CACHE_DOCMEM)),
                StartMember,cadigad=IntegerObject,
                   GA_TabCycle,TRUE,
                   INTEGER_Minimum,0,
@@ -531,12 +545,12 @@ static void *Makecachepage(void)
 #endif
                EndMember,
                CHILD_MaxWidth,120,
-               MemberLabel(AWEBSTR(MSG_SET_CACHE_DOCDISK)),
+               MemberLabel(CFGAWEBSTR(MSG_SET_CACHE_DOCDISK)),
             EndMember,
             StartMember,VLayoutObject,
                LAYOUT_SpaceOuter,TRUE,
                LAYOUT_BevelStyle,BVS_GROUP,
-               LAYOUT_Label,AWEBSTR(MSG_SET_CACHE_FREELABEL),
+               LAYOUT_Label,CFGAWEBSTR(MSG_SET_CACHE_FREELABEL),
                StartMember,frecgad=IntegerObject,
                   GA_TabCycle,TRUE,
                   INTEGER_Minimum,0,
@@ -544,7 +558,7 @@ static void *Makecachepage(void)
                   INTEGER_Number,nwp.minfreechip,
                EndMember,
                CHILD_MaxWidth,120,
-               MemberLabel(AWEBSTR(MSG_SET_CACHE_CHIP)),
+               MemberLabel(CFGAWEBSTR(MSG_SET_CACHE_CHIP)),
                StartMember,frefgad=IntegerObject,
                   GA_TabCycle,TRUE,
                   INTEGER_Minimum,0,
@@ -552,7 +566,7 @@ static void *Makecachepage(void)
                   INTEGER_Number,nwp.minfreefast,
                EndMember,
                CHILD_MaxWidth,120,
-               MemberLabel(AWEBSTR(MSG_SET_CACHE_FAST)),
+               MemberLabel(CFGAWEBSTR(MSG_SET_CACHE_FAST)),
             EndMember,
          EndMember,
       EndMember,
@@ -560,7 +574,7 @@ static void *Makecachepage(void)
       StartMember,HLayoutObject,
          LAYOUT_SpaceOuter,TRUE,
          LAYOUT_BevelStyle,BVS_GROUP,
-         LAYOUT_Label,AWEBSTR(MSG_SET_CACHE_NOCACHELABEL),
+         LAYOUT_Label,CFGAWEBSTR(MSG_SET_CACHE_NOCACHELABEL),
          StartMember,nocalistgad=ListBrowserObject,
             GA_ID,PGID_NOCALIST,
             GA_RelVerify,TRUE,
@@ -573,12 +587,12 @@ static void *Makecachepage(void)
             StartMember,ButtonObject,
                GA_ID,PGID_NOCAADD,
                GA_RelVerify,TRUE,
-               GA_Text,AWEBSTR(MSG_SET_CACHE_NOCACHEADD),
+               GA_Text,CFGAWEBSTR(MSG_SET_CACHE_NOCACHEADD),
             EndMember,
             StartMember,nocadelgad=ButtonObject,
                GA_ID,PGID_NOCADEL,
                GA_RelVerify,TRUE,
-               GA_Text,AWEBSTR(MSG_SET_CACHE_NOCACHEDEL),
+               GA_Text,CFGAWEBSTR(MSG_SET_CACHE_NOCACHEDEL),
                GA_Disabled,!nocachelist.lh_Head->ln_Succ,
             EndMember,
          EndMember,
@@ -597,28 +611,28 @@ static void *Makeprivacypage(void)
       LAYOUT_VertAlignment,LALIGN_TOP,
       StartMember,VLayoutObject,
          StartMember,anongad=CheckBoxObject,
-            GA_Text,AWEBSTR(MSG_SET_NETWORK_ANONYMOUS),
+            GA_Text,CFGAWEBSTR(MSG_SET_NETWORK_ANONYMOUS),
             GA_Selected,!nwp.referer,
 #ifdef LOCALONLY
             GA_Disabled,TRUE,
 #endif
          EndMember,
          StartMember,fowagad=CheckBoxObject,
-            GA_Text,AWEBSTR(MSG_SET_NETWORK_FORMWARN),
+            GA_Text,CFGAWEBSTR(MSG_SET_NETWORK_FORMWARN),
             GA_Selected,nwp.formwarn,
 #ifdef DEMOVERSION
             GA_Disabled,TRUE,
 #endif
          EndMember,
          StartMember,spamgad=CheckBoxObject,
-            GA_Text,AWEBSTR(MSG_SET_NETWORK_SPAMBLOCK),
+            GA_Text,CFGAWEBSTR(MSG_SET_NETWORK_SPAMBLOCK),
             GA_Selected,nwp.spamblock,
 #ifdef LOCALONLY
             GA_Disabled,TRUE,
 #endif
          EndMember,
          StartMember,ftpegad=CheckBoxObject,
-            GA_Text,AWEBSTR(MSG_SET_NETWORK_FTPEMAILADDR),
+            GA_Text,CFGAWEBSTR(MSG_SET_NETWORK_FTPEMAILADDR),
             GA_Selected,nwp.ftpemailaddr,
 #ifdef LOCALONLY
             GA_Disabled,TRUE,
@@ -636,7 +650,7 @@ static void *Makeprivacypage(void)
                GA_Disabled,TRUE,
 #endif
             EndMember,
-            MemberLabel(AWEBSTR(MSG_SET_NETWORK_COOKIES)),
+            MemberLabel(CFGAWEBSTR(MSG_SET_NETWORK_COOKIES)),
             StartMember,rfccgad=CheckBoxObject,
                GA_Text,"RFC 210_9",       /***** Localize this.... ****/
                GA_Selected,nwp.rfc2109,
@@ -650,7 +664,7 @@ static void *Makeprivacypage(void)
          StartMember,HLayoutObject,
             LAYOUT_SpaceOuter,TRUE,
             LAYOUT_BevelStyle,BVS_GROUP,
-            LAYOUT_Label,AWEBSTR(MSG_SET_NETWORK_NOCOOKIELABEL),
+            LAYOUT_Label,CFGAWEBSTR(MSG_SET_NETWORK_NOCOOKIELABEL),
             StartMember,nocolistgad=ListBrowserObject,
                GA_ID,PGID_NOCOLIST,
                GA_RelVerify,TRUE,
@@ -663,12 +677,12 @@ static void *Makeprivacypage(void)
                StartMember,ButtonObject,
                   GA_ID,PGID_NOCOADD,
                   GA_RelVerify,TRUE,
-                  GA_Text,AWEBSTR(MSG_SET_NETWORK_NOCOOKIEADD),
+                  GA_Text,CFGAWEBSTR(MSG_SET_NETWORK_NOCOOKIEADD),
                EndMember,
                StartMember,nocodelgad=ButtonObject,
                   GA_ID,PGID_NOCODEL,
                   GA_RelVerify,TRUE,
-                  GA_Text,AWEBSTR(MSG_SET_NETWORK_NOCOOKIEDEL),
+                  GA_Text,CFGAWEBSTR(MSG_SET_NETWORK_NOCOOKIEDEL),
                   GA_Disabled,!nocookielist.lh_Head->ln_Succ,
                EndMember,
             EndMember,
@@ -691,7 +705,7 @@ static void *Makemailaddresspage(void)
          STRINGA_TextVal,nwp.emailaddr,
          STRINGA_MaxChars,127,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_MAIL_ADDRESS)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_MAIL_ADDRESS)),
       CHILD_WeightedHeight,0,
       StartMember,mnfngad=StringObject,
          GA_TabCycle,TRUE,
@@ -699,7 +713,7 @@ static void *Makemailaddresspage(void)
          STRINGA_MaxChars,127,
          GA_Disabled,nwp.extmailer && nwp.extnewsreader,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_MAIL_REALNAME)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_MAIL_REALNAME)),
       CHILD_WeightedHeight,0,
       StartMember,mnregad=StringObject,
          GA_TabCycle,TRUE,
@@ -707,7 +721,7 @@ static void *Makemailaddresspage(void)
          STRINGA_MaxChars,127,
          GA_Disabled,nwp.extnewsreader,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_MAIL_REPLYTO)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_MAIL_REPLYTO)),
       CHILD_WeightedHeight,0,
       StartMember,mnorgad=StringObject,
          GA_TabCycle,TRUE,
@@ -715,7 +729,7 @@ static void *Makemailaddresspage(void)
          STRINGA_MaxChars,127,
          GA_Disabled,nwp.extnewsreader,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_MAIL_ORGANIZATION)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_MAIL_ORGANIZATION)),
       CHILD_WeightedHeight,0,
       StartMember,HLayoutObject,
          LAYOUT_SpaceInner,FALSE,
@@ -733,7 +747,7 @@ static void *Makemailaddresspage(void)
          EndMember,
          CHILD_MaxWidth,20,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_MAIL_SIGNATURE)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_MAIL_SIGNATURE)),
       CHILD_WeightedHeight,0,
 #ifdef LOCALONLY
       GA_Disabled,TRUE,
@@ -751,7 +765,7 @@ static void *Makemailmailpage(void)
          STRINGA_MaxChars,127,
          GA_Disabled,nwp.extmailer,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_MAIL_SMTPHOST)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_MAIL_SMTPHOST)),
       CHILD_WeightedHeight,0,
       StartMember,HLayoutObject,
          LAYOUT_SpaceInner,FALSE,
@@ -768,12 +782,12 @@ static void *Makemailmailpage(void)
             GA_Disabled,nwp.extmailer,
          EndMember,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_MAIL_MAILQUOTEHDR)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_MAIL_MAILQUOTEHDR)),
       CHILD_WeightedHeight,0,
       StartMember,mnemgad=CheckBoxObject,
          GA_ID,PGID_MNEM,
          GA_RelVerify,TRUE,
-         GA_Text,AWEBSTR(MSG_SET_MAIL_EXTMAILER),
+         GA_Text,CFGAWEBSTR(MSG_SET_MAIL_EXTMAILER),
          GA_Selected,nwp.extmailer,
       EndMember,
       CHILD_WeightedHeight,0,
@@ -793,7 +807,7 @@ static void *Makemailmailpage(void)
          EndMember,
          CHILD_MaxWidth,20,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_MAIL_EXTMCOMMAND)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_MAIL_EXTMCOMMAND)),
       CHILD_WeightedHeight,0,
       StartMember,HLayoutObject,
          LAYOUT_SpaceInner,FALSE,
@@ -810,7 +824,7 @@ static void *Makemailmailpage(void)
             GA_Disabled,!nwp.extmailer,
          EndMember,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_MAIL_EXTMARGS)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_MAIL_EXTMARGS)),
       CHILD_WeightedHeight,0,
 #ifdef LOCALONLY
       GA_Disabled,TRUE,
@@ -828,7 +842,7 @@ static void *Makemailnewspage(void)
          STRINGA_MaxChars,127,
          GA_Disabled,nwp.extnewsreader,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_MAIL_NNTPHOST)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_MAIL_NNTPHOST)),
       CHILD_WeightedHeight,0,
       StartMember,HLayoutObject,
          LAYOUT_SpaceInner,FALSE,
@@ -845,7 +859,7 @@ static void *Makemailnewspage(void)
             GA_Disabled,nwp.extnewsreader,
          EndMember,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_MAIL_NEWSQUOTEHDR)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_MAIL_NEWSQUOTEHDR)),
       CHILD_WeightedHeight,0,
       StartMember,mnaugad=StringObject,
          GA_TabCycle,TRUE,
@@ -853,7 +867,7 @@ static void *Makemailnewspage(void)
          STRINGA_MaxChars,127,
          GA_Disabled,nwp.extnewsreader,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_MAIL_NEWSUSER)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_MAIL_NEWSUSER)),
       CHILD_WeightedHeight,0,
       StartMember,mnapgad=StringObject,
          GA_TabCycle,TRUE,
@@ -861,12 +875,12 @@ static void *Makemailnewspage(void)
          STRINGA_MaxChars,127,
          GA_Disabled,nwp.extnewsreader,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_MAIL_NEWSPASSWORD)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_MAIL_NEWSPASSWORD)),
       CHILD_WeightedHeight,0,
       StartMember,mnengad=CheckBoxObject,
          GA_ID,PGID_MNEN,
          GA_RelVerify,TRUE,
-         GA_Text,AWEBSTR(MSG_SET_MAIL_EXTNEWS),
+         GA_Text,CFGAWEBSTR(MSG_SET_MAIL_EXTNEWS),
          GA_Selected,nwp.extnewsreader,
       EndMember,
       CHILD_WeightedHeight,0,
@@ -886,7 +900,7 @@ static void *Makemailnewspage(void)
          EndMember,
          CHILD_MaxWidth,20,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_MAIL_EXTNCOMMAND)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_MAIL_EXTNCOMMAND)),
       CHILD_WeightedHeight,0,
       StartMember,HLayoutObject,
          LAYOUT_SpaceInner,FALSE,
@@ -903,7 +917,7 @@ static void *Makemailnewspage(void)
             GA_Disabled,!nwp.extnewsreader,
          EndMember,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_MAIL_EXTNARGS)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_MAIL_EXTNARGS)),
       CHILD_WeightedHeight,0,
 #ifdef LOCALONLY
       GA_Disabled,TRUE,
@@ -921,35 +935,35 @@ static void *Makemailoptionspage(void)
          INTEGER_Maximum,1000,
          INTEGER_Number,nwp.maxartnews,
       EndMember,
-      MemberLabel(AWEBSTR(MSG_SET_MAIL_MAXARTICLES)),
+      MemberLabel(CFGAWEBSTR(MSG_SET_MAIL_MAXARTICLES)),
       CHILD_WeightedHeight,0,
       CHILD_MaxWidth,120,
       StartMember,mnsogad=CheckBoxObject,
-         GA_Text,AWEBSTR(MSG_SET_MAIL_SORTED),
+         GA_Text,CFGAWEBSTR(MSG_SET_MAIL_SORTED),
          GA_Selected,nwp.sortednews,
          GA_Disabled,nwp.extnewsreader,
       EndMember,
       CHILD_WeightedHeight,0,
       StartMember,mnfrgad=CheckBoxObject,
-         GA_Text,AWEBSTR(MSG_SET_MAIL_FRAMED),
+         GA_Text,CFGAWEBSTR(MSG_SET_MAIL_FRAMED),
          GA_Selected,nwp.framednews,
          GA_Disabled,nwp.extnewsreader,
       EndMember,
       CHILD_WeightedHeight,0,
       StartMember,mnlogad=CheckBoxObject,
-         GA_Text,AWEBSTR(MSG_SET_MAIL_LONGHDRS),
+         GA_Text,CFGAWEBSTR(MSG_SET_MAIL_LONGHDRS),
          GA_Selected,nwp.longhdrnews,
          GA_Disabled,nwp.extnewsreader,
       EndMember,
       CHILD_WeightedHeight,0,
       StartMember,mnprgad=CheckBoxObject,
-         GA_Text,AWEBSTR(MSG_SET_MAIL_PROPFONT),
+         GA_Text,CFGAWEBSTR(MSG_SET_MAIL_PROPFONT),
          GA_Selected,nwp.propnews,
          GA_Disabled,nwp.extnewsreader,
       EndMember,
       CHILD_WeightedHeight,0,
       StartMember,mnnngad=CheckBoxObject,
-         GA_Text,AWEBSTR(MSG_SET_MAIL_NEWSBYNUMBER),
+         GA_Text,CFGAWEBSTR(MSG_SET_MAIL_NEWSBYNUMBER),
          GA_Selected,nwp.newsbynum,
          GA_Disabled,nwp.extnewsreader,
       EndMember,
@@ -1028,7 +1042,7 @@ static void Donocolist(void)
          LISTBROWSER_EditColumn,0,
          LISTBROWSER_EditNode,selected,
          TAG_END);
-      ActivateLayoutGadget(toplayout,window,NULL,nocolistgad);
+      ActivateLayoutGadget(toplayout,window,0L,(ULONG)nocolistgad);
    }
 }
 
@@ -1056,7 +1070,7 @@ static void Donocoadd(void)
       LISTBROWSER_EditNode,n,
       LISTBROWSER_EditTags,strtags,
       TAG_END);
-   ActivateLayoutGadget(toplayout,window,NULL,nocolistgad);
+   ActivateLayoutGadget(toplayout,window,0L,(ULONG)nocolistgad);
 }
 
 /* delete current nocookie */
@@ -1164,7 +1178,7 @@ static void Donoprlist(void)
          LISTBROWSER_EditColumn,0,
          LISTBROWSER_EditNode,selected,
          TAG_END);
-      ActivateLayoutGadget(toplayout,window,NULL,noprlistgad);
+      ActivateLayoutGadget(toplayout,window,0L,(ULONG)noprlistgad);
    }
 }
 
@@ -1192,7 +1206,7 @@ static void Donopradd(void)
       LISTBROWSER_EditNode,n,
       LISTBROWSER_EditTags,strtags,
       TAG_END);
-   ActivateLayoutGadget(toplayout,window,NULL,noprlistgad);
+   ActivateLayoutGadget(toplayout,window,0L,(ULONG)noprlistgad);
 }
 
 /* delete current noproxy */
@@ -1263,7 +1277,7 @@ static void Donwprgcmd(void)
 /* handle program command popup */
 static void Donwprgpop(void)
 {  short code=Getvalue(prgtpgad,CHOOSER_Active);
-   Popfile(winobject,window,toplayout,AWEBSTR(prgpopmsg[code]),prgcmdgad);
+   Popfile(winobject,window,toplayout,CFGAWEBSTR(prgpopmsg[code]),prgcmdgad);
    Donwprgcmd();
 }
 
@@ -1280,7 +1294,7 @@ static void Donwprgargs(void)
 
 /* handle cache file popup */
 static void Dopopcapa(void)
-{  Popdrawer(winobject,window,toplayout,AWEBSTR(MSG_SET_REQTITLE_CACHEPATH),capagad);
+{  Popdrawer(winobject,window,toplayout,CFGAWEBSTR(MSG_SET_REQTITLE_CACHEPATH),capagad);
 }
 
 /* en/disable fast response */
@@ -1325,7 +1339,7 @@ static void Donocalist(void)
          LISTBROWSER_EditColumn,0,
          LISTBROWSER_EditNode,selected,
          TAG_END);
-      ActivateLayoutGadget(toplayout,window,NULL,nocalistgad);
+      ActivateLayoutGadget(toplayout,window,0L,(ULONG)nocalistgad);
    }
 }
 
@@ -1353,7 +1367,7 @@ static void Donocaadd(void)
       LISTBROWSER_EditNode,n,
       LISTBROWSER_EditTags,strtags,
       TAG_END);
-   ActivateLayoutGadget(toplayout,window,NULL,nocalistgad);
+   ActivateLayoutGadget(toplayout,window,0L,(ULONG)nocalistgad);
 }
 
 /* delete current nocache */
@@ -1391,7 +1405,7 @@ static void Donocadel(void)
 
 /* Mail signature file popup */
 static void Dopopsigfile(void)
-{  Popfile(winobject,window,toplayout,AWEBSTR(MSG_SET_REQTITLE_SIGNATURE),mnsigad);
+{  Popfile(winobject,window,toplayout,CFGAWEBSTR(MSG_SET_REQTITLE_SIGNATURE),mnsigad);
 }
 
 /* External mailer */
@@ -1414,7 +1428,7 @@ static void Doextmailer(void)
 
 /* Mailto command popup */
 static void Dopopmailto(void)
-{  Popfile(winobject,window,toplayout,AWEBSTR(MSG_SET_REQTITLE_MAILTO),mltcgad);
+{  Popfile(winobject,window,toplayout,CFGAWEBSTR(MSG_SET_REQTITLE_MAILTO),mltcgad);
 }
 
 /* External newsreader */
@@ -1446,7 +1460,7 @@ static void Doextnewsreader(void)
 
 /* News command popup */
 static void Dopopnews(void)
-{  Popfile(winobject,window,toplayout,AWEBSTR(MSG_SET_REQTITLE_NEWS),nwscgad);
+{  Popfile(winobject,window,toplayout,CFGAWEBSTR(MSG_SET_REQTITLE_NEWS),nwscgad);
 }
 
 #endif /* !LOCALONLY */
@@ -1712,61 +1726,61 @@ static void Setdata(void)
 /*---------------------------------------------------------------------------*/
 
 static void Localize(void)
-{  tablabels[0]=AWEBSTR(MSG_SET_CTNW_OPTIONS);
-   tablabels[1]=AWEBSTR(MSG_SET_CTNW_PROGRAMS);
-   tablabels[2]=AWEBSTR(MSG_SET_CTNW_PROXY);
-   tablabels[3]=AWEBSTR(MSG_SET_CTNW_CACHE);
-   tablabels[4]=AWEBSTR(MSG_SET_CTNW_PRIVACY);
-   tablabels[5]=AWEBSTR(MSG_SET_CTNW_MAIL);
+{  tablabels[0]=CFGAWEBSTR(MSG_SET_CTNW_OPTIONS);
+   tablabels[1]=CFGAWEBSTR(MSG_SET_CTNW_PROGRAMS);
+   tablabels[2]=CFGAWEBSTR(MSG_SET_CTNW_PROXY);
+   tablabels[3]=CFGAWEBSTR(MSG_SET_CTNW_CACHE);
+   tablabels[4]=CFGAWEBSTR(MSG_SET_CTNW_PRIVACY);
+   tablabels[5]=CFGAWEBSTR(MSG_SET_CTNW_MAIL);
    tablabels[6]=NULL;
-   mailtablabels[0]=AWEBSTR(MSG_SET_MAIL_TAB_ADDRESS);
-   mailtablabels[1]=AWEBSTR(MSG_SET_MAIL_TAB_MAIL);
-   mailtablabels[2]=AWEBSTR(MSG_SET_MAIL_TAB_NEWS);
-   mailtablabels[3]=AWEBSTR(MSG_SET_MAIL_TAB_OPTIONS);
+   mailtablabels[0]=CFGAWEBSTR(MSG_SET_MAIL_TAB_ADDRESS);
+   mailtablabels[1]=CFGAWEBSTR(MSG_SET_MAIL_TAB_MAIL);
+   mailtablabels[2]=CFGAWEBSTR(MSG_SET_MAIL_TAB_NEWS);
+   mailtablabels[3]=CFGAWEBSTR(MSG_SET_MAIL_TAB_OPTIONS);
    mailtablabels[4]=NULL;
-   srchhelplabels[0]=AWEBSTR(MSG_SET_HLP_S);
+   srchhelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_S);
    srchhelplabels[1]=NULL;
-   mailhelplabels[0]=AWEBSTR(MSG_SET_HLP_E);
-   mailhelplabels[1]=AWEBSTR(MSG_SET_HLP_N);
+   mailhelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_E);
+   mailhelplabels[1]=CFGAWEBSTR(MSG_SET_HLP_N);
    mailhelplabels[2]=NULL;
-   ftphelplabels[0]=AWEBSTR(MSG_SET_HLP_H);
-   ftphelplabels[1]=AWEBSTR(MSG_SET_HLP_F);
-   ftphelplabels[2]=AWEBSTR(MSG_SET_HLP_N);
+   ftphelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_H);
+   ftphelplabels[1]=CFGAWEBSTR(MSG_SET_HLP_F);
+   ftphelplabels[2]=CFGAWEBSTR(MSG_SET_HLP_N);
    ftphelplabels[3]=NULL;
-   telnethelplabels[0]=AWEBSTR(MSG_SET_HLP_L);
-   telnethelplabels[1]=AWEBSTR(MSG_SET_HLP_W);
-   telnethelplabels[2]=AWEBSTR(MSG_SET_HLP_H);
-   telnethelplabels[3]=AWEBSTR(MSG_SET_HLP_P);
-   telnethelplabels[4]=AWEBSTR(MSG_SET_HLP_N);
+   telnethelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_L);
+   telnethelplabels[1]=CFGAWEBSTR(MSG_SET_HLP_W);
+   telnethelplabels[2]=CFGAWEBSTR(MSG_SET_HLP_H);
+   telnethelplabels[3]=CFGAWEBSTR(MSG_SET_HLP_P);
+   telnethelplabels[4]=CFGAWEBSTR(MSG_SET_HLP_N);
    telnethelplabels[5]=NULL;
-   newshelplabels[0]=AWEBSTR(MSG_SET_HLP_A);
-   newshelplabels[1]=AWEBSTR(MSG_SET_HLP_N);
+   newshelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_A);
+   newshelplabels[1]=CFGAWEBSTR(MSG_SET_HLP_N);
    newshelplabels[2]=NULL;
-   starttcphelplabels[0]=AWEBSTR(MSG_SET_HLP_N);
+   starttcphelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_N);
    starttcphelplabels[1]=NULL;
-   endtcphelplabels[0]=AWEBSTR(MSG_SET_HLP_NOARGS);
+   endtcphelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_NOARGS);
    endtcphelplabels[1]=NULL;
-   imgllabels[0]=AWEBSTR(MSG_SET_IMGL_OFF);
-   imgllabels[1]=AWEBSTR(MSG_SET_IMGL_MAPS);
-   imgllabels[2]=AWEBSTR(MSG_SET_IMGL_ALL);
+   imgllabels[0]=CFGAWEBSTR(MSG_SET_IMGL_OFF);
+   imgllabels[1]=CFGAWEBSTR(MSG_SET_IMGL_MAPS);
+   imgllabels[2]=CFGAWEBSTR(MSG_SET_IMGL_ALL);
    imgllabels[3]=NULL;
-   nwprgtplabels[1]=AWEBSTR(MSG_SET_NWPRG_STARTTCP);
-   nwprgtplabels[2]=AWEBSTR(MSG_SET_NWPRG_ENDTCP);
+   nwprgtplabels[1]=CFGAWEBSTR(MSG_SET_NWPRG_STARTTCP);
+   nwprgtplabels[2]=CFGAWEBSTR(MSG_SET_NWPRG_ENDTCP);
    nwprgtplabels[3]=NULL;
-   caverifylabels[0]=AWEBSTR(MSG_SET_CAVERIFY_ALWAYS);
-   caverifylabels[1]=AWEBSTR(MSG_SET_CAVERIFY_ONCE);
-   caverifylabels[2]=AWEBSTR(MSG_SET_CAVERIFY_NEVER);
+   caverifylabels[0]=CFGAWEBSTR(MSG_SET_CAVERIFY_ALWAYS);
+   caverifylabels[1]=CFGAWEBSTR(MSG_SET_CAVERIFY_ONCE);
+   caverifylabels[2]=CFGAWEBSTR(MSG_SET_CAVERIFY_NEVER);
    caverifylabels[3]=NULL;
-   cooklabels[0]=AWEBSTR(MSG_SET_COOKIES_NEVER);
-   cooklabels[1]=AWEBSTR(MSG_SET_COOKIES_ASK);
-   cooklabels[2]=AWEBSTR(MSG_SET_COOKIES_QUIET);
+   cooklabels[0]=CFGAWEBSTR(MSG_SET_COOKIES_NEVER);
+   cooklabels[1]=CFGAWEBSTR(MSG_SET_COOKIES_ASK);
+   cooklabels[2]=CFGAWEBSTR(MSG_SET_COOKIES_QUIET);
    cooklabels[3]=NULL;
-   qhdrhelplabels[0]=AWEBSTR(MSG_SET_HLP_D);
-   qhdrhelplabels[1]=AWEBSTR(MSG_SET_HLP_E);
-   qhdrhelplabels[2]=AWEBSTR(MSG_SET_HLP_G);
-   qhdrhelplabels[3]=AWEBSTR(MSG_SET_HLP_I3);
-   qhdrhelplabels[4]=AWEBSTR(MSG_SET_HLP_N2);
-   qhdrhelplabels[5]=AWEBSTR(MSG_SET_HLP_S2);
+   qhdrhelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_D);
+   qhdrhelplabels[1]=CFGAWEBSTR(MSG_SET_HLP_E);
+   qhdrhelplabels[2]=CFGAWEBSTR(MSG_SET_HLP_G);
+   qhdrhelplabels[3]=CFGAWEBSTR(MSG_SET_HLP_I3);
+   qhdrhelplabels[4]=CFGAWEBSTR(MSG_SET_HLP_N2);
+   qhdrhelplabels[5]=CFGAWEBSTR(MSG_SET_HLP_S2);
    qhdrhelplabels[6]=NULL;
 }
 
@@ -1777,25 +1791,63 @@ BOOL Opennetwork(void)
       ActivateWindow(window);
       return FALSE;
    }
-   NEWLIST(&tablist);
-   NEWLIST(&mailtablist);
-   NEWLIST(&imgllist);
-   NEWLIST(&cooklist);
-   NEWLIST(&nocookielist);
-   NEWLIST(&prxtplist);
-   NEWLIST(&noproxylist);
-   NEWLIST(&nwprgtplist);
-   NEWLIST(&srchhelplist);
-   NEWLIST(&mailhelplist);
-   NEWLIST(&ftphelplist);
-   NEWLIST(&telnethelplist);
-   NEWLIST(&newshelplist);
-   NEWLIST(&starttcphelplist);
-   NEWLIST(&endtcphelplist);
-   NEWLIST(&caverifylist);
-   NEWLIST(&nocachelist);
-   NEWLIST(&qhdrhelplist);
-   NEWLIST(&spoofidlist);
+   (&tablist)->lh_Head = (struct Node *)&((&tablist)->lh_Tail);
+   (&tablist)->lh_Tail = NULL;
+   (&tablist)->lh_TailPred = (struct Node *)&((&tablist)->lh_Head);
+   (&mailtablist)->lh_Head = (struct Node *)&((&mailtablist)->lh_Tail);
+   (&mailtablist)->lh_Tail = NULL;
+   (&mailtablist)->lh_TailPred = (struct Node *)&((&mailtablist)->lh_Head);
+   (&imgllist)->lh_Head = (struct Node *)&((&imgllist)->lh_Tail);
+   (&imgllist)->lh_Tail = NULL;
+   (&imgllist)->lh_TailPred = (struct Node *)&((&imgllist)->lh_Head);
+   (&cooklist)->lh_Head = (struct Node *)&((&cooklist)->lh_Tail);
+   (&cooklist)->lh_Tail = NULL;
+   (&cooklist)->lh_TailPred = (struct Node *)&((&cooklist)->lh_Head);
+   (&nocookielist)->lh_Head = (struct Node *)&((&nocookielist)->lh_Tail);
+   (&nocookielist)->lh_Tail = NULL;
+   (&nocookielist)->lh_TailPred = (struct Node *)&((&nocookielist)->lh_Head);
+   (&prxtplist)->lh_Head = (struct Node *)&((&prxtplist)->lh_Tail);
+   (&prxtplist)->lh_Tail = NULL;
+   (&prxtplist)->lh_TailPred = (struct Node *)&((&prxtplist)->lh_Head);
+   (&noproxylist)->lh_Head = (struct Node *)&((&noproxylist)->lh_Tail);
+   (&noproxylist)->lh_Tail = NULL;
+   (&noproxylist)->lh_TailPred = (struct Node *)&((&noproxylist)->lh_Head);
+   (&nwprgtplist)->lh_Head = (struct Node *)&((&nwprgtplist)->lh_Tail);
+   (&nwprgtplist)->lh_Tail = NULL;
+   (&nwprgtplist)->lh_TailPred = (struct Node *)&((&nwprgtplist)->lh_Head);
+   (&srchhelplist)->lh_Head = (struct Node *)&((&srchhelplist)->lh_Tail);
+   (&srchhelplist)->lh_Tail = NULL;
+   (&srchhelplist)->lh_TailPred = (struct Node *)&((&srchhelplist)->lh_Head);
+   (&mailhelplist)->lh_Head = (struct Node *)&((&mailhelplist)->lh_Tail);
+   (&mailhelplist)->lh_Tail = NULL;
+   (&mailhelplist)->lh_TailPred = (struct Node *)&((&mailhelplist)->lh_Head);
+   (&ftphelplist)->lh_Head = (struct Node *)&((&ftphelplist)->lh_Tail);
+   (&ftphelplist)->lh_Tail = NULL;
+   (&ftphelplist)->lh_TailPred = (struct Node *)&((&ftphelplist)->lh_Head);
+   (&telnethelplist)->lh_Head = (struct Node *)&((&telnethelplist)->lh_Tail);
+   (&telnethelplist)->lh_Tail = NULL;
+   (&telnethelplist)->lh_TailPred = (struct Node *)&((&telnethelplist)->lh_Head);
+   (&newshelplist)->lh_Head = (struct Node *)&((&newshelplist)->lh_Tail);
+   (&newshelplist)->lh_Tail = NULL;
+   (&newshelplist)->lh_TailPred = (struct Node *)&((&newshelplist)->lh_Head);
+   (&starttcphelplist)->lh_Head = (struct Node *)&((&starttcphelplist)->lh_Tail);
+   (&starttcphelplist)->lh_Tail = NULL;
+   (&starttcphelplist)->lh_TailPred = (struct Node *)&((&starttcphelplist)->lh_Head);
+   (&endtcphelplist)->lh_Head = (struct Node *)&((&endtcphelplist)->lh_Tail);
+   (&endtcphelplist)->lh_Tail = NULL;
+   (&endtcphelplist)->lh_TailPred = (struct Node *)&((&endtcphelplist)->lh_Head);
+   (&caverifylist)->lh_Head = (struct Node *)&((&caverifylist)->lh_Tail);
+   (&caverifylist)->lh_Tail = NULL;
+   (&caverifylist)->lh_TailPred = (struct Node *)&((&caverifylist)->lh_Head);
+   (&nocachelist)->lh_Head = (struct Node *)&((&nocachelist)->lh_Tail);
+   (&nocachelist)->lh_Tail = NULL;
+   (&nocachelist)->lh_TailPred = (struct Node *)&((&nocachelist)->lh_Head);
+   (&qhdrhelplist)->lh_Head = (struct Node *)&((&qhdrhelplist)->lh_Tail);
+   (&qhdrhelplist)->lh_Tail = NULL;
+   (&qhdrhelplist)->lh_TailPred = (struct Node *)&((&qhdrhelplist)->lh_Head);
+   (&spoofidlist)->lh_Head = (struct Node *)&((&spoofidlist)->lh_Tail);
+   (&spoofidlist)->lh_Tail = NULL;
+   (&spoofidlist)->lh_TailPred = (struct Node *)&((&spoofidlist)->lh_Head);
    if(!tablabels[0]) Localize();
    if(nport=CreateMsgPort())
    {  strcpy(prefsname1,"ENV:" DEFAULTCFG);
@@ -1836,7 +1888,7 @@ BOOL Opennetwork(void)
       Makechooserlist(&spoofidlist,spoofidlabels,FALSE);
       Makenocachelist(&nocachelist);
       winobject=WindowObject,
-            WA_Title,AWEBSTR(MSG_SET_REQTITLE_NETWORKWINDOW),
+            WA_Title,CFGAWEBSTR(MSG_SET_REQTITLE_NETWORKWINDOW),
             WA_Left,setprefs.netx,
             WA_Top,setprefs.nety,
             WA_InnerWidth,setprefs.netw,
@@ -1877,22 +1929,22 @@ BOOL Opennetwork(void)
                   LAYOUT_BevelStyle,BVS_SBAR_VERT,
                   LAYOUT_SpaceOuter,TRUE,
                   StartMember,ButtonObject,
-                     GA_Text,AWEBSTR(MSG_SET_SAVE),
+                     GA_Text,CFGAWEBSTR(MSG_SET_SAVE),
                      GA_ID,PGID_SAVE,
                      GA_RelVerify,TRUE,
                   EndMember,
                   StartMember,ButtonObject,
-                     GA_Text,AWEBSTR(MSG_SET_USE),
+                     GA_Text,CFGAWEBSTR(MSG_SET_USE),
                      GA_ID,PGID_USE,
                      GA_RelVerify,TRUE,
                   EndMember,
                   StartMember,ButtonObject,
-                     GA_Text,AWEBSTR(MSG_SET_TEST),
+                     GA_Text,CFGAWEBSTR(MSG_SET_TEST),
                      GA_ID,PGID_TEST,
                      GA_RelVerify,TRUE,
                   EndMember,
                   StartMember,ButtonObject,
-                     GA_Text,AWEBSTR(MSG_SET_CANCEL),
+                     GA_Text,CFGAWEBSTR(MSG_SET_CANCEL),
                      GA_ID,PGID_CANCEL,
                      GA_RelVerify,TRUE,
                   EndMember,
@@ -1901,7 +1953,7 @@ BOOL Opennetwork(void)
             End,
          EndWindow;
       if(winobject)
-      {  if(window=(struct Window *)CA_OpenWindow(winobject))
+      {  if(window=(struct Window *)RA_OpenWindow(winobject))
          {  
             if((menubar=CreateMenus(menubase,
                   GTMN_FrontPen,drawinfo->dri_Pens[BARDETAILPEN],
@@ -1928,7 +1980,7 @@ BOOL Processnetwork(void)
    struct Message *msg;
    UBYTE *path;
    while(!done
-    && (result=CA_HandleInput(winobject,&code))!=WMHI_LASTMSG)
+    && (result=RA_HandleInput(winobject,&code))!=WMHI_LASTMSG)
    {  switch(result&WMHI_CLASSMASK)
       {  case WMHI_CLOSEWINDOW:
             done=TRUE;
@@ -2070,7 +2122,7 @@ BOOL Processnetwork(void)
             switch(menuid)
             {  case MID_OPEN:
                   if(path=Filereq(winobject,window,toplayout,
-                     AWEBSTR(MSG_SET_REQTITLE_OPENNETWORK),"network",FALSE))
+                     CFGAWEBSTR(MSG_SET_REQTITLE_OPENNETWORK),"network",FALSE))
                   {  Disposenetworkprefs(&nwp);
                      Copynetworkprefs(&defprefs.network,&nwp);
                      Loadnetworkprefs(&nwp,FALSE,path);
@@ -2080,7 +2132,7 @@ BOOL Processnetwork(void)
                   break;
                case MID_SAVEAS:
                   if(path=Filereq(winobject,window,toplayout,
-                     AWEBSTR(MSG_SET_REQTITLE_SAVENETWORK),"network",TRUE))
+                     CFGAWEBSTR(MSG_SET_REQTITLE_SAVENETWORK),"network",TRUE))
                   {  Copydata();
                      Savenetworkprefs(&nwp,FALSE,path);
                      Savenocookieprefs(&nwp,FALSE,path);

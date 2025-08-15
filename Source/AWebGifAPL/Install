@@ -14,7 +14,7 @@
 )
 
 (set #no-aweb3
-   (cat "The \"AWeb3:\" assign was not found.\n\n"
+   (cat "The \"AWeb:\" assign was not found.\n\n"
         "This plugin can only be used with AWeb-II version 3.0 or higher."
    )
 )
@@ -35,14 +35,14 @@
 
 (message #welcome)
 
-(if (not (exists "AWeb3:"))
+(if (not (exists "AWeb:"))
    (abort #no-aweb3)
 )
 
 (complete 10)
 
-(if (not (exists "AWeb3:awebplugin"))
-   (makedir "AWeb3:awebplugin"
+(if (not (exists "AWeb:awebplugin"))
+   (makedir "AWeb:awebplugin"
       (infos)
    )
 )
@@ -51,14 +51,14 @@
 
 (copyfiles
    (source (tackon srcdir "awebgif.awebplugin"))
-   (dest "AWeb3:awebplugin")
+   (dest "AWeb:awebplugin")
    (infos)
 )
 
 (complete 50)
 
-(if (not (exists "AWeb3:awebplugin/Docs"))
-   (makedir "AWeb3:awebplugin/Docs"
+(if (not (exists "AWeb:awebplugin/Docs"))
+   (makedir "AWeb:awebplugin/Docs"
       (infos)
    )
 )
@@ -66,7 +66,7 @@
 (copyfiles
    (source srcdir)
    (choices "awebgif.html" "awebgif.awebrx")
-   (dest "AWeb3:awebplugin/Docs")
+   (dest "AWeb:awebplugin/Docs")
    (infos)
 )
 
@@ -79,10 +79,10 @@
       (default 1)
    )
    (
-      (run "run AWeb3:AWeb-II file:///AWeb3:awebplugin/Docs/awebgif.html")
+      (run "run AWeb:AWeb file:///AWeb:awebplugin/Docs/awebgif.html")
    )
 )
 
-(set @default-dest (expandpath "AWeb3:awebplugin"))
+(set @default-dest (expandpath "AWeb:awebplugin"))
 
 (complete 100)

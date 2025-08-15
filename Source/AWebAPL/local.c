@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -25,6 +26,9 @@
 #include "task.h"
 #include "form.h"
 #include <exec/ports.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/utility.h>
 
 #include <string.h>
 

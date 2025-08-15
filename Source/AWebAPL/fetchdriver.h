@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -51,6 +52,7 @@ struct Fetchdriver
 #define FDVF_JSOPEN        0x0008   /* Unclosed JS generated document */
 #define FDVF_SSL           0x0010   /* Use secure transfer if possible */
 #define FDVF_FORMWARN      0x0020   /* Warn if form is sent over unsecure link */
+#define FDVF_STREAMING     0x0040   /* Enable HTTP streaming for this request */
 
 #endif
 

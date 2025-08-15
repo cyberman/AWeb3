@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -25,12 +26,24 @@
 #include "frame.h"
 #include <intuition/intuition.h>
 #include <libraries/gadtools.h>
-#include <classact.h>
-#include <clib/exec_protos.h>
-#include <clib/alib_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/utility_protos.h>
+#include <classes/window.h>
+#include <gadgets/listbrowser.h>
+#include <gadgets/button.h>
+#include <gadgets/layout.h>
+#include <images/label.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <reaction/reaction_class.h>
+#include <proto/exec.h>
+#include <proto/alib.h>
+#include <proto/intuition.h>
+#include <proto/graphics.h>
+#include <proto/utility.h>
+#include <proto/listbrowser.h>
+#include <proto/button.h>
+#include <proto/layout.h>
+#include <proto/window.h>
+#include <proto/label.h>
 
 #ifndef DEMOVERSION
 
@@ -38,8 +51,8 @@
 
 struct Info
 {  struct Aobject object;
-   void *cawin;                     /* The ClassAct Window object. */
-   void *layout,*urlgad,*listgad;   /* The ClassAct gadget objects. */
+   void *cawin;                     /* The Reaction Window object. */
+void *layout,*urlgad,*listgad;   /* The Reaction gadget objects. */
    struct Window *window;           /* The Intuition Window. */
    struct List textlist;            /* List of LB entries */
    void *url;                       /* URL this info is for */
@@ -134,7 +147,7 @@ static void Processinfo(void)
       if(inf->cawin)
       {  done=FALSE;
          link=FALSE;
-         while(!done && (result=CA_HandleInput(inf->cawin,NULL))!=WMHI_LASTMSG)
+         while(!done && (result=RA_HandleInput(inf->cawin,NULL))!=WMHI_LASTMSG)
          {  switch(result&WMHI_CLASSMASK)
             {  case WMHI_CLOSEWINDOW:
                   done=TRUE;
@@ -322,7 +335,7 @@ static struct Info *Newinfo(struct Amset *ams)
                   GA_ReadOnly,TRUE,
                   GA_Text,urlname?urlname:NULLSTRING,
                   BUTTON_Justification,BCJ_LEFT,
-                  CLASSACT_Underscore,0,
+                  LABEL_Underscore,0,
                EndMember,
                CHILD_WeightedHeight,0,
                StartMember,inf->listgad=ListBrowserObject,
@@ -340,7 +353,7 @@ static struct Info *Newinfo(struct Amset *ams)
          End;
       }
       if(inf->cawin)
-      {  inf->window=CA_OpenWindow(inf->cawin);
+      {  inf->window=RA_OpenWindow(inf->cawin);
       }
       if(!inf->window)
       {  Disposeinfo(inf);

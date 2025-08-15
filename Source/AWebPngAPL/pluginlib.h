@@ -40,7 +40,7 @@
 #define PLUGIN_VERSION     1
 #define PLUGIN_REVISION    9
 #define PLUGIN_LIBNAME     "awebpng.awebplugin"
-#define PLUGIN_LIBID       "awebpng 1.9 " __AMIGADATE__
+#define PLUGIN_LIBID       "awebpng 1.10 " __AMIGADATE__
 #define PLUGIN_SIZE        sizeof(struct AwebPngBase)
 
 struct AwebPngBase

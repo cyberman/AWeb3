@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -21,9 +22,17 @@
 #include "awebcfg.h"
 #include "awebprefs.h"
 #include "keyfile.h"
+#include "ezlists.h"
 #include <intuition/intuition.h>
-#include <clib/intuition_protos.h>
-#include <clib/graphics_protos.h>
+#include <proto/exec.h>
+#include <proto/alib.h>
+#include <proto/dos.h>
+#include <proto/intuition.h>
+#include <proto/graphics.h>
+#include <proto/utility.h>
+#include <proto/icon.h>
+#include <proto/locale.h>
+#include <proto/colorwheel.h>
 
 #define CATCOMP_NUMBERS
 #include "locale.h"
@@ -168,12 +177,12 @@ struct Prefs defprefs=
       DEFMAXCONNECT,                         /* max connections */
       2,                                     /* max disk read */
 #ifdef NETDEMO
-      "file:///AWebPath:docs/full.html#full",
+      "file:///AWeb:docs/full.html#full",
 #else
-      "file:///AWebPath:docs/AWeb.html",     /* home url */
+      "file:///AWeb:docs/AWeb.html",     /* home url */
 #endif
       "index.html",                          /* local index */
-      "http://altavista.digital.com/cgi-bin/query?pg=q&q=%s",   /* search url */
+      "https://duckduckgo.com/?q=%s",   /* search url */
       "",                                    /* spoof ID */
       FALSE,                                 /* ignore mime */
       TRUE,                                  /* start home page */
@@ -190,7 +199,7 @@ struct Prefs defprefs=
       FALSE,                                 /* limit proxy */
       FALSE,                                 /* passive FTP */
       EMPTYLIST(Noproxy,defprefs.noproxy),   /* no proxy sites */
-      "AWebPath:Cache",                      /* cache path */
+      "AWeb:Cache",                          /* cache path */
       1024,10240,                            /* memsize, disksize */
       100,0,                                 /* min free chip,fast */
       CAVERIFY_ONCE,                         /* verification mode */
@@ -1179,7 +1188,7 @@ BOOL Initdefprefs(void)
    if(!Addmimeinfo(&defprefs.mimelist,
       "IMAGE","GIF","gif",
 #ifdef OSVERSION
-      MDRIVER_PLUGIN,"AWebPath:awebplugin/awebgif.awebplugin",""
+      MDRIVER_PLUGIN,"AWeb:awebplugin/awebgif.awebplugin",""
 #else
       MDRIVER_INTERNAL,"",""
 #endif
@@ -1187,7 +1196,7 @@ BOOL Initdefprefs(void)
    if(!Addmimeinfo(&defprefs.mimelist,
       "IMAGE","JPEG","jpg jpeg jpe jfif",
 #ifdef OSVERSION
-      MDRIVER_PLUGIN,"AWebPath:awebplugin/awebjfif.awebplugin",""
+      MDRIVER_PLUGIN,"AWeb:awebplugin/awebjfif.awebplugin",""
 #else
       MDRIVER_INTERNAL,"",""
 #endif
@@ -1197,7 +1206,7 @@ BOOL Initdefprefs(void)
    if(!Addmimeinfo(&defprefs.mimelist,
       "IMAGE","PNG","png",
 #ifdef OSVERSION
-      MDRIVER_PLUGIN,"AWebPath:awebplugin/awebpng.awebplugin",""
+      MDRIVER_PLUGIN,"AWeb:awebplugin/awebpng.awebplugin",""
 #else
       MDRIVER_INTERNAL,"",""
 #endif
@@ -1240,7 +1249,7 @@ BOOL Initdefprefs(void)
 #endif
    Adddefmenu(AMENU_ITEM,MSG_PROJECT_OPENLOCAL,"OPENREQ FILE");
 #ifndef DEMOVERSION
-   Adddefmenu(AMENU_ITEM,MSG_PROJECT_OPENSEARCH,"OPEN \"file:///AWebPath:extras/search.html\"");
+   Adddefmenu(AMENU_ITEM,MSG_PROJECT_OPENSEARCH,"OPEN \"file:///AWeb:extras/search.html\"");
 #endif
    Adddefmenu(AMENU_SEPARATOR,NULL,NULL);
    Adddefmenu(AMENU_ITEM,MSG_PROJECT_SEARCH,"SEARCH TARGET %i");
@@ -1344,13 +1353,13 @@ BOOL Initdefprefs(void)
    Adddefmenu(AMENU_ITEM,MSG_SETTINGS_BGIMAGES,"@BGIMAGES");
    Adddefmenu(AMENU_ITEM,MSG_SETTINGS_BGSOUND,"@BGSOUND");
    Adddefmenu(AMENU_SEPARATOR,NULL,NULL);
-   Adddefmenu(AMENU_ITEM,MSG_SETTINGS_BROWSER,"SYSTEM AWebPath:AWebCfg BROWSER CONFIG %c PUBSCREEN %n");
-   Adddefmenu(AMENU_ITEM,MSG_SETTINGS_PROGRAM,"SYSTEM AWebPath:AWebCfg PROGRAM CONFIG %c PUBSCREEN %n");
-   Adddefmenu(AMENU_ITEM,MSG_SETTINGS_GUI,"SYSTEM AWebPath:AWebCfg GUI CONFIG %c PUBSCREEN %n");
-   Adddefmenu(AMENU_ITEM,MSG_SETTINGS_NETWORK,"SYSTEM AWebPath:AWebCfg NETWORK CONFIG %c PUBSCREEN %n");
+   Adddefmenu(AMENU_ITEM,MSG_SETTINGS_BROWSER,"SYSTEM AWeb:AWebCfg BROWSER CONFIG %c PUBSCREEN %n");
+   Adddefmenu(AMENU_ITEM,MSG_SETTINGS_PROGRAM,"SYSTEM AWeb:AWebCfg PROGRAM CONFIG %c PUBSCREEN %n");
+   Adddefmenu(AMENU_ITEM,MSG_SETTINGS_GUI,"SYSTEM AWeb:AWebCfg GUI CONFIG %c PUBSCREEN %n");
+   Adddefmenu(AMENU_ITEM,MSG_SETTINGS_NETWORK,"SYSTEM AWeb:AWebCfg NETWORK CONFIG %c PUBSCREEN %n");
 #ifndef NEED35
    if(!has35)
-   {  Adddefmenu(AMENU_ITEM,MSG_SETTINGS_CLASSACT,"SYSTEM SYS:Prefs/ClassAct PUBSCREEN %n");
+   {  Adddefmenu(AMENU_ITEM,MSG_SETTINGS_CLASSACT,"SYSTEM SYS:Prefs/Reaction PUBSCREEN %n");
    }
 #endif
    Adddefmenu(AMENU_SEPARATOR,NULL,NULL);
@@ -1360,39 +1369,35 @@ BOOL Initdefprefs(void)
    Adddefmenu(AMENU_ITEM,MSG_SETTINGS_SNAPSHOT,"SNAPSHOT");
 
    Adddefmenu(AMENU_MENU,MSG_HELP_MENU,NULL);
-   Adddefmenu(AMENU_ITEM,MSG_HELP_HELP,"OPEN file:///AWebPAth:docs/aweb.html");
+   Adddefmenu(AMENU_ITEM,MSG_HELP_HELP,"OPEN file:///AWeb:docs/aweb.html");
    Adddefmenu(AMENU_SEPARATOR,NULL,NULL);
-   Adddefmenu(AMENU_ITEM,MSG_HELP_AWEBHOME,"OPEN http://www.amitrix.com/aweb.html");
-#ifdef COMMERCIAL
-   Adddefmenu(AMENU_ITEM,MSG_HELP_REGISTER,"OPEN http://www.amitrix.com/register.html");
-#endif
+   Adddefmenu(AMENU_ITEM,MSG_HELP_AWEBHOME,"OPEN http://www.amigazen.com");
 
-#ifndef DEMOVERSION
    Adddefmenu(AMENU_MENU,MSG_AREXX_MENU,NULL);
    Adddefmenu(AMENU_ITEM,MSG_AREXX_AREXX,"@AREXX");
    Adddefmenu(AMENU_SEPARATOR,NULL,NULL);
-#endif
+
 
 #ifndef LOCALONLY
-   if(!Adduserbutton(&defprefs.buttons,"AmiTrix",
-      "OPEN http://www.amitrix.com")) return FALSE;
+   if(!Adduserbutton(&defprefs.buttons,"Ami-Gazen",
+      "OPEN http://www.amigazen.com")) return FALSE;
 #endif
 #ifdef OSVERSION
    if(!Adduserbutton(&defprefs.buttons,"Modes",
-      "RUN AWebPath:plugins/awebmodes.awebrx")) return FALSE;
+      "RUN AWeb:plugins/awebmodes.awebrx")) return FALSE;
    if(!Adduserbutton(&defprefs.buttons,"DZone",
-      "RUN AWebPath:plugins/dropzone.awebrx")) return FALSE;
+      "RUN AWeb:plugins/dropzone.awebrx")) return FALSE;
    if(!Adduserbutton(&defprefs.buttons,"HTTX",
-      "RUN AWebPath:plugins/httx/httxplugincp.awebrx")) return FALSE;
+      "RUN AWeb:plugins/httx/httxplugincp.awebrx")) return FALSE;
    if(!Adduserbutton(&defprefs.buttons,"ToolBar",
-      "RUN AWebPath:plugins/toolbar.awebrx")) return FALSE;
+      "RUN AWeb:plugins/toolbar.awebrx")) return FALSE;
 #else
 #ifdef DEMOVERSION
    if(!Adduserbutton(&defprefs.buttons,"HTTX",
       "REQUEST HTTX \"This HTML to ASCII/ANSI converter*Nis included in the "
       "full version.*N *NComplete with ARexx interface.\" _Ok")) return FALSE;
    if(!Adduserbutton(&defprefs.buttons,"Full version",
-      "OPEN file:///AWebPath:docs/full.html")) return FALSE;
+      "OPEN file:///AWeb:docs/full.html")) return FALSE;
 #endif
 #endif
 #ifndef LOCALONLY
@@ -1468,7 +1473,7 @@ BOOL Initdefprefs(void)
    Adduserkey(&defprefs.keys,0x1d,"SCROLL FAR DOWN TARGET %i");
    Adduserkey(&defprefs.keys,0x1e,"SCROLL 8 DOWN TARGET %i");
    Adduserkey(&defprefs.keys,0x1f,"SCROLL PAGE DOWN TARGET %i");
-   Adduserkey(&defprefs.keys,0x5f,"OPEN \"file:///AWebPath:docs/aweb.html\"");
+   Adduserkey(&defprefs.keys,0x5f,"OPEN \"file:///AWeb:docs/aweb.html\"");
    Adduserkey(&defprefs.keys,0x7a,"SCROLL 80 UP TARGET %i");
    Adduserkey(&defprefs.keys,0x7b,"SCROLL 80 DOWN TARGET %i");
    Adduserkey(&defprefs.keys,0x7a|UKEY_SHIFT,"SCROLL PAGE UP TARGET %i");

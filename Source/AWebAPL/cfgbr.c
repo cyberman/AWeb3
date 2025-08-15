@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -18,6 +19,25 @@
 /* cfgbr.c - AWebCfg browser window */
 
 #include "awebcfg.h"
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+
+/* Missing Reaction defines - not available in proto headers */
+#ifndef REACTION_Underscore
+#define REACTION_Underscore 0x80000000
+#endif
+#include <gadgets/layout.h>
+#include <gadgets/button.h>
+#include <gadgets/listbrowser.h>
+#include <gadgets/chooser.h>
+#include <gadgets/integer.h>
+#include <gadgets/checkbox.h>
+#include <gadgets/string.h>
+#include <images/label.h>
+#include <gadgets/palette.h>
+#include <classes/window.h>
+#include <proto/intuition.h>
+
 
 ULONG brmask=0;
 
@@ -110,43 +130,43 @@ static void *Makeoptionspage(void)
             CHOOSER_Labels,&htmllist,
             CHOOSER_Active,brp.htmlmode,
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_BROPT_HTMLMODE)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_BROPT_HTMLMODE)),
          StartMember,dojsgad=ChooserObject,
             CHOOSER_PopUp,TRUE,
             CHOOSER_Labels,&dojslist,
             CHOOSER_Active,brp.dojs,
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_BROPT_JAVASCRIPT)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_BROPT_JAVASCRIPT)),
       EndMember,
       CHILD_WeightedWidth,0,
       CHILD_WeightedHeight,0,
       StartMember,HLayoutObject,
          StartMember,VLayoutObject,
             StartMember,jsergad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_BROPT_JSERRORS),
+               GA_Text,CFGAWEBSTR(MSG_SET_BROPT_JSERRORS),
                GA_Selected,brp.jserrors,
             EndMember,
             StartMember,jwtcgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_BROPT_JSWATCH),
+               GA_Text,CFGAWEBSTR(MSG_SET_BROPT_JSWATCH),
                GA_Selected,brp.jswatch,
             EndMember,
             StartMember,nbangad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_BROPT_NOBANNERS),
+               GA_Text,CFGAWEBSTR(MSG_SET_BROPT_NOBANNERS),
                GA_Selected,brp.nobanners,
 #ifdef DEMOVERSION
                GA_Disabled,TRUE,
 #endif
             EndMember,
             StartMember,ttipgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_BROPT_TOOLTIPS),
+               GA_Text,CFGAWEBSTR(MSG_SET_BROPT_TOOLTIPS),
                GA_Selected,brp.tooltips,
             EndMember,
             StartMember,handgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_BROPT_HANDPOINTER),
+               GA_Text,CFGAWEBSTR(MSG_SET_BROPT_HANDPOINTER),
                GA_Selected,brp.handpointer,
             EndMember,
             StartMember,ullinkgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_BROPT_ULLINKS),
+               GA_Text,CFGAWEBSTR(MSG_SET_BROPT_ULLINKS),
                GA_Selected,brp.ullink,
             EndMember,
          EndMember,
@@ -154,23 +174,23 @@ static void *Makeoptionspage(void)
          CHILD_WeightedWidth,0,
          StartMember,VLayoutObject,
             StartMember,dofrgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_BROPT_FRAMES),
+               GA_Text,CFGAWEBSTR(MSG_SET_BROPT_FRAMES),
                GA_Selected,brp.doframes,
             EndMember,
             StartMember,nfrhgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_BROPT_NOMINALFRAME),
+               GA_Text,CFGAWEBSTR(MSG_SET_BROPT_NOMINALFRAME),
                GA_Selected,brp.nominalframe,
             EndMember,
             StartMember,inctgad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_BROPT_INCTABLE),
+               GA_Text,CFGAWEBSTR(MSG_SET_BROPT_INCTABLE),
                GA_Selected,brp.inctable,
             EndMember,
             StartMember,docogad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_BROPT_DOCOLORS),
+               GA_Text,CFGAWEBSTR(MSG_SET_BROPT_DOCOLORS),
                GA_Selected,brp.docolors,
             EndMember,
             StartMember,bgsogad=CheckBoxObject,
-               GA_Text,AWEBSTR(MSG_SET_BROPT_DOBGSOUND),
+               GA_Text,CFGAWEBSTR(MSG_SET_BROPT_DOBGSOUND),
                GA_Selected,brp.dobgsound,
             EndMember,
          EndMember,
@@ -183,7 +203,7 @@ static void *Makeoptionspage(void)
             INTEGER_Minimum,0,
             INTEGER_Maximum,40,
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_BROPT_BLINK)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_BROPT_BLINK)),
       EndMember,
       CHILD_WeightedHeight,0,
       CHILD_WeightedWidth,0,
@@ -255,7 +275,7 @@ static void *Makefontspage(void)
             LISTBROWSER_Labels,&fonttypelist,
             LISTBROWSER_Selected,0,
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_FONT_FONTTYPE2)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_FONT_FONTTYPE2)),
          StartMember,HLayoutObject,
             StartMember,ftnamegad=StringObject,
                GA_ID,PGID_FONTALIAS,
@@ -270,18 +290,18 @@ static void *Makefontspage(void)
                StartMember,ftaddgad=ButtonObject,
                   GA_ID,PGID_FONTADD,
                   GA_RelVerify,TRUE,
-                  GA_Text,AWEBSTR(MSG_SET_FONT_ADD),
+                  GA_Text,CFGAWEBSTR(MSG_SET_FONT_ADD),
                EndMember,
                StartMember,ftdelgad=ButtonObject,
                   GA_ID,PGID_FONTDEL,
                   GA_RelVerify,TRUE,
-                  GA_Text,AWEBSTR(MSG_SET_FONT_DEL),
+                  GA_Text,CFGAWEBSTR(MSG_SET_FONT_DEL),
                   GA_Disabled,TRUE,
                EndMember,
             EndMember,
             CHILD_WeightedWidth,0,
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_FONT_ALIAS)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_FONT_ALIAS)),
          CHILD_WeightedHeight,0,
       EndMember,
       CHILD_WeightedHeight,30,
@@ -300,19 +320,19 @@ static void *Makefontspage(void)
          LAYOUT_InnerSpacing,1,
          LAYOUT_VertAlignment,LALIGN_CENTER,
          StartImage,LabelObject,
-            LABEL_Text,AWEBSTR(MSG_SET_FONT_FONT),
+            LABEL_Text,CFGAWEBSTR(MSG_SET_FONT_FONT),
          EndImage,
          StartMember,fontnamegad=ButtonObject,
             GA_Text," ",
             GA_ReadOnly,TRUE,
             BUTTON_Justification,BCJ_LEFT,
-            CLASSACT_Underscore,0,
+            REACTION_Underscore,0,
          EndMember,
          StartMember,ButtonObject,
             GA_ID,PGID_FONTPOP,
             GA_RelVerify,TRUE,
             BUTTON_AutoButton,BAG_POPFONT,
-            CLASSACT_CommKey,Hotkey(AWEBSTR(MSG_SET_FONT_FONT)),
+            REACTION_CommKey,Hotkey(CFGAWEBSTR(MSG_SET_FONT_FONT)),
          EndMember,
          CHILD_MaxWidth,20,
       EndMember,
@@ -325,7 +345,7 @@ static void *Makefontspage(void)
          StartMember,ButtonObject,
             GA_ID,PGID_FONTALL,
             GA_RelVerify,TRUE,
-            GA_Text,AWEBSTR(MSG_SET_FONT_SETALL),
+            GA_Text,CFGAWEBSTR(MSG_SET_FONT_SETALL),
          EndMember,
          StartMember,SpaceObject,
          EndMember,
@@ -347,12 +367,12 @@ void Makestylelist(struct List *list)
    for(i=1;fnames[i];i++)  /* skip STYLE_NORMAL */
    {  p=buf;
       p+=sprintf(p,"%s, %s ",
-         AWEBSTR(brp.styles[i].fonttype?MSG_SET_FD_FIXEDFONT:MSG_SET_FD_NORMALFONT),
-         AWEBSTR(MSG_SET_FD_SIZE));
+         CFGAWEBSTR(brp.styles[i].fonttype?MSG_SET_FD_FIXEDFONT:MSG_SET_FD_NORMALFONT),
+         CFGAWEBSTR(MSG_SET_FD_SIZE));
       p+=sprintf(p,brp.styles[i].relsize?"%+d":"%d",brp.styles[i].fontsize);
-      if(brp.styles[i].style&FSF_BOLD) strcat(buf,AWEBSTR(MSG_SET_FD_BOLD));
-      if(brp.styles[i].style&FSF_ITALIC) strcat(buf,AWEBSTR(MSG_SET_FD_ITALIC));
-      if(brp.styles[i].style&FSF_UNDERLINED) strcat(buf,AWEBSTR(MSG_SET_FD_UNDERLINED));
+      if(brp.styles[i].style&FSF_BOLD) strcat(buf,CFGAWEBSTR(MSG_SET_FD_BOLD));
+      if(brp.styles[i].style&FSF_ITALIC) strcat(buf,CFGAWEBSTR(MSG_SET_FD_ITALIC));
+      if(brp.styles[i].style&FSF_UNDERLINED) strcat(buf,CFGAWEBSTR(MSG_SET_FD_UNDERLINED));
       if(node=AllocListBrowserNode(2,
          LBNA_Column,0,
             LBNCA_Text,fnames[i],
@@ -381,14 +401,14 @@ static void *Makestylepage(void)
          GA_Text," ",
          GA_ReadOnly,TRUE,
          BUTTON_Justification,BCJ_LEFT,
-         CLASSACT_Underscore,0,
+         REACTION_Underscore,0,
       EndMember,
       CHILD_WeightedHeight,0,
       StartMember,HLayoutObject,
          StartMember,stylefixedgad=CheckBoxObject,
             GA_ID,PGID_STYLEFIXED,
             GA_RelVerify,TRUE,
-            GA_Text,AWEBSTR(MSG_SET_STYLE_FIXED),
+            GA_Text,CFGAWEBSTR(MSG_SET_STYLE_FIXED),
             GA_Selected,brp.styles[1].fonttype,
          EndMember,
          CHILD_WeightedWidth,0,
@@ -400,7 +420,7 @@ static void *Makestylepage(void)
             INTEGER_Number,brp.styles[1].fontsize,
             GA_Disabled,brp.styles[1].relsize,
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_STYLE_ABSSIZE)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_STYLE_ABSSIZE)),
          StartMember,stylerelgad=IntegerObject,
             GA_ID,PGID_STYLEREL,
             GA_RelVerify,TRUE,
@@ -408,35 +428,35 @@ static void *Makestylepage(void)
             INTEGER_Maximum,6,
             GA_Disabled,!brp.styles[1].relsize,
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_STYLE_RELSIZE)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_STYLE_RELSIZE)),
       EndMember,
       CHILD_WeightedHeight,0,
       StartMember,HLayoutObject,
          StartMember,stylengad=CheckBoxObject,
             GA_ID,PGID_STYLEN,
             GA_RelVerify,TRUE,
-            GA_Text,AWEBSTR(MSG_SET_STYLE_NORMAL),
+            GA_Text,CFGAWEBSTR(MSG_SET_STYLE_NORMAL),
             GA_Selected,brp.styles[1].style==0,
          EndMember,
          CHILD_WeightedWidth,0,
          StartMember,stylebgad=CheckBoxObject,
             GA_ID,PGID_STYLEB,
             GA_RelVerify,TRUE,
-            GA_Text,AWEBSTR(MSG_SET_STYLE_BOLD),
+            GA_Text,CFGAWEBSTR(MSG_SET_STYLE_BOLD),
             GA_Selected,brp.styles[1].style&FSF_BOLD,
          EndMember,
          CHILD_WeightedWidth,0,
          StartMember,styleigad=CheckBoxObject,
             GA_ID,PGID_STYLEI,
             GA_RelVerify,TRUE,
-            GA_Text,AWEBSTR(MSG_SET_STYLE_ITALIC),
+            GA_Text,CFGAWEBSTR(MSG_SET_STYLE_ITALIC),
             GA_Selected,brp.styles[1].style&FSF_ITALIC,
          EndMember,
          CHILD_WeightedWidth,0,
          StartMember,styleugad=CheckBoxObject,
             GA_ID,PGID_STYLEU,
             GA_RelVerify,TRUE,
-            GA_Text,AWEBSTR(MSG_SET_STYLE_UNDERLINED),
+            GA_Text,CFGAWEBSTR(MSG_SET_STYLE_UNDERLINED),
             GA_Selected,brp.styles[1].style&FSF_UNDERLINED,
          EndMember,
          CHILD_WeightedWidth,0,
@@ -499,7 +519,7 @@ static void *Makecolourspage(void)
          StartMember,SpaceObject,
          EndMember,
          StartMember,ButtonObject,
-            GA_Text,AWEBSTR(MSG_SET_APP_CHGCOLOUR),
+            GA_Text,CFGAWEBSTR(MSG_SET_APP_CHGCOLOUR),
             GA_ID,PGID_BRCOLOR,
             GA_RelVerify,TRUE,
          EndMember,
@@ -508,7 +528,7 @@ static void *Makecolourspage(void)
       EndMember,
       CHILD_WeightedHeight,0,
       StartMember,sbtpgad=CheckBoxObject,
-         GA_Text,AWEBSTR(MSG_SET_APP_SCREENPENS),
+         GA_Text,CFGAWEBSTR(MSG_SET_APP_SCREENPENS),
          GA_Selected,brp.screenpens,
       EndMember,
       CHILD_WeightedWidth,0,
@@ -596,18 +616,18 @@ static void *Makemimepage(void)
                   STRINGA_MaxChars,30,
                EndMember,
             EndMember,
-            MemberLabel(AWEBSTR(MSG_SET_MIME_TYPE)),
+            MemberLabel(CFGAWEBSTR(MSG_SET_MIME_TYPE)),
             CHILD_WeightedWidth,80,
             StartMember,HLayoutObject,
                LAYOUT_SpaceInner,FALSE,
                LAYOUT_EvenSize,TRUE,
                StartMember,ButtonObject,
-                  GA_Text,AWEBSTR(MSG_SET_MIME_ADD),
+                  GA_Text,CFGAWEBSTR(MSG_SET_MIME_ADD),
                   GA_ID,PGID_MIMEADD,
                   GA_RelVerify,TRUE,
                EndMember,
                StartMember,mimedelgad=ButtonObject,
-                  GA_Text,AWEBSTR(MSG_SET_MIME_DEL),
+                  GA_Text,CFGAWEBSTR(MSG_SET_MIME_DEL),
                   GA_ID,PGID_MIMEDEL,
                   GA_RelVerify,TRUE,
                   GA_Disabled,!mimeinfo->deleteable,
@@ -627,7 +647,7 @@ static void *Makemimepage(void)
                   STRINGA_TextVal,mimeinfo->extensions,
                   STRINGA_MaxChars,127,
                EndMember,
-               MemberLabel(AWEBSTR(MSG_SET_MIME_EXTENSIONS)),
+               MemberLabel(CFGAWEBSTR(MSG_SET_MIME_EXTENSIONS)),
             EndMember,
             StartMember,mimeactgad=ChooserObject,
                GA_ID,PGID_MIMEACT,
@@ -636,7 +656,7 @@ static void *Makemimepage(void)
                CHOOSER_Labels,&mimeactlist,
                CHOOSER_Active,mimeinfo->driver,
             EndMember,
-            MemberLabel(AWEBSTR(MSG_SET_MIME_ACTION)),
+            MemberLabel(CFGAWEBSTR(MSG_SET_MIME_ACTION)),
             CHILD_WeightedWidth,0,
          EndMember,
          StartMember,HLayoutObject,
@@ -657,7 +677,7 @@ static void *Makemimepage(void)
             EndMember,
             CHILD_MaxWidth,20,
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_MIME_NAME)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_MIME_NAME)),
          StartMember,HLayoutObject,
             LAYOUT_SpaceInner,FALSE,
             StartMember,mimeargsgad=StringObject,
@@ -675,7 +695,7 @@ static void *Makemimepage(void)
                CHOOSER_AutoFit,TRUE,
             EndMember,
          EndMember,
-         MemberLabel(AWEBSTR(MSG_SET_MIME_ARGS)),
+         MemberLabel(CFGAWEBSTR(MSG_SET_MIME_ARGS)),
       EndMember,
       CHILD_WeightedHeight,0,
    End;
@@ -712,7 +732,7 @@ static void Setfontgads(BOOL activate,struct Window *win)
    }
    Setgadgetattrs(ftdelgad,win,NULL,GA_Disabled,(aliasi<2),TAG_END);
    if(aliasi>=2 && activate && win)
-   {  ActivateLayoutGadget(toplayout,win,NULL,ftnamegad);
+   {  ActivateLayoutGadget(toplayout,win,NULL,(ULONG)ftnamegad);
    }
 }
 
@@ -751,7 +771,7 @@ static void Dofontpop(void)
       if(fo=AllocAslRequestTags(ASL_FontRequest,
          ASLFO_Window,window,
          ASLFO_SleepWindow,TRUE,
-         ASLFO_TitleText,AWEBSTR(MSG_SET_REQTITLE_FONT),
+         ASLFO_TitleText,CFGAWEBSTR(MSG_SET_REQTITLE_FONT),
          ASLFO_InitialHeight,Reqheight(window->WScreen),
          ASLFO_InitialName,fp->fontname,
          ASLFO_InitialSize,fp->fontsize,
@@ -791,7 +811,7 @@ static void Dofontadd(void)
          LISTBROWSER_MakeVisible,aliasi,
          TAG_END);
       Remakefontlist(aliasi,window);
-      ActivateLayoutGadget(toplayout,window,NULL,ftnamegad);
+      ActivateLayoutGadget(toplayout,window,NULL,(ULONG)ftnamegad);
    }
 }
 
@@ -1025,7 +1045,7 @@ static void Changemimeact(void)
 }
 
 static void Domimepopcmd(void)
-{  Popfile(winobject,window,toplayout,AWEBSTR(MSG_SET_REQTITLE_MIMEVIEWER),mimecmdgad);
+{  Popfile(winobject,window,toplayout,CFGAWEBSTR(MSG_SET_REQTITLE_MIMEVIEWER),mimecmdgad);
    Changemimeinfo(&mimeinfo->cmd,mimecmdgad);
 }
 
@@ -1036,7 +1056,7 @@ static void Domimeadd(void)
    {  for(mi=brp.mimelist.first,select=-1;mi->next;mi=mi->next,select++);
       Changemimelist(select);
       Domimelist(select);  /* clear gadgets and set current ptrs */
-      ActivateLayoutGadget(toplayout,window,NULL,mimetypegad);
+      ActivateLayoutGadget(toplayout,window,NULL,(ULONG)mimetypegad);
    }
 }
 
@@ -1195,76 +1215,76 @@ static void Setdata(void)
 /*---------------------------------------------------------------------------*/
 
 static void Localize(void)
-{  tablabels[0]=AWEBSTR(MSG_SET_CTBR_OPTIONS);
-   tablabels[1]=AWEBSTR(MSG_SET_CTBR_FONTS);
-   tablabels[2]=AWEBSTR(MSG_SET_CTBR_STYLES);
-   tablabels[3]=AWEBSTR(MSG_SET_CTBR_COLOURS);
-   tablabels[4]=AWEBSTR(MSG_SET_CTBR_MIME);
+{  tablabels[0]=CFGAWEBSTR(MSG_SET_CTBR_OPTIONS);
+   tablabels[1]=CFGAWEBSTR(MSG_SET_CTBR_FONTS);
+   tablabels[2]=CFGAWEBSTR(MSG_SET_CTBR_STYLES);
+   tablabels[3]=CFGAWEBSTR(MSG_SET_CTBR_COLOURS);
+   tablabels[4]=CFGAWEBSTR(MSG_SET_CTBR_MIME);
    tablabels[5]=NULL;
-   fnames[0]=AWEBSTR(MSG_SET_FD_NORMALTAG);
-   fdescr[0]=AWEBSTR(MSG_SET_FD_NORMAL);
-   fdescr[1]=AWEBSTR(MSG_SET_FD_H1);
-   fdescr[2]=AWEBSTR(MSG_SET_FD_H2);
-   fdescr[3]=AWEBSTR(MSG_SET_FD_H3);
-   fdescr[4]=AWEBSTR(MSG_SET_FD_H4);
-   fdescr[5]=AWEBSTR(MSG_SET_FD_H5);
-   fdescr[6]=AWEBSTR(MSG_SET_FD_H6);
-   fdescr[7]=AWEBSTR(MSG_SET_FD_BIG);
-   fdescr[8]=AWEBSTR(MSG_SET_FD_SMALL);
-   fdescr[9]=AWEBSTR(MSG_SET_FD_SUB);
-   fdescr[10]=AWEBSTR(MSG_SET_FD_SUP);
-   fdescr[11]=AWEBSTR(MSG_SET_FD_ADDRESS);
-   fdescr[12]=AWEBSTR(MSG_SET_FD_BLOCKQUOTE);
-   fdescr[13]=AWEBSTR(MSG_SET_FD_CITE);
-   fdescr[14]=AWEBSTR(MSG_SET_FD_CODE);
-   fdescr[15]=AWEBSTR(MSG_SET_FD_DFN);
-   fdescr[16]=AWEBSTR(MSG_SET_FD_EM);
-   fdescr[17]=AWEBSTR(MSG_SET_FD_KBD);
-   fdescr[18]=AWEBSTR(MSG_SET_FD_PRE);
-   fdescr[19]=AWEBSTR(MSG_SET_FD_SAMP);
-   fdescr[20]=AWEBSTR(MSG_SET_FD_STRONG);
-   fdescr[21]=AWEBSTR(MSG_SET_FD_VAR);
-   htmllabels[0]=AWEBSTR(MSG_SET_HTML_STRICT);
-   htmllabels[1]=AWEBSTR(MSG_SET_HTML_TOLERANT);
-   htmllabels[2]=AWEBSTR(MSG_SET_HTML_COMPATIBLE);
+   fnames[0]=CFGAWEBSTR(MSG_SET_FD_NORMALTAG);
+   fdescr[0]=CFGAWEBSTR(MSG_SET_FD_NORMAL);
+   fdescr[1]=CFGAWEBSTR(MSG_SET_FD_H1);
+   fdescr[2]=CFGAWEBSTR(MSG_SET_FD_H2);
+   fdescr[3]=CFGAWEBSTR(MSG_SET_FD_H3);
+   fdescr[4]=CFGAWEBSTR(MSG_SET_FD_H4);
+   fdescr[5]=CFGAWEBSTR(MSG_SET_FD_H5);
+   fdescr[6]=CFGAWEBSTR(MSG_SET_FD_H6);
+   fdescr[7]=CFGAWEBSTR(MSG_SET_FD_BIG);
+   fdescr[8]=CFGAWEBSTR(MSG_SET_FD_SMALL);
+   fdescr[9]=CFGAWEBSTR(MSG_SET_FD_SUB);
+   fdescr[10]=CFGAWEBSTR(MSG_SET_FD_SUP);
+   fdescr[11]=CFGAWEBSTR(MSG_SET_FD_ADDRESS);
+   fdescr[12]=CFGAWEBSTR(MSG_SET_FD_BLOCKQUOTE);
+   fdescr[13]=CFGAWEBSTR(MSG_SET_FD_CITE);
+   fdescr[14]=CFGAWEBSTR(MSG_SET_FD_CODE);
+   fdescr[15]=CFGAWEBSTR(MSG_SET_FD_DFN);
+   fdescr[16]=CFGAWEBSTR(MSG_SET_FD_EM);
+   fdescr[17]=CFGAWEBSTR(MSG_SET_FD_KBD);
+   fdescr[18]=CFGAWEBSTR(MSG_SET_FD_PRE);
+   fdescr[19]=CFGAWEBSTR(MSG_SET_FD_SAMP);
+   fdescr[20]=CFGAWEBSTR(MSG_SET_FD_STRONG);
+   fdescr[21]=CFGAWEBSTR(MSG_SET_FD_VAR);
+   htmllabels[0]=CFGAWEBSTR(MSG_SET_HTML_STRICT);
+   htmllabels[1]=CFGAWEBSTR(MSG_SET_HTML_TOLERANT);
+   htmllabels[2]=CFGAWEBSTR(MSG_SET_HTML_COMPATIBLE);
    htmllabels[3]=NULL;
-   dojslabels[0]=AWEBSTR(MSG_SET_JS_OFF);
-   dojslabels[1]=AWEBSTR(MSG_SET_JS_11);
-   dojslabels[2]=AWEBSTR(MSG_SET_JS_ALL);
+   dojslabels[0]=CFGAWEBSTR(MSG_SET_JS_OFF);
+   dojslabels[1]=CFGAWEBSTR(MSG_SET_JS_11);
+   dojslabels[2]=CFGAWEBSTR(MSG_SET_JS_ALL);
    dojslabels[3]=NULL;
-   mimecolumns[0].ci_Title=AWEBSTR(MSG_SET_MLCN_TYPE);
-   mimecolumns[1].ci_Title=AWEBSTR(MSG_SET_MLCN_EXT);
-   mimecolumns[2].ci_Title=AWEBSTR(MSG_SET_MLCN_ACTION);
-   mimecolumns[3].ci_Title=AWEBSTR(MSG_SET_MLCN_NAME);
-   brcolorpennames[0]=AWEBSTR(MSG_SET_BRPEN_LINK);
-   brcolorpennames[1]=AWEBSTR(MSG_SET_BRPEN_VLINK);
-   brcolorpennames[2]=AWEBSTR(MSG_SET_BRPEN_ALINK);
-   brcolorpennames[3]=AWEBSTR(MSG_SET_BRPEN_BGCOLOR);
-   brcolorpennames[4]=AWEBSTR(MSG_SET_BRPEN_TEXT);
+   mimecolumns[0].ci_Title=CFGAWEBSTR(MSG_SET_MLCN_TYPE);
+   mimecolumns[1].ci_Title=CFGAWEBSTR(MSG_SET_MLCN_EXT);
+   mimecolumns[2].ci_Title=CFGAWEBSTR(MSG_SET_MLCN_ACTION);
+   mimecolumns[3].ci_Title=CFGAWEBSTR(MSG_SET_MLCN_NAME);
+   brcolorpennames[0]=CFGAWEBSTR(MSG_SET_BRPEN_LINK);
+   brcolorpennames[1]=CFGAWEBSTR(MSG_SET_BRPEN_VLINK);
+   brcolorpennames[2]=CFGAWEBSTR(MSG_SET_BRPEN_ALINK);
+   brcolorpennames[3]=CFGAWEBSTR(MSG_SET_BRPEN_BGCOLOR);
+   brcolorpennames[4]=CFGAWEBSTR(MSG_SET_BRPEN_TEXT);
    brcolorpennames[5]=NULL;
-   proghelplabels[0]=AWEBSTR(MSG_SET_HLP_F);
-   proghelplabels[1]=AWEBSTR(MSG_SET_HLP_N);
-   proghelplabels[2]=AWEBSTR(MSG_SET_HLP_U);
-   proghelplabels[3]=AWEBSTR(MSG_SET_HLP_M);
+   proghelplabels[0]=CFGAWEBSTR(MSG_SET_HLP_F);
+   proghelplabels[1]=CFGAWEBSTR(MSG_SET_HLP_N);
+   proghelplabels[2]=CFGAWEBSTR(MSG_SET_HLP_U);
+   proghelplabels[3]=CFGAWEBSTR(MSG_SET_HLP_M);
    proghelplabels[4]=NULL;
-   fonttypelabels[0]=AWEBSTR(MSG_SET_FTYPE_NORMAL);
-   fonttypelabels[1]=AWEBSTR(MSG_SET_FTYPE_FIXED);
+   fonttypelabels[0]=CFGAWEBSTR(MSG_SET_FTYPE_NORMAL);
+   fonttypelabels[1]=CFGAWEBSTR(MSG_SET_FTYPE_FIXED);
    fonttypelabels[2]=NULL;
-   fsizes[0]=AWEBSTR(MSG_SET_FSIZE_1);
-   fsizes[2]=AWEBSTR(MSG_SET_FSIZE_3);
-   fsizes[6]=AWEBSTR(MSG_SET_FSIZE_7);
-   fontscolumns[0].ci_Title=AWEBSTR(MSG_SET_FLH_SIZE);
-   fontscolumns[1].ci_Title=AWEBSTR(MSG_SET_FLH_FONTFACE);
-   stylecolumns[0].ci_Title=AWEBSTR(MSG_SET_SLH_TAG);
-   stylecolumns[1].ci_Title=AWEBSTR(MSG_SET_SLH_STYLE);
-   mimeactlabels[0]=AWEBSTR(MSG_SET_MACT_DEFAULT);
-   mimeactlabels[1]=AWEBSTR(MSG_SET_MACT_INTERNAL);
-   mimeactlabels[2]=AWEBSTR(MSG_SET_MACT_PLUGIN);
-   mimeactlabels[3]=AWEBSTR(MSG_SET_MACT_EXTERNAL);
-   mimeactlabels[4]=AWEBSTR(MSG_SET_MACT_EXTPIPE);
-   mimeactlabels[5]=AWEBSTR(MSG_SET_MACT_SAVEDISK);
+   fsizes[0]=CFGAWEBSTR(MSG_SET_FSIZE_1);
+   fsizes[2]=CFGAWEBSTR(MSG_SET_FSIZE_3);
+   fsizes[6]=CFGAWEBSTR(MSG_SET_FSIZE_7);
+   fontscolumns[0].ci_Title=CFGAWEBSTR(MSG_SET_FLH_SIZE);
+   fontscolumns[1].ci_Title=CFGAWEBSTR(MSG_SET_FLH_FONTFACE);
+   stylecolumns[0].ci_Title=CFGAWEBSTR(MSG_SET_SLH_TAG);
+   stylecolumns[1].ci_Title=CFGAWEBSTR(MSG_SET_SLH_STYLE);
+   mimeactlabels[0]=CFGAWEBSTR(MSG_SET_MACT_DEFAULT);
+   mimeactlabels[1]=CFGAWEBSTR(MSG_SET_MACT_INTERNAL);
+   mimeactlabels[2]=CFGAWEBSTR(MSG_SET_MACT_PLUGIN);
+   mimeactlabels[3]=CFGAWEBSTR(MSG_SET_MACT_EXTERNAL);
+   mimeactlabels[4]=CFGAWEBSTR(MSG_SET_MACT_EXTPIPE);
+   mimeactlabels[5]=CFGAWEBSTR(MSG_SET_MACT_SAVEDISK);
    mimeactlabels[6]=NULL;
-   mimeabbrev=AWEBSTR(MSG_SET_MACT_ABBREV);
+   mimeabbrev=CFGAWEBSTR(MSG_SET_MACT_ABBREV);
 }
 
 BOOL Openbrowser(void)
@@ -1275,18 +1295,42 @@ BOOL Openbrowser(void)
       ActivateWindow(window);
       return FALSE;
    }
-   NEWLIST(&brp.mimelist);
-   NEWLIST(&orgbrp.mimelist);
-   NEWLIST(&tablist);
-   NEWLIST(&htmllist);
-   NEWLIST(&dojslist);
-   NEWLIST(&brpenlist);
-   NEWLIST(&mimelist);
-   NEWLIST(&extvwrhelplist);
-   NEWLIST(&fonttypelist);
-   NEWLIST(&fontlist);
-   NEWLIST(&stylelist);
-   NEWLIST(&mimeactlist);
+   (&brp.mimelist)->first = NULL;
+   (&brp.mimelist)->tail = NULL;
+   (&brp.mimelist)->last = NULL;
+   (&orgbrp.mimelist)->first = NULL;
+   (&orgbrp.mimelist)->tail = NULL;
+   (&orgbrp.mimelist)->last = NULL;
+   (&tablist)->lh_Head = (struct Node *)&((&tablist)->lh_Tail);
+   (&tablist)->lh_Tail = NULL;
+   (&tablist)->lh_TailPred = (struct Node *)&((&tablist)->lh_Head);
+   (&htmllist)->lh_Head = (struct Node *)&((&htmllist)->lh_Tail);
+   (&htmllist)->lh_Tail = NULL;
+   (&htmllist)->lh_TailPred = (struct Node *)&((&htmllist)->lh_Head);
+   (&dojslist)->lh_Head = (struct Node *)&((&dojslist)->lh_Tail);
+   (&dojslist)->lh_Tail = NULL;
+   (&dojslist)->lh_TailPred = (struct Node *)&((&dojslist)->lh_Head);
+   (&brpenlist)->lh_Head = (struct Node *)&((&brpenlist)->lh_Tail);
+   (&brpenlist)->lh_Tail = NULL;
+   (&brpenlist)->lh_TailPred = (struct Node *)&((&brpenlist)->lh_Head);
+   (&mimelist)->lh_Head = (struct Node *)&((&mimelist)->lh_Tail);
+   (&mimelist)->lh_Tail = NULL;
+   (&mimelist)->lh_TailPred = (struct Node *)&((&mimelist)->lh_Head);
+   (&extvwrhelplist)->lh_Head = (struct Node *)&((&extvwrhelplist)->lh_Tail);
+   (&extvwrhelplist)->lh_Tail = NULL;
+   (&extvwrhelplist)->lh_TailPred = (struct Node *)&((&extvwrhelplist)->lh_Head);
+   (&fonttypelist)->lh_Head = (struct Node *)&((&fonttypelist)->lh_Tail);
+   (&fonttypelist)->lh_Tail = NULL;
+   (&fonttypelist)->lh_TailPred = (struct Node *)&((&fonttypelist)->lh_Head);
+   (&fontlist)->lh_Head = (struct Node *)&((&fontlist)->lh_Tail);
+   (&fontlist)->lh_Tail = NULL;
+   (&fontlist)->lh_TailPred = (struct Node *)&((&fontlist)->lh_Head);
+   (&stylelist)->lh_Head = (struct Node *)&((&stylelist)->lh_Tail);
+   (&stylelist)->lh_Tail = NULL;
+   (&stylelist)->lh_TailPred = (struct Node *)&((&stylelist)->lh_Head);
+   (&mimeactlist)->lh_Head = (struct Node *)&((&mimeactlist)->lh_Tail);
+   (&mimeactlist)->lh_Tail = NULL;
+   (&mimeactlist)->lh_TailPred = (struct Node *)&((&mimeactlist)->lh_Head);
    if(!tablabels[0]) Localize();
    if(nport=CreateMsgPort())
    {  strcpy(prefsname,"ENV:" DEFAULTCFG);
@@ -1311,7 +1355,7 @@ BOOL Openbrowser(void)
       Makechooserlist(&extvwrhelplist,proghelplabels,TRUE);
       Makechooserlist(&mimeactlist,mimeactlabels,FALSE);
       winobject=WindowObject,
-            WA_Title,AWEBSTR(MSG_SET_REQTITLE_BROWSERWINDOW),
+            WA_Title,CFGAWEBSTR(MSG_SET_REQTITLE_BROWSERWINDOW),
             WA_Left,setprefs.brwx,
             WA_Top,setprefs.brwy,
             WA_InnerWidth,setprefs.brww,
@@ -1351,22 +1395,22 @@ BOOL Openbrowser(void)
                   LAYOUT_BevelStyle,BVS_SBAR_VERT,
                   LAYOUT_SpaceOuter,TRUE,
                   StartMember,ButtonObject,
-                     GA_Text,AWEBSTR(MSG_SET_SAVE),
+                     GA_Text,CFGAWEBSTR(MSG_SET_SAVE),
                      GA_ID,PGID_SAVE,
                      GA_RelVerify,TRUE,
                   EndMember,
                   StartMember,ButtonObject,
-                     GA_Text,AWEBSTR(MSG_SET_USE),
+                     GA_Text,CFGAWEBSTR(MSG_SET_USE),
                      GA_ID,PGID_USE,
                      GA_RelVerify,TRUE,
                   EndMember,
                   StartMember,ButtonObject,
-                     GA_Text,AWEBSTR(MSG_SET_TEST),
+                     GA_Text,CFGAWEBSTR(MSG_SET_TEST),
                      GA_ID,PGID_TEST,
                      GA_RelVerify,TRUE,
                   EndMember,
                   StartMember,ButtonObject,
-                     GA_Text,AWEBSTR(MSG_SET_CANCEL),
+                     GA_Text,CFGAWEBSTR(MSG_SET_CANCEL),
                      GA_ID,PGID_CANCEL,
                      GA_RelVerify,TRUE,
                   EndMember,
@@ -1375,7 +1419,7 @@ BOOL Openbrowser(void)
             End,
          EndWindow;
       if(winobject)
-      {  if(window=(struct Window *)CA_OpenWindow(winobject))
+      {  if(window=(struct Window *)RA_OpenWindow(winobject))
          {  if((menubar=CreateMenus(menubase,
                   GTMN_FrontPen,drawinfo->dri_Pens[BARDETAILPEN],
                   TAG_END))
@@ -1408,7 +1452,7 @@ BOOL Processbrowser(void)
    struct Message *msg;
    UBYTE *path;
    while(!done
-    && (result=CA_HandleInput(winobject,&code))!=WMHI_LASTMSG)
+    && (result=RA_HandleInput(winobject,&code))!=WMHI_LASTMSG)
    {  switch(result&WMHI_CLASSMASK)
       {  case WMHI_CLOSEWINDOW:
             done=TRUE;
@@ -1536,7 +1580,7 @@ BOOL Processbrowser(void)
             switch(menuid)
             {  case MID_OPEN:
                   if(path=Filereq(winobject,window,toplayout,
-                     AWEBSTR(MSG_SET_REQTITLE_OPENBROWSER),"browser",FALSE))
+                     CFGAWEBSTR(MSG_SET_REQTITLE_OPENBROWSER),"browser",FALSE))
                   {  Disposebrowserprefs(&brp);
                      Copybrowserprefs(&defprefs.browser,&brp);
                      Loadbrowserprefs(&brp,FALSE,path);
@@ -1546,7 +1590,7 @@ BOOL Processbrowser(void)
                   break;
                case MID_SAVEAS:
                   if(path=Filereq(winobject,window,toplayout,
-                     AWEBSTR(MSG_SET_REQTITLE_SAVEBROWSER),"browser",TRUE))
+                     CFGAWEBSTR(MSG_SET_REQTITLE_SAVEBROWSER),"browser",TRUE))
                   {  Copydata();
                      Savebrowserprefs(&brp,FALSE,path);
                      FREE(path);

@@ -6,7 +6,7 @@ if left(address(),5)~="AWEB." then do
    ports=show("P")
    parse var ports dummy "AWEB." portnr .
    if portnr="" then do
-      address command "run AWeb3:AWeb-II"
+      address command "run AWeb:AWeb"
       address command "WaitForPort AWEB.1"
       portnr=1
    end
@@ -28,7 +28,7 @@ if args='' then do
    call writeln tf,"<html><head><title>AWeb GIF Setup</title></head>"
    call writeln tf,"<body><h1>AWeb GIF Setup</h1>"
    
-   if exists("AWebPath:awebplugin/awebgif.awebplugin") then do
+   if exists("AWeb:awebplugin/awebgif.awebplugin") then do
       installed=0
       progress=4
       loops=-1
@@ -64,7 +64,7 @@ if args='' then do
       call writeln tf,"<input type=hidden name=defprogress value="progress">"
       call writeln tf,"<input type=hidden name=defloops value="loops">"
       call writeln tf,"<ol><li>Select the required modes of operation "
-      call writeln tf,"(see <a href='file:///AWebPath:awebplugin/docs/awebgif.html#parameters'>documentation</a> for details)"
+      call writeln tf,"(see <a href='file:///AWeb:awebplugin/docs/awebgif.html#parameters'>documentation</a> for details)"
       call writeln tf,"<p><ul><li>Progressive display:<br>"
       call writeln tf,"<input type=radio name=progress value=0"
       if progress=0 then call writeln tf," checked"
@@ -109,7 +109,7 @@ if args='' then do
       call writeln tf,"Plugin file not found. You have to run the install script first."
    end
    
-   call writeln tf,"<p><hr><p><a href='file:///AWebPath:awebplugin/docs/awebgif.html'>Back to documentation</a>"
+   call writeln tf,"<p><hr><p><a href='file:///AWeb:awebplugin/docs/awebgif.html'>Back to documentation</a>"
    
    call close tf
    'open "file:///T:awebgifsetup.html" reload'
@@ -149,7 +149,7 @@ else do
       
       if progress="" then progress=defprogress
       if loops="" then loops=defloops
-      mime="IMAGE/GIF;"ext";A;AWebPath:awebplugin/awebgif.awebplugin;PROGRESS="progress" LOOPS="loops lowpri
+      mime="IMAGE/GIF;"ext";A;AWeb:awebplugin/awebgif.awebplugin;PROGRESS="progress" LOOPS="loops lowpri
    end
    
    'setcfg MIME "'mime'" ADD'
@@ -158,7 +158,7 @@ else do
       'savesettings'
    end
 
-   'open "file:///AWebPath:awebplugin/docs/awebgif.html"'
+   'open "file:///AWeb:awebplugin/docs/awebgif.html"'
 
 end
 

@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -20,16 +21,38 @@
 #include "aweblib.h"
 #include "application.h"
 #include "startup.h"
-#include "classact.h"
+
+#ifndef REACTION_Dummy
+#define REACTION_Dummy (TAG_USER + 0x5000000)
+#endif
+
+#ifndef REACTION_BackFill
+#define REACTION_BackFill    (REACTION_Dummy + 1)
+#endif
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <reaction/reaction_author.h>
+#include <images/penmap.h>
+#include <gadgets/layout.h>
+#include <gadgets/button.h>
+#include <gadgets/fuelgauge.h>
+#include <classes/window.h>
+#include <images/label.h>
 #include <exec/resident.h>
-#include <clib/exec_protos.h>
-#include <clib/alib_protos.h>
-#include <clib/intuition_protos.h>
+
+#include <proto/exec.h>
+#include <proto/alib.h>
+#include <proto/dos.h>
+#include <proto/intuition.h>
+#include <proto/utility.h>
+#include <proto/layout.h>
+#include <proto/button.h>
+#include <proto/fuelgauge.h>
+#include <proto/window.h>
+#include <proto/label.h>
+#include <proto/penmap.h>
 
 static void *AwebPluginBase;
-void *IntuitionBase,*UtilityBase,*DOSBase;
-struct ClassLibrary *WindowBase,*LayoutBase,*ButtonBase,
-   *LabelBase,*PenMapBase,*FuelGaugeBase;
 
 /*-----------------------------------------------------------------------*/
 /* AWebLib module startup */
@@ -71,7 +94,16 @@ struct Library *StartupBase;
 
 static APTR libseglist;
 
-struct ExecBase *SysBase;
+/* External library base declarations */
+extern struct ExecBase *SysBase;
+extern struct IntuitionBase *IntuitionBase;
+extern struct Library *UtilityBase;
+extern struct ClassLibrary *WindowBase;
+extern struct ClassLibrary *LayoutBase;
+extern struct ClassLibrary *ButtonBase;
+extern struct ClassLibrary *FuelGaugeBase;
+extern struct ClassLibrary *PenMapBase;
+extern struct ClassLibrary *LabelBase;
 
 LONG __saveds __asm Libstart(void)
 {  return -1;
@@ -181,8 +213,8 @@ __asm __saveds ULONG Extfunclib(void)
 /*-----------------------------------------------------------------------*/
 
 static ULONG Initaweblib(struct Library *libbase)
-{  if(!(IntuitionBase=OpenLibrary("intuition.library",39))) return FALSE;
-   if(!(UtilityBase=OpenLibrary("utility.library",39))) return FALSE;
+{     if(!(IntuitionBase=(struct IntuitionBase *)OpenLibrary("intuition.library",39))) return FALSE;
+   if(!(UtilityBase=(struct Library *)OpenLibrary("utility.library",39))) return FALSE;
    if(!(WindowBase=(struct ClassLibrary *)OpenLibrary("window.class",OSNEED(0,44)))) return FALSE;
    if(!(LayoutBase=(struct ClassLibrary *)OpenLibrary("gadgets/layout.gadget",OSNEED(0,44)))) return FALSE;
    if(!(ButtonBase=(struct ClassLibrary *)OpenLibrary("gadgets/button.gadget",OSNEED(0,44)))) return FALSE;
@@ -400,7 +432,7 @@ __asm __saveds void doStartupopen(register __a0 struct Screen *screen,
             LAYOUT_LeftSpacing,4,
             LAYOUT_RightSpacing,4,
             LAYOUT_BottomSpacing,4,
-            CLASSACT_BackFill,&nobfhook,
+            REACTION_BackFill,&nobfhook,
             StartMember,HLayoutObject,
                LAYOUT_VertAlignment,LALIGN_CENTER,
                LAYOUT_HorizAlignment,LALIGN_LEFT,
@@ -439,7 +471,7 @@ __asm __saveds void doStartupopen(register __a0 struct Screen *screen,
          End,
       End;
       if(loadreqobj)
-      {  loadreqwin=CA_OpenWindow(loadreqobj);
+      {  loadreqwin=RA_OpenWindow(loadreqobj);
       }
    }
 }

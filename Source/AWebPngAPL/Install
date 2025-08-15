@@ -1,20 +1,20 @@
 ; $VER: Install_awebpng_awebplugin
-; Description: Installer script for the "awebpng" plugin for AWeb-II 3.0+
+; Description: Installer script for the "awebpng" plugin for AWeb 3.6+
 
 (set #welcome
-   (cat "This installation procedure will install the \"awebpng\" plugin module for AWeb-II version 3.0 or higher.\n"
+   (cat "This installation procedure will install the \"awebpng\" plugin module for AWeb version 3.6 or higher.\n"
         "\n"
         "This plugin enables you to view PNG images in AWeb without the use of datatypes. The plugin has the following features:\n"
         "Optional progressive display\n"
         "Transparency\n"
         "Support for image scaling\n"
-        "Support for CyberGraphics\n"
+        "Support for P96\n"
    )
 )
 
 (set #no-aweb3
-   (cat "The \"AWeb3:\" assign was not found.\n\n"
-        "This plugin can only be used with AWeb-II version 3.0 or higher."
+   (cat "The \"AWeb:\" assign was not found.\n\n"
+        "This plugin can only be used with AWeb version 3.6 or higher."
    )
 )
 
@@ -34,14 +34,14 @@
 
 (message #welcome)
 
-(if (not (exists "AWeb3:"))
+(if (not (exists "AWeb:"))
    (abort #no-aweb3)
 )
 
 (complete 10)
 
-(if (not (exists "AWeb3:awebplugin"))
-   (makedir "AWeb3:awebplugin"
+(if (not (exists "AWeb:awebplugin"))
+   (makedir "AWeb:awebplugin"
       (infos)
    )
 )
@@ -50,14 +50,14 @@
 
 (copyfiles
    (source (tackon srcdir "awebpng.awebplugin"))
-   (dest "AWeb3:awebplugin")
+   (dest "AWeb:awebplugin")
    (infos)
 )
 
 (complete 50)
 
-(if (not (exists "AWeb3:awebplugin/Docs"))
-   (makedir "AWeb3:awebplugin/Docs"
+(if (not (exists "AWeb:awebplugin/Docs"))
+   (makedir "AWeb:awebplugin/Docs"
       (infos)
    )
 )
@@ -65,7 +65,7 @@
 (copyfiles
    (source srcdir)
    (choices "awebpng.html" "awebpng.awebrx")
-   (dest "AWeb3:awebplugin/Docs")
+   (dest "AWeb:awebplugin/Docs")
    (infos)
 )
 
@@ -78,10 +78,10 @@
       (default 1)
    )
    (
-      (run "run AWeb3:AWeb-II file:///AWeb3:awebplugin/Docs/awebpng.html")
+      (run "run AWeb:AWeb file:///AWeb:awebplugin/Docs/awebpng.html")
    )
 )
 
-(set @default-dest (expandpath "AWeb3:awebplugin"))
+(set @default-dest (expandpath "AWeb:awebplugin"))
 
 (complete 100)

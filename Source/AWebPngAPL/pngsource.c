@@ -22,23 +22,21 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
-#include <ezlists.h>
+#include "ezlists.h"
 #include <libraries/awebplugin.h>
-#include <cybergraphics/cybergraphics.h>
+#include <libraries/Picasso96.h>
 #include <exec/memory.h>
 #include <graphics/gfx.h>
 #include <datatypes/pictureclass.h>
-#include <clib/awebplugin_protos.h>
-#include <clib/exec_protos.h>
-#include <clib/alib_protos.h>
+#include <proto/awebplugin.h>
+#include <proto/exec.h>
+#include <proto/alib.h>
+#include <proto/graphics.h>
 #include <clib/graphics_protos.h>
-#include <clib/utility_protos.h>
-#include <clib/cybergraphics_protos.h>
-#include <pragmas/awebplugin_pragmas.h>
-#include <pragmas/exec_sysbase_pragmas.h>
-#include <pragmas/graphics_pragmas.h>
-#include <pragmas/utility_pragmas.h>
-#include <pragmas/cybergraphics_pragmas.h>
+#include <proto/utility.h>
+#include <proto/Picasso96.h>
+
+/* AWeb plugin functions are declared in proto/awebplugin.h */
 
 #include "png.h"
 
@@ -108,6 +106,7 @@ struct Decoder
    struct RastPort rp;              /* Temporary for pixelline8 functions */
    struct RastPort temprp;          /* Temporary for pixelline8 functions */
    UBYTE *chunky;                   /* Row of chunky pixels */
+   struct RenderInfo renderinfo;    /* RenderInfo for p96WritePixelArray */
 };
 
 /* Decoder flags: */
@@ -115,8 +114,8 @@ struct Decoder
 #define DECOF_EOF          0x0002   /* No more data */
 #define DECOF_TRANSPARENT  0x0004   /* Transparent png */
 #define DECOF_INTERLACED   0x0008   /* Interlaced png */
-#define DECOF_CYBERMAP     0x0010   /* Bitmap is CyberGfx */
-#define DECOF_CYBERDEEP    0x0020   /* Bitmap is CyberGfx >8 bits */
+#define DECOF_P96MAP       0x0010   /* Bitmap is Picasso96 */
+#define DECOF_P96DEEP      0x0020   /* Bitmap is Picasso96 >8 bits */
 
 /*--------------------------------------------------------------------*/
 /* Read from the input stream                                         */
@@ -291,15 +290,15 @@ static BOOL Parsepngimage(struct Decoder *decoder)
 {  png_structp png=NULL;
    png_infop pnginfo=NULL;
    png_uint_32 width,height;
-   int bitdepth,colortype,interlace,npalette,ntrans;
+   int bitdepth,colortype,interlace,npalette,ntrans=0;
    double gamma;
    png_color *palette=NULL;
    png_bytep trans=NULL;
-   png_byte *buffer;
+   png_byte *buffer=NULL;
    png_byte **rows=NULL;
-   long rowbytes,depth,npass=0,pass,x,fromrow,y;
-   short r,g,b,pen,map;
-   UBYTE *trow;
+   long rowbytes,depth=8,npass=0,pass,x,fromrow,y;
+   short r=0,g=0,b=0,pen,map;
+   UBYTE *trow=NULL;
    BOOL error=FALSE,transpixel;
    
    if((png=png_create_read_struct(PNG_LIBPNG_VER_STRING,NULL,NULL,NULL))
@@ -348,14 +347,14 @@ static BOOL Parsepngimage(struct Decoder *decoder)
          /* Hereafter comes the image data. Allocate a bitmap first.
           * Always allocate a bitmap of depth >=8. Even if our source has less
           * planes, the colours may be remapped to pen numbers up to 255. */
-         if(CyberGfxBase)
-         {  depth=GetBitMapAttr(decoder->source->friendbitmap,BMA_DEPTH);
-            decoder->bitmap=AllocBitMap(decoder->width,decoder->height,depth,
-               BMF_MINPLANES|BMF_CLEAR,decoder->source->friendbitmap);
-            if(GetCyberMapAttr(decoder->bitmap,CYBRMATTR_ISCYBERGFX))
-            {  decoder->flags|=DECOF_CYBERMAP;
+         if(P96Base)
+         {  depth=p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_DEPTH);
+            decoder->bitmap=p96AllocBitMap(decoder->width,decoder->height,depth,
+               BMF_MINPLANES|BMF_CLEAR,decoder->source->friendbitmap,RGBFB_NONE);
+            if(p96GetBitMapAttr(decoder->bitmap,P96BMA_ISP96))
+            {  decoder->flags|=DECOF_P96MAP;
                if(depth>8)
-               {  decoder->flags|=DECOF_CYBERDEEP;
+               {  decoder->flags|=DECOF_P96DEEP;
                }
             }
          }
@@ -364,14 +363,14 @@ static BOOL Parsepngimage(struct Decoder *decoder)
          }
          if(!decoder->bitmap) return FALSE;
          if(decoder->flags&DECOF_TRANSPARENT)
-         {  if(decoder->flags&DECOF_CYBERMAP)
-            {  decoder->maskw=GetCyberMapAttr(decoder->bitmap,CYBRMATTR_WIDTH)/8;
+         {  if(decoder->flags&DECOF_P96MAP)
+            {  decoder->maskw=p96GetBitMapAttr(decoder->bitmap,P96BMA_WIDTH)/8;
             }
             else
             {  decoder->maskw=decoder->bitmap->BytesPerRow;
             }
             decoder->mask=(UBYTE *)AllocVec(decoder->maskw*decoder->height,
-               MEMF_PUBLIC|MEMF_CLEAR|(decoder->flags&DECOF_CYBERMAP?0:MEMF_CHIP));
+               MEMF_PUBLIC|MEMF_CLEAR|(decoder->flags&DECOF_P96MAP?0:MEMF_CHIP));
          }
 
          /* Save our bitmap and dimensions. */
@@ -389,8 +388,12 @@ static BOOL Parsepngimage(struct Decoder *decoder)
 
          InitRastPort(&decoder->rp);
          decoder->rp.BitMap=decoder->bitmap;
-         if(decoder->flags&DECOF_CYBERMAP)
+         if(decoder->flags&DECOF_P96MAP)
          {  error=!(decoder->chunky=AllocVec(decoder->width*4,MEMF_PUBLIC));
+            /* Initialize RenderInfo for p96WritePixelArray */
+            decoder->renderinfo.Memory=decoder->chunky;
+            decoder->renderinfo.BytesPerRow=decoder->width*4;
+            decoder->renderinfo.RGBFormat=RGBFB_R8G8B8;
          }
          else
          {  /* The colour mapping process needs a temporary RastPort plus BitMap
@@ -399,6 +402,10 @@ static BOOL Parsepngimage(struct Decoder *decoder)
             error=!(decoder->temprp.BitMap=AllocBitMap(
                   8*(((decoder->width+15)>>4)<<1),1,8,0,decoder->bitmap))
                || !(decoder->chunky=AllocVec(((decoder->width+15)>>4)<<4,MEMF_PUBLIC));
+            /* Initialize RenderInfo for 8-bit mode */
+            decoder->renderinfo.Memory=decoder->chunky;
+            decoder->renderinfo.BytesPerRow=decoder->width;
+            decoder->renderinfo.RGBFormat=RGBFB_CLUT;
          }
          if(error) longjmp(png->jmpbuf,1);
          
@@ -457,7 +464,7 @@ static BOOL Parsepngimage(struct Decoder *decoder)
                {  png_read_rows(png,NULL,&buffer,1);
                }
 
-               if(decoder->flags&DECOF_CYBERDEEP)
+               if(decoder->flags&DECOF_P96DEEP)
                {  for(x=0;x<width;x++)
                   {  transpixel=FALSE;
                      if(decoder->mask)
@@ -490,8 +497,8 @@ static BOOL Parsepngimage(struct Decoder *decoder)
                      {  trow[x>>3]|=0x80>>(x&0x7);
                      }
                   }
-                  WritePixelArray(decoder->chunky,0,0,3*decoder->width,
-                     &decoder->rp,0,y,decoder->width,1,RECTFMT_RGB);
+                  p96WritePixelArray(&decoder->renderinfo,0,0,
+                     &decoder->rp,0,y,decoder->width,1);
                }
                else
                {  for(x=0;x<decoder->width;x++)
@@ -566,9 +573,10 @@ static BOOL Parsepngimage(struct Decoder *decoder)
                      {  trow[x>>3]|=0x80>>(x&0x7);
                      }
                   }
-                  if(decoder->flags&DECOF_CYBERMAP)
-                  {  WritePixelArray(decoder->chunky,0,0,decoder->width,
-                        &decoder->rp,0,y,decoder->width,1,RECTFMT_LUT8);
+                  if(decoder->flags&DECOF_P96MAP)
+                  {  /* For Picasso96 8-bit mode, use WritePixelLine8 */
+                     WritePixelLine8(&decoder->rp,0,y,decoder->width,decoder->chunky,
+                        &decoder->temprp);
                   }
                   else
                   {  WritePixelLine8(&decoder->rp,0,y,decoder->width,decoder->chunky,
@@ -917,7 +925,7 @@ static void Disposesource(struct Pngsource *ps)
    Releaseimage(ps);
    Releasedata(ps);
    Aremchild(Aweb(),ps,AOREL_APP_USE_SCREEN);
-   Amethodas(AOTP_SOURCEDRIVER,ps,AOM_DISPOSE);
+   Amethodas(AOTP_SOURCEDRIVER,ps,AOM_DISPOSE,NULL);
 }
 
 __saveds __asm ULONG Dispatchsource(
@@ -947,7 +955,7 @@ __saveds __asm ULONG Dispatchsource(
          Disposesource(ps);
          break;
       default:
-         result=AmethodasA(AOTP_SOURCEDRIVER,ps,amsg);
+         AmethodasA(AOTP_SOURCEDRIVER,ps,amsg);
          break;
    }
    return result;

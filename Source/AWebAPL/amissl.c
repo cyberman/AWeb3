@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -20,17 +21,19 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <clib/exec_protos.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/utility.h>
 #include "aweb.h"
 #include "awebssl.h"
 #include "task.h"
 #include <proto/amissl.h>
-#include <pragmas/amissl_pragmas.h>
-#include <amissl.h>
+// AmiSSL pragmas are not available in proto headers, keep this include
+#include <amissl/amissl.h>
 //#define NO_BLOWFISH
-#include <ssl.h>
-#include <err.h>
-#include <crypto.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/crypto.h>
 
 /*-----------------------------------------------------------------------*/
 
@@ -46,15 +49,26 @@ struct Assl
 
 struct Assl *Assl_initamissl(struct Library *socketbase)
 {  struct Library *AmiSSLBase;
-   struct Assl *assl=NULL;
+   struct Assl *assl;
 #ifndef DEMOVERSION
-   if(assl=ALLOCSTRUCT(Assl,1,MEMF_CLEAR))
-   {  if(AmiSSLBase=assl->amisslbase=OpenLibrary("amissl.library",1))
-      {  if(InitAmiSSL(AmiSSL_Version,AmiSSL_CurrentVersion,
-            AmiSSL_Revision,AmiSSL_CurrentRevision,
-            AmiSSL_SocketBase,socketbase,
+   if((assl=ALLOCSTRUCT(Assl,1,MEMF_CLEAR)))
+   {  if(AmiSSLBase=assl->amisslbase=OpenLibrary("amissl.library",5))
+      {  ULONG version = AmiSSLBase->lib_Version;
+         ULONG revision = AmiSSLBase->lib_Revision;
+         if(version < 5 || (version == 5 && revision < 20))
+         {
+            /* Print warning or set a flag for UI */
+            PutStr("WARNING: AmiSSL 5.20 or newer is required.\n");
+            Lowlevelreq("AWeb requires amissl.library version 5.20 or newer for SSL/TLS connections.\nPlease install or update AmiSSL and try again.");
+            CloseLibrary(AmiSSLBase);
+            assl->amisslbase=NULL;
+         }
+         else if(InitAmiSSL(AmiSSL_SocketBase,socketbase,
             TAG_END))
-         {  CloseLibrary(AmiSSLBase);
+         {  /* InitAmiSSL failed */
+            PutStr("ERROR: InitAmiSSL() failed.\n");
+            Lowlevelreq("AWeb could not initialize AmiSSL.\nPlease check your AmiSSL installation and try again.");
+            CloseLibrary(AmiSSLBase);
             assl->amisslbase=NULL;
          }
       }
@@ -71,7 +85,7 @@ struct Assl *Assl_initamissl(struct Library *socketbase)
 
 static int __saveds __stdargs
    Certcallback(int ok,X509_STORE_CTX *sctx)
-{  char *s=NULL,*u=NULL;
+{  char *s,*u;
    struct Assl *assl;
    X509 *xs;
    int err;
@@ -231,6 +245,7 @@ struct Jumptab
 };
 #define JMP 0x4ef9
 
+/* Library jump table - referenced by awebamissllib structure for function dispatch */
 static struct Jumptab jumptab[]=
 {
    JMP,Assl_libname,

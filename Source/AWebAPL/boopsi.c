@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -19,16 +20,52 @@
 
 #include "aweb.h"
 #include "application.h"
-#include <classact.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <images/bevel.h>
+#include <images/bitmap.h>
+#include <images/drawlist.h>
+#include <images/glyph.h>
+#include <images/label.h>
+#include <images/led.h>
+#include <images/penmap.h>
+#include <gadgets/button.h>
+#include <gadgets/checkbox.h>
+#include <gadgets/chooser.h>
+#include <gadgets/clicktab.h>
+#include <gadgets/colorwheel.h>
+#include <gadgets/fuelgauge.h>
+#include <gadgets/getfile.h>
+#include <gadgets/getfont.h>
+#include <gadgets/getscreenmode.h>
+#include <gadgets/integer.h>
+#include <gadgets/layout.h>
+#include <gadgets/listbrowser.h>
+#include <gadgets/listview.h>
+#include <gadgets/page.h>
+#include <gadgets/radiobutton.h>
+#include <gadgets/scroller.h>
+#include <gadgets/slider.h>
+#include <gadgets/space.h>
+#include <gadgets/string.h>
+#include <gadgets/tabs.h>
+#include <gadgets/virtual.h>
 #include <intuition/intuition.h>
 #include <intuition/imageclass.h>
 #include <intuition/gadgetclass.h>
 #include <intuition/icclass.h>
-#include <clib/alib_protos.h>
-#include <clib/exec_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/utility_protos.h>
-#include <clib/graphics_protos.h>
+#include <proto/alib.h>
+#include <proto/exec.h>
+#include <proto/intuition.h>
+#include <proto/utility.h>
+#include <proto/graphics.h>
+#include <proto/bevel.h>
+#include <proto/layout.h>
+#include <proto/string.h>
+#include <proto/label.h>
+#include <proto/fuelgauge.h>
+#include <proto/window.h>
+
 
 static Class *gadimgcls,*stagadcls,*ledgadcls;
 
@@ -211,7 +248,7 @@ static ULONG RenderStagadcls(Class *cl,Object *o,struct gpRender *gpr)
    imp.Height=g->Height;
    if(g->Flags&GFLG_RELHEIGHT) imp.Height+=gpr->gpr_GInfo->gi_Domain.Height;
    SetAttrs((Object *)data->frameimg,
-      CLASSACT_SpecialPens,data->capens,
+      REACTION_SpecialPens,data->capens,
       TAG_END);
    DoMethodA((Object *)data->frameimg,&imp);
    if(data->total && data->visible)
@@ -497,7 +534,7 @@ static ULONG RenderLedgadcls(Class *cl,Object *o,struct gpRender *gpr)
    {  if(data->bitmap)
       {  SetAttrs(data->frameimg,
             IA_EdgesOnly,TRUE,
-            CLASSACT_SpecialPens,data->capens,
+            REACTION_SpecialPens,data->capens,
             TAG_END);
          DoMethodA((Object *)data->frameimg,&imp);
          BltBitMapRastPort(data->bitmap,data->x+data->n*data->dx,data->y+data->n*data->dy,
@@ -506,7 +543,7 @@ static ULONG RenderLedgadcls(Class *cl,Object *o,struct gpRender *gpr)
       else
       {  SetAttrs(data->frameimg,
             IA_EdgesOnly,FALSE,
-            CLASSACT_SpecialPens,data->capens,
+            REACTION_SpecialPens,data->capens,
             TAG_END);
          DoMethodA((Object *)data->frameimg,&imp);
          if(data->n<4)
@@ -535,7 +572,7 @@ static ULONG RenderLedgadcls(Class *cl,Object *o,struct gpRender *gpr)
    {  if(data->bitmap && data->restx>=0)
       {  SetAttrs(data->frameimg,
             BEVEL_Transparent,TRUE,
-            CLASSACT_SpecialPens,data->capens,
+            REACTION_SpecialPens,data->capens,
             TAG_END);
          DoMethodA((Object *)data->frameimg,&imp);
          BltBitMapRastPort(data->bitmap,data->restx,data->resty,
@@ -544,7 +581,7 @@ static ULONG RenderLedgadcls(Class *cl,Object *o,struct gpRender *gpr)
       else
       {  SetAttrs(data->frameimg,
             BEVEL_Transparent,FALSE,
-            CLASSACT_SpecialPens,data->capens,
+            REACTION_SpecialPens,data->capens,
             TAG_END);
          DoMethodA((Object *)data->frameimg,&imp);
       }

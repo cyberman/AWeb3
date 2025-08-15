@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -22,9 +23,23 @@
 #include "asyncio.h"
 #include "application.h"
 #include "arexx.h"
-#include <classact.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <reaction/reaction_class.h>
+#include <classes/window.h>
+#include <gadgets/button.h>
+#include <gadgets/layout.h>
+#include <images/label.h>
 #include <intuition/intuition.h>
-#include <clib/intuition_protos.h>
+
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/intuition.h>
+#include <proto/button.h>
+#include <proto/layout.h>
+#include <proto/window.h>
+#include <proto/label.h>
+#include <proto/utility.h>
 
 #define IOBUFSIZE 8192
 
@@ -207,12 +222,12 @@ static short Askcookie(UBYTE *domain,UBYTE *path,UBYTE *name,UBYTE *value,
          EndMember,
       EndWindow;
       if(winobj)
-      {  if(window=CA_OpenWindow(winobj))
+      {  if(window=RA_OpenWindow(winobj))
          {  GetAttr(WINDOW_SigMask,winobj,&mask);
             while(!done)
             {  got=Wait(mask|SIGBREAKF_CTRL_C);
                if(got&SIGBREAKF_CTRL_C) break;
-               while((result=CA_HandleInput(winobj,NULL))!=WMHI_LASTMSG)
+               while((result=RA_HandleInput(winobj,NULL))!=WMHI_LASTMSG)
                {  switch(result&WMHI_CLASSMASK)
                   {  case WMHI_CLOSEWINDOW:
                         done=TRUE;

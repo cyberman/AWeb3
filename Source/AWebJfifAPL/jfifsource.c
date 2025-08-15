@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -31,21 +32,16 @@
 #include "ezlists.h"
 #include <math.h>
 #include <libraries/awebplugin.h>
-#include <cybergraphics/cybergraphics.h>
+#include <libraries/Picasso96.h>
 #include <exec/memory.h>
 #include <graphics/gfx.h>
 #include <datatypes/pictureclass.h>
-#include <clib/awebplugin_protos.h>
-#include <clib/exec_protos.h>
-#include <clib/alib_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/utility_protos.h>
-#include <clib/cybergraphics_protos.h>
-#include <pragmas/awebplugin_pragmas.h>
-#include <pragmas/exec_sysbase_pragmas.h>
-#include <pragmas/graphics_pragmas.h>
-#include <pragmas/utility_pragmas.h>
-#include <pragmas/cybergraphics_pragmas.h>
+#include <proto/awebplugin.h>
+#include <proto/exec.h>
+#include <proto/alib.h>
+#include <proto/graphics.h>
+#include <proto/utility.h>
+#include <proto/Picasso96.h>
 
 /*--------------------------------------------------------------------*/
 /* General data structures                                            */
@@ -107,14 +103,15 @@ struct Decoder
    struct RastPort rp;              /* Temporary for pixelline8 functions */
    struct RastPort temprp;          /* Temporary for pixelline8 functions */
    UBYTE *chunky;                   /* Row of chunky pixels */
+   struct RenderInfo renderinfo;    /* Picasso96 render info for pixel operations */
 };
 
 /* Decoder flags: */
 #define DECOF_STOP         0x0001   /* The decoder process should stop */
 #define DECOF_EOF          0x0002   /* No more data */
 #define DECOF_MAPPED       0x0004   /* Colormap is used */
-#define DECOF_CYBERMAP     0x0010   /* Bitmap is CyberGfx */
-#define DECOF_CYBERDEEP    0x0020   /* Bitmap is CyberGfx >8 bits */
+#define DECOF_CYBERMAP     0x0010   /* Bitmap is Picasso96 */
+#define DECOF_CYBERDEEP    0x0020   /* Bitmap is Picasso96 >8 bits */
 
 /*--------------------------------------------------------------------*/
 /* Read from the input stream                                         */
@@ -276,13 +273,13 @@ static BOOL Decompress(struct Decoder *decoder)
       decoder->height=cinfo.image_height;
       
       /* Now we know the image dimensions, allocate a bitmap. */
-      if(CyberGfxBase)
+      if(P96Base)
       {  depth=GetBitMapAttr(decoder->source->friendbitmap,BMA_DEPTH);
-         decoder->bitmap=AllocBitMap(decoder->width,decoder->height,depth,
-            BMF_MINPLANES|BMF_CLEAR,decoder->source->friendbitmap);
+         decoder->bitmap=p96AllocBitMap(decoder->width,decoder->height,depth,
+            BMF_MINPLANES|BMF_CLEAR,decoder->source->friendbitmap,RGBFB_NONE);
          if (decoder->bitmap) 
 			{
-	         if(GetCyberMapAttr(decoder->bitmap,CYBRMATTR_ISCYBERGFX))
+	         if(p96GetBitMapAttr(decoder->bitmap,P96BMA_ISP96))
    	      {  decoder->flags|=DECOF_CYBERMAP;
       	      if(depth>8)
          	   {  decoder->flags|=DECOF_CYBERDEEP;
@@ -313,6 +310,12 @@ static BOOL Decompress(struct Decoder *decoder)
 	      decoder->rp.BitMap=decoder->bitmap;
 	      if(decoder->flags&DECOF_CYBERMAP)
 	      {  error=!(decoder->chunky=AllocVec(decoder->width*3,MEMF_PUBLIC));
+	         if(!error)
+	         {  /* Initialize RenderInfo for Picasso96 pixel operations */
+	            decoder->renderinfo.Memory = decoder->chunky;
+	            decoder->renderinfo.BytesPerRow = decoder->width * 3;
+	            decoder->renderinfo.RGBFormat = RGBFB_R8G8B8;
+	         }
 	      }
 	      else
 	      {  /* The colour mapping process needs a temporary RastPort plus BitMap
@@ -386,8 +389,8 @@ static BOOL Decompress(struct Decoder *decoder)
                   decoder->chunky[x]=map;
                }
                if(decoder->flags&DECOF_CYBERMAP)
-               {  WritePixelArray(decoder->chunky,0,0,decoder->width,
-                     &decoder->rp,0,row,decoder->width,1,RECTFMT_LUT8);
+               {  p96WritePixelArray(&decoder->renderinfo,0,0,
+                     &decoder->rp,0,row,decoder->width,1);
                }
                else
                {  WritePixelLine8(&decoder->rp,0,row,decoder->width,decoder->chunky,
@@ -395,8 +398,13 @@ static BOOL Decompress(struct Decoder *decoder)
                }
             }
             else
-            {  WritePixelArray(buffer[0],0,0,rowsize,
-                  &decoder->rp,0,row,decoder->width,1,RECTFMT_RGB);
+            {  /* Use Picasso96 pixel array functions for RGB mode */
+               struct RenderInfo rgbrenderinfo;
+               rgbrenderinfo.Memory = buffer[0];
+               rgbrenderinfo.BytesPerRow = rowsize;
+               rgbrenderinfo.RGBFormat = RGBFB_R8G8B8;
+               p96WritePixelArray(&rgbrenderinfo,0,0,
+                  &decoder->rp,0,row,decoder->width,1);
             }
 
             if(++decoder->progress==decoder->source->progress || row==decoder->height-1)

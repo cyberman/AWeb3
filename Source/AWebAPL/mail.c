@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -20,7 +21,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <clib/exec_protos.h>
 #include "aweblib.h"
 #include "tcperr.h"
 #include "fetchdriver.h"
@@ -30,13 +30,18 @@
 #include <exec/resident.h>
 #include <libraries/asl.h>
 #include <graphics/displayinfo.h>
-#include <clib/asl_protos.h>
-#include <clib/graphics_protos.h>
-#include <classact.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <proto/exec.h>
+#include <proto/asl.h>
+#include <proto/graphics.h>
+#include <proto/dos.h>
+#include <proto/utility.h>
+#include <proto/socket.h>
 
 #ifndef LOCALONLY
 
-struct Library *DOSBase,*UtilityBase,*AslBase,*GfxBase,*AwebTcpBase;
+struct Library *AwebTcpBase;
 void *AwebPluginBase;
 
 /*-----------------------------------------------------------------------*/
@@ -68,8 +73,6 @@ static void Expungeaweblib(struct Library *libbase);
 struct Library *MailBase;
 
 static APTR libseglist;
-
-struct ExecBase *SysBase;
 
 LONG __saveds __asm Libstart(void)
 {  return -1;
@@ -669,9 +672,9 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
 /*-----------------------------------------------------------------------*/
 
 static ULONG Initaweblib(struct Library *libbase)
-{  if(!(DOSBase=OpenLibrary("dos.library",39))) return FALSE;
+{  if(!(DOSBase=(struct DosLibrary *)OpenLibrary("dos.library",39))) return FALSE;
    if(!(AslBase=OpenLibrary("asl.library",OSNEED(39,44)))) return FALSE;
-   if(!(GfxBase=OpenLibrary("graphics.library",39))) return FALSE;
+   if(!(GfxBase=(struct GfxBase *)OpenLibrary("graphics.library",39))) return FALSE;
    if(!(UtilityBase=OpenLibrary("utility.library",39))) return FALSE;
    return TRUE;
 }

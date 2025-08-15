@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -17,6 +18,8 @@
 
 /* tcperr.c - aweb common tcp errors */
 
+#include <proto/dos.h>
+#include <proto/utility.h>
 #include "aweb.h"
 #include "tcperr.h"
 #include "url.h"

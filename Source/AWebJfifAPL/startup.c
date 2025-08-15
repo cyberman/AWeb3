@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -68,11 +69,11 @@ struct ExecBase *SysBase;
 
 /* Return error when run as a program */
 LONG __saveds __asm Libstart(void)
-{  return -1;
+{  
+   return -1;
 }
 
-/* Library function table. The library vectors will be
- * generated from these. */
+/* Library function table. The library vectors will be generated from these. */
 static APTR functable[]=
 {  Openlib,
    Closelib,

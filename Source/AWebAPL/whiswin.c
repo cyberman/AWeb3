@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -23,7 +24,8 @@
 #include "application.h"
 #include "window.h"
 #include "task.h"
-#include <clib/utility_protos.h>
+#include <proto/exec.h>
+#include <proto/utility.h>
 
 static struct Whiswindow *whiswindow=NULL;
 
@@ -31,7 +33,7 @@ static struct Whiswindow *whiswindow=NULL;
 
 /* Open aweblib and start task */
 static BOOL Starttask(struct Whiswindow *whw)
-{  if(whw->libbase=Openaweblib("AWebPath:aweblib/history.aweblib"))
+{  if(whw->libbase=Openaweblib("AWeb:aweblib/history.aweblib"))
    {  whw->task=Anewobject(AOTP_TASK,
          AOTSK_Entry,AWEBLIBENTRY(whw->libbase,0),
          AOTSK_Name,"AWeb window history",

@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -21,9 +22,12 @@
 
 __near long __stack=8192;
 
-struct Library *IntuitionBase,*IconBase,*LocaleBase,*GfxBase,*GadToolsBase,*AslBase,
-   *ColorWheelBase,*GradientSliderBase;
+// Library base pointers - only declare those that don't have proto headers
+// Note: gradientslider.gadget doesn't have a proto file in the Amiga NDK
+// IntuitionBase, LocaleBase, GfxBase are provided by proto headers
+struct Library *IconBase,*GadToolsBase,*AslBase,*ColorWheelBase,*GradientSliderBase;
 
+// Class library base pointers - these are provided by proto headers
 struct ClassLibrary *WindowBase,*LayoutBase,*ButtonBase,
    *ListBrowserBase,*ChooserBase,*IntegerBase,*SpaceBase,*CheckBoxBase,
    *StringBase,*LabelBase,*PaletteBase,*GlyphBase,*ClickTabBase;
@@ -134,7 +138,7 @@ void Lowlevelreq(UBYTE *msg,...)
    va_list args;
    va_start(args,msg);
    if(!IntuitionBase)
-   {  if(IntuitionBase=OpenLibrary("intuition.library",36)) opened=TRUE;
+   {  if(IntuitionBase=(struct IntuitionBase *)OpenLibrary("intuition.library",36)) opened=TRUE;
    }
    if(IntuitionBase)
    {  es.es_StructSize=sizeof(struct EasyStruct);
@@ -158,7 +162,7 @@ void Lowlevelreq(UBYTE *msg,...)
 static struct Library *Openlib(UBYTE *name,long version)
 {  struct Library *lib=OpenLibrary(name,version);
    if(!lib)
-   {  Lowlevelreq(AWEBSTR(MSG_ERROR_CANTOPENV),name,version);
+   {  Lowlevelreq(CFGAWEBSTR(MSG_ERROR_CANTOPENV),name,version);
       Cleanup();
       exit(10);
    }
@@ -260,7 +264,7 @@ static void Localizemenus(void)
    UBYTE *str;
    for(i=0;menubase[i].nm_Type!=NM_END;i++)
    {  if(menubase[i].nm_Label!=NM_BARLABEL)
-      {  str=AWEBSTR((long)menubase[i].nm_Label);
+      {  str=CFGAWEBSTR((long)menubase[i].nm_Label);
          if(strlen(str)>2 && str[1]=='/')
          {  menubase[i].nm_Label=str+2;
             menubase[i].nm_CommKey=str;
@@ -274,7 +278,7 @@ static void Openclassact(void)
 {  UBYTE buf[64];
    long out;
    BOOL result=FALSE;
-   strcpy(buf,"SYS:Prefs/ClassAct");
+   strcpy(buf,"SYS:Prefs/Reaction");
    if(*screenname)
    {  strcat(buf," PUBSCREEN ");
       strcat(buf,screenname);
@@ -488,7 +492,7 @@ UBYTE *Prefsscreenmodename(ULONG modeid,long w,long h,long d)
       strcpy(ni.Name,"(????)");
    len=strlen(ni.Name)+24;
    if(p=ALLOCTYPE(UBYTE,len,MEMF_PUBLIC))
-   {  sprintf(p,"%s, %d × %d × %d",ni.Name,w,h,1<<d);
+   {  sprintf(p,"%s, %d ï¿½ %d ï¿½ %d",ni.Name,w,h,1<<d);
    }
    return p;
 }
@@ -538,7 +542,7 @@ BOOL Popcolor(void *winobj,struct Window *pwin,struct Gadget *layout,
    offx=scr->WBorLeft;
    offy=scr->RastPort.TxHeight+scr->WBorTop+1;
    gadh=scr->RastPort.TxHeight+4;
-   gadw=TextLength(&scr->RastPort,AWEBSTR(MSG_SET_COLOUR_CANCEL),6)+16;
+   gadw=TextLength(&scr->RastPort,CFGAWEBSTR(MSG_SET_COLOUR_CANCEL),6)+16;
    labelw=6*scr->RastPort.Font->tf_XSize;
    winh=80+4*gadh+6*4;
    winw=2*gadw+16;
@@ -553,11 +557,11 @@ BOOL Popcolor(void *winobj,struct Window *pwin,struct Gadget *layout,
    ng.ng_TopEdge=offy+3*gadh+100;
    ng.ng_Width=gadw;
    ng.ng_Height=gadh;
-   ng.ng_GadgetText=AWEBSTR(MSG_SET_COLOUR_OK);
+   ng.ng_GadgetText=CFGAWEBSTR(MSG_SET_COLOUR_OK);
    ng.ng_GadgetID=CGID_OK;
    gad=CreateGadget(BUTTON_KIND,gad,&ng,TAG_END);
    ng.ng_LeftEdge=offx+winw-4-gadw;
-   ng.ng_GadgetText=AWEBSTR(MSG_SET_COLOUR_CANCEL);
+   ng.ng_GadgetText=CFGAWEBSTR(MSG_SET_COLOUR_CANCEL);
    ng.ng_GadgetID=CGID_CANCEL;
    gad=CreateGadget(BUTTON_KIND,gad,&ng,TAG_END);
    ng.ng_LeftEdge=offx+4;
@@ -566,9 +570,9 @@ BOOL Popcolor(void *winobj,struct Window *pwin,struct Gadget *layout,
    ng.ng_Height=gadh;
    ng.ng_GadgetText=NULL;
    ng.ng_GadgetID=CGID_RED;
-   rbuf[0]=*AWEBSTR(MSG_SET_COLOUR_RED);
-   gbuf[0]=*AWEBSTR(MSG_SET_COLOUR_GREEN);
-   bbuf[0]=*AWEBSTR(MSG_SET_COLOUR_BLUE);
+   rbuf[0]=*CFGAWEBSTR(MSG_SET_COLOUR_RED);
+   gbuf[0]=*CFGAWEBSTR(MSG_SET_COLOUR_GREEN);
+   bbuf[0]=*CFGAWEBSTR(MSG_SET_COLOUR_BLUE);
    rgad=gad=CreateGadget(SLIDER_KIND,gad,&ng,
       GTSL_Min,0,
       GTSL_Max,255,
@@ -632,7 +636,7 @@ BOOL Popcolor(void *winobj,struct Window *pwin,struct Gadget *layout,
       WA_AutoAdjust,TRUE,
       WA_Activate,TRUE,
       WA_SimpleRefresh,TRUE,
-      WA_Title,AWEBSTR(MSG_SET_COLOUR_TITLE),
+      WA_Title,CFGAWEBSTR(MSG_SET_COLOUR_TITLE),
       WA_IDCMP,IDCMP_CLOSEWINDOW|IDCMP_IDCMPUPDATE|IDCMP_REFRESHWINDOW|
          BUTTONIDCMP|SLIDERIDCMP,
       TAG_END)))
@@ -825,27 +829,27 @@ void main(int fromcli,struct WBStartup *wbs)
    {  if(WorkbenchBase->lib_Version>=44) has35=TRUE;
       CloseLibrary(WorkbenchBase);
    }
-   if((IconBase=Openlib("icon.library",OSNEED(39,44)))
-   && (IntuitionBase=Openlib("intuition.library",OSNEED(39,40)))
-   && (LocaleBase=Openlib("locale.library",OSNEED(38,44)))
-   && (GfxBase=Openlib("graphics.library",OSNEED(39,40)))
-   && (GadToolsBase=Openlib("gadtools.library",OSNEED(39,40)))
-   && (AslBase=Openlib("asl.library",OSNEED(39,44)))
-   && (ColorWheelBase=Openlib("gadgets/colorwheel.gadget",OSNEED(39,44)))
-   && (GradientSliderBase=Openlib("gadgets/gradientslider.gadget",OSNEED(39,44)))
-   && (WindowBase=Openclass("window.class"))
-   && (LayoutBase=Openclass("gadgets/layout.gadget"))
-   && (ButtonBase=Openclass("gadgets/button.gadget"))
-   && (ListBrowserBase=Openclass("gadgets/listbrowser.gadget"))
-   && (ChooserBase=Openclass("gadgets/chooser.gadget"))
-   && (IntegerBase=Openclass("gadgets/integer.gadget"))
-   && (SpaceBase=Openclass("gadgets/space.gadget"))
-   && (CheckBoxBase=Openclass("gadgets/checkbox.gadget"))
-   && (StringBase=Openclass("gadgets/string.gadget"))
-   && (PaletteBase=Openclass("gadgets/palette.gadget"))
-   && (ClickTabBase=Openclass("gadgets/clicktab.gadget"))
-   && (LabelBase=Openclass("images/label.image"))
-   && (GlyphBase=Openclass("images/glyph.image"))
+   if((IconBase=(struct Library *)Openlib("icon.library",OSNEED(39,44)))
+   && (IntuitionBase=(struct IntuitionBase *)Openlib("intuition.library",OSNEED(39,40)))
+   && (LocaleBase=(struct LocaleBase *)Openlib("locale.library",OSNEED(38,44)))
+   && (GfxBase=(struct GfxBase *)Openlib("graphics.library",OSNEED(39,40)))
+   && (GadToolsBase=(struct Library *)Openlib("gadtools.library",OSNEED(39,40)))
+   && (AslBase=(struct Library *)Openlib("asl.library",OSNEED(39,44)))
+   && (ColorWheelBase=(struct Library *)Openlib("gadgets/colorwheel.gadget",OSNEED(39,44)))
+   && (GradientSliderBase=(struct Library *)Openlib("gadgets/gradientslider.gadget",OSNEED(39,44)))
+   && (WindowBase=(struct ClassLibrary *)Openclass("window.class"))
+   && (LayoutBase=(struct ClassLibrary *)Openclass("gadgets/layout.gadget"))
+   && (ButtonBase=(struct ClassLibrary *)Openclass("gadgets/button.gadget"))
+   && (ListBrowserBase=(struct ClassLibrary *)Openclass("gadgets/listbrowser.gadget"))
+   && (ChooserBase=(struct ClassLibrary *)Openclass("gadgets/chooser.gadget"))
+   && (IntegerBase=(struct ClassLibrary *)Openclass("gadgets/integer.gadget"))
+   && (SpaceBase=(struct ClassLibrary *)Openclass("gadgets/space.gadget"))
+   && (CheckBoxBase=(struct ClassLibrary *)Openclass("gadgets/checkbox.gadget"))
+   && (StringBase=(struct ClassLibrary *)Openclass("gadgets/string.gadget"))
+   && (PaletteBase=(struct ClassLibrary *)Openclass("gadgets/palette.gadget"))
+   && (ClickTabBase=(struct ClassLibrary *)Openclass("gadgets/clicktab.gadget"))
+   && (LabelBase=(struct ClassLibrary *)Openclass("images/label.image"))
+   && (GlyphBase=(struct ClassLibrary *)Openclass("images/glyph.image"))
    && Initmemory()
    )
    {  

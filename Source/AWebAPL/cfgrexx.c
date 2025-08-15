@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -20,12 +21,16 @@
 #include "aweblib.h"
 #include "arexx.h"
 #include <exec/resident.h>
-#include <clib/exec_protos.h>
-#include <clib/alib_protos.h>
-#include <clib/graphics_protos.h>
+#include <proto/exec.h>
+#include <proto/alib.h>
+#include <proto/graphics.h>
 
 static void *AwebPluginBase;
-void *DOSBase,*UtilityBase,*GfxBase;
+/* Library base pointers are provided by proto headers:
+   DOSBase - from proto/dos.h
+   UtilityBase - from proto/utility.h  
+   GfxBase - from proto/graphics.h
+*/
 
 struct Iteminfo
 {  UBYTE *name;
@@ -414,9 +419,9 @@ static ULONG Initaweblib(struct Library *libbase)
 #ifdef NOAREXXPORTS
    return FALSE;
 #else
-   if(!(DOSBase=OpenLibrary("dos.library",39))) return FALSE;
-   if(!(UtilityBase=OpenLibrary("utility.library",39))) return FALSE;
-   if(!(GfxBase=OpenLibrary("graphics.library",39))) return FALSE;
+   if(!(DOSBase=(struct DosLibrary *)OpenLibrary("dos.library",39))) return FALSE;
+   if(!(UtilityBase=(struct Library *)OpenLibrary("utility.library",39))) return FALSE;
+   if(!(GfxBase=(struct GfxBase *)OpenLibrary("graphics.library",39))) return FALSE;
    return TRUE;
 #endif
 }

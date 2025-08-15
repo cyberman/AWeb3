@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -36,14 +37,21 @@
 #include <intuition/icclass.h>
 #include <libraries/gadtools.h>
 #include <dos/dosextens.h>
-#include <classact.h>
-#include <clib/alib_protos.h>
-#include <clib/exec_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/utility_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/layers_protos.h>
-#include <clib/keymap_protos.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <gadgets/layout.h>
+#include <gadgets/chooser.h>
+#include <proto/alib.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/intuition.h>
+#include <proto/utility.h>
+#include <proto/graphics.h>
+#include <proto/layers.h>
+#include <proto/keymap.h>
+#include <proto/layout.h>
+#include <proto/chooser.h>
+#include <proto/gadtools.h>
 
 /* Setwindowdisplay() codes */
 #define WINDISP_NEWDOC  1
@@ -772,7 +780,7 @@ void Processwindow(void)
                         STRINGA_BufferPos,strlen(urlpop),
                         STRINGA_DispPos,0,
                         TAG_END);
-                     ActivateLayoutGadget(win->layoutgad,win->window,NULL,win->urlgad);
+                     ActivateLayoutGadget(win->layoutgad,win->window,NULL,(ULONG)win->urlgad);
                      break;
                   case GID_UBUTTON:
                      Douserbutton(win,GetTagData(LAYOUT_RelCode,-1,

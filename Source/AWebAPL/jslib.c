@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -25,17 +26,27 @@
 #include <intuition/intuitionbase.h>
 #include <exec/resident.h>
 #include <graphics/gfxbase.h>
-#include <classact.h>
-#include <clib/exec_protos.h>
-#include <clib/intuition_protos.h>
-#include <pragmas/intuition_pragmas.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <gadgets/layout.h>
+#include <gadgets/button.h>
+#include <images/label.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/intuition.h>
+#include <proto/utility.h>
+#include <proto/graphics.h>
+#include <proto/locale.h>
+#include <proto/asl.h>
+#include <proto/window.h>
+#include <proto/layout.h>
+#include <proto/button.h>
+#include <proto/label.h>
 #include <time.h>
 
 #define PUDDLESIZE         16*1024
 #define TRESHSIZE          4*1024
 
-struct ExecBase *SysBase;
-struct Library *DOSBase,*LocaleBase,*UtilityBase,*IntuitionBase,*GfxBase,*AslBase;
 struct Locale *locale;
 struct Hook idcmphook;
 
@@ -389,11 +400,11 @@ __asm __saveds ULONG Extfunclib(void)
 /*-----------------------------------------------------------------------*/
 
 static ULONG Initaweblib(struct Library *libbase)
-{  if(!(DOSBase=OpenLibrary("dos.library",39))) return FALSE;
+{  if(!(DOSBase=(struct DosLibrary *)OpenLibrary("dos.library",39))) return FALSE;
    if(!(LocaleBase=OpenLibrary("locale.library",0))) return FALSE;
    if(!(UtilityBase=OpenLibrary("utility.library",39))) return FALSE;
-   if(!(IntuitionBase=OpenLibrary("intuition.library",39))) return FALSE;
-   if(!(GfxBase=OpenLibrary("graphics.library",39))) return FALSE;
+   if(!(IntuitionBase=(struct IntuitionBase *)OpenLibrary("intuition.library",39))) return FALSE;
+   if(!(GfxBase=(struct GfxBase *)OpenLibrary("graphics.library",39))) return FALSE;
    if(!(AslBase=OpenLibrary("asl.library",OSNEED(39,44)))) return FALSE;
    if(!(locale=OpenLocale(NULL))) return FALSE;
    return TRUE;
@@ -619,11 +630,11 @@ BOOL Errorrequester(struct Jcontext *jc,long lnr,UBYTE *line,long pos,UBYTE *msg
             CHILD_NominalSize,TRUE,
             TAG_END);
       }
-      if(winobj && CA_OpenWindow(winobj))
+      if(winobj && RA_OpenWindow(winobj))
       {  GetAttr(WINDOW_SigMask,winobj,&sigmask);
          while(!done)
          {  Wait(sigmask);
-            while(!done && (result=CA_HandleInput(winobj,NULL))!=WMHI_LASTMSG)
+            while(!done && (result=RA_HandleInput(winobj,NULL))!=WMHI_LASTMSG)
             {  switch(result&WMHI_CLASSMASK)
                {  case WMHI_GADGETUP:
                      if(result&WMHI_GADGETMASK)

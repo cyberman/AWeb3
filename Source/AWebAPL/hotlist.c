@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -23,9 +24,11 @@
 #include "application.h"
 #include "window.h"
 #include "task.h"
-#include <clib/utility_protos.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/utility.h>
 
-#define HOTLISTNAME "AWebPath:aweb.hotlist"
+#define HOTLISTNAME "AWeb:aweb.hotlist"
 static UBYTE *hotlistname;
 
 #include "hotlist.h"
@@ -335,7 +338,7 @@ static void Buildfromstem(struct Arexxcmd *ac,UBYTE *stem)
 
 /* Open aweblib and start task */
 static BOOL Starttask(struct Hotwindow *how)
-{  if(how->libbase=Openaweblib("AWebPath:aweblib/hotlist.aweblib"))
+{  if(how->libbase=Openaweblib("AWeb:aweblib/hotlist.aweblib"))
    {  how->task=Anewobject(AOTP_TASK,
          AOTSK_Entry,AWEBLIBENTRY(how->libbase,how->libentry),
          AOTSK_Name,"AWeb hotlist",

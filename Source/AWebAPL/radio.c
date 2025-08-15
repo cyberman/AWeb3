@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -22,11 +23,15 @@
 #include "form.h"
 #include "application.h"
 #include "jslib.h"
-#include <classact.h>
+#include <proto/exec.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
 #include <intuition/imageclass.h>
-#include <clib/graphics_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/utility_protos.h>
+#include <images/glyph.h>
+#include <proto/graphics.h>
+#include <proto/intuition.h>
+#include <proto/utility.h>
+#include <proto/glyph.h>
 
 /*------------------------------------------------------------------------*/
 

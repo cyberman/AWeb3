@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -28,16 +29,22 @@
 #include <workbench/workbench.h>
 #include <workbench/icon.h>
 #include <intuition/pointerclass.h>
-#include <graphics/gfxbase.h>
+#include <proto/graphics.h>
 #include <graphics/gfx.h>
-#include <classact.h>
-#include <clib/icon_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/gadtools_protos.h>
-#include <clib/utility_protos.h>
-#include <clib/layers_protos.h>
-#include <clib/wb_protos.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <images/bitmap.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/intuition.h>
+#include <proto/graphics.h>
+#include <proto/gadtools.h>
+#include <proto/utility.h>
+#include <proto/layers.h>
+#include <proto/wb.h>
+#include <proto/bitmap.h>
+#include <proto/icon.h>
+#include <proto/asl.h>
 
 /*------------------------------------------------------------------------*/
 
@@ -225,17 +232,17 @@ static void Readpointerdata(USHORT type)
    UWORD w1,w2;
    switch(type)
    {  case APTR_RESIZEHOR:
-         filename="AWebPath:images/vsizepointer";
+         filename="AWeb:images/vsizepointer";
          data=resizehordata;
          hot=resizehorhot;
          break;
       case APTR_RESIZEVERT:
-         filename="AWebPath:images/hsizepointer";
+         filename="AWeb:images/hsizepointer";
          data=resizevertdata;
          hot=resizeverthot;
          break;
       case APTR_HAND:
-         filename="AWebPath:images/handpointer";
+         filename="AWeb:images/handpointer";
          data=handdata;
          hot=handhot;
          break;
@@ -443,7 +450,7 @@ static void Getbuttonsinfo(struct Application *app)
    }
    app->buttonstransparent=FALSE;
    if(!BitMapBase) return;
-   if(dob=GetDiskObject("AWebPath:Images/def_buttons"))
+   if(dob=GetDiskObject("AWeb:Images/def_buttons"))
    {  for(ttp=dob->do_ToolTypes;*ttp;ttp++)
       {  if(STRNIEQUAL(*ttp,"BUTTON_SIZE=",12))
             sscanf(*ttp+12," %hd,%hd",&app->buttonwidth,&app->buttonheight);
@@ -499,7 +506,7 @@ static void Getbuttonsinfo(struct Application *app)
       Setloadreqlevel(LQL_GUIDOB,LQL_NUMBER);
       if(app->buttonwidth && app->buttonheight)
       {  app->buttons=BitMapObject,
-            BITMAP_SourceFile,"AWebPath:Images/def_buttons",
+            BITMAP_SourceFile,"AWeb:Images/def_buttons",
             BITMAP_Screen,app->screen,
             BITMAP_Masking,app->buttonstransparent,
          End;
@@ -526,7 +533,7 @@ static void Getaniminfo(struct Application *app)
    app->animw=app->animh=app->animframes=app->animx=app->animy=app->animdx=app->animdy=0;
    app->animrx=app->animry=-1;
    if(!BitMapBase) return;
-   if(dob=GetDiskObject("AWebPath:Images/def_transferanim"))
+   if(dob=GetDiskObject("AWeb:Images/def_transferanim"))
    {  for(ttp=dob->do_ToolTypes;*ttp;ttp++)
       {  if(STRNIEQUAL(*ttp,"SIZE=",5))
             sscanf(*ttp+5," %hd,%hd",&app->animw,&app->animh);
@@ -543,7 +550,7 @@ static void Getaniminfo(struct Application *app)
       Setloadreqlevel(LQL_ANIMDOB,LQL_NUMBER);
       if(app->animw && app->animh && app->animframes)
       {  app->animation=BitMapObject,
-            BITMAP_SourceFile,"AWebPath:Images/def_transferanim",
+            BITMAP_SourceFile,"AWeb:Images/def_transferanim",
             BITMAP_Screen,app->screen,
          End;
          if(app->animation)
@@ -565,7 +572,7 @@ static void Freemenus(struct Application *app)
    if(app->menus)
    {  for(i=0;app->menus[i].nm_Type;i++)
       {  if(app->menus[i].nm_Label && app->menus[i].nm_Label!=NM_BARLABEL)
-            FREE(app->menus[i].nm_Label);
+            FREE((void *)app->menus[i].nm_Label);
       }
       FREE(app->menus);
       app->menus=NULL;
@@ -1001,17 +1008,17 @@ static BOOL Appopenscreen(struct Application *app,BOOL loadreq)
    Setloadreqstate(LRQ_IMAGES);
    if(!(app->vinfo=GetVisualInfo(app->screen,TAG_END))) return FALSE;
    app->deficon=BitMapObject,
-      BITMAP_SourceFile,"AWebPath:Images/def_image",
+      BITMAP_SourceFile,"AWeb:Images/def_image",
       BITMAP_Screen,app->screen,
    End;
    Setloadreqlevel(LQL_IMGICON,LQL_NUMBER);
    app->defmapicon=BitMapObject,
-      BITMAP_SourceFile,"AWebPath:Images/def_imagemap",
+      BITMAP_SourceFile,"AWeb:Images/def_imagemap",
       BITMAP_Screen,app->screen,
    End;
    Setloadreqlevel(LQL_MAPICON,LQL_NUMBER);
    app->deferricon=BitMapObject,
-      BITMAP_SourceFile,"AWebPath:Images/def_errimage",
+      BITMAP_SourceFile,"AWeb:Images/def_errimage",
       BITMAP_Screen,app->screen,
    End;
    Setloadreqlevel(LQL_ERRICON,LQL_NUMBER);
@@ -1502,7 +1509,7 @@ static long Jsetupapplication(struct Application *app,struct Amjsetup *js)
                }
                else
 #endif
-               {  sprintf(buf,"Amiga-AWeb/%s",awebversion);
+               {  strcpy(buf,"Mozilla/5.0 (AmigaOS; U; AmigaOS 3.2; en-US; rv:1.9.2.28) Gecko/20120306 Firefox/3.6.28");
                }
                Jasgstring(app->jcontext,jv,buf);
             }

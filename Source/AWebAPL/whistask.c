@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -22,11 +23,37 @@
 #include "whisprivate.h"
 #include "url.h"
 #include <exec/resident.h>
+
+/* Missing Reaction defines - not available in proto headers */
+#ifndef REACTION_Underscore
+#define REACTION_Underscore 0x80000000
+#endif
 #include <intuition/intuition.h>
-#include <classact.h>
-#include <clib/exec_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/utility_protos.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <gadgets/listbrowser.h>
+#include <gadgets/chooser.h>
+#include <gadgets/button.h>
+#include <gadgets/checkbox.h>
+#include <gadgets/integer.h>
+#include <gadgets/space.h>
+#include <gadgets/layout.h>
+#include <classes/window.h>
+#include <images/label.h>
+#include <images/glyph.h>
+#include <proto/exec.h>
+#include <proto/intuition.h>
+#include <proto/utility.h>
+#include <proto/window.h>
+#include <proto/layout.h>
+#include <proto/button.h>
+#include <proto/chooser.h>
+#include <proto/checkbox.h>
+#include <proto/integer.h>
+#include <proto/listbrowser.h>
+#include <proto/space.h>
+#include <proto/label.h>
+#include <proto/glyph.h>
 
 enum WINHIS_GADGETIDS
 {  WGID_LIST=1,WGID_FILTER,WGID_WIN,WGID_ORDER,WGID_DISPLAY,
@@ -51,7 +78,10 @@ enum WHIS_ORDER
 static struct Hook idcmphook;
 
 static void *AwebPluginBase;
-void *IntuitionBase,*UtilityBase;
+/* Library base pointers are provided by proto headers:
+   IntuitionBase - from proto/intuition.h
+   UtilityBase - from proto/utility.h
+*/
 struct ClassLibrary *WindowBase,*LayoutBase,*ButtonBase,*ListBrowserBase,
    *ChooserBase,*CheckBoxBase,*IntegerBase,*SpaceBase,*LabelBase,*GlyphBase;
 
@@ -192,8 +222,8 @@ __asm __saveds ULONG Extfunclib(void)
 /*-----------------------------------------------------------------------*/
 
 static ULONG Initaweblib(struct Library *libbase)
-{  if(!(IntuitionBase=OpenLibrary("intuition.library",39))) return FALSE;
-   if(!(UtilityBase=OpenLibrary("utility.library",39))) return FALSE;
+{     if(!(IntuitionBase=(struct IntuitionBase *)OpenLibrary("intuition.library",39))) return FALSE;
+   if(!(UtilityBase=(struct Library *)OpenLibrary("utility.library",39))) return FALSE;
    if(!(WindowBase=(struct ClassLibrary *)OpenLibrary("window.class",OSNEED(0,44)))) return FALSE;
    if(!(LayoutBase=(struct ClassLibrary *)OpenLibrary("gadgets/layout.gadget",OSNEED(0,44)))) return FALSE;
    if(!(ButtonBase=(struct ClassLibrary *)OpenLibrary("gadgets/button.gadget",OSNEED(0,44)))) return FALSE;
@@ -318,7 +348,7 @@ static struct Node *Allocnode(struct Whiswindow *whw,struct Winhis *whis)
    else if(whis->title) name=whis->title;
    else if(fhis) name=Buildurlfrag(whw,fhis);
    else name="";
-   node=AllocListBrowserNode(4,
+   node=(struct Node *)AllocListBrowserNode(4,
       LBNA_UserData,whis,
       LBNA_Column,0,
          LBNCA_CopyText,TRUE,
@@ -621,7 +651,7 @@ static void Buildwinhiswindow(struct Whiswindow *whw)
                   GA_Text," ",
                   GA_ReadOnly,TRUE,
                   BUTTON_Justification,BCJ_LEFT,
-                  CLASSACT_Underscore,0,
+                  REACTION_Underscore,0,
                EndMember,
                StartMember,ButtonObject,
                   GA_ID,WGID_DISPLAY,
@@ -635,7 +665,7 @@ static void Buildwinhiswindow(struct Whiswindow *whw)
                GA_Text," ",
                GA_ReadOnly,TRUE,
                BUTTON_Justification,BCJ_LEFT,
-               CLASSACT_Underscore,0,
+               REACTION_Underscore,0,
             EndMember,
             CHILD_WeightedHeight,0,
             StartMember,HLayoutObject,
@@ -672,7 +702,7 @@ static void Buildwinhiswindow(struct Whiswindow *whw)
          EndMember,
       EndWindow;
       if(whw->winobj)
-      {  if(whw->window=(struct Window *)CA_OpenWindow(whw->winobj))
+               {  if(whw->window=(struct Window *)RA_OpenWindow(whw->winobj))
          {  GetAttr(WINDOW_SigMask,whw->winobj,&whw->winsigmask);
             if(whw->currentnode>=0)
             {  Setgadgetattrs(whw->listgad,whw->window,NULL,
@@ -689,7 +719,7 @@ static BOOL Handlewinhiswindow(struct Whiswindow *whw)
 {  ULONG result,relevent;
    BOOL done=FALSE;
    USHORT click;
-   while((result=CA_HandleInput(whw->winobj,&click))!=WMHI_LASTMSG)
+   while((result=RA_HandleInput(whw->winobj,&click))!=WMHI_LASTMSG)
    {  ObtainSemaphore(whw->whissema);
       switch(result&WMHI_CLASSMASK)
       {  case WMHI_CLOSEWINDOW:

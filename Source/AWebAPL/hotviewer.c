@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -21,12 +22,20 @@
 #include "task.h"
 #include "hotlist.h"
 #include "hotlisttask.h"
+#include "awebcfg.h"
 #include <intuition/intuition.h>
-#include <classact.h>
-#include <clib/exec_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/utility_protos.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <gadgets/layout.h>
+#include <gadgets/button.h>
+#include <gadgets/listbrowser.h>
+#include <gadgets/chooser.h>
+#include <images/label.h>
+#include <proto/exec.h>
+#include <proto/intuition.h>
+#include <proto/graphics.h>
+#include <proto/utility.h>
+#include <proto/graphics.h>
 
 enum HOTVIEW_GADGET_IDS
 {  GID_LIST=1,GID_URLS,GID_MANAGER,GID_FOLLOW,
@@ -68,24 +77,24 @@ static struct DrawList hidedata[]=
 
 /*-----------------------------------------------------------------------*/
 
-static void Setgadgetattrs(struct Gadget *gad,struct Window *win,struct Requester *req,...)
+static void Setgadgetattrs_local(struct Gadget *gad,struct Window *win,struct Requester *req,...)
 {  struct TagItem *tags=(struct TagItem *)((ULONG *)&req+1);
    if(SetGadgetAttrsA(gad,win,req,tags) && win) RefreshGList(gad,win,req,1);
 }
 
-static long Getvalue(void *gad,ULONG tag)
+static long Getvalue_local(void *gad,ULONG tag)
 {  long value=0;
    GetAttr(tag,gad,(ULONG *)&value);
    return value;
 }
 
-static long Getlbnvalue(struct Node *node,ULONG tag)
+long Getlbnvalue(struct Node *node,ULONG tag)
 {  long value=0;
    if(node) GetListBrowserNodeAttrs(node,tag,(ULONG *)&value,TAG_END);
    return value;
 }
 
-static struct Node *Getnode(struct List *list,long n)
+static struct Node *Getnode_local(struct List *list,long n)
 {  struct Node *node=list->lh_Head;
    while(node->ln_Succ && n)
    {  node=node->ln_Succ;
@@ -168,26 +177,26 @@ static void Freenodes(void)
 
 /* Enable the follow gadget */
 static void Setgadgets(struct Hotwindow *how)
-{  struct Node *node=(struct Node *)Getvalue(listgad,LISTBROWSER_SelectedNode);
+{  struct Node *node=(struct Node *)Getvalue_local(listgad,LISTBROWSER_SelectedNode);
    struct Hotitem *hi=(struct Hotitem *)Getlbnvalue(node,LBNA_UserData);
-   Setgadgetattrs(followgad,window,NULL,
+   Setgadgetattrs_local(followgad,window,NULL,
       GA_Disabled,!(hi && (hi->nodetype==HNT_BASE || hi->type==HITEM_ENTRY)),
       TAG_END);
 }
 
 /* Change the show urls status */
 static void Seturls(struct Hotwindow *how)
-{  Setgadgetattrs(listgad,window,NULL,LISTBROWSER_Labels,~0,TAG_END);
+{  Setgadgetattrs_local(listgad,window,NULL,LISTBROWSER_Labels,~0,TAG_END);
    Freenodes();
-   urls=Getvalue(urlsgad,GA_Selected);
+   urls=Getvalue_local(urlsgad,GA_Selected);
    Allocnodes(how);
-   Setgadgetattrs(listgad,window,NULL,LISTBROWSER_Labels,&gadlist,TAG_END);
+   Setgadgetattrs_local(listgad,window,NULL,LISTBROWSER_Labels,&gadlist,TAG_END);
    Setgadgets(how);
 }
 
 /* Process enter on node; show or hide group, follow link */
 static BOOL Enternode(struct Hotwindow *how,BOOL realenter)
-{  struct Node *node=(struct Node *)Getvalue(listgad,LISTBROWSER_SelectedNode);
+{  struct Node *node=(struct Node *)Getvalue_local(listgad,LISTBROWSER_SelectedNode);
    struct Hotitem *hi=(struct Hotitem *)Getlbnvalue(node,LBNA_UserData);
    struct Hotbase *hb=NULL;
    ULONG flags;
@@ -231,7 +240,7 @@ static BOOL Enternode(struct Hotwindow *how,BOOL realenter)
 
 /* Remember opening or closing a group */
 static void Showhide(struct Hotwindow *how)
-{  struct Node *node=(struct Node *)Getvalue(listgad,LISTBROWSER_SelectedNode);
+{  struct Node *node=(struct Node *)Getvalue_local(listgad,LISTBROWSER_SelectedNode);
    struct Hotitem *hi=(struct Hotitem *)Getlbnvalue(node,LBNA_UserData);
    ULONG flags;
    if(hi && hi->nodetype==HNT_ITEM && hi->type!=HITEM_ENTRY)
@@ -245,7 +254,7 @@ static void Showhide(struct Hotwindow *how)
 }
 
 static long Nextlistnode(struct List *list,long selected)
-{  struct Node *node=Getnode(list,selected);
+{  struct Node *node=Getnode_local(list,selected);
    long nr=selected;
    ULONG flags;
    ULONG gen1;
@@ -267,7 +276,7 @@ static long Nextlistnode(struct List *list,long selected)
 }
 
 static long Prevlistnode(struct List *list,long selected)
-{  struct Node *node=Getnode(list,selected);
+{  struct Node *node=Getnode_local(list,selected);
    long nra=selected,nrb;
    ULONG flags;
    ULONG gen1,gen2,gen3;
@@ -304,12 +313,12 @@ static long Prevlistnode(struct List *list,long selected)
    return selected;
 }
 
-static void Moveselected(struct Hotwindow *how,long d)
-{  long selected=Getvalue(listgad,LISTBROWSER_Selected);
+static void Moveselected_local(struct Hotwindow *how,long d)
+{  long selected=Getvalue_local(listgad,LISTBROWSER_Selected);
    if(d>0) selected=Nextlistnode(&gadlist,selected);
    else selected=Prevlistnode(&gadlist,selected);
    if(selected>=0)
-   {  Setgadgetattrs(listgad,window,NULL,
+   {  Setgadgetattrs_local(listgad,window,NULL,
          LISTBROWSER_Selected,selected,
          LISTBROWSER_MakeVisible,selected,
          TAG_END);
@@ -319,22 +328,22 @@ static void Moveselected(struct Hotwindow *how,long d)
 }
 
 static void Addentry(struct Hotwindow *how)
-{  Setgadgetattrs(listgad,window,NULL,LISTBROWSER_Labels,~0,TAG_END);
-   Freenodes();
-   Allocnodes(how);
-   Setgadgetattrs(listgad,window,NULL,LISTBROWSER_Labels,&gadlist,TAG_END);
+   {  Setgadgetattrs_local(listgad,window,NULL,LISTBROWSER_Labels,~0,TAG_END);
+      Freenodes();
+      Allocnodes(how);
+      Setgadgetattrs_local(listgad,window,NULL,LISTBROWSER_Labels,&gadlist,TAG_END);
 }
 
 static void Disposehotlist(struct Hotwindow *how)
-{  Setgadgetattrs(listgad,NULL,NULL,LISTBROWSER_Labels,~0,TAG_END);
-   Setgadgetattrs(toplayout,window,NULL,GA_ReadOnly,TRUE,TAG_END);
+{  Setgadgetattrs_local(listgad,NULL,NULL,LISTBROWSER_Labels,~0,TAG_END);
+   Setgadgetattrs_local(toplayout,window,NULL,GA_ReadOnly,TRUE,TAG_END);
    Freenodes();
 }
 
 static void Newhotlist(struct Hotwindow *how)
 {  Allocnodes(how);
-   Setgadgetattrs(listgad,NULL,NULL,LISTBROWSER_Labels,&gadlist,TAG_END);
-   Setgadgetattrs(toplayout,window,NULL,GA_ReadOnly,FALSE,TAG_END);
+   Setgadgetattrs_local(listgad,NULL,NULL,LISTBROWSER_Labels,&gadlist,TAG_END);
+   Setgadgetattrs_local(toplayout,window,NULL,GA_ReadOnly,FALSE,TAG_END);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -526,7 +535,7 @@ static void Buildhotviewwindow(struct Hotwindow *how)
          EndMember,
       EndWindow;
       if(winobj)
-      {  if(window=CA_OpenWindow(winobj))
+      {  if(window=RA_OpenWindow(winobj))
          {  GetAttr(WINDOW_SigMask,winobj,&winsigmask);
          }
       }
@@ -537,7 +546,7 @@ static BOOL Handlehotviewwindow(struct Hotwindow *how)
 {  ULONG result,relevent;
    BOOL done=FALSE;
    USHORT click;
-   while((result=CA_HandleInput(winobj,&click))!=WMHI_LASTMSG)
+   while((result=RA_HandleInput(winobj,&click))!=WMHI_LASTMSG)
    {  ObtainSemaphore(how->hotsema);
       switch(result&WMHI_CLASSMASK)
       {  case WMHI_CLOSEWINDOW:
@@ -546,7 +555,7 @@ static BOOL Handlehotviewwindow(struct Hotwindow *how)
          case WMHI_GADGETUP:
             switch(result&WMHI_GADGETMASK)
             {  case GID_LIST:
-                  relevent=Getvalue(listgad,LISTBROWSER_RelEvent);
+                  relevent=Getvalue_local(listgad,LISTBROWSER_RelEvent);
                   if(relevent&LBRE_DOUBLECLICK)
                   {  if(click==lastclick) done=Enternode(how,FALSE);
                      else Showhide(how);
@@ -578,10 +587,10 @@ static BOOL Handlehotviewwindow(struct Hotwindow *how)
                   done=Enternode(how,TRUE);
                   break;
                case 0x4c:  /* up */
-                  Moveselected(how,-1);
+                  Moveselected_local(how,-1);
                   break;
                case 0x4d:  /* down */
-                  Moveselected(how,1);
+                  Moveselected_local(how,1);
                   break;
             }
             break;

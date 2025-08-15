@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -21,12 +22,42 @@
 #include "task.h"
 #include "hotlist.h"
 #include "hotlisttask.h"
+#include <exec/types.h>
+#include <exec/memory.h>
 #include <intuition/intuition.h>
-#include <classact.h>
-#include <clib/exec_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/utility_protos.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <reaction/reaction_author.h>
+#include <classes/window.h>
+#include <images/drawlist.h>
+#include <images/glyph.h>
+#include <images/label.h>
+#include <gadgets/checkbox.h>
+#include <gadgets/space.h>
+#include <gadgets/layout.h>
+#include <gadgets/listbrowser.h>
+#include <gadgets/page.h>
+#include <gadgets/chooser.h>
+#include <gadgets/button.h>
+#include <gadgets/string.h>
+
+#include <proto/exec.h>
+#include <proto/intuition.h>
+#include <proto/graphics.h>
+#include <proto/utility.h>
+#include <proto/layout.h>
+#include <proto/drawlist.h>
+#include <proto/listbrowser.h>
+#include <proto/chooser.h>
+#include <proto/button.h>
+#include <proto/window.h>
+#include <proto/glyph.h>
+#include <proto/label.h>
+#include <proto/string.h>
+#include <proto/checkbox.h>
+#include <proto/space.h>
+
+extern long Getlbnvalue(struct Node *node, ULONG tag);
 
 enum HOTLIST_GADGET_IDS
 {  GID_GLIST=1,GID_GUP,GID_GDOWN,GID_GSORT,GID_GALL,GID_PARENT,GID_ADDE,GID_ADDG,
@@ -102,7 +133,22 @@ static struct DrawList hidedata[]=
 
 /*-----------------------------------------------------------------------*/
 
-static void Setgadgetattrs(struct Gadget *gad,struct Window *win,struct Requester *req,...)
+// Add prototypes for memory allocation if needed
+extern APTR Allocmem(ULONG size, ULONG flags);
+extern void Freemem(APTR mem);
+
+// Local static declarations to avoid header conflicts
+static struct Node *Getnode(struct List *list, long n);
+static void Freechooserlist(struct List *list);
+static void Makechooserlist(struct List *list, UBYTE **labels);
+static void Moveselected(struct Hotwindow *how, short d, BOOL shift);
+
+static void Editlbnode(struct Gadget *gad,struct Window *win,struct Requester *req,
+   struct Node *node,...)
+{  DoGadgetMethod(gad,win,req,LBM_EDITNODE,NULL,node,VARARG(node));
+}
+
+void Setgadgetattrs(struct Gadget *gad,struct Window *win,struct Requester *req,...)
 {  struct TagItem *tags=(struct TagItem *)((ULONG *)&req+1);
    if(SetGadgetAttrsA(gad,win,req,tags) && win) RefreshGList(gad,win,req,1);
 }
@@ -113,20 +159,9 @@ static void Setpagegadgetattrs(struct Gadget *gad,void *page,struct Window *win,
    if(SetPageGadgetAttrsA(gad,page,win,req,tags) && win) RefreshGList(gad,win,req,1);
 }
 
-static void Editlbnode(struct Gadget *gad,struct Window *win,struct Requester *req,
-   struct Node *node,...)
-{  DoGadgetMethod(gad,win,req,LBM_EDITNODE,NULL,node,VARARG(node));
-}
-
-static long Getvalue(void *gad,ULONG tag)
+long Getvalue(void *gad,ULONG tag)
 {  long value=0;
    GetAttr(tag,gad,(ULONG *)&value);
-   return value;
-}
-
-static long Getlbnvalue(struct Node *node,ULONG tag)
-{  long value=0;
-   if(node) GetListBrowserNodeAttrs(node,tag,(ULONG *)&value,TAG_END);
    return value;
 }
 
@@ -632,7 +667,7 @@ static void Ladd(struct Hotwindow *how)
          RethinkLayout(pagelayout,window,NULL,TRUE);
       }
       Setlistid(how,LIST_LIST);
-      ActivateLayoutGadget(toplayout,window,NULL,namegad);
+      ActivateLayoutGadget(toplayout,window,NULL,(ULONG)namegad);
       Updatetaskattrs(AOTSK_Async,TRUE,AOHOT_Changed,TRUE,TAG_END);
    }
 }
@@ -973,7 +1008,7 @@ static void Gaddg(struct Hotwindow *how)
          RethinkLayout(pagelayout,window,NULL,TRUE);
       }
       Setlistid(how,LIST_GROUPS);
-      ActivateLayoutGadget(toplayout,window,NULL,namegad);
+      ActivateLayoutGadget(toplayout,window,NULL,(ULONG)namegad);
       Updatetaskattrs(AOTSK_Async,TRUE,AOHOT_Changed,TRUE,TAG_END);
    }
 }
@@ -1016,7 +1051,7 @@ static void Gadde(struct Hotwindow *how)
             RethinkLayout(pagelayout,window,NULL,TRUE);
          }
          Setlistid(how,LIST_GROUPS);
-         ActivateLayoutGadget(toplayout,window,NULL,namegad);
+         ActivateLayoutGadget(toplayout,window,NULL,(ULONG)namegad);
          Updatetaskattrs(AOTSK_Async,TRUE,AOHOT_Changed,TRUE,TAG_END);
       }
    }
@@ -2015,7 +2050,7 @@ static void Buildhotlistwindow(struct Hotwindow *how)
          EndMember,
       EndWindow;
       if(winobj)
-      {  if(window=CA_OpenWindow(winobj))
+      {  if(window=RA_OpenWindow(winobj))
          {  GetAttr(WINDOW_SigMask,winobj,&winsigmask);
             Setgadgets(how);
          }
@@ -2028,7 +2063,7 @@ static BOOL Handlehotlistwindow(struct Hotwindow *how)
    BOOL done=FALSE;
    USHORT click;
    short v;
-   while((result=CA_HandleInput(winobj,&click))!=WMHI_LASTMSG)
+   while((result=RA_HandleInput(winobj,&click))!=WMHI_LASTMSG)
    {  if(!locked)
       {  ObtainSemaphore(how->hotsema);
          switch(result&WMHI_CLASSMASK)
@@ -2156,7 +2191,7 @@ static BOOL Handlehotlistwindow(struct Hotwindow *how)
                      }
                      RethinkLayout(pagelayout,window,NULL,TRUE);
                      if(findgad->Flags&GFLG_SELECTED)
-                     {  ActivateLayoutGadget(toplayout,window,NULL,fstrgad);
+                     {  ActivateLayoutGadget(toplayout,window,NULL,(ULONG)fstrgad);
                      }
                      break;
                   case GID_PATTERN:
@@ -2169,7 +2204,7 @@ static BOOL Handlehotlistwindow(struct Hotwindow *how)
                      }
                      RethinkLayout(pagelayout,window,NULL,TRUE);
                      if(patgad->Flags&GFLG_SELECTED)
-                     {  ActivateLayoutGadget(toplayout,window,NULL,pstrgad);
+                     {  ActivateLayoutGadget(toplayout,window,NULL,(ULONG)pstrgad);
                      }
                      break;
                   case GID_NAME:

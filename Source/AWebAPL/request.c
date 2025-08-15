@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -24,12 +25,56 @@
 #include <intuition/intuition.h>
 #include <graphics/gfxmacros.h>
 #include <dos/dostags.h>
-#include <classact.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <classes/window.h>
+#include <classes/requester.h>
+#include <images/bevel.h>
+#include <images/bitmap.h>
+#include <images/drawlist.h>
+#include <images/glyph.h>
+#include <images/label.h>
+#include <images/led.h>
+#include <images/penmap.h>
+#include <gadgets/button.h>
+#include <gadgets/checkbox.h>
+#include <gadgets/chooser.h>
+#include <gadgets/clicktab.h>
+#include <gadgets/colorwheel.h>
+#include <gadgets/fuelgauge.h>
+#include <gadgets/getfile.h>
+#include <gadgets/getfont.h>
+#include <gadgets/getscreenmode.h>
+#include <gadgets/integer.h>
+#include <gadgets/layout.h>
+#include <gadgets/listbrowser.h>
+#include <gadgets/listview.h>
+#include <gadgets/page.h>
+#include <gadgets/radiobutton.h>
+#include <gadgets/scroller.h>
+#include <gadgets/slider.h>
+#include <gadgets/space.h>
+#include <gadgets/string.h>
+#include <gadgets/tabs.h>
+#include <gadgets/virtual.h>
+#include <intuition/intuition.h>
+#include <intuition/imageclass.h>
+#include <intuition/gadgetclass.h>
+#include <intuition/icclass.h>
+#include <proto/alib.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
+#include <proto/intuition.h>
+#include <proto/utility.h>
+#include <proto/graphics.h>
 
-#include <clib/exec_protos.h>
-#include <clib/alib_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/graphics_protos.h>
+#include <proto/bevel.h>
+#include <proto/button.h>
+#include <proto/layout.h>
+#include <proto/string.h>
+#include <proto/label.h>
+#include <proto/fuelgauge.h>
+#include <proto/window.h>
 
 struct Classbases
 {  struct ClassLibrary *Windowbase,*Layoutbase,*Buttonbase,*Labelbase,*Fuelgaugebase;
@@ -248,9 +293,9 @@ static struct Awebrequest *Makeawebrequest2(struct Screen *screen,
          if(i<2) SetAttrs(buttonrow,
                LAYOUT_HorizAlignment,LALIGN_CENTER,
                TAG_END);
-         ar->window=CA_OpenWindow(ar->winobj);
+         ar->window=RA_OpenWindow(ar->winobj);
          if(ar->window && stringgad)
-            ActivateLayoutGadget(toplayout,ar->window,NULL,stringgad);
+            ActivateLayoutGadget(toplayout,ar->window,0L, (ULONG)stringgad);
       }
       if(!ar->window)
       {  Freeawebrequest(ar);
@@ -299,7 +344,7 @@ static void Processrequest(void)
    {  nextar=ar->next;
       done=FALSE;
       code=0;
-      while((result=CA_HandleInput(ar->winobj,NULL))!=WMHI_LASTMSG)
+      while((result=RA_HandleInput(ar->winobj,NULL))!=WMHI_LASTMSG)
       {  switch(result&WMHI_CLASSMASK)
          {  case WMHI_CLOSEWINDOW:
                done=TRUE;
@@ -474,7 +519,8 @@ void Aboutreq(UBYTE *portname)
 #ifdef BETAKEYFILE
             strcat(buf,"For registered beta testers only\n");
 #endif
-            strcat(buf," \n© 2002 Yvon Rozijn\n");
+            strcat(buf," \n\xA9 2002 Yvon Rozijn\n");
+            strcat(buf," \n\xA9 2025 amigazen project\n");
             strcat(buf," \n");
             strcat(buf,"This program is distributed under the\n");
             strcat(buf,"AWeb Public License\n");
@@ -697,13 +743,13 @@ static long Syncrequesta(UBYTE *title,UBYTE *text,UBYTE *labels,long delay,UBYTE
                {  Setgadgetattrs(ar->firstbutton,ar->window,NULL,GA_Disabled,TRUE,TAG_END);
                   Delay(delay);
                   /* Empty event queue */
-                  while((result=CA_HandleInput(ar->winobj,NULL))!=WMHI_LASTMSG);
+                  while((result=RA_HandleInput(ar->winobj,NULL))!=WMHI_LASTMSG);
                   Setgadgetattrs(ar->firstbutton,ar->window,NULL,GA_Disabled,FALSE,TAG_END);
                }
                while(!done)
                {  getmask=Wait(sigmask|SIGBREAKF_CTRL_C);
                   if(getmask&SIGBREAKF_CTRL_C) break;
-                  while((result=CA_HandleInput(ar->winobj,NULL))!=WMHI_LASTMSG)
+                  while((result=RA_HandleInput(ar->winobj,NULL))!=WMHI_LASTMSG)
                   {  switch(result&WMHI_CLASSMASK)
                      {  case WMHI_CLOSEWINDOW:
                            done=TRUE;
@@ -802,13 +848,13 @@ UBYTE *Promptrequest(UBYTE *text,UBYTE *defstr)
          End,
       EndWindow;
       if(winobj)
-      {  win=CA_OpenWindow(winobj);
+      {  win=RA_OpenWindow(winobj);
          GetAttr(WINDOW_SigMask,winobj,&sigmask);
          Busypointer(TRUE);
-         ActivateLayoutGadget(toplayout,win,NULL,strgad);
+         ActivateLayoutGadget(toplayout,win,0L,(ULONG)strgad);
          while(!done)
          {  Wait(sigmask|SIGBREAKF_CTRL_C);
-            while((result=CA_HandleInput(winobj,NULL))!=WMHI_LASTMSG)
+            while((result=RA_HandleInput(winobj,NULL))!=WMHI_LASTMSG)
             {  switch(result&WMHI_CLASSMASK)
                {  case WMHI_CLOSEWINDOW:
                      done=TRUE;
@@ -894,7 +940,7 @@ struct Progressreq *Openprogressreq(UBYTE *labeltext)
                End,
             EndWindow;
             if(pr->winobj)
-            {  if(pr->window=(struct Window *)CA_OpenWindow(pr->winobj))
+            {  if(pr->window=(struct Window *)RA_OpenWindow(pr->winobj))
                {  return pr;
                }
             }
@@ -917,7 +963,7 @@ void Setprogressreq(struct Progressreq *pr,long level,long max)
 BOOL Checkprogressreq(struct Progressreq *pr)
 {  ULONG result;
    BOOL done=FALSE;
-   while((result=CA_HandleInput(pr->winobj,NULL))!=WMHI_LASTMSG)
+   while((result=RA_HandleInput(pr->winobj,NULL))!=WMHI_LASTMSG)
    {  switch(result&WMHI_CLASSMASK)
       {  case WMHI_CLOSEWINDOW:
             done=TRUE;
@@ -939,20 +985,7 @@ void Demorequest(void)
 #ifdef NETDEMO
 #ifndef OSVERSION
    Syncrequest("AWeb DEMO version",
-      "This is the DEMO version of the AWeb-II " FULLRELEASE " browser.\n"
-      "It has a time limit of 30 minutes.\n"
-      " \n"
-      "The full featured version can be obtained directly from\n"
-      "AmiTrix Development or from our dealers.\n"
-      " \n"
-      "AmiTrix can be contacted via e-mail at: sales@amitrix.com\n"
-      "and via WWW on: http://www.amitrix.com/\n"
-      " (easily accessable by the \"Help/AWeb home page\" menu item).\n"
-      " \n"
-      "See the documentation for a list of features available\n"
-      "in the full version.\n"
-      " \n"
-      "(This requester will block for 5 seconds)\n",
+      "There is no longer a demo version build"
       "_Ok",
 #ifdef DEVELOPER
       0

@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -58,9 +59,48 @@
 #include <workbench/startup.h>
 #include <workbench/workbench.h>
 #include <workbench/icon.h>
-#include <cybergraphics/cybergraphics.h>
-#include <classact.h>
-#include <classact_author.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_author.h>
+#include <reaction/reaction_class.h>
+#include <reaction/reaction_macros.h>
+#include <reaction/reaction_prefs.h>
+#include <classes/window.h>
+#include <classes/requester.h>
+#include <images/bevel.h>
+#include <images/bitmap.h>
+#include <images/drawlist.h>
+#include <images/glyph.h>
+#include <images/label.h>
+#include <images/led.h>
+#include <images/penmap.h>
+#include <gadgets/button.h>
+#include <gadgets/checkbox.h>
+#include <gadgets/chooser.h>
+#include <gadgets/clicktab.h>
+#include <gadgets/colorwheel.h>
+#include <gadgets/fuelgauge.h>
+#include <gadgets/getfile.h>
+#include <gadgets/getfont.h>
+#include <gadgets/getscreenmode.h>
+#include <gadgets/integer.h>
+#include <gadgets/layout.h>
+#include <gadgets/listbrowser.h>
+#include <gadgets/listbrowser.h>
+#include <gadgets/listview.h>
+#include <gadgets/page.h>
+#include <gadgets/radiobutton.h>
+#include <gadgets/scroller.h>
+#include <gadgets/slider.h>
+#include <gadgets/space.h>
+#include <gadgets/string.h>
+#include <gadgets/tabs.h>
+#include <gadgets/virtual.h>
+#include <intuition/intuition.h>
+#include <intuition/imageclass.h>
+#include <intuition/gadgetclass.h>
+#include <intuition/icclass.h>
+
+#include <libraries/Picasso96.h>
 
 #include <ctype.h>
 #include <stdio.h>
@@ -70,44 +110,47 @@
 #include <math.h>
 #include <time.h>
 
-#include <ezlists.h>
+#include "ezlists.h"
 
-#include <clib/alib_protos.h>
-#include <clib/asl_protos.h>
-#include <clib/colorwheel_protos.h>
-#include <clib/datatypes_protos.h>
-#include <clib/diskfont_protos.h>
-#include <clib/dos_protos.h>
-#include <clib/exec_protos.h>
-#include <clib/gadtools_protos.h>
-#include <clib/graphics_protos.h>
-#include <clib/icon_protos.h>
-#include <clib/iffparse_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/keymap_protos.h>
-#include <clib/layers_protos.h>
-#include <clib/locale_protos.h>
-#include <clib/timer_protos.h>
-#include <clib/utility_protos.h>
-#include <clib/wb_protos.h>
-#include <clib/cybergraphics_protos.h>
-
-#include <pragmas/asl_pragmas.h>
-#include <pragmas/colorwheel_pragmas.h>
-#include <pragmas/datatypes_pragmas.h>
-#include <pragmas/diskfont_pragmas.h>
-#include <pragmas/dos_pragmas.h>
-#include <pragmas/exec_sysbase_pragmas.h>
-#include <pragmas/gadtools_pragmas.h>
-#include <pragmas/graphics_pragmas.h>
-#include <pragmas/icon_pragmas.h>
-#include <pragmas/iffparse_pragmas.h>
-#include <pragmas/intuition_pragmas.h>
-#include <pragmas/keymap_pragmas.h>
-#include <pragmas/layers_pragmas.h>
-#include <pragmas/locale_pragmas.h>
-#include <pragmas/timer_pragmas.h>
-#include <pragmas/utility_pragmas.h>
-#include <pragmas/wb_pragmas.h>
-#include <pragmas/cybergraphics_pragmas.h>
+#include <proto/exec.h>
+#include <proto/intuition.h>
+#include <proto/graphics.h>
+#include <proto/utility.h>
+#include <proto/dos.h>
+#include <proto/timer.h>
+#include <proto/iffparse.h>
+#include <proto/gadtools.h>
+#include <proto/asl.h>
+#include <proto/locale.h>
+#include <proto/icon.h>
+#include <proto/bevel.h>
+#include <proto/label.h>
+#include <proto/fuelgauge.h>
+#include <proto/window.h>
+#include <proto/string.h>
+#include <proto/layout.h>
+#include <proto/listbrowser.h>
+#include <proto/space.h>
+#include <proto/slider.h>
+#include <proto/scroller.h>
+#include <proto/chooser.h>
+#include <proto/button.h>
+#include <proto/checkbox.h>
+#include <proto/clicktab.h>
+#include <proto/colorwheel.h>
+#include <proto/datatypes.h>
+#include <proto/diskfont.h>
+#include <proto/keymap.h>
+#include <proto/layers.h>
+#include <proto/radiobutton.h>
+#include <proto/virtual.h>
+#include <proto/Picasso96.h>
+#include <proto/drawlist.h>
+#include <proto/penmap.h>
+#include <proto/bitmap.h>
+#include <proto/getfile.h>
+#include <proto/getfont.h>
+#include <proto/getscreenmode.h>
+#include <proto/integer.h>
+#include <proto/requester.h>
 

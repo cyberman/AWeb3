@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -21,28 +22,28 @@
 #include "awebgif.h"
 #include <string.h>
 #include <libraries/awebplugin.h>
-#include <clib/awebplugin_protos.h>
-#include <clib/utility_protos.h>
-#include <clib/exec_protos.h>
-#include <pragmas/awebplugin_pragmas.h>
-#include <pragmas/exec_sysbase_pragmas.h>
-#include <pragmas/utility_pragmas.h>
+#include <libraries/Picasso96.h>
 
-/* olsen: use library bases rather than (void *). */
-struct Library * GfxBase;
-struct Library * IntuitionBase;
-struct Library * UtilityBase;
-struct Library * CyberGfxBase;
-struct Library * AwebPluginBase;
-struct Library * DOSBase;
+#include <proto/awebplugin.h>
+#include <proto/exec.h>
+#include <proto/utility.h>
+#include <proto/Picasso96.h>
 
 BOOL animate;
+
+/* Library base variables */
+struct Library *GfxBase;
+struct Library *IntuitionBase;
+struct Library *UtilityBase;
+struct Library *P96Base;
+struct Library *AwebPluginBase;
+struct Library *DOSBase;
 
 ULONG Initpluginlib(struct AwebGifBase *base)
 {  GfxBase=OpenLibrary("graphics.library",39);
    IntuitionBase=OpenLibrary("intuition.library",39);
    UtilityBase=OpenLibrary("utility.library",39);
-   CyberGfxBase=OpenLibrary("cybergraphics.library",0);
+   P96Base=OpenLibrary("Picasso96.library",0);
    AwebPluginBase=OpenLibrary("awebplugin.library",0);
    /* olsen: I need StrToLong() in the library. */
    DOSBase=OpenLibrary("dos.library",37);
@@ -53,7 +54,7 @@ ULONG Initpluginlib(struct AwebGifBase *base)
 void Expungepluginlib(struct AwebGifBase *base)
 {  if(base->sourcedriver) Amethod(NULL,AOM_INSTALL,base->sourcedriver,NULL);
    if(base->copydriver) Amethod(NULL,AOM_INSTALL,base->copydriver,NULL);
-   if(CyberGfxBase) CloseLibrary(CyberGfxBase);
+   if(P96Base) CloseLibrary(P96Base);
    if(AwebPluginBase) CloseLibrary(AwebPluginBase);
    if(UtilityBase) CloseLibrary(UtilityBase);
    if(IntuitionBase) CloseLibrary(IntuitionBase);

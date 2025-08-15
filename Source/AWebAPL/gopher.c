@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -20,7 +21,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <clib/exec_protos.h>
+#include <proto/exec.h>
 #include "aweblib.h"
 #include "tcperr.h"
 #include "fetchdriver.h"
@@ -378,6 +379,20 @@ static void Makeindex(struct Fetchdriver *fd)
       TAG_END);
 }
 
+/* Set socket timeouts to prevent hanging connections */
+static void SetSocketTimeouts(long sock, struct Library *SocketBase)
+{  struct timeval timeout;
+   
+   timeout.tv_sec = 30;  /* 30 second timeout */
+   timeout.tv_usec = 0;
+   
+   /* Set receive timeout - use Amiga socket library function */
+   a_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout), SocketBase);
+   
+   /* Set send timeout - use Amiga socket library function */
+   a_setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout), SocketBase);
+}
+
 __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
 {  struct Library *SocketBase;
    struct Gopheraddr ha={0};
@@ -397,7 +412,10 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
             Tcpmessage(fd,TCPMSG_LOOKUP,ha.hostname);
             if(hent=Lookup(ha.hostname,SocketBase))
             {  if((sock=a_socket(hent->h_addrtype,SOCK_STREAM,0,SocketBase))>=0)
-               {  Updatetaskattrs(AOURL_Netstatus,NWS_CONNECT,TAG_END);
+               {  /* Set socket timeouts to prevent hanging connections */
+                  SetSocketTimeouts(sock, SocketBase);
+                  
+                  Updatetaskattrs(AOURL_Netstatus,NWS_CONNECT,TAG_END);
                   Tcpmessage(fd,TCPMSG_CONNECT,"Gopher",hent->h_name);
                   if(!a_connect(sock,hent,ha.port,SocketBase))
                   {  length=sprintf(fd->block,"%s\r\n",ha.selector);

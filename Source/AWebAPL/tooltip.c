@@ -3,6 +3,7 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -21,11 +22,18 @@
 #include "application.h"
 #include <intuition/intuition.h>
 #include <graphics/gfxmacros.h>
-#include <classact.h>
+#include <reaction/reaction.h>
+#include <reaction/reaction_macros.h>
+#include <classes/window.h>
+#include <gadgets/layout.h>
+#include <images/label.h>
 
-#include <clib/exec_protos.h>
-#include <clib/intuition_protos.h>
-#include <clib/graphics_protos.h>
+#include <proto/exec.h>
+#include <proto/intuition.h>
+#include <proto/graphics.h>
+#include <proto/layout.h>
+#include <proto/label.h>
+#include <proto/window.h>
 
 static struct Buffer ttbuf;
 static BOOL tttick;
@@ -90,7 +98,7 @@ static void Closetooltip(void)
 // Check the tooltip message queue
 static void Processtooltip(void)
 {  ULONG result;
-   while((result=CA_HandleInput(ttwinobject,NULL))!=WMHI_LASTMSG);
+   while((result=RA_HandleInput(ttwinobject,NULL))!=WMHI_LASTMSG);
 }
 
 // Check if mouse is at same position for 0.5 seconds. If so, open tooltip.
@@ -136,7 +144,7 @@ static void Ticktooltip(long x,long y)
                   LAYOUT_BottomSpacing,2,
                   LAYOUT_LeftSpacing,2,
                   LAYOUT_RightSpacing,2,
-                  CLASSACT_BackFill,&tthook,
+                  LAYOUT_BackFill,&tthook,
                   LAYOUT_AddImage,label,
                End,
             EndWindow;
@@ -146,7 +154,7 @@ static void Ticktooltip(long x,long y)
                   WA_Left,x+3,
                   WA_Top,y-limits.MinHeight-3,
                   TAG_END);
-               if(ttwindow=(struct Window *)CA_OpenWindow(ttwinobject))
+               if(ttwindow=(struct Window *)RA_OpenWindow(ttwinobject))
                {  Setprocessfun(ttport->mp_SigBit,Processtooltip);
                   ttoverlap=
                      (x>=ttwindow->LeftEdge && x<ttwindow->LeftEdge+ttwindow->Width
