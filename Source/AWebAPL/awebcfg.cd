@@ -10,7 +10,7 @@
 ;
 ; NOTE - No locale formatters (like %1$s) possible in this string!
 ;        Only plain C formatters allowed.
-MSG_ERROR_CANTOPENV (20001//)
+MSG_ERROR_CANTOPENV (100001//)
 Can't open %s version %ld
 ;
 ;
@@ -18,7 +18,7 @@ Can't open %s version %ld
 ;
 ;  General
 ;
-MSG_SET_REQTITLE_FONT (40001//)
+MSG_SET_REQTITLE_FONT (120001//)
 Select font
 ;
 MSG_SET_REQTITLE_SCREEN (//)
@@ -113,7 +113,7 @@ Select shutdown ARexx script
 ;
 ;  Clicktab labels - Browser
 ;
-MSG_SET_CTBR_OPTIONS (40120//)
+MSG_SET_CTBR_OPTIONS (120120//)
 _1 Options
 ;
 MSG_SET_CTBR_FONTS (//)
@@ -130,7 +130,7 @@ _5 Viewers
 ;
 ;  Clicktab labels - Program
 ;
-MSG_SET_CTPR_SCREEN (40140//)
+MSG_SET_CTPR_SCREEN (120140//)
 _1 Screen
 ;
 MSG_SET_CTPR_PALETTE (//)
@@ -147,7 +147,7 @@ _5 ARexx
 ;
 ;  Clicktab labels - Network
 ;
-MSG_SET_CTNW_OPTIONS (40160//)
+MSG_SET_CTNW_OPTIONS (120160//)
 _1 Options
 ;
 MSG_SET_CTNW_PROGRAMS (//)
@@ -167,7 +167,7 @@ _6 Mail/News
 ;
 ;  Clicktab labels - GUI
 ;
-MSG_SET_CTUI_OPTIONS (40180//)
+MSG_SET_CTUI_OPTIONS (120180//)
 _1 Options
 ;
 MSG_DUMMY_8 (//)
@@ -190,9 +190,9 @@ _6 Navigation
 ;
 ;  Popup help
 ;
-; (don't use 40200-40208)
+; (don't use 120200-120208)
 ;
-MSG_SET_HLP_NOARGS (40209//)
+MSG_SET_HLP_NOARGS (120209//)
 (No placeholders)
 ;
 MSG_SET_HLP_A (//)
@@ -266,7 +266,7 @@ MSG_SET_HLP_C (//)
 ;
 ;  Font descriptions
 ;
-MSG_SET_FD_NORMALTAG (40300//)
+MSG_SET_FD_NORMALTAG (120300//)
 Normal
 ;
 MSG_SET_FD_NORMAL (//)
@@ -358,7 +358,7 @@ MSG_SET_FD_PRE (//)
 ;
 ;  HTML modes
 ;
-MSG_SET_HTML_STRICT (40400//)
+MSG_SET_HTML_STRICT (120400//)
 Strict
 ;
 MSG_SET_HTML_TOLERANT (//)
@@ -369,7 +369,7 @@ Compatible
 ;
 ;  Screen types
 ;
-MSG_SET_SCRT_DEFAULT (40500//)
+MSG_SET_SCRT_DEFAULT (120500//)
 Default public screen
 ;
 MSG_SET_SCRT_NAMED (//)
@@ -380,7 +380,7 @@ Own public screen
 ;
 ;  Image loading types
 ;
-MSG_SET_IMGL_OFF (40600//)
+MSG_SET_IMGL_OFF (120600//)
 Off
 ;
 MSG_SET_IMGL_MAPS (//)
@@ -391,7 +391,7 @@ All images
 ;
 ;  MIME list column names
 ;
-MSG_SET_MLCN_TYPE (40700//)
+MSG_SET_MLCN_TYPE (120700//)
 Type
 ;
 MSG_SET_MLCN_EXT (//)
@@ -409,7 +409,7 @@ Name and arguments
 ;
 ;  Browser pen names
 ;
-MSG_SET_BRPEN_LINK (40800//)
+MSG_SET_BRPEN_LINK (120800//)
 New link
 ;
 MSG_SET_BRPEN_VLINK (//)
@@ -426,7 +426,7 @@ Text
 ;
 ;  Screen colour names
 ;
-MSG_SET_SCRPEN_TEXT (40900//)
+MSG_SET_SCRPEN_TEXT (120900//)
 Normal text
 ;
 MSG_SET_SCRPEN_SHINE (//)
@@ -455,12 +455,12 @@ Menu background
 ;
 ;  ARexx menu shortcut
 ;
-MSG_SET_AREX_NONE (41000//)
+MSG_SET_AREX_NONE (121000//)
 none
 ;
 ;  Network external program types
 ;
-MSG_SET_NWPRG_STARTTCP (41100//)
+MSG_SET_NWPRG_STARTTCP (121100//)
 Start TCP
 ;
 MSG_SET_NWPRG_ENDTCP (//)
@@ -468,7 +468,7 @@ End TCP
 ;
 ;  Font types and sizes (fonts page)
 ;
-MSG_SET_FTYPE_NORMAL (41200//)
+MSG_SET_FTYPE_NORMAL (121200//)
 Normal fonts
 ;
 MSG_SET_FTYPE_FIXED (//)
@@ -485,7 +485,7 @@ MSG_SET_FSIZE_7 (//)
 ;
 ;  Font list headers
 ;
-MSG_SET_FLH_SIZE (41300//)
+MSG_SET_FLH_SIZE (121300//)
 Size
 ;
 MSG_SET_FLH_FONTFACE (//)
@@ -493,7 +493,7 @@ Font name and size
 ;
 ;  Style list headers
 ;
-MSG_SET_SLH_TAG (41400//)
+MSG_SET_SLH_TAG (121400//)
 Tag
 ;
 MSG_SET_SLH_STYLE (//)
@@ -501,7 +501,7 @@ Rendered as
 ;
 ;  Cache verify modes
 ;
-MSG_SET_CAVERIFY_ALWAYS (41500//)
+MSG_SET_CAVERIFY_ALWAYS (121500//)
 Always
 ;
 MSG_SET_CAVERIFY_ONCE (//)
@@ -512,7 +512,7 @@ Never
 ;
 ;  Palette loading
 ;
-MSG_SET_LPAL_OFF (41700//)
+MSG_SET_LPAL_OFF (121700//)
 Off
 ;
 MSG_SET_LPAL_COLOURS (//)
@@ -523,7 +523,7 @@ Grayscale
 ;
 ;  MIME action names and abbreviationss
 ;
-MSG_SET_MACT_DEFAULT (41800//)
+MSG_SET_MACT_DEFAULT (121800//)
 Default
 ;
 MSG_SET_MACT_INTERNAL (//)
@@ -542,12 +542,12 @@ MSG_SET_MACT_SAVEDISK (//)
 Save to disk (S)
 ;
 ; 1-letter abbreviations to use for the above in the MIME list
-MSG_SET_MACT_ABBREV (41820/6/6)
+MSG_SET_MACT_ABBREV (121820/6/6)
  IAEPS
 ;
 ;  Cookie settings
 ;
-MSG_SET_COOKIES_NEVER (41900//)
+MSG_SET_COOKIES_NEVER (121900//)
 Never
 ;
 MSG_SET_COOKIES_ASK (//)
@@ -558,7 +558,7 @@ Always (quiet)
 ;
 ;  Pupup menu types
 ;
-MSG_SET_PUPTYPE_IMAGE (42000//)
+MSG_SET_PUPTYPE_IMAGE (122000//)
 Image popup menu
 ;
 MSG_SET_PUPTYPE_LINK (//)
@@ -590,7 +590,7 @@ Item
 ;
 ;  Javascript choices
 ;
-MSG_SET_JS_OFF (42100//)
+MSG_SET_JS_OFF (122100//)
 Off
 ;
 MSG_SET_JS_11 (//)
@@ -601,7 +601,7 @@ Omnivorous
 ;
 ;  Gadget labels - general
 ;
-MSG_SET_PAGE (45000//)
+MSG_SET_PAGE (125000//)
 _Page
 ;
 MSG_SET_SAVE (//)
@@ -618,7 +618,7 @@ _Test
 ;
 ;  Gadget labels - fonts
 ;
-MSG_SET_FONT_FONT (45100//)
+MSG_SET_FONT_FONT (125100//)
 _Font
 ;
 MSG_SET_FONT_FONTTYPE (//)
@@ -641,7 +641,7 @@ Del
 ;
 ;  Gadget labels - colours
 ;
-MSG_SET_APP_CHGCOLOUR (45200//)
+MSG_SET_APP_CHGCOLOUR (125200//)
 C_hange colour
 ;
 MSG_SET_APP_SCREENPENS (//)
@@ -649,7 +649,7 @@ Use screen text and _background pens
 ;
 ;  Gadget labels - browser options/gui options
 ;
-MSG_SET_BROPT_HTMLMODE (45300//)
+MSG_SET_BROPT_HTMLMODE (125300//)
 HTML _mode
 ;
 MSG_SET_BROPT_ULLINKS (//)
@@ -714,7 +714,7 @@ _Warn for suspect JavaScript
 ;
 ;  Gadget labels - screen
 ;
-MSG_SET_SCREEN_OPENON (45400//)
+MSG_SET_SCREEN_OPENON (125400//)
 _Open on
 ;
 MSG_SET_SCREEN_NAME (//)
@@ -728,7 +728,7 @@ _Load spread palette
 ;
 ;  Gadget labels - palette
 ;
-MSG_SET_PALL_PENLABEL (45500//)
+MSG_SET_PALL_PENLABEL (125500//)
 Pen settings
 ;
 MSG_SET_PALL_PEN (//)
@@ -745,7 +745,7 @@ C_hange colour
 ;
 ;  Gadget labels - network options and privacy
 ;
-MSG_SET_NETWORK_IMGLOAD (45600//)
+MSG_SET_NETWORK_IMGLOAD (125600//)
 _Image loading
 ;
 MSG_SET_NETWORK_MAXCONN (//)
@@ -810,7 +810,7 @@ Restrict i_mages to same host
 ;
 ;  Gadget labels - network proxy
 ;
-MSG_SET_PROXY_TYPE (45700//)
+MSG_SET_PROXY_TYPE (125700//)
 T_ype
 ;
 MSG_SET_PROXY_NAME (//)
@@ -833,7 +833,7 @@ Passi_ve FTP
 ;
 ;  Gadget labels - network external programs
 ;
-MSG_SET_NWPRG_TYPE (45800//)
+MSG_SET_NWPRG_TYPE (125800//)
 T_ype
 ;
 MSG_SET_NWPRG_CMD (//)
@@ -844,7 +844,7 @@ _Arguments
 ;
 ;  Gadget labels - program options
 ;
-MSG_SET_PROGRAM_SAVEPATH (45900//)
+MSG_SET_PROGRAM_SAVEPATH (125900//)
 S_ave path
 ;
 MSG_SET_PROGRAM_OVERLAP (//)
@@ -882,7 +882,7 @@ Center re_questers
 ;
 ;  Gadget labels - external programs
 ;
-MSG_SET_EDITOR_LABEL (46000//)
+MSG_SET_EDITOR_LABEL (126000//)
 Editor
 ;
 MSG_SET_EDITOR_CMD (//)
@@ -919,7 +919,7 @@ Script run at shutdown
 ;
 ;  Gadget labels - cache
 ;
-MSG_SET_CACHE_TEMPPATH (46100//)
+MSG_SET_CACHE_TEMPPATH (126100//)
 Temp _path
 ;
 MSG_DUMMY_2 (//)
@@ -972,7 +972,7 @@ Del
 ;
 ;  Gadget labels - MIME types and external viewers
 ;
-MSG_SET_MIME_TYPE (46200//)
+MSG_SET_MIME_TYPE (126200//)
 T_ype
 ;
 MSG_SET_MIME_ADD (//)
@@ -999,7 +999,7 @@ Act_ion
 ;
 ;  Settings colour requester
 ;
-MSG_SET_COLOUR_TITLE (46300//)
+MSG_SET_COLOUR_TITLE (126300//)
 Select colour
 ;
 MSG_SET_COLOUR_CANCEL (//)
@@ -1019,7 +1019,7 @@ B
 ;
 ;  Gadget labels - Menu (was: ARexx menu)
 ;
-MSG_SET_AREXX_SORT (46400//)
+MSG_SET_AREXX_SORT (126400//)
 S_ort
 ;
 MSG_SET_AREXX_ADD (//)
@@ -1048,7 +1048,7 @@ Co_mmand
 ;
 ;  Gadget labels - Styles page
 ;
-MSG_SET_STYLE_FIXED (46500//)
+MSG_SET_STYLE_FIXED (126500//)
 _Fixed width
 ;
 MSG_SET_STYLE_ABSSIZE (//)
@@ -1071,7 +1071,7 @@ Under_lined
 ;
 ;  Gadget labels - User buttons
 ;
-MSG_SET_BUTTON_SORT (46600//)
+MSG_SET_BUTTON_SORT (126600//)
 S_ort
 ;
 MSG_SET_BUTTON_ADD (//)
@@ -1088,7 +1088,7 @@ Co_mmand
 ;
 ;  Gadget labels - Popup menus
 ;
-MSG_SET_POPUP_TYPE (46700//)
+MSG_SET_POPUP_TYPE (126700//)
 T_ype
 ;
 MSG_SET_POPUP_SORT (//)
@@ -1117,7 +1117,7 @@ _not in mem
 ;
 ;  Gadget labels - GUI options
 ;
-MSG_SET_GUIOPT_SHOWBUTTONS (46800//)
+MSG_SET_GUIOPT_SHOWBUTTONS (126800//)
 Show user _buttons
 ;
 MSG_SET_GUIOPT_SHOWNAV (//)
@@ -1125,7 +1125,7 @@ Show _navigation gadgets
 ;
 ;  Gadget labels - Network Mail/News
 ;
-MSG_SET_MAIL_TAB_ADDRESS (46900//)
+MSG_SET_MAIL_TAB_ADDRESS (126900//)
 _Address
 ;
 MSG_SET_MAIL_TAB_MAIL (//)
@@ -1208,7 +1208,7 @@ Retrieve by num_ber
 ;
 ;  Gadget labels - GUI keys
 ;
-MSG_SET_KEYS_KEY (47000//)
+MSG_SET_KEYS_KEY (127000//)
 Key
 ;
 MSG_SET_KEYS_COMMAND (//)
@@ -1216,7 +1216,7 @@ Co_mmand
 ;
 ;  Key names
 ;
-MSG_SET_KEYS_ENTER (47100//)
+MSG_SET_KEYS_ENTER (127100//)
 Enter
 ;
 MSG_SET_KEYS_TAB (//)
@@ -1254,7 +1254,7 @@ Wheel down
 ;
 ;  Gadget labels - Navigation buttons
 ;
-MSG_SET_NAVS_BUTTON (47200//)
+MSG_SET_NAVS_BUTTON (127200//)
 Button
 ;
 MSG_SET_NAVS_COMMAND (//)
@@ -1262,7 +1262,7 @@ Co_mmand
 ;
 ;  Navigation button names
 ;
-MSG_SET_NAVS_BACK (47300//)
+MSG_SET_NAVS_BACK (127300//)
 Back
 ;
 MSG_SET_NAVS_FORWARD (//)
@@ -1294,7 +1294,7 @@ Load images
 ;
 ;  Settings menu strings
 ;
-MSG_SET_PROJECT_MENU (50000//)
+MSG_SET_PROJECT_MENU (130000//)
 Project
 ;
 MSG_SET_PROJECT_OPEN (//)
@@ -1306,7 +1306,7 @@ A/Save as...
 MSG_SET_PROJECT_QUIT (//)
 Q/Quit settings
 ;
-MSG_SET_EDIT_MENU (50100//)
+MSG_SET_EDIT_MENU (130100//)
 Edit
 ;
 MSG_SET_EDIT_DEFAULTS (//)
@@ -1318,7 +1318,7 @@ L/Last saved
 MSG_SET_EDIT_RESTORE (//)
 R/Restore
 ;
-MSG_SET_WINDOWS_MENU (50200//)
+MSG_SET_WINDOWS_MENU (130200//)
 Windows
 ;
 MSG_SET_WINDOWS_BROWSER (//)

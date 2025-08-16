@@ -3,7 +3,6 @@
  * This file is part of the AWeb-II distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -21,10 +20,15 @@
 #ifndef AWEBTCP_H
 #define AWEBTCP_H
 
+#ifndef SYS_TYPES_H
+typedef unsigned long u_long;
+#endif
+
+#include <exec/types.h>
 #include "awebssl.h"
 
 /* low-level TCP functions */
-/* defined in awebamitcp.c */
+/* defined in awebamitcp.c and awebinet225.c */
 
 extern struct Library *AwebTcpBase;
 
@@ -34,7 +38,7 @@ struct hostent *a_gethostbyname(char *,struct Library *);
 int a_socket(int,int,int,struct Library *);
 int a_close(int,struct Library *);
 int a_connect(int,struct hostent *,int,struct Library *);
-int a_connect2(int,int,unsigned long, int,struct Library *);
+int a_connect2(int,int,u_long, int,struct Library *);
 int a_bind(int,struct sockaddr *,int,struct Library *);
 int a_listen(int,int,struct Library *);
 int a_accept(int,struct sockaddr *,int *,struct Library *);
@@ -42,10 +46,9 @@ int a_shutdown(int,int,struct Library *);
 int a_send(int,char *,int,int,struct Library *);
 int a_recv(int,char *,int,int,struct Library *);
 int a_getsockname(int,struct sockaddr *,int *,struct Library *);
-int a_setsockopt(int,int,int,const void *,int,struct Library *);
 
 /* high-level SSL functions */
-/* defined in amissl.c */
+/* defined in amissl.c and miamissl.c */
 
 extern struct Library *AwebSslBase;
 
@@ -80,8 +83,6 @@ extern struct Library *Tcpopenlib(void);
 extern struct Assl *Tcpopenssl(struct Library *socketbase);
 
 
-
-
 /* pragmas */
 
 #pragma libcall AwebTcpBase a_setup 1e 801
@@ -98,7 +99,7 @@ extern struct Assl *Tcpopenssl(struct Library *socketbase);
 #pragma libcall AwebTcpBase a_send 60 9218005
 #pragma libcall AwebTcpBase a_recv 66 9218005
 #pragma libcall AwebTcpBase a_getsockname 6c A98004
-#pragma libcall AwebTcpBase a_setsockopt 72 8321006
+/* #pragma libcall AwebTcpBase a_setsockopt 72 8321006 */
 
 #pragma libcall AwebSslBase Assl_cleanup 1e 801
 #pragma libcall AwebSslBase Assl_openssl 24 801

@@ -1,6 +1,6 @@
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2025 amigazen project
@@ -16,7 +16,15 @@
  *
  **********************************************************************/
 
-/* amissl.c - AWeb SSL function library. Compile this with AmiSSL SDK */
+/* amissl.c - AWeb SSL function library. Updated for AmiSSL 5.20+ */
+/* 
+ * AmiSSL 5.20+ compatibility updates:
+ * - Updated to use new OpenAmiSSLTags() API instead of deprecated InitAmiSSL()
+ * - Added proper AmiSSLMaster library handling
+ * - Updated to use modern OpenSSL 3.x API functions
+ * - Enhanced error handling and resource cleanup
+ * - Added proper pragma handling for SAS/C
+ */
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -24,60 +32,106 @@
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/utility.h>
+#include <proto/amisslmaster.h>
+#include <proto/amissl.h>
+#include <libraries/amisslmaster.h>
+#include <libraries/amissl.h>
 #include "aweb.h"
 #include "awebssl.h"
 #include "task.h"
-#include <proto/amissl.h>
-// AmiSSL pragmas are not available in proto headers, keep this include
 #include <amissl/amissl.h>
-//#define NO_BLOWFISH
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/crypto.h>
 
+/* SAS/C pragmas for AmiSSL functions */
+#ifdef __SASC
+#pragma libcall AmiSSLMasterBase OpenAmiSSLTags 3c 8002
+#pragma libcall AmiSSLMasterBase CloseAmiSSL 2a 00
+#pragma libcall AmiSSLBase InitAmiSSLA 24 801
+#pragma libcall AmiSSLBase CleanupAmiSSLA 2a 801
+#pragma libcall AmiSSLBase SSL_new 1e 801
+#pragma libcall AmiSSLBase SSL_free 24 801
+#pragma libcall AmiSSLBase SSL_CTX_new 2a 801
+#pragma libcall AmiSSLBase SSL_CTX_free 30 801
+#pragma libcall AmiSSLBase SSL_set_fd 36 9802
+#pragma libcall AmiSSLBase SSL_connect 3c 801
+#pragma libcall AmiSSLBase SSL_write 42 9803
+#pragma libcall AmiSSLBase SSL_read 48 9803
+#pragma libcall AmiSSLBase SSL_get_cipher 4e 801
+#pragma libcall AmiSSLBase SSL_CTX_set_default_verify_paths 54 801
+#pragma libcall AmiSSLBase SSL_CTX_set_options 5a 9802
+#pragma libcall AmiSSLBase SSL_CTX_set_cipher_list 60 9802
+#pragma libcall AmiSSLBase SSL_CTX_set_verify 66 9803
+#pragma libcall AmiSSLBase X509_STORE_CTX_get_current_cert 6c 801
+#pragma libcall AmiSSLBase X509_STORE_CTX_get_error 72 801
+#pragma libcall AmiSSLBase X509_get_subject_name 78 801
+#pragma libcall AmiSSLBase X509_NAME_oneline 7e 9803
+#pragma libcall AmiSSLBase ERR_get_error 84 00
+#pragma libcall AmiSSLBase ERR_error_string 8a 9802
+#endif
+
 /*-----------------------------------------------------------------------*/
 
 struct Assl
-{  struct Library *amisslbase;
+{  struct Library *amisslmasterbase;
+   struct Library *amisslbase;
+   struct Library *amissslextbase;
    SSL_CTX *sslctx;
    SSL *ssl;
    UBYTE *hostname;
    BOOL denied;
 };
 
+struct Library *AmiSSLMasterBase;
+struct Library *AmiSSLBase;
+struct Library *AmiSSLExtBase;
+
 /*-----------------------------------------------------------------------*/
 
 struct Assl *Assl_initamissl(struct Library *socketbase)
-{  struct Library *AmiSSLBase;
+{  
    struct Assl *assl;
-#ifndef DEMOVERSION
-   if((assl=ALLOCSTRUCT(Assl,1,MEMF_CLEAR)))
-   {  if(AmiSSLBase=assl->amisslbase=OpenLibrary("amissl.library",5))
-      {  ULONG version = AmiSSLBase->lib_Version;
-         ULONG revision = AmiSSLBase->lib_Revision;
-         if(version < 5 || (version == 5 && revision < 20))
-         {
-            /* Print warning or set a flag for UI */
-            PutStr("WARNING: AmiSSL 5.20 or newer is required.\n");
-            Lowlevelreq("AWeb requires amissl.library version 5.20 or newer for SSL/TLS connections.\nPlease install or update AmiSSL and try again.");
-            CloseLibrary(AmiSSLBase);
-            assl->amisslbase=NULL;
+   if(socketbase && (assl=ALLOCSTRUCT(Assl,1,MEMF_CLEAR)))
+   {  
+      /* Open AmiSSLMaster library first */
+      if(AmiSSLMasterBase=assl->amisslmasterbase=OpenLibrary("amisslmaster.library",AMISSLMASTER_MIN_VERSION))
+      {  
+         /* Use new OpenAmiSSLTags API for AmiSSL 5.20+ */
+         if(OpenAmiSSLTags(AMISSL_CURRENT_VERSION,
+                           AmiSSL_UsesOpenSSLStructs, TRUE,
+                           AmiSSL_GetAmiSSLBase, &AmiSSLBase,
+                           AmiSSL_GetAmiSSLExtBase, &AmiSSLExtBase,
+                           AmiSSL_SocketBase, socketbase,
+                           AmiSSL_ErrNoPtr, &errno,
+                           TAG_END) == 0)
+         {  
+            /* Success - store the library bases */
+            assl->amisslbase = AmiSSLBase;
+            assl->amissslextbase = AmiSSLExtBase;
+            
+            PutStr("DEBUG: AmiSSL 5.20+ initialized successfully\n");
          }
-         else if(InitAmiSSL(AmiSSL_SocketBase,socketbase,
-            TAG_END))
-         {  /* InitAmiSSL failed */
-            PutStr("ERROR: InitAmiSSL() failed.\n");
-            Lowlevelreq("AWeb could not initialize AmiSSL.\nPlease check your AmiSSL installation and try again.");
-            CloseLibrary(AmiSSLBase);
-            assl->amisslbase=NULL;
+         else
+         {  
+            /* OpenAmiSSLTags failed */
+            PutStr("ERROR: OpenAmiSSLTags() failed.\n");
+            Lowlevelreq("AWeb could not initialize AmiSSL 5.20+.\nPlease check your AmiSSL installation and try again.");
+            CloseLibrary(AmiSSLMasterBase);
+            assl->amisslmasterbase = NULL;
          }
       }
+      else
+      {  
+         PutStr("ERROR: Could not open amisslmaster.library.\n");
+         Lowlevelreq("AWeb requires amisslmaster.library version 5.20 or newer for SSL/TLS connections.\nPlease install or update AmiSSL and try again.");
+      }
+      
       if(!assl->amisslbase)
       {  FREE(assl);
          assl=NULL;
       }
    }
-#endif
    return assl;
 }
 
@@ -90,17 +144,20 @@ static int __saveds __stdargs
    X509 *xs;
    int err;
    char buf[256];
-   if(!ok)
+   if(!ok && sctx)
    {  assl=Gettaskuserdata();
-      if(assl)
+      if(assl && assl->amisslbase)
       {  struct Library *AmiSSLBase=assl->amisslbase;
          xs=X509_STORE_CTX_get_current_cert(sctx);
-         err=X509_STORE_CTX_get_error(sctx);
-         X509_NAME_oneline(X509_get_subject_name(xs),buf,sizeof(buf));
-         s=buf;         
-         u=assl->hostname;
-         ok=Httpcertaccept(u,s);
-         if(!ok) assl->denied=TRUE;
+         if(xs)
+         {  err=X509_STORE_CTX_get_error(sctx);
+            if(X509_NAME_oneline(X509_get_subject_name(xs),buf,sizeof(buf)))
+            {  s=buf;         
+               u=assl->hostname;
+               ok=Httpcertaccept(u,s);
+               if(!ok) assl->denied=TRUE;
+            }
+         }
       }
    }
    return ok;
@@ -108,10 +165,27 @@ static int __saveds __stdargs
 
 __asm void Assl_cleanup(register __a0 struct Assl *assl)
 {  if(assl)
-   {  if(assl->amisslbase)
-      {  struct Library *AmiSSLBase=assl->amisslbase;
-         CleanupAmiSSL(TAG_END);
-         CloseLibrary(assl->amisslbase);
+   {  if(assl->ssl)
+      {  SSL_free(assl->ssl);
+         assl->ssl=NULL;
+      }
+      if(assl->sslctx)
+      {  SSL_CTX_free(assl->sslctx);
+         assl->sslctx=NULL;
+      }
+      if(assl->amisslbase)
+      {  /* Clean up AmiSSL */
+         struct Library *AmiSSLBase=assl->amisslbase;
+         CleanupAmiSSLA(NULL);
+         AmiSSLBase = NULL;
+         AmiSSLExtBase = NULL;
+      }
+      if(assl->amisslmasterbase)
+      {  /* Close AmiSSL */
+         CloseAmiSSL();
+         CloseLibrary(assl->amisslmasterbase);
+         assl->amisslmasterbase = NULL;
+         AmiSSLMasterBase = NULL;
       }
       FREE(assl);
    }
@@ -120,12 +194,15 @@ __asm void Assl_cleanup(register __a0 struct Assl *assl)
 __asm BOOL Assl_openssl(register __a0 struct Assl *assl)
 {  if(assl && assl->amisslbase)
    {  struct Library *AmiSSLBase=assl->amisslbase;
-      SSLeay_add_ssl_algorithms();
-      SSL_load_error_strings();
-      if(assl->sslctx=SSL_CTX_new(SSLv23_client_method()))
+      /* Modern OpenSSL doesn't need these deprecated functions */
+      /* SSLeay_add_ssl_algorithms(); */
+      /* SSL_load_error_strings(); */
+      if(assl->sslctx=SSL_CTX_new(TLS_client_method()))
       {  SSL_CTX_set_default_verify_paths(assl->sslctx);
-         SSL_CTX_set_verify(assl->sslctx,/*SSL_VERIFY_PEER|*/SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
-            Certcallback);
+         /* Enhanced security: disable weak protocols and ciphers */
+         SSL_CTX_set_options(assl->sslctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
+         SSL_CTX_set_cipher_list(assl->sslctx,"HIGH:!aNULL:!eNULL:!EXPORT:!DES:!3DES:!MD5:!PSK@STRENGTH");
+         SSL_CTX_set_verify(assl->sslctx,SSL_VERIFY_FAIL_IF_NO_PEER_CERT,Certcallback);
          if(assl->ssl=SSL_new(assl->sslctx))
          {  Settaskuserdata(assl);
          }
@@ -153,7 +230,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
    register __d0 long sock,
    register __a1 UBYTE *hostname)
 {  long result=ASSLCONNECT_FAIL;
-   if(assl && assl->amisslbase)
+   if(assl && assl->amisslbase && assl->ssl && sock>=0)
    {  struct Library *AmiSSLBase=assl->amisslbase;
       assl->hostname=hostname;
       if(SSL_set_fd(assl->ssl,sock))
@@ -173,18 +250,26 @@ __asm char *Assl_geterror(register __a0 struct Assl *assl,
 {  long err;
    UBYTE *p=NULL;
    short i;
-   if(assl && assl->amisslbase)
+   if(assl && assl->amisslbase && errbuf)
    {  struct Library *AmiSSLBase=assl->amisslbase;
-      ERR_load_SSL_strings();
+      /* Modern OpenSSL doesn't need these deprecated functions */
+      /* ERR_load_SSL_strings(); */
       err=ERR_get_error();
-      ERR_error_string(err,errbuf);
-      /* errbuf now contains something like: 
-         "error:1408806E:SSL routines:SSL_SET_CERTIFICATE:certificate verify failed"
-         Find the descriptive text after the 4th colon. */
-      for(i=0,p=errbuf;i<4;i++)
-      {  p=strchr(p,':');
-         if(!p) break;
-         p++;
+      if(err)
+      {  ERR_error_string(err,errbuf);
+         /* errbuf now contains something like: 
+            "error:1408806E:SSL routines:SSL_SET_CERTIFICATE:certificate verify failed"
+            Find the descriptive text after the 4th colon. */
+         for(i=0,p=errbuf;i<4 && p;i++)
+         {  p=strchr(p,':');
+            if(!p) break;
+            p++;
+         }
+      }
+      else
+      {  /* No error available, provide default message */
+         strcpy(errbuf, "Unknown SSL error");
+         p=errbuf;
       }
    }
    if(!p) p=errbuf;
@@ -195,7 +280,7 @@ __asm long Assl_write(register __a0 struct Assl *assl,
    register __a1 char *buffer,
    register __d0 long length)
 {  long result=-1;
-   if(assl && assl->amisslbase)
+   if(assl && assl->amisslbase && assl->ssl && buffer && length>0)
    {  struct Library *AmiSSLBase=assl->amisslbase;
       result=SSL_write(assl->ssl,buffer,length);
    }
@@ -206,7 +291,7 @@ __asm long Assl_read(register __a0 struct Assl *assl,
    register __a1 char *buffer,
    register __d0 long length)
 {  long result=-1;
-   if(assl && assl->amisslbase)
+   if(assl && assl->amisslbase && assl->ssl && buffer && length>0)
    {  struct Library *AmiSSLBase=assl->amisslbase;
       result=SSL_read(assl->ssl,buffer,length);
    }
@@ -215,7 +300,7 @@ __asm long Assl_read(register __a0 struct Assl *assl,
 
 __asm char *Assl_getcipher(register __a0 struct Assl *assl)
 {  char *result=NULL;
-   if(assl && assl->amisslbase)
+   if(assl && assl->amisslbase && assl->ssl)
    {  struct Library *AmiSSLBase=assl->amisslbase;
       result=(char *)SSL_get_cipher(assl->ssl);
    }

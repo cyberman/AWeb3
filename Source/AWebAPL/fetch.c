@@ -1,6 +1,6 @@
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2025 amigazen project
@@ -659,6 +659,7 @@ static void Disposefd(struct Fetchdriver *fd)
    {  /* referer and postmsg are shared with Fetch - don't free these here. */
       if(fd->proxy) FREE(fd->proxy);
       if(fd->block) FREE(fd->block);
+      if(fd->etag) FREE(fd->etag);
       FREE(fd);
    }
 }

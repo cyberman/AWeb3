@@ -1,6 +1,6 @@
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2025 amigazen project
@@ -24,12 +24,13 @@
 #include "awebtcp.h"
 
 extern struct Library *AwebAmiTcpBase;
+/* extern struct Library *AwebInet225Base; */
 
 extern struct Library *AwebAmisslBase;
+/* extern struct Library *AwebMiamisslBase; */
 
 struct Library *AwebTcpBase;
 struct Library *AwebSslBase;
-struct Library *SocketBase;
 
 /* Global errno variable for bsdsocket.library */
 int errno;
@@ -38,26 +39,14 @@ int errno;
 
 struct Library *Tcpopenlib(void)
 {  struct Library *base=NULL;
-   
-   /* Use bsdsocket.library (Roadshow/AmiTCP) */
    if(base=OpenLibrary("bsdsocket.library",0))
    {  AwebTcpBase=AwebAmiTcpBase;
-      
-      /* Set errno pointer for proper error handling */
-      SetErrnoPtr(&errno, 0);
-      
-      /* Initialize socket system with proper error handling */
-      if(a_setup(base) < 0)
-      {  /* Socket initialization failed */
-         CloseLibrary(base);
-         base = NULL;
-      }
+      a_setup(base);
    }
-   else
-   {  /* Show GUI error if bsdsocket.library is missing */
-      Lowlevelreq("AWeb requires bsdsocket.library for network access.\nPlease install bsdsocket.library and try again.");
-   }
-   
+   /* else if(base=OpenLibrary("inet:libs/socket.library",4))
+   {  AwebTcpBase=AwebInet225Base;
+      a_setup(base);
+   } */
    return base;
 }
 
@@ -66,5 +55,8 @@ struct Assl *Tcpopenssl(struct Library *socketbase)
    if(assl=Assl_initamissl(socketbase))
    {  AwebSslBase=AwebAmisslBase;
    }
+   /* else if(assl=Assl_initmiamissl())
+   {  AwebSslBase=AwebMiamisslBase;
+   } */
    return assl;
 }

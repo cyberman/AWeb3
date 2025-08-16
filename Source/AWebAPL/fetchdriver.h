@@ -1,6 +1,6 @@
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2025 amigazen project
@@ -44,6 +44,7 @@ struct Fetchdriver
    
    /* Temporary storage fields */
    ULONG serverdate;          /* Date as reported by server */
+   UBYTE *etag;               /* ETag value from HTTP response for caching */
 };
 
 #define FDVF_NOCACHE       0x0001   /* Don't use any cache */

@@ -1,6 +1,6 @@
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2025 amigazen project
@@ -182,7 +182,7 @@ struct Prefs defprefs=
       "file:///AWeb:docs/AWeb.html",     /* home url */
 #endif
       "index.html",                          /* local index */
-      "https://duckduckgo.com/?q=%s",   /* search url */
+      "https://html.duckduckgo.com/?q=%s",   /* search url */
       "",                                    /* spoof ID */
       FALSE,                                 /* ignore mime */
       TRUE,                                  /* start home page */
@@ -1379,7 +1379,7 @@ BOOL Initdefprefs(void)
 
 
 #ifndef LOCALONLY
-   if(!Adduserbutton(&defprefs.buttons,"Ami-Gazen",
+   if(!Adduserbutton(&defprefs.buttons,"amigazen project",
       "OPEN http://www.amigazen.com")) return FALSE;
 #endif
 #ifdef OSVERSION

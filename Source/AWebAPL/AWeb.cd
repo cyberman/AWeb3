@@ -617,7 +617,7 @@ MSG_COOKIE_TITLE (1800//)
 Cookie alert
 ;
 MSG_COOKIE_WARNING (//)
-About to set a NetScape cookie!
+About to set a Cookie!
 ;
 MSG_COOKIE_NAME (//)
 Cookie name:

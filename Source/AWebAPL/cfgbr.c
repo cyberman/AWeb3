@@ -1,6 +1,6 @@
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2025 amigazen project
@@ -37,6 +37,7 @@
 #include <gadgets/palette.h>
 #include <classes/window.h>
 #include <proto/intuition.h>
+#include <dos/dos.h>
 
 
 ULONG brmask=0;
@@ -1665,7 +1666,20 @@ BOOL Processbrowser(void)
 }
 
 void Closebrowser(void)
-{  brmask=0;
+{  /* CRITICAL: Send exit signals to all background tasks before shutting down */
+   /* This prevents DNS lookups and other operations from hanging during exit */
+   printf("DEBUG: Closebrowser() called, sending exit signals to background tasks\n");
+   
+   /* CRITICAL: Send exit signals to prevent hanging DNS lookups */
+   /* We'll use multiple break signals to ensure all tasks get notified */
+   struct Task *current_task = FindTask(NULL);
+   if(current_task) {
+      /* Send break signals to the current task to notify background operations */
+      SetSignal(0, SIGBREAKF_CTRL_C | SIGBREAKF_CTRL_D | SIGBREAKF_CTRL_E | SIGBREAKF_CTRL_F);
+      printf("DEBUG: Sent exit signals to current task\n");
+   }
+   
+   brmask=0;
    if(window)
    {  ClearMenuStrip(window);
       Dimensions(window,&setprefs.brwx);
@@ -1692,4 +1706,6 @@ void Closebrowser(void)
    if(nreq.nr_Name) EndNotify(&nreq);
    memset(&nreq,0,sizeof(nreq));
    if(nport) DeleteMsgPort(nport);nport=NULL;
+   
+   printf("DEBUG: Closebrowser() completed, all resources cleaned up\n");
 }

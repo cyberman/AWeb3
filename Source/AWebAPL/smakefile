@@ -1,15 +1,16 @@
 # AWeb makefile
-
+#
 # Invoke with `DEBUG = debug=sf' to compile selected files with debugging.
 
+#-----------------------------------------------------------------------------
+
+# Generic rule: compile .c → .o
 .c.o:
-   @echo "        Compiling $*..."
-   @sc "$*.c"
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $*.c to $*.o
 
+# Dummy header rule (avoid accidental rebuilds)
 .h.h:
-
-
-
 
 #-----------------------------------------------------------------------------
 
@@ -46,10 +47,11 @@ aweb:       popup.o search.o print.o printwin.o info.o saveiff.o
 aweb:       netstat.o hotlist.o whiswin.o cabrowse.o
 #  Url related objects
 aweb:       url.o source.o copy.o copyjs.o cache.o cookie.o fetch.o mime.o
-#  Fetch drivers
 aweb:       local.o http.o xaweb.o
 #  TCP/SSL drivers
 aweb:       tcp.o tcperr.o nameserv.o author.o awebamitcp.o awebtcp.o amissl.o
+#  zlib compression library
+aweb:       /zlib/adler32.o /zlib/crc32.o /zlib/deflate.o /zlib/inflate.o /zlib/inftrees.o /zlib/inffast.o /zlib/trees.o /zlib/zutil.o
 #  Source drivers
 aweb:       sourcedriver.o docsource.o imgsource.o extprog.o saveas.o
 aweb:       soundsource.o docext.o
@@ -62,322 +64,61 @@ aweb:       field.o input.o checkbox.o radio.o select.o textarea.o button.o
 aweb:       hidden.o filefield.o
 #  Link
 aweb:       aweb.lnk
-   slink with aweb.lnk
+    slink with aweb.lnk
 
-
-#- Shortcuts -----------------------------------------------------------------
-
-arexx:      aweblib/arexx.aweblib
-
-authorize:  aweblib/authorize.aweblib
-
-cachebrowser: aweblib/cachebrowser.aweblib
-
-ftp:        aweblib/ftp.aweblib
-
-gopher:     aweblib/gopher.aweblib
-
-history:    aweblib/history.aweblib
-
-hotlist:    aweblib/hotlist.aweblib
-
-mail:       aweblib/mail.aweblib
-
-news:       aweblib/news.aweblib
-
-print:      aweblib/print.aweblib
-
-printlib:   aweblib/print.aweblib
-
-startup:    aweblib/startup.aweblib
-
-jslib:      aweblib/awebjs.aweblib
-
-#- AWeb constituents, alphabetically -----------------------------------------
-
-
-application.h: object.h
-application.o: application.c aweb.h application.h timer.h window.h task.h url.h startup.h
-
-area.h:     object.h
-area.o:     area.c aweb.h area.h linkprivate.h element.h frame.h url.h window.h
-
-arexx.o:    arexx.c aweb.h arexx.h application.h 
-
-asyncio.o:  asyncio.c
+#-----------------------------------------------------------------------------
 
 author.o:   author.c aweb.h url.h fetch.h application.h task.h fetchdriver.h authorlib.h
-   @echo "        Compiling $*..."
-   @sc idir=netinclude: $*
+    @echo "        Compiling $*.c..."
+    @sc idir=netinclude: $*.c to $*.o
 
-aweb.h:     awebdef.h
-
-aweb.o:     aweb.c aweb.h url.h application.h window.h profile.h source.h
-aweb.o:     frame.h startup.h task.h
-   @echo "        Compiling $*..."
-   @sc $(DEBUG) $*.c
+aweb.o:     aweb.c aweb.h url.h application.h window.h profile.h source.h frame.h startup.h task.h
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $*.c to $*.o
 
 awebamitcp.o: awebamitcp.c
-   @echo "        Compiling $*..."
-   @sc idir=netinclude: $*
-
-awebdef.h:  keyfile.h awebprefs.h awebgst
+    @echo "        Compiling $*.c..."
+    @sc idir=netinclude: $*.c to $*.o
 
 awebgst:    gst.c
-   @echo "        Compiling $*..."
-   @sc MAKEGLOBALSYMBOLTABLE=awebgst ignore=105 gst.c
-
-aweblib.h:  awebdef.h awebplugin.h
-
-awebtcp.h:  awebssl.h
+    @echo "        Compiling gst.c..."
+    @sc MAKEGLOBALSYMBOLTABLE=awebgst ignore=105 gst.c
 
 awebtcp.o:  awebtcp.c awebtcp.h
-   @echo "        Compiling $*..."
-   @sc idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 $*
-
-awebamitcp.o: awebamitcp.c
-   @echo "        Compiling $*..."
-   @sc idir=netinclude: $*
+    @echo "        Compiling $*.c..."
+    @sc idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 $*.c to $*.o
 
 amissl.o:   amissl.c aweb.h task.h awebssl.h
-   @echo "        Compiling $*..."
-   @sc idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 $*
+    @echo "        Compiling $*.c..."
+    @sc idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 IGNORE=101 IGNORE=63 IGNORE=84 $*.c to $*.o
 
-body.h:     object.h
-body.o:     body.c aweb.h body.h element.h 
+framejs.o:  framejs.c aweb.h frame.h frprivate.h application.h window.h copy.h url.h winhis.h timer.h
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $*.c to $*.o
 
-boopsi.o:   boopsi.c aweb.h application.h
-
-break.h:    element.h
-break.o:    break.c aweb.h break.h 
-
-bullet.h:   element.h
-bullet.o:   bullet.c aweb.h bullet.h application.h
-
-button.h:   field.h
-button.o:   button.c aweb.h button.h form.h body.h application.h url.h window.h
-
-cabrowse.o: cabrowse.c aweb.h cache.h application.h caprivate.h task.h url.h window.h
-
-cache.h:    object.h
-cache.o:    cache.c aweb.h cache.h url.h window.h caprivate.h arexx.h
-
-checkbox.h: field.h
-checkbox.o: checkbox.c aweb.h checkbox.h application.h form.h window.h
-
-clip.o:     clip.c aweb.h
-
-cookie.o:   cookie.c aweb.h cache.h application.h arexx.h
-
-copy.h:     field.h
-copy.o:     copy.c aweb.h copyprivate.h
-copy.o:     source.h url.h frame.h application.h link.h popup.h map.h area.h window.h
-copy.o:     form.h info.h
-
-copydriver.h: object.h
-copydriver.o: copydriver.c aweb.h copydriver.h
-
-copyprivate.h: copy.h copydriver.h
-
-copyjs.o:   copyjs.c aweb.h copyprivate.h url.h document.h 
-
-defprefs.o: defprefs.c awebprefs.h awebcfg.h keyfile.h locale.h
-
-docjs.o:    docjs.c aweb.h docprivate.h frame.h application.h source.h copy.h url.h 
-
-docprivate.h: copydriver.h
-
-docext.o:   docext.c aweb.h docprivate.h 
-docext.o:   source.h sourcedriver.h copy.h url.h
-
-docsource.o: docsource.c aweb.h docprivate.h 
-docsource.o: source.h sourcedriver.h copy.h url.h file.h application.h editor.h
-
-document.h: object.h
-document.o: document.c aweb.h docprivate.h document.h
-document.o: application.h window.h frame.h winhis.h url.h source.h copy.h
-document.o: body.h info.h map.h
-
-editor.h:   object.h
-editor.o:   editor.c aweb.h editor.h application.h file.h task.h
-
-element.h:  object.h
-element.o:  element.c aweb.h element.h 
-
-event.o:    event.c aweb.h winprivate.h window.h 
-event.o:    frame.h winhis.h url.h application.h filereq.h source.h copy.h
-event.o:    cache.h fetch.h copydriver.h
-
-extprog.o:  extprog.c aweb.h source.h sourcedriver.h url.h file.h application.h 
-
-fetch.h:    object.h
-fetch.o:    fetch.c aweb.h fetch.h url.h fetchdriver.h application.h task.h window.h form.h
-
-fetchdriver.h: url.h
-
-field.h:    element.h
-field.o:    field.c aweb.h field.h form.h window.h 
-
-file.h:     object.h
-file.o:     file.c aweb.h file.h 
-
-filefield.h: field.h
-filefield.o: filefield.c aweb.h filefield.h input.h window.h application.h filereq.h
-
-filereq.h:  object.h
-filereq.o:  filereq.c aweb.h filereq.h application.h window.h task.h arexx.h
-
-form.h:     object.h
-form.o:     form.c aweb.h form.h field.h frame.h radio.h button.h filefield.h url.h window.h
-
-frame.h:    object.h
-frame.o:    frame.c aweb.h frame.h frprivate.h window.h application.h popup.h search.h
-frame.o:    scroller.h winhis.h url.h copy.h copydriver.h timer.h source.h info.h
-
-framejs.o:  framejs.c aweb.h frame.h frprivate.h application.h window.h copy.h url.h
-framejs.o:  winhis.h timer.h
-   @echo "        Compiling $*..."
-   @sc $(DEBUG) $*.c
-
-frameset.h: frame.h
-frameset.o: frameset.c aweb.h frameset.h element.h application.h window.h 
-
-hidden.o:   hidden.c aweb.h field.h
-
-hotlist.o:  hotlist.c aweb.h url.h file.h application.h window.h task.h hotlist.h
-
-html.o:     html.c aweb.h html.h colours.h docprivate.h source.h url.h window.h
-html.o:     body.h frameset.h link.h map.h area.h
-html.o:     text.h break.h ruler.h frame.h copy.h bullet.h table.h
-html.o:     form.h field.h button.h checkbox.h radio.h input.h select.h
-html.o:     textarea.h filefield.h
-
-http.o:     http.c aweb.h awebtcp.h tcperr.h fetchdriver.h application.h task.h form.h
-   @echo "        Compiling $*..."
-   @sc idir=netinclude: $*
-
-
-
-imgcopy.o:  imgcopy.c aweb.h imgprivate.h copydriver.h copy.h 
-
-imgsource.o: imgsource.c aweb.h source.h sourcedriver.h copy.h url.h file.h
-imgsource.o: imgprivate.h application.h task.h cache.h fetch.h 
-
-info.h:     object.h
-info.o:     info.c aweb.h info.h application.h url.h frame.h
-
-input.h:    field.h
-input.o:    input.c aweb.h input.h form.h frame.h window.h application.h
-
-link.h:     object.h
-link.o:     link.c aweb.h link.h linkprivate.h element.h frame.h popup.h url.h window.h
-
-local.o:    local.c aweb.h fetchdriver.h tcperr.h window.h task.h form.h
-
-locale.o:   aweb.cd
-   catcomp aweb.cd cfile locale.h objfile locale.o
-
-map.h:      object.h
-map.o:      map.c aweb.h map.h document.h area.h
-
-memory.o:   memory.c aweb.h 
-
-mime.o:     mime.c aweb.h 
-
-name.h:     element.h
-name.o:     name.c aweb.h name.h 
+http.o:     http.c aweb.h awebtcp.h tcperr.h fetchdriver.h application.h task.h form.h /zlib/zlib.h
+    @echo "        Compiling $*.c..."
+    @sc idir=netinclude: $*.c to $*.o
 
 nameserv.o: nameserv.c aweb.h awebtcp.h
-   @echo "        Compiling $*..."
-   @sc idir=netinclude: $*
+    @echo "        Compiling $*.c..."
+    @sc idir=netinclude: $*.c to $*.o
 
-netstat.o:  netstat.c aweb.h url.h application.h window.h fetch.h timer.h arexx.h
+object.o:   object.c aweb.h object.h
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $*.c to $*.o
 
-object.o:   object.c aweb.h object.h 
-   @echo "        Compiling $*..."
-   @sc $(DEBUG) $*.c
-
-parse.o:    parse.c aweb.h html.h application.h docprivate.h 
-
-popup.h:    object.h
-popup.o:    popup.c aweb.h popup.h window.h application.h 
-
-prefs.o:    prefs.c aweb.h window.h cache.h application.h 
-
-print.h:    object.h
 print.o:    print.c aweb.h print.h window.h frame.h printwin.h application.h winhis.h
-   @echo "        Compiling $*..."
-   @sc $(DEBUG) $*.c
-
-printwin.h: object.h
-printwin.o: printwin.c aweb.h printwin.h window.h frame.h application.h
-
-radio.h:    field.h
-radio.o:    radio.c aweb.h radio.h form.h application.h 
-
-request.o:  request.c aweb.h application.h window.h fetch.h 
-
-ruler.h:    element.h
-ruler.o:    ruler.c aweb.h ruler.h 
-
-saveas.o:   saveas.c aweb.h source.h sourcedriver.h url.h filereq.h file.h fetch.h 
-saveas.o:   application.h
-
-saveiff.o:  saveiff.c aweb.h window.h application.h printwin.h winhis.h arexx.h task.h
-saveiff.o:  source.h url.h filereq.h
-
-scroller.h: object.h
-scroller.o: scroller.c aweb.h scroller.h application.h window.h
-
-search.h:   object.h
-search.o:   search.c aweb.h search.h frame.h window.h url.h application.h
-
-select.h:   field.h
-select.o:   select.c aweb.h select.h scroller.h application.h window.h
-
-simplerexx.o:  simplerexx.c
-
-soundcopy.o: soundcopy.c aweb.h soundprivate.h copydriver.h task.h
-
-soundsource.o: soundsource.c aweb.h source.h sourcedriver.h url.h file.h soundprivate.h
-
-source.h:   object.h
-source.o:   source.c aweb.h source.h url.h copy.h sourcedriver.h copydriver.h file.h 
-source.o:   application.h filereq.h plugin.h fetch.h info.h
-
-sourcedriver.o: sourcedriver.c aweb.h sourcedriver.h
-
-support.o:  support.c aweb.h object.h task.h source.h
-
-table.h:    element.h
-table.o:    table.c aweb.h table.h body.h 
-
-task.h:     object.h
-task.o:     task.c aweb.h task.h window.h
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $*.c to $*.o
 
 tcp.o:      tcp.c aweb.h tcperr.h application.h awebtcp.h
-   @echo "        Compiling $*..."
-   @sc idir=netinclude: $* 
+    @echo "        Compiling $*.c..."
+    @sc idir=netinclude: $*.c to $*.o
 
-tcperr.o:   tcperr.c aweb.h tcperr.h url.h fetch.h fetchdriver.h task.h
-
-text.h:     element.h
-text.o:     text.c aweb.h text.h link.h application.h
-
-textarea.h: field.h
-textarea.o: textarea.c aweb.h textarea.h scroller.h frame.h application.h editor.h window.h 
-
-timer.h:    object.h
-timer.o:    timer.c aweb.h timer.h
-
-tooltip.o:  tooltip.c aweb.h application.h
-
-url.h:      object.h
-url.o:      url.c aweb.h url.h source.h cache.h fetch.h window.h 
-
-version.o:  version.c aweb.h 
-   @echo "        Compiling $*..."
-   @sc strsect=code version.c
+version.o:  version.c aweb.h
+    @echo "        Compiling version.c..."
+    @sc strsect=code version.c to version.o
 
 whiswin.o:  whiswin.c aweb.h winhis.h whisprivate.h application.h window.h task.h
 

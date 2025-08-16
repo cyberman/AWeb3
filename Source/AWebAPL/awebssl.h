@@ -1,6 +1,6 @@
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2025 amigazen project
@@ -17,6 +17,8 @@
  **********************************************************************/
 
 /* awebssl.h - AWeb common definitions for amissl function library */
+
+#include <exec/types.h>
 
 #ifndef AWEBSSL_H
 #define AWEBSSL_H

@@ -1,6 +1,6 @@
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2025 amigazen project
@@ -178,6 +178,15 @@
 
 #define AOURL_Ssllibrary   (AOURL_Dummy+132)
    /* (UBYTE *) The SSL library used for secure connection */
+
+#define AOURL_Maxage       (AOURL_Dummy+133)
+   /* (long) Max-age value from Cache-Control header for caching */
+
+#define AOURL_Etag         (AOURL_Dummy+134)
+   /* (UBYTE *) ETag value from HTTP response for caching */
+
+#define AOURL_Filename     (AOURL_Dummy+135)
+   /* (UBYTE *) Filename from Content-Disposition header */
 
 #define AOURL_    (AOURL_Dummy+)
 #define AOURL_    (AOURL_Dummy+)

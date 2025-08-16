@@ -1,6 +1,6 @@
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2025 amigazen project
@@ -58,6 +58,35 @@
 #define FILEBLOCKSIZE   8192  /* blocksize on local file reads */
 #define INPUTBLOCKSIZE  8192  /* blocksize in protocol interface (Input) */
 #define TEXTBLOCKSIZE   4096  /* blocksize on document text buffer */
+
+/* zlib constants if not defined by zlib.h TODO: double check if this is needed */
+#ifndef Z_NULL
+#define Z_NULL 0
+#endif
+#ifndef Z_OK
+#define Z_OK 0
+#endif
+#ifndef Z_STREAM_END
+#define Z_STREAM_END 1
+#endif
+#ifndef Z_NEED_DICT
+#define Z_NEED_DICT 2
+#endif
+#ifndef Z_STREAM_ERROR
+#define Z_STREAM_ERROR (-2)
+#endif
+#ifndef Z_DATA_ERROR
+#define Z_DATA_ERROR (-3)
+#endif
+#ifndef Z_MEM_ERROR
+#define Z_MEM_ERROR (-4)
+#endif
+#ifndef Z_BUF_ERROR
+#define Z_BUF_ERROR (-5)
+#endif
+#ifndef Z_SYNC_FLUSH
+#define Z_SYNC_FLUSH 2
+#endif
 #define STATUSBUFSIZE   64    /* size of status text buffer */
 #define STRINGBUFSIZE   256   /* size of general string buffer */
 

@@ -666,7 +666,7 @@
 #define MSG_PRINTP_LW_DOCUMENT_STR "Document"
 #define MSG_PRINTP_LW_SCREEN_STR "Screen"
 #define MSG_COOKIE_TITLE_STR "Cookie alert"
-#define MSG_COOKIE_WARNING_STR "About to set a NetScape cookie!"
+#define MSG_COOKIE_WARNING_STR "About to set a Cookie!"
 #define MSG_COOKIE_NAME_STR "Cookie name:"
 #define MSG_COOKIE_VALUE_STR "Cookie value:"
 #define MSG_COOKIE_DOMAIN_STR "For domain:"
@@ -2302,43 +2302,30 @@ struct LocaleInfo
 
 #ifdef CATCOMP_CODE
 
-struct CatCompBlockType
+STRPTR GetString(struct LocaleInfo *li, LONG stringNum)
 {
-	LONG	ccb_ID;
-	UWORD	ccb_StringSize;
-};
+LONG   *l;
+UWORD  *w;
+STRPTR  builtIn;
 
-STRPTR GetString(struct LocaleInfo * li, LONG stringNum)
-{
-	const struct CatCompBlockType * ccb = (APTR)CatCompBlock;
-	const struct CatCompBlockType * ccb_stop = (APTR)&((BYTE *)ccb)[sizeof(CatCompBlock)];
+    l = (LONG *)CatCompBlock;
 
-	STRPTR builtin = NULL;
-	STRPTR result = NULL;
+    while (*l != stringNum)
+    {
+        w = (UWORD *)((ULONG)l + 4);
+        l = (LONG *)((ULONG)l + (ULONG)*w + 6);
+    }
+    builtIn = (STRPTR)((ULONG)l + 6);
 
-	while(ccb < ccb_stop && ccb->ccb_StringSize > 0)
-	{
-		if(ccb->ccb_ID == stringNum)
-		{
-			builtin = (STRPTR)&ccb[1];
-			break;
-		}
+#define XLocaleBase LocaleBase
+#define LocaleBase li->li_LocaleBase
+    
+    if (LocaleBase)
+        return(GetCatalogStr(li->li_Catalog,stringNum,builtIn));
+#define LocaleBase XLocaleBase
+#undef XLocaleBase
 
-		ccb = (struct CatCompBlockType *)&((BYTE *)ccb)[sizeof(*ccb) + ccb->ccb_StringSize];
-	}
-
-	if(li != NULL && li->li_LocaleBase != NULL)
-	{
-		struct Library * LocaleBase = li->li_LocaleBase;
-
-		result = GetCatalogStr(li->li_Catalog, stringNum, builtin);
-	}
-	else
-	{
-		result = builtin;
-	}
-
-	return(result);
+    return(builtIn);
 }
 
 

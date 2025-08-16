@@ -1,6 +1,6 @@
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2025 amigazen project
@@ -423,7 +423,7 @@ static ULONG Changedprogram(void)
 
 static ULONG Changedgui(void)
 {  struct Guiprefs oldp={0};
-   struct Menuentry *me,*mf;
+   struct Menuentry *me;
    struct Userbutton *ub,*uc;
    struct Popupitem *pi;
    struct Userkey *uk;

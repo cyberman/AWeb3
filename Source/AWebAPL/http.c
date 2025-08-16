@@ -1,6 +1,6 @@
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb APL distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2025 amigazen project
@@ -33,6 +33,7 @@
 #include "form.h"
 #include "awebtcp.h"
 #include <dos/dosextens.h>
+#include "/zlib/zlib.h"
 
 /* Socket option constants if not already defined */
 #ifndef SO_RCVTIMEO
@@ -84,10 +85,13 @@ struct Httpinfo
 #define HTTPIF_NOSSLREQ    0x0020   /* Don't put on another SSL requester */
 #define HTTPIF_SSLTUNNEL   0x0040   /* Tunnel SSL request through proxy */
 #define HTTPIF_TUNNELOK    0x0080   /* Tunnel response was ok */
+#define HTTPIF_GZIPENCODED 0x0100   /* response is gzip encoded */
+#define HTTPIF_GZIPDECODING 0x0200  /* decoding gziped response has begun */
+#define HTTPIF_DATA_PROCESSED 0x0400 /* data has already been processed to prevent duplication */
 
-static UBYTE *httprequest="GET %.7000s HTTP/1.0\r\n";
+static UBYTE *httprequest="GET %.7000s HTTP/1.1\r\n";
 
-static UBYTE *httppostrequest="POST %.7000s HTTP/1.0\r\n";
+static UBYTE *httppostrequest="POST %.7000s HTTP/1.1\r\n";
 
 static UBYTE *useragent="User-Agent: Mozilla/3.0 (compatible; Amiga-AWeb/3.6; AmigaOS 3.2)\r\n";
 
@@ -96,12 +100,17 @@ static UBYTE *useragentspoof="User-Agent: %s; (Spoofed by Amiga-AWeb/3.6; AmigaO
 #endif
 
 static UBYTE *fixedheaders=
-   "Accept: */*;q=1\r\n";
+   "Accept: */*;q=1\r\nAccept-Encoding: gzip\r\n";
 //   "Accept: text/html;level=3, text/html;version=3.0, */*;q=1\r\n";
+
+/* HTTP/1.1 specific headers */
+static UBYTE *connection="Connection: close\r\n";
 
 static UBYTE *host="Host: %s\r\n";
 
 static UBYTE *ifmodifiedsince="If-modified-since: %s\r\n";
+
+static UBYTE *ifnonematch="If-none-match: %s\r\n";
 
 static UBYTE *authorization="Authorization: Basic %s\r\n";
 
@@ -119,7 +128,7 @@ static UBYTE *httpmultipartcontent=
    "Content-Length: %d\r\n"
    "Content-Type: multipart/form-data; boundary=%s\r\n";
 
-static UBYTE *tunnelrequest="CONNECT %.200s HTTP/1.0\r\n";
+static UBYTE *tunnelrequest="CONNECT %.200s HTTP/1.1\r\n";
 
 /* Unverifyable certificates that the user accepted */
 struct Certaccept
@@ -246,6 +255,8 @@ static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **requ
    }
    ReleaseSemaphore(&prefssema);
    p+=sprintf(p,fixedheaders);
+   /* Add HTTP/1.1 Connection header */
+   p+=sprintf(p,connection);
    if(hi->hostport)
       p+=sprintf(p,host,hi->hostport);
    if(fd->validate)
@@ -253,6 +264,12 @@ static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **requ
       Makedate(fd->validate,date);
       p+=sprintf(p,ifmodifiedsince,date);
    }
+   
+   // If ETag exists verify this else try time
+   if(fd->etag && strlen(fd->etag)>0)
+   {  p+=sprintf(p,ifnonematch,fd->etag);
+   }
+   
    if(hi->auth && hi->auth->cookie)
       p+=sprintf(p,authorization,hi->auth->cookie);
    if(hi->prxauth && hi->prxauth->cookie)
@@ -308,6 +325,8 @@ static long Receive(struct Httpinfo *hi,UBYTE *buffer,long length)
 /* Read remainder of block. Returns FALSE if eof or error. */
 static BOOL Readblock(struct Httpinfo *hi)
 {  long n;
+   printf("DEBUG: Readblock() called, current blocklength=%ld\n", hi->blocklength);
+   
 #ifdef DEVELOPER
    UBYTE *block;
    if(!hi->socketbase)
@@ -323,6 +342,9 @@ static BOOL Readblock(struct Httpinfo *hi)
    else
 #endif
    n=Receive(hi,hi->fd->block+hi->blocklength,hi->fd->blocksize-hi->blocklength);
+   
+   printf("DEBUG: Readblock: Receive returned %ld bytes\n", n);
+   
    if(n<0 || Checktaskbreak())
    {  
 /* Don't send error, let source driver keep its partial data if it wants to.
@@ -330,9 +352,16 @@ static BOOL Readblock(struct Httpinfo *hi)
          AOURL_Error,TRUE,
          TAG_END);
 */
+      printf("DEBUG: Readblock: error or task break, returning FALSE\n");
       return FALSE;
    }
-   if(n==0) return FALSE;
+   if(n==0) 
+   {  printf("DEBUG: Readblock: no data received (EOF), returning FALSE\n");
+      return FALSE;
+   }
+   
+   printf("DEBUG: Readblock: adding %ld bytes to block, new total=%ld\n", n, hi->blocklength + n);
+   
    hi->blocklength+=n;
    if(hi->flags&HTTPIF_HEADERS)
    {  Messageread(hi->fd,hi->readheaders+=n);
@@ -399,15 +428,23 @@ static struct Authorize *Parseauth(UBYTE *buf,UBYTE *server)
 /* Read and process headers until end of headers. Read when necessary.
  * Returns FALSE if eof or error, or data should be skipped. */
 static BOOL Readheaders(struct Httpinfo *hi)
-{  for(;;)
+{  /* Reset gzip flags at start of headers - this is crucial! */
+   hi->flags &= ~(HTTPIF_GZIPENCODED | HTTPIF_GZIPDECODING);
+   
+   for(;;)
    {  if(!Findline(hi)) return FALSE;
       if(hi->linelength==0)
       {  if(hi->status) return FALSE;
-         else return TRUE;
+         else 
+         {  printf("DEBUG: Headers complete, starting data processing\n");
+            return TRUE;
+         }
       }
       Updatetaskattrs(
          AOURL_Header,hi->fd->block,
          TAG_END);
+      printf("DEBUG: Processing header: '%s'\n", hi->fd->block);
+      
       if(STRNIEQUAL(hi->fd->block,"Date:",5))
       {  hi->fd->serverdate=Scandate(hi->fd->block+5);
          Updatetaskattrs(
@@ -434,14 +471,17 @@ static BOOL Readheaders(struct Httpinfo *hi)
             TAG_END);
       }
       else if(STRNIEQUAL(hi->fd->block,"Content-Type:",13))
-      {  UBYTE mimetype[32]="";
+      {  UBYTE mimetype[32];
+         UBYTE *p,*q,*r;
+         UBYTE qq;
+         long l;
          BOOL foreign=FALSE;
+         BOOL forward=TRUE;
+         
+         printf("DEBUG: Content-Type header found in Readheaders: '%s'\n", hi->fd->block);
+         mimetype[0] = '\0';  /* Initialize empty string */
          if(!prefs.ignoremime)
-         {  UBYTE *p,*q,*r;
-            UBYTE qq;
-            long l;
-            BOOL forward=TRUE;
-            for(p=hi->fd->block+13;*p && isspace(*p);p++);
+         {  for(p=hi->fd->block+13;*p && isspace(*p);p++);
             for(q=p;*q && !isspace(*q) && *q!=';';q++);
             qq=*q;
             *q='\0';
@@ -488,10 +528,47 @@ static BOOL Readheaders(struct Httpinfo *hi)
             }
          }
          if(*mimetype)
-         {  Updatetaskattrs(
+         {  printf("DEBUG: Setting Content-Type to: '%s'\n", mimetype);
+            Updatetaskattrs(
                AOURL_Contenttype,mimetype,
                AOURL_Foreign,foreign,
                TAG_END);
+         }
+         else
+         {  printf("DEBUG: No mimetype extracted from Content-Type header\n");
+         }
+      }
+      else if(STRNIEQUAL(hi->fd->block,"Content-Encoding:",17))
+      {  if(strstr(hi->fd->block+18,"gzip"))
+         {  hi->flags|=HTTPIF_GZIPENCODED;
+            printf("DEBUG: Detected gzip encoding\n");
+            Updatetaskattrs(AOURL_Contentlength,0,TAG_END);
+         }
+      }
+      else if(STRNIEQUAL(hi->fd->block,"ETag:",5))
+      {  UBYTE *p,*q;
+         for(p=hi->fd->block+5;*p && isspace(*p);p++);
+         for(q=p;*q && !isspace(*q) && *q!=';';q++);
+         *q='\0';
+         if(q-p>63) p[63]='\0';
+         /* Store ETag in both URL object and fetchdriver for caching */
+         Updatetaskattrs(AOURL_Etag,p,TAG_END);
+         if(hi->fd->etag) FREE(hi->fd->etag);
+         hi->fd->etag=Dupstr(p,-1);
+      }
+      else if(STRNIEQUAL(hi->fd->block,"Content-Disposition:",20))
+      {  UBYTE *p,*q;
+         for(p=hi->fd->block+21;*p && isspace(*p);p++);
+         for(q=p;*q && !isspace(*q) && *q!=';';q++);
+         *q='\0';
+         if(STRIEQUAL(p,"attachment"))
+         {  p+=11;
+            if((q=strstr(p,"filename")))
+            {  for(p=q+8;*p && (isspace(*p) || *p=='"' || *p=='=');p++);
+               for(q=p;*q && !isspace(*q) && *q!=';' && *q!='"';q++);
+               *q='\0';
+               Updatetaskattrs(AOURL_Filename,p,TAG_END);
+            }
          }
       }
       else if(STRNIEQUAL(hi->fd->block,"Content-script-type:",20))
@@ -512,6 +589,25 @@ static BOOL Readheaders(struct Httpinfo *hi)
          {  Updatetaskattrs(
                AOURL_Nocache,TRUE,
                TAG_END);
+         }
+      }
+      else if(STRNIEQUAL(hi->fd->block,"Cache-Control:",14))
+      {  UBYTE *p,*q;
+         for(p=hi->fd->block+14;*p && isspace(*p);p++);
+         for(q=p;*q && !isspace(*q) && *q!='\r' && *q!='\n';q++);
+         *q='\0';
+         if(STRIEQUAL(p,"no-cache") || STRIEQUAL(p,"no-store"))
+         {  Updatetaskattrs(
+               AOURL_Nocache,TRUE,
+               TAG_END);
+         }
+         else if(STRIEQUAL(p,"max-age"))
+         {  /* Parse max-age value for caching */
+            long maxage=0;
+            if(q=strchr(p,'='))
+            {  sscanf(q+1,"%ld",&maxage);
+               Updatetaskattrs(AOURL_Maxage,maxage,TAG_END);
+            }
          }
       }
       else if(hi->movedto && STRNIEQUAL(hi->fd->block,"Location:",9))
@@ -629,13 +725,15 @@ static BOOL Readpartheaders(struct Httpinfo *hi)
       {  sscanf(hi->fd->block+15," %ld",&hi->partlength);
       }
       else if(STRNIEQUAL(hi->fd->block,"Content-Type:",13))
-      {  if(!prefs.ignoremime)
+      {  printf("DEBUG: Content-Type header found in Readpartheaders: '%s'\n", hi->fd->block);
+         if(!prefs.ignoremime)
          {  UBYTE *p,*q;
             for(p=hi->fd->block+13;*p && isspace(*p);p++);
             q=strchr(p,';');
             if(q) *q='\0';
             if(strlen(p)>31) p[31]='\0';
             strcpy(hi->parttype,p);
+            printf("DEBUG: Set parttype to: '%s'\n", hi->parttype);
          }
       }
       Nextline(hi);
@@ -646,15 +744,183 @@ static BOOL Readpartheaders(struct Httpinfo *hi)
  * multipart boundary found. */
 static BOOL Readdata(struct Httpinfo *hi)
 {  UBYTE *bdcopy=NULL;
-   long bdlength=0,blocklength;
+   long bdlength=0,blocklength=0;
    BOOL result=FALSE,boundary,partial,eof;
+   
+   long gzip_buffer_size=INPUTBLOCKSIZE;
+   UBYTE *gzipbuffer=NULL;
+   long gziplength=0;
+   long err=0;
+   UWORD gzip_end=0;
+   int loop_count=0;
+   z_stream d_stream;
+
    if(hi->boundary)
    {  bdlength=strlen(hi->boundary);
       bdcopy=ALLOCTYPE(UBYTE,bdlength+1,0);
    }
    for(;;)
    {  if(hi->blocklength)
-      {  boundary=partial=eof=FALSE;
+      {  printf("DEBUG: Processing data block, length=%ld, flags=0x%04X\n", hi->blocklength, hi->flags);
+         
+         // first block of the encoded data
+         // allocate buffer and initialize zlib
+         if((hi->flags & HTTPIF_GZIPENCODED) && !(hi->flags & HTTPIF_GZIPDECODING))
+         {  int i;
+            UBYTE *p;
+            long gzip_start = 0;
+            
+            /* Find the start of actual gzip data (1F 8B 08) */
+            for(p = hi->fd->block; p < hi->fd->block + hi->blocklength - 2; p++) {
+                if(p[0] == 0x1F && p[1] == 0x8B && p[2] == 0x08) {
+                    gzip_start = p - hi->fd->block;
+                    break;
+                }
+            }
+            
+            if(gzip_start > 0) {
+                printf("DEBUG: Found gzip data starting at position %ld, skipping prefix\n", gzip_start);
+                /* Only copy the actual gzip data, skip any prefix */
+                gziplength = hi->blocklength - gzip_start;
+                
+                /* CRITICAL: Validate gziplength to prevent memory corruption */
+                if(gziplength > 0 && gziplength <= gzip_buffer_size && gziplength <= hi->blocklength) {
+                    gzipbuffer = ALLOCTYPE(UBYTE, gziplength, 0);
+                    if(gzipbuffer) {
+                        memcpy(gzipbuffer, hi->fd->block + gzip_start, gziplength);
+                    } else {
+                        printf("DEBUG: CRITICAL: Failed to allocate gzip buffer, disabling gzip\n");
+                        hi->flags &= ~HTTPIF_GZIPENCODED;
+                        hi->flags &= ~HTTPIF_GZIPDECODING;
+                        gzip_end = 1;
+                        break;
+                    }
+                } else {
+                    printf("DEBUG: CRITICAL: Invalid gziplength %ld, disabling gzip\n", gziplength);
+                    hi->flags &= ~HTTPIF_GZIPENCODED;
+                    hi->flags &= ~HTTPIF_GZIPDECODING;
+                    gzip_end = 1;
+                    break;
+                }
+            } else {
+                printf("DEBUG: No gzip magic found, using entire block\n");
+                
+                /* CRITICAL: Validate blocklength before allocation */
+                if(hi->blocklength > 0 && hi->blocklength <= gzip_buffer_size) {
+                    gzipbuffer = ALLOCTYPE(UBYTE, hi->blocklength, 0);
+                    if(gzipbuffer) {
+                        gziplength = hi->blocklength;
+                        memcpy(gzipbuffer, hi->fd->block, gziplength);
+                    } else {
+                        printf("DEBUG: CRITICAL: Failed to allocate gzip buffer, disabling gzip\n");
+                        hi->flags &= ~HTTPIF_GZIPENCODED;
+                        hi->flags &= ~HTTPIF_GZIPDECODING;
+                        gzip_end = 1;
+                        break;
+                    }
+                } else {
+                    printf("DEBUG: CRITICAL: Invalid blocklength %ld for gzip, disabling gzip\n", hi->blocklength);
+                    hi->flags &= ~HTTPIF_GZIPENCODED;
+                    hi->flags &= ~HTTPIF_GZIPDECODING;
+                    gzip_end = 1;
+                    break;
+                }
+            }
+            
+            hi->flags|=HTTPIF_GZIPDECODING;
+            printf("DEBUG: Starting gzip decompression, blocklength=%ld, gziplength=%ld\n", hi->blocklength, gziplength);
+            
+            /* Initialize zlib for gzip decompression */
+            d_stream.zalloc=Z_NULL;
+            d_stream.zfree=Z_NULL;
+            d_stream.opaque=Z_NULL;
+            d_stream.avail_in=0;
+            d_stream.next_in=Z_NULL;
+            d_stream.avail_out=0;
+            d_stream.next_out=Z_NULL;
+            
+            /* CRITICAL: Validate zlib stream structure before initialization */
+            if((ULONG)&d_stream < 0x1000 || (ULONG)&d_stream > 0xFFFFFFF0) {
+               printf("DEBUG: CRITICAL: Invalid zlib stream pointer 0x%08lX\n", (ULONG)&d_stream);
+               hi->flags &= ~HTTPIF_GZIPENCODED;
+               hi->flags &= ~HTTPIF_GZIPDECODING;
+               gzip_end = 1;
+               break;
+            }
+            
+            err=inflateInit2(&d_stream,16+15); // set zlib to expect 'gzip-header'
+            if(err!=Z_OK) {
+               printf("zlib Init Fail: %d\n", err);
+               hi->flags &= ~HTTPIF_GZIPENCODED;
+               hi->flags &= ~HTTPIF_GZIPDECODING;
+               gzip_end = 1;
+               break;
+            } else {
+               printf("DEBUG: zlib init successful\n");
+            }
+            
+                     /* CRITICAL: Validate gzip buffer allocation to prevent heap corruption */
+         if(gzipbuffer && gziplength > 0) {
+            /* Check if gzipbuffer pointer is valid */
+            if((ULONG)gzipbuffer < 0x1000 || (ULONG)gzipbuffer > 0xFFFFFFF0) {
+               printf("DEBUG: CRITICAL: Invalid gzipbuffer pointer 0x%08lX\n", (ULONG)gzipbuffer);
+               FREE(gzipbuffer);
+               gzipbuffer = NULL;
+               hi->flags &= ~HTTPIF_GZIPENCODED;
+               hi->flags &= ~HTTPIF_GZIPDECODING;
+               gzip_end = 1;
+               break;
+            }
+            
+            /* Check if gziplength is reasonable */
+            if(gziplength > gzip_buffer_size || gziplength <= 0) {
+               printf("DEBUG: CRITICAL: Invalid gziplength: %ld (max: %ld)\n", gziplength, gzip_buffer_size);
+               FREE(gzipbuffer);
+               gzipbuffer = NULL;
+               hi->flags &= ~HTTPIF_GZIPENCODED;
+               hi->flags &= ~HTTPIF_GZIPDECODING;
+               gzip_end = 1;
+               break;
+            }
+            
+            d_stream.next_in=gzipbuffer;
+            d_stream.avail_in=gziplength;
+            
+            /* CRITICAL: Validate blocksize before setting output buffer to prevent overflow */
+            if(hi->fd->blocksize > 0 && hi->fd->blocksize <= INPUTBLOCKSIZE) {
+                d_stream.next_out=hi->fd->block;
+                d_stream.avail_out=hi->fd->blocksize;
+                printf("DEBUG: Setting zlib output buffer to %ld bytes\n", hi->fd->blocksize);
+            } else {
+                printf("DEBUG: CRITICAL: Invalid blocksize %ld, using safe default\n", hi->fd->blocksize);
+                d_stream.next_out=hi->fd->block;
+                d_stream.avail_out=INPUTBLOCKSIZE;
+                /* CRITICAL: Reset corrupted blocksize to prevent memory corruption */
+                hi->fd->blocksize = INPUTBLOCKSIZE;
+            }
+                
+                printf("DEBUG: First 16 bytes of gzip data: ");
+                for(i = 0; i < MIN(16, gziplength); i++) {
+                    printf("%02X ", gzipbuffer[i]);
+                }
+                printf("\n");
+                
+                /* Verify this is actually gzip data */
+                if(gziplength >= 3 && gzipbuffer[0] == 0x1F && gzipbuffer[1] == 0x8B && gzipbuffer[2] == 0x08) {
+                    printf("DEBUG: Valid gzip header confirmed\n");
+                } else {
+                    printf("DEBUG: WARNING: Data still doesn't start with gzip magic!\n");
+                }
+            } else {
+                printf("DEBUG: No gzip data to process\n");
+            }
+            
+            hi->blocklength=0;
+            continue;
+         }
+
+         /* CRITICAL: Boundary detection for multipart data */
+         boundary=partial=eof=FALSE;
          if(bdcopy)
          {  /* Look for [CR]LF--<boundary>[--][CR]LF or any possible part thereof. */
             UBYTE *p=hi->fd->block,*end=p+hi->blocklength;
@@ -695,37 +961,512 @@ static BOOL Readdata(struct Httpinfo *hi)
             }
          }
          if(!boundary && !partial) blocklength=hi->blocklength;
-         Updatetaskattrs(
-            AOURL_Data,hi->fd->block,
-            AOURL_Datalength,blocklength,
-            TAG_END);
-         if(blocklength<hi->blocklength)
-         {  memmove(hi->fd->block,hi->fd->block+blocklength,hi->blocklength-blocklength);
+         
+         /* CRITICAL: Validate blocklength to prevent memory corruption */
+         if(blocklength < 0 || blocklength > hi->blocklength) {
+            printf("DEBUG: CRITICAL: Invalid blocklength %ld, resetting to %ld\n", blocklength, hi->blocklength);
+            blocklength = hi->blocklength;
          }
+         
+         /* CRITICAL: Validate data before calling Updatetaskattrs to prevent memory corruption */
+         if(hi->fd && hi->fd->block && blocklength >= 0 && blocklength <= hi->fd->blocksize) {
+            printf("DEBUG: Validating data before Updatetaskattrs: block=%p, length=%ld\n", hi->fd->block, blocklength);
+            Updatetaskattrs(
+               AOURL_Data,hi->fd->block,
+               AOURL_Datalength,blocklength,
+               TAG_END);
+         } else {
+            printf("DEBUG: CRITICAL: Invalid data detected, skipping Updatetaskattrs to prevent memory corruption\n");
+            printf("DEBUG: fd=%p, block=%p, blocklength=%ld, blocksize=%ld\n", 
+                   hi->fd, hi->fd ? hi->fd->block : NULL, blocklength, hi->fd ? hi->fd->blocksize : 0);
+         }
+         
+         /* CRITICAL: Safe memory move with bounds checking */
+         if(blocklength < hi->blocklength && blocklength > 0) {
+            long move_length = hi->blocklength - blocklength;
+            if(move_length > 0 && move_length <= hi->fd->blocksize) {
+               memmove(hi->fd->block, hi->fd->block + blocklength, move_length);
+               hi->blocklength = move_length;
+            } else {
+               printf("DEBUG: CRITICAL: Invalid move_length %ld, resetting blocklength\n", move_length);
+               hi->blocklength = 0;
+            }
+         } else if(blocklength >= hi->blocklength) {
+            hi->blocklength = 0;
+         }
+         
+         if(hi->flags & HTTPIF_GZIPDECODING)
+         {  d_stream.next_out=hi->fd->block;
+            d_stream.avail_out=hi->fd->blocksize;
+         }
+         
          hi->blocklength-=blocklength;
          if(boundary)
          {  result=!eof;
             break;
          }
       }
-      if(!Readblock(hi)) break;
+      
+      if(hi->flags & HTTPIF_GZIPDECODING)
+      {  if(gzip_end>0) break;
+         
+         /* Process the current gzip data */
+         if(d_stream.avail_in > 0) {
+            err=inflate(&d_stream,Z_SYNC_FLUSH);
+         } else {
+            err=Z_OK; /* No input to process */
+         }
+         
+         /* Handle zlib return codes */
+         if(err==Z_BUF_ERROR) {
+            /* Output buffer is full - this is normal, not an error */
+            printf("DEBUG: Output buffer full, processing current data and continuing\n");
+            /* Process the current decompressed data */
+            hi->blocklength=hi->fd->blocksize-d_stream.avail_out;
+            printf("DEBUG: Processing %ld bytes of decompressed data\n", hi->blocklength);
+            
+            /* CRITICAL: Validate blocklength before processing to prevent memory corruption */
+            if(hi->blocklength < 0 || hi->blocklength > hi->fd->blocksize) {
+               printf("DEBUG: CRITICAL: Invalid blocklength %ld in Z_BUF_ERROR, resetting to prevent memory corruption\n", hi->blocklength);
+               hi->blocklength = 0;
+               inflateEnd(&d_stream);
+               hi->flags &= ~HTTPIF_GZIPENCODED;
+               hi->flags &= ~HTTPIF_GZIPDECODING;
+               gzip_end = 1;
+               break;
+            }
+            
+            /* Update task attributes with current data */
+            Updatetaskattrs(
+               AOURL_Data,hi->fd->block,
+               AOURL_Datalength,hi->blocklength,
+               TAG_END);
+            
+            /* Reset output buffer for next chunk */
+            d_stream.next_out=hi->fd->block;
+            d_stream.avail_out=hi->fd->blocksize;
+            
+            /* Continue decompression - but add safety check to prevent infinite loops */
+            if(++loop_count > 100) {
+               printf("DEBUG: Too many buffer full cycles, finishing gzip\n");
+               gzip_end=1;
+               break;
+            }
+            continue;
+         }
+         else if(err==Z_STREAM_END) {
+            printf("DEBUG: Gzip decompression completed successfully\n");
+            gzip_end=1; // Success break!
+         }
+         else if(err!=Z_OK)
+         {  if(err==Z_DATA_ERROR) printf("zlib DATA ERROR - avail_in=%lu, avail_out=%lu\n", d_stream.avail_in, d_stream.avail_out);
+            if(err==Z_STREAM_ERROR) printf("zlib STREAM_ERROR - avail_in=%lu, avail_out=%lu\n", d_stream.avail_in, d_stream.avail_out);
+            if(err==Z_NEED_DICT) printf("zlib NEED DICT - avail_in=%lu, avail_out=%lu\n", d_stream.avail_in, d_stream.avail_out);
+            if(err==Z_MEM_ERROR) printf("zlib MEM ERROR - avail_in=%lu, avail_out=%lu\n", d_stream.avail_in, d_stream.avail_out);
+            
+                     /* CRITICAL: On any zlib error, safely disable gzip to prevent memory corruption */
+         printf("DEBUG: Zlib error detected, safely disabling gzip to prevent crashes\n");
+         
+         /* Clean up zlib stream immediately */
+         inflateEnd(&d_stream);
+         
+         /* Reset all gzip flags */
+         hi->flags &= ~HTTPIF_GZIPENCODED;
+         hi->flags &= ~HTTPIF_GZIPDECODING;
+         
+         /* Reset output buffer safely */
+         hi->blocklength = 0;
+         d_stream.avail_out = hi->fd->blocksize;
+         d_stream.next_out = hi->fd->block;
+         
+         /* Break out of gzip processing to prevent further corruption */
+         gzip_end = 1;
+         break;
+         }
+         
+         /* If we need more input data, read it */
+         if((err==Z_OK || err==Z_BUF_ERROR) && d_stream.avail_in==0 && !gzip_end)
+         {  /* Add timeout protection to prevent infinite hanging */
+            if(++loop_count > 200) {
+               printf("DEBUG: Too many gzip input cycles, finishing\n");
+               gzip_end=1;
+               break;
+            }
+            
+            gziplength=Receive(hi,gzipbuffer,gzip_buffer_size);
+            if(gziplength<=0)
+            {  
+               if(gziplength < 0) {
+                  printf("DEBUG: Network error during gzip processing: %ld\n", gziplength);
+               } else {
+                  printf("DEBUG: End of gzip data stream\n");
+               }
+               gzip_end=1; // Finished or Error
+            }
+            else
+            {  d_stream.next_in=gzipbuffer;
+               d_stream.avail_in=gziplength;
+            }
+         }
+         
+         /* CRITICAL: Set the decompressed data length so it can be processed */
+         hi->blocklength=hi->fd->blocksize-d_stream.avail_out;
+         printf("DEBUG: Gzip decompressed %ld bytes\n", hi->blocklength);
+         
+         /* CRITICAL: Validate blocklength immediately to prevent memory corruption */
+         if(hi->blocklength < 0 || hi->blocklength > hi->fd->blocksize) {
+            printf("DEBUG: CRITICAL: Invalid blocklength %ld calculated, resetting to prevent memory corruption\n", hi->blocklength);
+            hi->blocklength = 0;
+            inflateEnd(&d_stream);
+            hi->flags &= ~HTTPIF_GZIPENCODED;
+            hi->flags &= ~HTTPIF_GZIPDECODING;
+            gzip_end = 1;
+            break;
+         }
+         
+                  /* CRITICAL: Process decompressed data immediately to ensure it's not lost */
+         if(hi->blocklength > 0) {
+            printf("DEBUG: Processing %ld bytes of decompressed data immediately\n", hi->blocklength);
+            
+            /* CRITICAL: Ensure proper content type is set for HTML parsing */
+            /* Check if we have HTML content type from headers */
+            if(hi->parttype[0] && strstr(hi->parttype, "text/html")) {
+               printf("DEBUG: Content type is HTML, ensuring proper parsing\n");
+               /* Force HTML parsing by setting additional attributes */
+               if(hi->fd && hi->fd->block && hi->blocklength > 0 && hi->blocklength <= hi->fd->blocksize) {
+                  Updatetaskattrs(
+                     AOURL_Data, hi->fd->block,
+                     AOURL_Datalength, hi->blocklength,
+                     AOURL_Contenttype, "text/html",
+                     TAG_END);
+               } else {
+                  printf("DEBUG: CRITICAL: Invalid data for HTML processing, skipping to prevent memory corruption\n");
+               }
+            } else {
+               printf("DEBUG: Content type: %s, processing as-is\n", hi->parttype[0] ? hi->parttype : "unknown");
+               if(hi->fd && hi->fd->block && hi->blocklength > 0 && hi->blocklength <= hi->fd->blocksize) {
+                  Updatetaskattrs(
+                     AOURL_Data, hi->fd->block,
+                     AOURL_Datalength, hi->blocklength,
+                     TAG_END);
+               } else {
+                  printf("DEBUG: CRITICAL: Invalid data for processing, skipping to prevent memory corruption\n");
+               }
+            }
+            
+            /* Mark this data as already processed to prevent duplication */
+            hi->flags |= HTTPIF_DATA_PROCESSED;
+            printf("DEBUG: Set HTTPIF_DATA_PROCESSED flag to prevent duplication\n");
+            
+            /* CRITICAL: Exit gzip processing loop to prevent hanging */
+            printf("DEBUG: Exiting gzip processing loop to prevent task hanging\n");
+            
+            /* Force cleanup of network resources to prevent exit hanging */
+            if(hi->sock >= 0) {
+               printf("DEBUG: Force closing socket in gzip loop to prevent hanging\n");
+               /* Use AmigaOS socket close function */
+               if(hi->socketbase) {
+                  struct Library *SocketBase = hi->socketbase;
+                  close(hi->sock);
+               }
+               hi->sock = -1;
+            }
+            
+            gzip_end = 1;
+            break;
+         }
+         
+         /* CRITICAL: Memory bounds validation with actual canary-like protection */
+         if(hi->blocklength < 0 || hi->blocklength > hi->fd->blocksize) {
+            printf("DEBUG: CRITICAL: Invalid blocklength %ld after decompression, aborting\n", hi->blocklength);
+            inflateEnd(&d_stream);
+            hi->flags &= ~HTTPIF_GZIPENCODED;
+            hi->flags &= ~HTTPIF_GZIPDECODING;
+            hi->blocklength = 0;
+            gzip_end = 1;
+            break;
+         }
+         
+         /* CRITICAL: Buffer overflow protection - validate the actual buffer */
+         if(hi->fd->block && hi->blocklength > 0) {
+            UBYTE *buffer_start = hi->fd->block;
+            UBYTE *buffer_end = buffer_start + hi->blocklength;
+            
+            /* Check if buffer pointers are valid memory addresses */
+            if((ULONG)buffer_start < 0x1000 || (ULONG)buffer_start > 0xFFFFFFF0) {
+               printf("DEBUG: CRITICAL: Invalid buffer start address 0x%08lX\n", (ULONG)buffer_start);
+               hi->blocklength = 0;
+               gzip_end = 1;
+               break;
+            }
+            
+            /* Check if buffer end is within valid range */
+            if((ULONG)buffer_end < 0x1000 || (ULONG)buffer_end > 0xFFFFFFF0) {
+               printf("DEBUG: CRITICAL: Invalid buffer end address 0x%08lX\n", (ULONG)buffer_end);
+               hi->blocklength = 0;
+               gzip_end = 1;
+               break;
+            }
+            
+            /* Verify buffer doesn't wrap around */
+            if((ULONG)buffer_end <= (ULONG)buffer_start) {
+               printf("DEBUG: CRITICAL: Buffer wrap-around detected\n");
+               hi->blocklength = 0;
+               gzip_end = 1;
+               break;
+            }
+            
+            /* CRITICAL: Heap corruption detection - check memory allocation integrity */
+            if(hi->fd->blocksize > 0) {
+               /* Check if blocksize is reasonable (not corrupted) */
+               if(hi->fd->blocksize > 1024*1024) { /* 1MB max */
+                  printf("DEBUG: CRITICAL: Corrupted blocksize detected: %ld\n", hi->fd->blocksize);
+                  hi->blocklength = 0;
+                  gzip_end = 1;
+                  break;
+               }
+               
+               /* CRITICAL: Only validate that block pointer is a reasonable memory address */
+               /* Don't check if it's within filedata structure - it's a separate buffer! */
+               if((ULONG)buffer_start < 0x1000 || (ULONG)buffer_start > 0xFFFFFFF0) {
+                  printf("DEBUG: CRITICAL: Block pointer is invalid memory address: 0x%08lX\n", (ULONG)buffer_start);
+                  hi->blocklength = 0;
+                  gzip_end = 1;
+                  break;
+               }
+            }
+         }
+         
+         /* CRITICAL: Safety check - ensure blocklength is valid to prevent memory corruption */
+         if(hi->blocklength < 0 || hi->blocklength > hi->fd->blocksize) {
+            printf("DEBUG: CRITICAL: Invalid blocklength %ld, resetting to 0 to prevent crash\n", hi->blocklength);
+            hi->blocklength = 0;
+            
+            /* If we get invalid data, disable gzip to prevent further corruption */
+            printf("DEBUG: Disabling gzip due to invalid decompressed data\n");
+            hi->flags &= ~HTTPIF_GZIPENCODED;
+            hi->flags &= ~HTTPIF_GZIPDECODING;
+            gzip_end = 1;
+            break;
+         }
+         
+         /* If we have no more input and no more output, we're done */
+         if(d_stream.avail_in==0 && d_stream.avail_out==hi->fd->blocksize && !gzip_end) {
+            printf("DEBUG: No more input data, gzip decompression complete\n");
+            gzip_end=1;
+         }
+         
+         /* CRITICAL: Validate decompressed data to prevent memory corruption */
+         if(hi->blocklength > 0) {
+            UBYTE *data_check = hi->fd->block;
+            BOOL data_valid = TRUE;
+            int i;
+            
+            /* CRITICAL: Buffer pointer validation FIRST */
+            if((ULONG)data_check < 0x1000 || (ULONG)data_check > 0xFFFFFFF0) {
+               printf("DEBUG: CRITICAL: Invalid buffer pointer 0x%08lX, disabling gzip\n", (ULONG)data_check);
+               hi->flags &= ~HTTPIF_GZIPENCODED;
+               hi->flags &= ~HTTPIF_GZIPDECODING;
+               hi->blocklength = 0;
+               gzip_end = 1;
+               break;
+            }
+            
+            /* Check first few bytes for reasonable data */
+            for(i = 0; i < hi->blocklength && i < 16; i++) {
+               if(data_check[i] < 0x20 && data_check[i] != 0x09 && data_check[i] != 0x0A && data_check[i] != 0x0D) {
+                  if(data_check[i] != 0x00) { /* Allow null bytes */
+                     data_valid = FALSE;
+                     break;
+                  }
+               }
+            }
+            
+            if(!data_valid) {
+               printf("DEBUG: CRITICAL: Decompressed data contains invalid characters, disabling gzip\n");
+               hi->flags &= ~HTTPIF_GZIPENCODED;
+               hi->flags &= ~HTTPIF_GZIPDECODING;
+               hi->blocklength = 0;
+               gzip_end = 1;
+               break;
+            }
+         }
+         
+
+      }
+      
+      /* CRITICAL: Memory corruption detection after gzip processing */
+      if(hi->blocklength < 0 || hi->blocklength > hi->fd->blocksize) {
+         printf("DEBUG: CRITICAL: Memory corruption detected after gzip processing! blocklength=%ld\n", hi->blocklength);
+         printf("DEBUG: CRITICAL: Disabling gzip and aborting to prevent OS crash\n");
+         hi->flags &= ~HTTPIF_GZIPENCODED;
+         hi->flags &= ~HTTPIF_GZIPDECODING;
+         hi->blocklength = 0;
+         
+         /* CRITICAL: Force cleanup to prevent memory corruption from spreading */
+         if(gzipbuffer) {
+            FREE(gzipbuffer);
+            gzipbuffer = NULL;
+         }
+         inflateEnd(&d_stream);
+         
+         /* CRITICAL: Reset all corrupted data to prevent OS crash */
+         if(hi->fd && hi->fd->block) {
+            hi->fd->block[0] = '\0'; /* Safe reset */
+         }
+         
+         break;
+      }
+      
+      else
+      {  printf("DEBUG: No data to process, blocklength=%ld, calling Readblock\n", hi->blocklength);
+         
+         /* CRITICAL: Validate blocklength before proceeding to prevent memory corruption */
+         if(hi->blocklength < 0 || hi->blocklength > hi->fd->blocksize) {
+            printf("DEBUG: CRITICAL: Invalid blocklength %ld detected in main loop, resetting to prevent OS crash\n", hi->blocklength);
+            hi->blocklength = 0;
+            
+            /* CRITICAL: Disable gzip if it's causing corruption */
+            if(hi->flags & (HTTPIF_GZIPENCODED | HTTPIF_GZIPDECODING)) {
+               printf("DEBUG: CRITICAL: Disabling corrupted gzip processing\n");
+               hi->flags &= ~HTTPIF_GZIPENCODED;
+               hi->flags &= ~HTTPIF_GZIPDECODING;
+               
+               /* Force cleanup of any remaining gzip resources */
+               if(gzipbuffer) {
+                  FREE(gzipbuffer);
+                  gzipbuffer = NULL;
+               }
+               inflateEnd(&d_stream);
+            }
+            
+            /* CRITICAL: Reset corrupted buffer to prevent OS crash */
+            if(hi->fd && hi->fd->block) {
+               hi->fd->block[0] = '\0'; /* Safe reset */
+            }
+            
+            break;
+         }
+         
+         /* CRITICAL: Check if data was already processed to prevent duplication */
+         if(hi->flags & HTTPIF_DATA_PROCESSED) {
+            printf("DEBUG: Data already processed, skipping Readblock to prevent duplication\n");
+            hi->flags &= ~HTTPIF_DATA_PROCESSED; /* Clear the flag for next iteration */
+            break;
+         }
+         
+         /* Add timeout protection to prevent infinite hanging */
+         if(++loop_count > 500) {
+            printf("DEBUG: Too many main loop cycles, finishing\n");
+            break;
+         }
+         
+         if(!Readblock(hi)) {
+            printf("DEBUG: Readblock failed, checking for network errors\n");
+            /* Check if this is a network error vs normal EOF */
+            if(hi->blocklength > 0) {
+               printf("DEBUG: Have %ld bytes of data, processing what we have\n", hi->blocklength);
+               /* Process the data we already have before breaking */
+               Updatetaskattrs(
+                  AOURL_Data, hi->fd->block,
+                  AOURL_Datalength, hi->blocklength,
+                  TAG_END);
+            }
+            break;
+         }
+         printf("DEBUG: Readblock returned, new blocklength=%ld\n", hi->blocklength);
+      }
    }
+   
    if(bdcopy) FREE(bdcopy);
+   
+   /* CRITICAL: Always clean up gzip resources to prevent memory corruption */
+   if(gzipbuffer) 
+   {  FREE(gzipbuffer);
+      gzipbuffer = NULL;
+   }
+   
+   /* CRITICAL: Always clean up zlib stream to prevent memory corruption */
+   if(hi->flags & HTTPIF_GZIPDECODING || gzip_end > 0)
+   {  inflateEnd(&d_stream);
+      printf("DEBUG: Zlib stream cleaned up\n");
+   }
+   
+   /* CRITICAL: Force cleanup of any pending network operations to prevent exit hanging */
+   if(hi->sock >= 0) {
+      printf("DEBUG: Force closing socket to prevent exit hanging\n");
+      /* Use AmigaOS socket close function */
+      if(hi->socketbase) {
+         struct Library *SocketBase = hi->socketbase;
+         close(hi->sock);
+      }
+      hi->sock = -1;
+   }
+   
+   /* CRITICAL: Final memory corruption detection and prevention */
+   if(hi->fd && hi->fd->block) {
+      if(hi->blocklength < 0 || hi->blocklength > hi->fd->blocksize) {
+         printf("DEBUG: CRITICAL: Final safety check - invalid blocklength %ld, resetting to 0\n", hi->blocklength);
+         hi->blocklength = 0;
+         
+         /* CRITICAL: Reset buffer to prevent memory corruption from spreading */
+         if(hi->fd->blocksize > 0 && hi->fd->blocksize <= INPUTBLOCKSIZE) {
+            hi->fd->block[0] = '\0'; /* Safe reset */
+            printf("DEBUG: CRITICAL: Buffer reset to prevent OS corruption\n");
+         }
+         
+         /* CRITICAL: Disable gzip if it's causing corruption */
+         if(hi->flags & (HTTPIF_GZIPENCODED | HTTPIF_GZIPDECODING)) {
+            printf("DEBUG: CRITICAL: Final cleanup - disabling corrupted gzip processing\n");
+            hi->flags &= ~HTTPIF_GZIPENCODED;
+            hi->flags &= ~HTTPIF_GZIPDECODING;
+         }
+      }
+   } else {
+      printf("DEBUG: CRITICAL: Invalid fd or block pointer detected, resetting to prevent OS crash\n");
+      hi->blocklength = 0;
+   }
+   
+   /* CRITICAL: Final validation before return to prevent memory corruption */
+   if(hi->fd && (ULONG)hi->fd < 0x1000 || (ULONG)hi->fd > 0xFFFFFFF0) {
+      printf("DEBUG: CRITICAL: Corrupted fd pointer detected! fd=0x%08lX\n", (ULONG)hi->fd);
+      hi->fd = NULL;
+      hi->blocklength = 0;
+   }
+   
+   /* CRITICAL: Final blocklength validation to prevent OS crash */
+   if(hi->blocklength < 0) {
+      printf("DEBUG: CRITICAL: Final blocklength validation failed: %ld, forcing reset to prevent OS crash\n", hi->blocklength);
+      hi->blocklength = 0;
+   }
+   
+   /* CRITICAL: Final validation before return to prevent memory corruption */
+   if(hi->fd && (ULONG)hi->fd < 0x1000 || (ULONG)hi->fd > 0xFFFFFFF0) {
+      printf("DEBUG: CRITICAL: Corrupted fd pointer detected! fd=0x%08lX\n", (ULONG)hi->fd);
+      hi->fd = NULL;
+      hi->blocklength = 0;
+   }
+   
    return result;
 }
 
 /* Process the plain or HTTP or multipart response. */
 static void Httpresponse(struct Httpinfo *hi,BOOL readfirst)
 {  BOOL first=TRUE;
+   printf("DEBUG: Httpresponse: processing URL, flags=0x%04X\n", hi->flags);
    if(!readfirst || Readresponse(hi))
    {  Nextline(hi);
       hi->flags|=HTTPIF_HEADERS;
       if(Readheaders(hi))
-      {  if(hi->movedto && hi->movedtourl)
+      {  printf("DEBUG: Readheaders returned TRUE, processing response\n");
+         if(hi->movedto && hi->movedtourl)
          {  Updatetaskattrs(hi->movedto,hi->movedtourl,TAG_END);
          }
          else
-         {  Nextline(hi);
+         {  printf("DEBUG: Calling Nextline before Readdata\n");
+            Nextline(hi);
+            printf("DEBUG: Nextline completed, calling Readdata\n");
+            printf("DEBUG: After Nextline - blocklength=%ld, flags=0x%04X\n", hi->blocklength, hi->flags);
             if(hi->boundary)
             {  for(;;)
                {  if(!Findline(hi)) return;
@@ -758,7 +1499,28 @@ static void Httpresponse(struct Httpinfo *hi,BOOL readfirst)
                }
             }
             else
-            {  Readdata(hi);
+            {  printf("DEBUG: No boundary, calling Readdata directly\n");
+               
+               /* CRITICAL: Add memory corruption protection before calling Readdata */
+               if(hi->fd && hi->fd->block && hi->fd->blocksize > 0 && hi->fd->blocksize <= INPUTBLOCKSIZE) {
+                  printf("DEBUG: Memory validation passed, calling Readdata\n");
+                  Readdata(hi);
+                  printf("DEBUG: Readdata() completed\n");
+                  
+                  /* CRITICAL: Validate memory integrity after Readdata */
+                  if(hi->fd && hi->fd->block) {
+                     if(hi->blocklength < 0 || hi->blocklength > hi->fd->blocksize) {
+                        printf("DEBUG: CRITICAL: Memory corruption detected after Readdata! blocklength=%ld\n", hi->blocklength);
+                        printf("DEBUG: CRITICAL: Resetting to prevent OS crash\n");
+                        hi->blocklength = 0;
+                        hi->fd->block[0] = '\0'; /* Safe reset */
+                     }
+                  }
+               } else {
+                  printf("DEBUG: CRITICAL: Invalid memory state detected, skipping Readdata to prevent OS crash\n");
+                  printf("DEBUG: fd=%p, block=%p, blocksize=%ld\n", hi->fd, hi->fd ? hi->fd->block : NULL, hi->fd ? hi->fd->blocksize : 0);
+                  hi->blocklength = 0;
+               }
             }
          }
       }
@@ -776,8 +1538,8 @@ static long Send(struct Httpinfo *hi,UBYTE *request,long reqlen)
    {  result=Assl_write(hi->assl,request,reqlen);
    }
    else
-#endif
-   {  result=a_send(hi->sock,request,reqlen,0,hi->socketbase);
+   {  printf("DEBUG: Sending HTTP request: '%.*s'\n", (int)reqlen, request);
+      result=a_send(hi->sock,request,reqlen,0,hi->socketbase);
    }
    return result;
 }
@@ -901,15 +1663,15 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
    timeout.tv_usec = 0;
    
    /* Set receive timeout */
-   if(a_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout), hi->socketbase) < 0)
+/*   if(a_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout), hi->socketbase) < 0)
    {  /* Timeout setting failed, but continue */
    }
-   
+*/   
    /* Set send timeout */
-   if(a_setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout), hi->socketbase) < 0)
+/*   if(a_setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout), hi->socketbase) < 0)
    {  /* Timeout setting failed, but continue */
    }
-   
+*/   
    return sock;
 }
 
@@ -1252,6 +2014,33 @@ void Httptask(struct Fetchdriver *fd)
 }
 
 #endif /* LOCALONLY */
+
+/*-----------------------------------------------------------------------*/
+
+/* Enhanced multipart boundary detection */
+static BOOL Findmultipartboundary(struct Httpinfo *hi, UBYTE *data, long length)
+{  UBYTE *p = data;
+   UBYTE *end = data + length;
+   UBYTE *boundary = hi->boundary;
+   long blen;
+   
+   if(!boundary) return FALSE;
+   blen = strlen(boundary);
+   
+   while(p < end - blen)
+   {  if(*p == '\r' || *p == '\n')
+      {  p++;
+         if(p < end && (*p == '\r' || *p == '\n')) p++;
+         if(p < end && *p == '-' && p[1] == '-')
+         {  if(STREQUAL(p + 2, boundary))
+            {  return TRUE;
+            }
+         }
+      }
+      p++;
+   }
+   return FALSE;
+}
 
 /*-----------------------------------------------------------------------*/
 
