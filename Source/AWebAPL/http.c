@@ -3528,16 +3528,41 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
 {  long sock;
    struct timeval timeout;
    
+   /* CRITICAL: Validate socketbase is still valid before using it */
+   /* Another task might have closed the library, invalidating our handle */
+   if(!hi->socketbase)
+   {  debug_printf("DEBUG: Opensocket: socketbase is NULL, returning -1\n");
+      return -1;
+   }
+   
 #ifndef DEMOVERSION
    if(hi->flags&HTTPIF_SSL)
-   {  debug_printf("DEBUG: Opensocket: Calling Assl_openssl() before creating socket\n");
+   {  /* CRITICAL: Validate socketbase again before SSL operations */
+      if(!hi->socketbase)
+      {  debug_printf("DEBUG: Opensocket: socketbase became NULL before SSL init, returning -1\n");
+         return -1;
+      }
+      debug_printf("DEBUG: Opensocket: Calling Assl_openssl() before creating socket\n");
       if(!Assl_openssl(hi->assl))
       {  debug_printf("DEBUG: Opensocket: Assl_openssl() failed, returning -1\n");
          return -1;
       }
       debug_printf("DEBUG: Opensocket: Assl_openssl() succeeded\n");
+      
+      /* CRITICAL: Validate socketbase is still valid after SSL init */
+      /* Another task might have closed the library during SSL initialization */
+      if(!hi->socketbase)
+      {  debug_printf("DEBUG: Opensocket: socketbase became NULL during SSL init, returning -1\n");
+         Assl_closessl(hi->assl);
+         return -1;
+      }
    }
 #endif
+   /* CRITICAL: Final validation before creating socket */
+   if(!hi->socketbase)
+   {  debug_printf("DEBUG: Opensocket: socketbase is NULL before socket creation, returning -1\n");
+      return -1;
+   }
    sock=a_socket(hent->h_addrtype,SOCK_STREAM,0,hi->socketbase);
    debug_printf("DEBUG: Opensocket: Created socket %ld\n", sock);
    if(sock<0)
@@ -4002,6 +4027,8 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
    }
 #ifndef DEMOVERSION
    /* CRITICAL: Clean up Assl structure */
+   /* CRITICAL: Must clean up Assl BEFORE closing socketbase library */
+   /* This ensures SSL operations are fully complete before library is closed */
    /* Assl_closessl() already freed SSL resources, so Assl_cleanup() will just mark it as cleaned */
    if(hi->assl)
    {  debug_printf("DEBUG: Httpretrieve: Cleaning up Assl structure\n");
@@ -4016,6 +4043,9 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
    }
 #endif
    
+   /* CRITICAL: Only close socketbase library after all SSL operations are complete */
+   /* This ensures no concurrent SSL operations are using the library when we close it */
+   /* CRITICAL: Must wait until Assl is fully cleaned up before closing socketbase */
    if(hi->socketbase)
    {  debug_printf("DEBUG: Httpretrieve: Closing socketbase library\n");
       CloseLibrary(hi->socketbase);
