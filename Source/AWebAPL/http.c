@@ -316,11 +316,16 @@ static long Receive(struct Httpinfo *hi,UBYTE *buffer,long length)
 {  long result;
 #ifndef DEMOVERSION
    if(hi->flags&HTTPIF_SSL)
-   {  result=Assl_read(hi->assl,buffer,length);
+   {  printf("DEBUG: Receive: Calling Assl_read() - sock=%ld, length=%ld, assl=%p\n",
+             hi->sock, length, hi->assl);
+      result=Assl_read(hi->assl,buffer,length);
+      printf("DEBUG: Receive: Assl_read() returned %ld\n", result);
    }
    else
 #endif
-   {  result=a_recv(hi->sock,buffer,length,0,hi->socketbase);
+   {  printf("DEBUG: Receive: Calling a_recv() - sock=%ld, length=%ld\n", hi->sock, length);
+      result=a_recv(hi->sock,buffer,length,0,hi->socketbase);
+      printf("DEBUG: Receive: a_recv() returned %ld\n", result);
    }
    return result;
 }
@@ -769,8 +774,7 @@ static BOOL Readpartheaders(struct Httpinfo *hi)
 static BOOL Readdata(struct Httpinfo *hi)
 {  UBYTE *bdcopy=NULL;
    long bdlength=0,blocklength=0;
-   BOOL result=FALSE,boundary,partial,eof;
-   
+   BOOL result=FALSE,boundary,partial,eof=FALSE;
    long gzip_buffer_size=INPUTBLOCKSIZE;
    UBYTE *gzipbuffer=NULL;
    long gziplength=0;
@@ -783,6 +787,9 @@ static BOOL Readdata(struct Httpinfo *hi)
    BOOL exit_main_loop=FALSE; /* Flag to exit main loop for gzip processing */
    long compressed_bytes_consumed=0; /* Track how much compressed data we've consumed for Content-Length validation */
    long total_compressed_read=0; /* Track total compressed bytes READ from network (before copying to gzipbuffer) */
+   
+   printf("DEBUG: Readdata: ENTRY - blocklength=%ld, flags=0x%04X, parttype='%s', sock=%ld\n",
+          hi->blocklength, hi->flags, hi->parttype ? (char *)hi->parttype : "(null)", hi->sock);
 
    if(hi->boundary)
    {  bdlength=strlen(hi->boundary);
@@ -1307,8 +1314,8 @@ static BOOL Readdata(struct Httpinfo *hi)
                }
                else
                {  /* Non-chunked: Only copy the actual gzip data, skip any prefix */
-                  gziplength = hi->blocklength - gzip_start;
-                  
+                gziplength = hi->blocklength - gzip_start;
+                
                   /* CRITICAL: Track total compressed bytes read from network */
                   /* For non-chunked, all data in blocklength after headers is compressed */
                   total_compressed_read = hi->blocklength;
@@ -1317,23 +1324,23 @@ static BOOL Readdata(struct Httpinfo *hi)
                   /* This prevents buffer overflow when appending more data later */
                   if(gziplength > 0 && gziplength <= hi->blocklength) {
                       gzipbuffer = ALLOCTYPE(UBYTE, gzip_buffer_size, 0);
-                      if(gzipbuffer) {
-                          memcpy(gzipbuffer, hi->fd->block + gzip_start, gziplength);
+                    if(gzipbuffer) {
+                        memcpy(gzipbuffer, hi->fd->block + gzip_start, gziplength);
                           compressed_bytes_consumed += gziplength; /* Track compressed data consumed */
-                      } else {
-                          printf("DEBUG: CRITICAL: Failed to allocate gzip buffer, disabling gzip\n");
-                          hi->flags &= ~HTTPIF_GZIPENCODED;
-                          hi->flags &= ~HTTPIF_GZIPDECODING;
-                          gzip_end = 1;
-                          break;
-                      }
-                  } else {
-                      printf("DEBUG: CRITICAL: Invalid gziplength %ld, disabling gzip\n", gziplength);
-                      hi->flags &= ~HTTPIF_GZIPENCODED;
-                      hi->flags &= ~HTTPIF_GZIPDECODING;
-                      gzip_end = 1;
-                      break;
-                  }
+                    } else {
+                        printf("DEBUG: CRITICAL: Failed to allocate gzip buffer, disabling gzip\n");
+                        hi->flags &= ~HTTPIF_GZIPENCODED;
+                        hi->flags &= ~HTTPIF_GZIPDECODING;
+                        gzip_end = 1;
+                        break;
+                    }
+                } else {
+                    printf("DEBUG: CRITICAL: Invalid gziplength %ld, disabling gzip\n", gziplength);
+                    hi->flags &= ~HTTPIF_GZIPENCODED;
+                    hi->flags &= ~HTTPIF_GZIPDECODING;
+                    gzip_end = 1;
+                    break;
+                }
                }
             }
             else if(gzip_start < 0)
@@ -1352,23 +1359,23 @@ static BOOL Readdata(struct Httpinfo *hi)
                   /* This prevents buffer overflow when appending more data later */
                   if(gziplength > 0 && gziplength <= gzip_buffer_size) {
                       gzipbuffer = ALLOCTYPE(UBYTE, gzip_buffer_size, 0);
-                      if(gzipbuffer) {
-                          memcpy(gzipbuffer, hi->fd->block, gziplength);
+                    if(gzipbuffer) {
+                        memcpy(gzipbuffer, hi->fd->block, gziplength);
                           compressed_bytes_consumed += gziplength; /* Track compressed data consumed */
-                      } else {
-                          printf("DEBUG: CRITICAL: Failed to allocate gzip buffer, disabling gzip\n");
-                          hi->flags &= ~HTTPIF_GZIPENCODED;
-                          hi->flags &= ~HTTPIF_GZIPDECODING;
-                          gzip_end = 1;
-                          break;
-                      }
-                  } else {
+                    } else {
+                        printf("DEBUG: CRITICAL: Failed to allocate gzip buffer, disabling gzip\n");
+                        hi->flags &= ~HTTPIF_GZIPENCODED;
+                        hi->flags &= ~HTTPIF_GZIPDECODING;
+                        gzip_end = 1;
+                        break;
+                    }
+                } else {
                       printf("DEBUG: CRITICAL: Invalid gziplength %ld, disabling gzip\n", gziplength);
-                      hi->flags &= ~HTTPIF_GZIPENCODED;
-                      hi->flags &= ~HTTPIF_GZIPDECODING;
-                      gzip_end = 1;
-                      break;
-                  }
+                    hi->flags &= ~HTTPIF_GZIPENCODED;
+                    hi->flags &= ~HTTPIF_GZIPDECODING;
+                    gzip_end = 1;
+                    break;
+                }
                }
                else
                {  /* No gzip magic found anywhere */
@@ -1430,59 +1437,59 @@ static BOOL Readdata(struct Httpinfo *hi)
                d_stream_initialized = TRUE; /* Mark d_stream as initialized */
             }
             
-            /* CRITICAL: Validate gzip buffer allocation to prevent heap corruption */
-            if(gzipbuffer && gziplength > 0) {
-               /* Check if gzipbuffer pointer is valid */
-               if((ULONG)gzipbuffer < 0x1000 || (ULONG)gzipbuffer > 0xFFFFFFF0) {
-                  printf("DEBUG: CRITICAL: Invalid gzipbuffer pointer 0x%08lX\n", (ULONG)gzipbuffer);
-                  FREE(gzipbuffer);
-                  gzipbuffer = NULL;
+                     /* CRITICAL: Validate gzip buffer allocation to prevent heap corruption */
+         if(gzipbuffer && gziplength > 0) {
+            /* Check if gzipbuffer pointer is valid */
+            if((ULONG)gzipbuffer < 0x1000 || (ULONG)gzipbuffer > 0xFFFFFFF0) {
+               printf("DEBUG: CRITICAL: Invalid gzipbuffer pointer 0x%08lX\n", (ULONG)gzipbuffer);
+               FREE(gzipbuffer);
+               gzipbuffer = NULL;
                   inflateEnd(&d_stream);
-                  hi->flags &= ~HTTPIF_GZIPENCODED;
-                  hi->flags &= ~HTTPIF_GZIPDECODING;
-                  gzip_end = 1;
-                  break;
-               }
-               
-               /* Check if gziplength is reasonable */
-               if(gziplength > gzip_buffer_size || gziplength <= 0) {
-                  printf("DEBUG: CRITICAL: Invalid gziplength: %ld (max: %ld)\n", gziplength, gzip_buffer_size);
-                  FREE(gzipbuffer);
-                  gzipbuffer = NULL;
+               hi->flags &= ~HTTPIF_GZIPENCODED;
+               hi->flags &= ~HTTPIF_GZIPDECODING;
+               gzip_end = 1;
+               break;
+            }
+            
+            /* Check if gziplength is reasonable */
+            if(gziplength > gzip_buffer_size || gziplength <= 0) {
+               printf("DEBUG: CRITICAL: Invalid gziplength: %ld (max: %ld)\n", gziplength, gzip_buffer_size);
+               FREE(gzipbuffer);
+               gzipbuffer = NULL;
                   inflateEnd(&d_stream);
-                  hi->flags &= ~HTTPIF_GZIPENCODED;
-                  hi->flags &= ~HTTPIF_GZIPDECODING;
-                  gzip_end = 1;
-                  break;
-               }
-               
-               d_stream.next_in=gzipbuffer;
-               d_stream.avail_in=gziplength;
-               
-               /* CRITICAL: Validate blocksize before setting output buffer to prevent overflow */
-               if(hi->fd->blocksize > 0 && hi->fd->blocksize <= INPUTBLOCKSIZE) {
-                   d_stream.next_out=hi->fd->block;
-                   d_stream.avail_out=hi->fd->blocksize;
-                   printf("DEBUG: Setting zlib output buffer to %ld bytes\n", hi->fd->blocksize);
-               } else {
-                   printf("DEBUG: CRITICAL: Invalid blocksize %ld, using safe default\n", hi->fd->blocksize);
-                   d_stream.next_out=hi->fd->block;
-                   d_stream.avail_out=INPUTBLOCKSIZE;
-                   /* CRITICAL: Reset corrupted blocksize to prevent memory corruption */
-                   hi->fd->blocksize = INPUTBLOCKSIZE;
-               }
-               
-               printf("DEBUG: First 16 bytes of gzip data: ");
-               for(i = 0; i < MIN(16, gziplength); i++) {
-                   printf("%02X ", gzipbuffer[i]);
-               }
-               printf("\n");
-               
-               /* Verify this is actually gzip data */
-               if(gziplength >= 3 && gzipbuffer[0] == 0x1F && gzipbuffer[1] == 0x8B && gzipbuffer[2] == 0x08) {
+               hi->flags &= ~HTTPIF_GZIPENCODED;
+               hi->flags &= ~HTTPIF_GZIPDECODING;
+               gzip_end = 1;
+               break;
+            }
+            
+            d_stream.next_in=gzipbuffer;
+            d_stream.avail_in=gziplength;
+            
+            /* CRITICAL: Validate blocksize before setting output buffer to prevent overflow */
+            if(hi->fd->blocksize > 0 && hi->fd->blocksize <= INPUTBLOCKSIZE) {
+                d_stream.next_out=hi->fd->block;
+                d_stream.avail_out=hi->fd->blocksize;
+                printf("DEBUG: Setting zlib output buffer to %ld bytes\n", hi->fd->blocksize);
+            } else {
+                printf("DEBUG: CRITICAL: Invalid blocksize %ld, using safe default\n", hi->fd->blocksize);
+                d_stream.next_out=hi->fd->block;
+                d_stream.avail_out=INPUTBLOCKSIZE;
+                /* CRITICAL: Reset corrupted blocksize to prevent memory corruption */
+                hi->fd->blocksize = INPUTBLOCKSIZE;
+            }
+                
+                printf("DEBUG: First 16 bytes of gzip data: ");
+                for(i = 0; i < MIN(16, gziplength); i++) {
+                    printf("%02X ", gzipbuffer[i]);
+                }
+                printf("\n");
+                
+                /* Verify this is actually gzip data */
+                if(gziplength >= 3 && gzipbuffer[0] == 0x1F && gzipbuffer[1] == 0x8B && gzipbuffer[2] == 0x08) {
                    printf("DEBUG: Valid gzip header confirmed, gziplength=%ld, avail_in=%lu\n", 
                           gziplength, d_stream.avail_in);
-               } else {
+                } else {
                    printf("DEBUG: WARNING: Data still doesn't start with gzip magic! Disabling gzip.\n");
                    FREE(gzipbuffer);
                    gzipbuffer = NULL;
@@ -1491,7 +1498,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                    hi->flags &= ~HTTPIF_GZIPDECODING;
                    gzip_end = 1;
                    break;
-               }
+                }
             } else {
                 printf("DEBUG: No gzip data to process\n");
                 hi->flags &= ~HTTPIF_GZIPENCODED;
@@ -1609,7 +1616,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                            hi->blocklength = 0;
                            
                            /* CRITICAL: Continue loop to process the newly added data */
-                           continue;
+            continue;
                         }
                      }
                      else if(hi->flags & HTTPIF_CHUNKED)
@@ -2218,7 +2225,7 @@ static BOOL Readdata(struct Httpinfo *hi)
             }
             continue; /* Skip regular data processing */
          }
-         
+
          /* CRITICAL: Boundary detection for multipart data */
          boundary=partial=eof=FALSE;
          if(bdcopy)
@@ -2278,11 +2285,11 @@ static BOOL Readdata(struct Httpinfo *hi)
             /* Check if parttype is valid by checking first character and length */
             if(hi->parttype[0] != '\0' && hi->parttype[0] != 0 && strlen(hi->parttype) > 0) {
                printf("DEBUG: Sending data with content type: '%s' (length=%ld)\n", hi->parttype, strlen(hi->parttype));
-               Updatetaskattrs(
-                  AOURL_Data,hi->fd->block,
-                  AOURL_Datalength,blocklength,
+            Updatetaskattrs(
+               AOURL_Data,hi->fd->block,
+               AOURL_Datalength,blocklength,
                   AOURL_Contenttype,hi->parttype,
-                  TAG_END);
+               TAG_END);
             } else {
                printf("DEBUG: WARNING: parttype is empty or invalid! Sending data without content type (will default to octet-stream)\n");
                printf("DEBUG: parttype[0]=0x%02X, parttype='%.31s'\n", (unsigned char)hi->parttype[0], hi->parttype);
@@ -2449,11 +2456,11 @@ static BOOL Readdata(struct Httpinfo *hi)
             
             /* Update task attributes with current data */
             if(hi->parttype[0] && strstr(hi->parttype, "text/html")) {
-               Updatetaskattrs(
-                  AOURL_Data,hi->fd->block,
-                  AOURL_Datalength,hi->blocklength,
+            Updatetaskattrs(
+               AOURL_Data,hi->fd->block,
+               AOURL_Datalength,hi->blocklength,
                   AOURL_Contenttype, "text/html",
-                  TAG_END);
+               TAG_END);
             } else {
                Updatetaskattrs(
                   AOURL_Data,hi->fd->block,
@@ -2555,11 +2562,11 @@ static BOOL Readdata(struct Httpinfo *hi)
                }
             }
             
-            printf("DEBUG: Zlib error detected, safely disabling gzip to prevent crashes\n");
-            
-            /* Clean up zlib stream immediately */
+         printf("DEBUG: Zlib error detected, safely disabling gzip to prevent crashes\n");
+         
+         /* Clean up zlib stream immediately */
             if(d_stream_initialized) {
-               inflateEnd(&d_stream);
+         inflateEnd(&d_stream);
                d_stream_initialized = FALSE;
             }
             
@@ -2568,19 +2575,19 @@ static BOOL Readdata(struct Httpinfo *hi)
                FREE(gzipbuffer);
                gzipbuffer = NULL;
             }
-            
-            /* Reset all gzip flags */
-            hi->flags &= ~HTTPIF_GZIPENCODED;
-            hi->flags &= ~HTTPIF_GZIPDECODING;
-            
-            /* Reset output buffer safely */
-            hi->blocklength = 0;
-            d_stream.avail_out = hi->fd->blocksize;
-            d_stream.next_out = hi->fd->block;
-            
-            /* Break out of gzip processing to prevent further corruption */
-            gzip_end = 1;
-            break;
+         
+         /* Reset all gzip flags */
+         hi->flags &= ~HTTPIF_GZIPENCODED;
+         hi->flags &= ~HTTPIF_GZIPDECODING;
+         
+         /* Reset output buffer safely */
+         hi->blocklength = 0;
+         d_stream.avail_out = hi->fd->blocksize;
+         d_stream.next_out = hi->fd->block;
+         
+         /* Break out of gzip processing to prevent further corruption */
+         gzip_end = 1;
+         break;
          }
          
          /* If we need more input data, read it */
@@ -2830,20 +2837,20 @@ static BOOL Readdata(struct Httpinfo *hi)
             }
             else
             {  /* Non-chunked: read directly into gzipbuffer */
-               gziplength=Receive(hi,gzipbuffer,gzip_buffer_size);
-               if(gziplength<=0)
-               {  
-                  if(gziplength < 0) {
-                     printf("DEBUG: Network error during gzip processing: %ld\n", gziplength);
-                  } else {
-                     printf("DEBUG: End of gzip data stream\n");
-                  }
-                  gzip_end=1; // Finished or Error
+            gziplength=Receive(hi,gzipbuffer,gzip_buffer_size);
+            if(gziplength<=0)
+            {  
+               if(gziplength < 0) {
+                  printf("DEBUG: Network error during gzip processing: %ld\n", gziplength);
+               } else {
+                  printf("DEBUG: End of gzip data stream\n");
                }
-               else
-               {  d_stream.next_in=gzipbuffer;
-                  d_stream.avail_in=gziplength;
-               }
+               gzip_end=1; // Finished or Error
+            }
+            else
+            {  d_stream.next_in=gzipbuffer;
+               d_stream.avail_in=gziplength;
+            }
             }
          }
          
@@ -2854,26 +2861,26 @@ static BOOL Readdata(struct Httpinfo *hi)
             decompressed_len = hi->fd->blocksize - d_stream.avail_out;
             
             printf("DEBUG: Gzip decompressed %ld bytes\n", decompressed_len);
-            
+         
             /* CRITICAL: Validate decompressed length immediately to prevent memory corruption */
             if(decompressed_len < 0 || decompressed_len > hi->fd->blocksize) {
                printf("DEBUG: CRITICAL: Invalid decompressed length %ld calculated, aborting\n", decompressed_len);
-               inflateEnd(&d_stream);
-               hi->flags &= ~HTTPIF_GZIPENCODED;
-               hi->flags &= ~HTTPIF_GZIPDECODING;
+            inflateEnd(&d_stream);
+            hi->flags &= ~HTTPIF_GZIPENCODED;
+            hi->flags &= ~HTTPIF_GZIPDECODING;
                hi->blocklength = 0;
-               gzip_end = 1;
-               break;
-            }
-            
-            /* CRITICAL: Process decompressed data immediately to ensure it's not lost */
+            gzip_end = 1;
+            break;
+         }
+         
+                  /* CRITICAL: Process decompressed data immediately to ensure it's not lost */
             if(hi->fd && hi->fd->block && decompressed_len > 0) {
                printf("DEBUG: Processing %ld bytes of decompressed data immediately\n", decompressed_len);
-               
-               /* CRITICAL: Ensure proper content type is set for HTML parsing */
-               /* Check if we have HTML content type from headers */
-               if(hi->parttype[0] && strstr(hi->parttype, "text/html")) {
-                  printf("DEBUG: Content type is HTML, ensuring proper parsing\n");
+            
+            /* CRITICAL: Ensure proper content type is set for HTML parsing */
+            /* Check if we have HTML content type from headers */
+            if(hi->parttype[0] && strstr(hi->parttype, "text/html")) {
+               printf("DEBUG: Content type is HTML, ensuring proper parsing\n");
                   Updatetaskattrs(
                      AOURL_Data, hi->fd->block,
                      AOURL_Datalength, decompressed_len,
@@ -2885,10 +2892,10 @@ static BOOL Readdata(struct Httpinfo *hi)
                      AOURL_Data, hi->fd->block,
                      AOURL_Datalength, decompressed_len,
                      TAG_END);
-               }
-               
-               /* Mark this data as already processed to prevent duplication */
-               hi->flags |= HTTPIF_DATA_PROCESSED;
+            }
+            
+            /* Mark this data as already processed to prevent duplication */
+            hi->flags |= HTTPIF_DATA_PROCESSED;
                
                /* Reset output buffer for next decompression cycle */
                d_stream.next_out = hi->fd->block;
@@ -2899,7 +2906,7 @@ static BOOL Readdata(struct Httpinfo *hi)
             /* Continue processing - only exit when gzip_end is set (Z_STREAM_END) */
             if(gzip_end) {
                printf("DEBUG: Gzip stream complete, exiting processing loop\n");
-               break;
+            break;
             }
          }
          
@@ -3079,9 +3086,9 @@ static BOOL Readdata(struct Httpinfo *hi)
          }
       } else if(gzipbuffer != NULL) {
          printf("DEBUG: WARNING: gzipbuffer not NULL but flag not set - possible memory leak!\n");
-         FREE(gzipbuffer);
-         gzipbuffer = NULL;
-      }
+            FREE(gzipbuffer);
+            gzipbuffer = NULL;
+         }
       /* Clean up d_stream if it was initialized but flag is not set */
       if(d_stream_initialized && !(hi->flags & HTTPIF_GZIPDECODING)) {
          printf("DEBUG: Cleaning up orphaned d_stream\n");
@@ -3164,10 +3171,10 @@ static BOOL Readdata(struct Httpinfo *hi)
                      TAG_END);
                } else {
                   printf("DEBUG: WARNING: parttype empty for final data, sending without content type\n");
-                  Updatetaskattrs(
-                     AOURL_Data, hi->fd->block,
-                     AOURL_Datalength, hi->blocklength,
-                     TAG_END);
+               Updatetaskattrs(
+                  AOURL_Data, hi->fd->block,
+                  AOURL_Datalength, hi->blocklength,
+                  TAG_END);
                }
             }
             break;
@@ -3286,12 +3293,13 @@ static void Httpresponse(struct Httpinfo *hi,BOOL readfirst)
             return; /* Exit after redirect */
          }
          else
-         {  printf("DEBUG: No redirect, calling Nextline before Readdata\n");
+         {              printf("DEBUG: No redirect, calling Nextline before Readdata\n");
             Nextline(hi);
             printf("DEBUG: Nextline completed, calling Readdata\n");
             printf("DEBUG: After Nextline - blocklength=%ld, flags=0x%04X\n", hi->blocklength, hi->flags);
             if(hi->boundary)
-            {  for(;;)
+            {  printf("DEBUG: Httpresponse: Multipart boundary detected, processing parts\n");
+               for(;;)
                {  if(!Findline(hi)) return;
                   if(STREQUAL(hi->fd->block,hi->boundary)) break;
                   Nextline(hi);
@@ -3322,12 +3330,14 @@ static void Httpresponse(struct Httpinfo *hi,BOOL readfirst)
                }
             }
             else
-            {  printf("DEBUG: No boundary, calling Readdata directly\n");
+            {              printf("DEBUG: No boundary, calling Readdata directly\n");
                
                /* CRITICAL: Add memory corruption protection before calling Readdata */
                if(hi->fd && hi->fd->block && hi->fd->blocksize > 0 && hi->fd->blocksize <= INPUTBLOCKSIZE) {
                   printf("DEBUG: Memory validation passed, calling Readdata\n");
+                  printf("DEBUG: Httpresponse: About to call Readdata() - this is the main data read\n");
                   Readdata(hi);
+                  printf("DEBUG: Httpresponse: Readdata() returned\n");
                   printf("DEBUG: Readdata() completed\n");
                   
                   /* CRITICAL: Validate memory integrity after Readdata */
@@ -3439,6 +3449,9 @@ static BOOL Openlibraries(struct Httpinfo *hi)
       if(hi->assl)
       {  Assl_closessl(hi->assl);
          Assl_cleanup(hi->assl);
+         /* CRITICAL: Free the struct after Assl_cleanup() has cleaned it up */
+         /* Assl_cleanup() no longer frees the struct to prevent use-after-free crashes */
+         FREE(hi->assl);
          hi->assl = NULL;
       }
       if(hi->assl=Tcpopenssl(hi->socketbase))
@@ -3448,6 +3461,8 @@ static BOOL Openlibraries(struct Httpinfo *hi)
          if(!amisslmaster)
          {  Lowlevelreq("AWeb requires amisslmaster.library for SSL/TLS connections.\nPlease install AmiSSL 5.20 or newer and try again.");
             Assl_cleanup(hi->assl);
+            /* CRITICAL: Free the struct after Assl_cleanup() has cleaned it up */
+            FREE(hi->assl);
             hi->assl = NULL;
             result = FALSE;
          }
@@ -3533,8 +3548,19 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
       {  hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"(NULL)";
          printf("DEBUG: Starting SSL connection to '%s'\n", hostname_str);
          
+         /* CRITICAL: Check for exit signal before starting blocking SSL handshake */
+         if(Checktaskbreak())
+         {  printf("DEBUG: Connect: Exit signal detected, aborting SSL connection\n");
+            /* CRITICAL: Close socket to interrupt any blocking SSL operations */
+            if(hi->sock >= 0 && hi->socketbase)
+            {  printf("DEBUG: Connect: Closing socket to interrupt SSL operations\n");
+               a_close(hi->sock, hi->socketbase);
+               hi->sock = -1;
+            }
+            ok=FALSE;
+         }
          /* CRITICAL: Ensure SSL resources are valid before attempting connection */
-         if(hi->assl && hi->sock >= 0)
+         else if(hi->assl && hi->sock >= 0)
          {  result=Assl_connect(hi->assl,hi->sock,hi->hostname);
             printf("DEBUG: SSL connect result: %ld (ASSLCONNECT_OK=%d)\n", result, ASSLCONNECT_OK);
             ok=(result==ASSLCONNECT_OK);
@@ -3608,9 +3634,9 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
                hi->flags|=HTTPIF_SSL;
                FREE(creq);
             }
-            
+         
             /* If tunnel setup succeeded, proceed with SSL connection */
-            if(ok)
+         if(ok)
             {  hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"(NULL)";
                printf("DEBUG: Starting SSL connection to '%s'\n", hostname_str);
                
@@ -3618,15 +3644,15 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
                if(hi->assl && hi->sock >= 0)
                {  result=Assl_connect(hi->assl,hi->sock,hi->hostname);
                   printf("DEBUG: SSL connect result: %ld (ASSLCONNECT_OK=%d)\n", result, ASSLCONNECT_OK);
-                  ok=(result==ASSLCONNECT_OK);
-                  if(result==ASSLCONNECT_DENIED) hi->flags|=HTTPIF_NOSSLREQ;
-                  if(!ok && !(hi->flags&HTTPIF_NOSSLREQ))
-                  {  UBYTE errbuf[128],*p;
-                     p=Assl_geterror(hi->assl,errbuf);
-                     if(Securerequest(hi,p))
-                     {  hi->flags|=HTTPIF_RETRYNOSSL;
-                     }
-                  }
+            ok=(result==ASSLCONNECT_OK);
+            if(result==ASSLCONNECT_DENIED) hi->flags|=HTTPIF_NOSSLREQ;
+            if(!ok && !(hi->flags&HTTPIF_NOSSLREQ))
+            {  UBYTE errbuf[128],*p;
+               p=Assl_geterror(hi->assl,errbuf);
+               if(Securerequest(hi,p))
+               {  hi->flags|=HTTPIF_RETRYNOSSL;
+               }
+            }
                }
                else
                {  printf("DEBUG: SSL connection aborted - invalid SSL resources (assl=%p, sock=%ld)\n",
@@ -3707,10 +3733,16 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
    long reqlen,msglen,result;
    UBYTE *request,*p,*q;
    BOOL error=FALSE;
+   
+   printf("DEBUG: Httpretrieve: ENTRY - URL=%s, SSL=%d\n",
+          fd ? (char *)fd->name : "(null)", fd ? BOOLVAL(fd->flags&FDVF_SSL) : 0);
+   
    hi->blocklength=0;
    hi->nextscanpos=0;
    if(fd->flags&FDVF_SSL) hi->flags|=HTTPIF_SSL;
    hi->fd=fd;
+   printf("DEBUG: Httpretrieve: Initialized - flags=0x%04X, blocklength=%ld\n",
+          hi->flags, hi->blocklength);
 #ifdef DEVELOPER
    if(STRNEQUAL(fd->name,"&&&&",4)
    ||STRNIEQUAL(fd->name,"http://&&&&",11)
@@ -3750,36 +3782,70 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
    else
    {
 #endif
+   printf("DEBUG: Httpretrieve: Calling Openlibraries()\n");
    result=Openlibraries(hi);
+   printf("DEBUG: Httpretrieve: Openlibraries() returned %ld\n", result);
+   
 #ifndef DEMOVERSION
    if(result && (hi->fd->flags&FDVF_FORMWARN) && !(hi->flags&HTTPIF_SSL))
-   {  result=Formwarnrequest();
+   {  printf("DEBUG: Httpretrieve: Calling Formwarnrequest()\n");
+      result=Formwarnrequest();
+      printf("DEBUG: Httpretrieve: Formwarnrequest() returned %ld\n", result);
    }
 #endif
+   
    if(result)
-   {  Updatetaskattrs(AOURL_Netstatus,NWS_LOOKUP,TAG_END);
+   {        printf("DEBUG: Httpretrieve: Libraries opened, starting DNS lookup for '%s'\n",
+             hi->connect ? (char *)hi->connect : "(null)");
+      Updatetaskattrs(AOURL_Netstatus,NWS_LOOKUP,TAG_END);
       Tcpmessage(fd,TCPMSG_LOOKUP,hi->connect);
+      
+      printf("DEBUG: Httpretrieve: Calling Lookup() for '%s'\n", hi->connect ? (char *)hi->connect : "(null)");
       if(hent=Lookup(hi->connect,hi->socketbase))
-      {  if((hi->sock=Opensocket(hi,hent))>=0)
-         {  Updatetaskattrs(AOURL_Netstatus,NWS_CONNECT,TAG_END);
+      {  printf("DEBUG: Httpretrieve: Lookup() succeeded, hostname='%s'\n",
+                hent->h_name ? (char *)hent->h_name : "(null)");
+         
+         printf("DEBUG: Httpretrieve: Calling Opensocket()\n");
+         if((hi->sock=Opensocket(hi,hent))>=0)
+         {  printf("DEBUG: Httpretrieve: Opensocket() succeeded, sock=%ld\n", hi->sock);
+            Updatetaskattrs(AOURL_Netstatus,NWS_CONNECT,TAG_END);
             Tcpmessage(fd,TCPMSG_CONNECT,
                hi->flags&HTTPIF_SSL?"HTTPS":"HTTP",hent->h_name);
-            if(Connect(hi,hent))
-            {  
+            
+               printf("DEBUG: Httpretrieve: Calling Connect()\n");
+               /* CRITICAL: Check for exit signal before starting blocking connection */
+               if(Checktaskbreak())
+               {  printf("DEBUG: Httpretrieve: Exit signal detected, aborting connection\n");
+                  /* CRITICAL: Close socket to interrupt any blocking operations */
+                  if(hi->sock >= 0 && hi->socketbase)
+                  {  printf("DEBUG: Httpretrieve: Closing socket to interrupt operations\n");
+                     a_close(hi->sock, hi->socketbase);
+                     hi->sock = -1;
+                  }
+                  error=TRUE;
+               }
+               else if(Connect(hi,hent))
+               {  printf("DEBUG: Httpretrieve: Connect() succeeded\n");
 #ifndef DEMOVERSION
                if(hi->flags&HTTPIF_SSL)
-               {  p=Assl_getcipher(hi->assl);
+               {  printf("DEBUG: Httpretrieve: SSL connection established, getting cipher info\n");
+                  p=Assl_getcipher(hi->assl);
                   q=Assl_libname(hi->assl);
                   if(p || q)
-                  {  Updatetaskattrs(AOURL_Cipher,p,
+                  {  printf("DEBUG: Httpretrieve: Cipher=%s, Library=%s\n",
+                            p ? (char *)p : "(null)", q ? (char *)q : "(null)");
+                     Updatetaskattrs(AOURL_Cipher,p,
                         AOURL_Ssllibrary,q,
                         TAG_END);
                   }
                }
 #endif
                
+               printf("DEBUG: Httpretrieve: Building HTTP request\n");
                reqlen=Buildrequest(fd,hi,&request);
+               printf("DEBUG: Httpretrieve: Request built, length=%ld, calling Send()\n", reqlen);
                result=(Send(hi,request,reqlen)==reqlen);
+               printf("DEBUG: Httpretrieve: Send() returned, result=%ld (expected %ld)\n", result, reqlen);
 #ifdef BETAKEYFILE
                if(httpdebug)
                {  Write(Output(),"\n",1);
@@ -3788,11 +3854,16 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
 #endif
                if(result)
                {  if(fd->multipart)
-                  {  result=Sendmultipartdata(hi,fd,NULL);
+                  {  printf("DEBUG: Httpretrieve: Sending multipart data\n");
+                     result=Sendmultipartdata(hi,fd,NULL);
+                     printf("DEBUG: Httpretrieve: Sendmultipartdata() returned %ld\n", result);
                   }
                   else if(fd->postmsg)
                   {  msglen=strlen(fd->postmsg);
+                     printf("DEBUG: Httpretrieve: Sending POST message, length=%ld\n", msglen);
                      result=(Send(hi,fd->postmsg,msglen)==msglen);
+                     printf("DEBUG: Httpretrieve: POST Send() returned, result=%ld (expected %ld)\n",
+                            result, msglen);
 #ifdef BETAKEYFILE
                      if(httpdebug)
                      {  Write(Output(),fd->postmsg,msglen);
@@ -3802,117 +3873,215 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                   }
                }
                if(request!=fd->block) FREE(request);
+               
                if(result)
-               {  Updatetaskattrs(AOURL_Netstatus,NWS_WAIT,TAG_END);
+               {  printf("DEBUG: Httpretrieve: Request sent successfully, calling Httpresponse()\n");
+                  Updatetaskattrs(AOURL_Netstatus,NWS_WAIT,TAG_END);
                   Tcpmessage(fd,TCPMSG_WAITING,hi->flags&HTTPIF_SSL?"HTTPS":"HTTP");
-                  Httpresponse(hi,TRUE);
+                  
+                  /* CRITICAL: Check for exit signal before starting blocking HTTP response */
+                  if(Checktaskbreak())
+                  {  printf("DEBUG: Httpretrieve: Exit signal detected, aborting HTTP response\n");
+                     /* CRITICAL: Close socket and SSL to interrupt any blocking operations */
+#ifndef DEMOVERSION
+                     if(hi->assl)
+                     {  printf("DEBUG: Httpretrieve: Closing SSL connection due to exit\n");
+                        Assl_closessl(hi->assl);
+                     }
+#endif
+                     if(hi->sock >= 0 && hi->socketbase)
+                     {  printf("DEBUG: Httpretrieve: Closing socket due to exit\n");
+                        a_close(hi->sock, hi->socketbase);
+                        hi->sock = -1;
+                     }
+                     error=TRUE;
+                  }
+                  else
+                  {  printf("DEBUG: Httpretrieve: About to call Httpresponse() - this may take a while\n");
+                     Httpresponse(hi,TRUE);
+                     printf("DEBUG: Httpretrieve: Httpresponse() returned\n");
+                  }
                }
-               else error=TRUE;
+               else
+               {  printf("DEBUG: Httpretrieve: Request send failed, setting error\n");
+                  error=TRUE;
+               }
             }
-            else if(!(hi->flags&HTTPIF_RETRYNOSSL) && hi->status!=407)
-            {  Tcperror(fd,TCPERR_NOCONNECT,
+            else
+            {  printf("DEBUG: Httpretrieve: Connect() failed, status=%ld\n", hi->status);
+               if(!(hi->flags&HTTPIF_RETRYNOSSL) && hi->status!=407)
+               {  printf("DEBUG: Httpretrieve: Reporting connection error\n");
+                  Tcperror(fd,TCPERR_NOCONNECT,
                   (hi->flags&HTTPIF_SSLTUNNEL)?hi->hostport:(UBYTE *)hent->h_name);
             }
+            }
+            
+            printf("DEBUG: Httpretrieve: Cleaning up connection\n");
             /* CRITICAL: Close SSL connection BEFORE closing socket */
             /* SSL shutdown needs the socket to still be open */
             if(hi->assl)
-            {  Assl_closessl(hi->assl);
+            {  printf("DEBUG: Httpretrieve: Closing SSL connection\n");
+               Assl_closessl(hi->assl);
                /* CRITICAL: DON'T set hi->assl to NULL here - Assl_cleanup() will handle it */
                /* Assl_closessl() only closes the connection, doesn't free the Assl structure */
             }
             /* Now safe to close socket - SSL has been properly shut down */
             if(hi->sock >= 0)
-            {  a_close(hi->sock,hi->socketbase);
+            {  printf("DEBUG: Httpretrieve: Closing socket %ld\n", hi->sock);
+            a_close(hi->sock,hi->socketbase);
                hi->sock = -1;
-            }
+               printf("DEBUG: Httpretrieve: Socket closed\n");
          }
-         else error=TRUE;
       }
       else
-      {  Tcperror(fd,TCPERR_NOHOST,hi->hostname);
+         {  printf("DEBUG: Httpretrieve: Opensocket() failed, sock=%ld, setting error\n", hi->sock);
+            error=TRUE;
+         }
       }
+      else
+      {  printf("DEBUG: Httpretrieve: Lookup() failed for '%s', reporting no host error\n",
+                hi->connect ? (char *)hi->connect : "(null)");
+         Tcperror(fd,TCPERR_NOHOST,hi->hostname);
+      }
+      
+      printf("DEBUG: Httpretrieve: Calling a_cleanup()\n");
       a_cleanup(hi->socketbase);
+      printf("DEBUG: Httpretrieve: a_cleanup() completed\n");
    }
    else
-   {  Tcperror(fd,TCPERR_NOLIB);
+   {  printf("DEBUG: Httpretrieve: Openlibraries() or Formwarnrequest() failed, reporting no lib error\n");
+      Tcperror(fd,TCPERR_NOLIB);
    }
 #ifndef DEMOVERSION
-   /* CRITICAL: Clean up Assl structure - this frees the structure itself */
-   /* Assl_closessl() already freed SSL resources, so Assl_cleanup() should only free the structure */
+   /* CRITICAL: Clean up Assl structure */
+   /* Assl_closessl() already freed SSL resources, so Assl_cleanup() will just mark it as cleaned */
    if(hi->assl)
-   {  /* CRITICAL: Assl_cleanup() will free SSL resources again if they still exist */
-      /* But Assl_closessl() should have already freed them, so this should just free the struct */
+   {  printf("DEBUG: Httpretrieve: Cleaning up Assl structure\n");
+      /* CRITICAL: Assl_closessl() should have already freed SSL resources */
+      /* Assl_cleanup() will null out library bases to mark the object as dead */
       Assl_cleanup(hi->assl);
+      /* CRITICAL: Free the struct after Assl_cleanup() has cleaned it up */
+      /* Assl_cleanup() no longer frees the struct to prevent use-after-free crashes */
+      FREE(hi->assl);
       hi->assl=NULL;
+      printf("DEBUG: Httpretrieve: Assl structure cleaned up\n");
    }
 #endif
+   
    if(hi->socketbase)
-   {  CloseLibrary(hi->socketbase);
+   {  printf("DEBUG: Httpretrieve: Closing socketbase library\n");
+      CloseLibrary(hi->socketbase);
       hi->socketbase=NULL;
+      printf("DEBUG: Httpretrieve: Socketbase library closed\n");
    }
 #ifdef DEVELOPER
    }
 #endif
+   
    if(error)
-   {  Updatetaskattrs(
+   {  printf("DEBUG: Httpretrieve: Setting error flag\n");
+      Updatetaskattrs(
          AOURL_Error,TRUE,
          TAG_END);
    }
+   
+   printf("DEBUG: Httpretrieve: EXIT - error=%d, status=%ld\n", error, hi->status);
 }
 
 /*-----------------------------------------------------------------------*/
 
 void Httptask(struct Fetchdriver *fd)
 {  struct Httpinfo hi={0};
+   int loop_count=0;
+   
+   printf("DEBUG: Httptask: ENTRY - URL=%s, proxy=%s, SSL=%d\n",
+          fd ? (char *)fd->name : "(null)", fd && fd->proxy ? (char *)fd->proxy : "(none)",
+          fd ? BOOLVAL(fd->flags&FDVF_SSL) : 0);
+   
    if(Makehttpaddr(&hi,fd->proxy,fd->name,BOOLVAL(fd->flags&FDVF_SSL)))
-   {  if(!prefs.limitproxy && !hi.auth) hi.auth=Guessauthorize(hi.hostport);
+   {  printf("DEBUG: Httptask: Makehttpaddr succeeded\n");
+      if(!prefs.limitproxy && !hi.auth) hi.auth=Guessauthorize(hi.hostport);
       if(fd->proxy && !prefs.limitproxy) hi.prxauth=Guessauthorize(fd->proxy);
+      printf("DEBUG: Httptask: Auth setup complete (auth=%p, prxauth=%p)\n", hi.auth, hi.prxauth);
+      
       for(;;)
-      {  if(fd->proxy && hi.auth && prefs.limitproxy)
-         {  if(hi.connect) FREE(hi.connect);
+      {  loop_count++;
+         printf("DEBUG: Httptask: Loop iteration %d\n", loop_count);
+         
+         if(fd->proxy && hi.auth && prefs.limitproxy)
+         {  printf("DEBUG: Httptask: Handling proxy auth limitproxy case\n");
+            if(hi.connect) FREE(hi.connect);
             if(hi.tunnel) FREE(hi.tunnel);hi.tunnel=NULL;
             if(hi.hostport) FREE(hi.hostport);
             if(hi.abspath) FREE(hi.abspath);
             if(hi.hostname) FREE(hi.hostname);
-            if(!Makehttpaddr(&hi,NULL,fd->name,BOOLVAL(fd->flags&FDVF_SSL))) break;
+            if(!Makehttpaddr(&hi,NULL,fd->name,BOOLVAL(fd->flags&FDVF_SSL)))
+            {  printf("DEBUG: Httptask: Makehttpaddr failed, breaking loop\n");
+               break;
          }
+            printf("DEBUG: Httptask: Makehttpaddr succeeded after limitproxy reset\n");
+         }
+         
          hi.status=0;
+         printf("DEBUG: Httptask: Calling Httpretrieve() - status reset to 0\n");
          Httpretrieve(&hi,fd);
+         printf("DEBUG: Httptask: Httpretrieve() returned - status=%ld, flags=0x%04X\n",
+                hi.status, hi.flags);
+         
          if(hi.flags&HTTPIF_RETRYNOSSL)
-         {  UBYTE *url=ALLOCTYPE(UBYTE,strlen(fd->name)+6,0);
-            UBYTE *p;
+         {  UBYTE *url,*p;
+            printf("DEBUG: Httptask: RETRYNOSSL flag set, downgrading to HTTP\n");
+            url=ALLOCTYPE(UBYTE,strlen(fd->name)+6,0);
             strcpy(url,"http");
             if(p=strchr(fd->name,':')) strcat(url,p);
             Updatetaskattrs(AOURL_Tempmovedto,url,TAG_END);
             FREE(url);
+            printf("DEBUG: Httptask: Breaking loop after RETRYNOSSL\n");
             break;
          }
+         
          if(hi.status==401 && !(hi.flags&HTTPIF_AUTH) && hi.auth)
-         {  hi.flags|=HTTPIF_AUTH;
+         {  printf("DEBUG: Httptask: Status 401, attempting authentication\n");
+            hi.flags|=HTTPIF_AUTH;
             Updatetaskattrs(
                AOURL_Contentlength,0,
                AOURL_Contenttype,"",
                TAG_END);
             if(!hi.auth->cookie) Authorize(fd,hi.auth,FALSE);
-            if(hi.auth->cookie) continue;
+            if(hi.auth->cookie)
+            {  printf("DEBUG: Httptask: Auth cookie obtained, continuing loop\n");
+               continue;
+            }
+            printf("DEBUG: Httptask: Auth failed, setting error\n");
             Updatetaskattrs(AOURL_Error,TRUE,TAG_END);
          }
+         
          if(hi.status==407 && !(hi.flags&HTTPIF_PRXAUTH) && hi.prxauth)
-         {  hi.flags|=HTTPIF_PRXAUTH;
+         {  printf("DEBUG: Httptask: Status 407, attempting proxy authentication\n");
+            hi.flags|=HTTPIF_PRXAUTH;
             Updatetaskattrs(
                AOURL_Contentlength,0,
                AOURL_Contenttype,"",
                TAG_END);
             if(!hi.prxauth->cookie) Authorize(fd,hi.prxauth,TRUE);
-            if(hi.prxauth->cookie) continue;
+            if(hi.prxauth->cookie)
+            {  printf("DEBUG: Httptask: Proxy auth cookie obtained, continuing loop\n");
+               continue;
+            }
+            printf("DEBUG: Httptask: Proxy auth failed, setting error\n");
             Updatetaskattrs(AOURL_Error,TRUE,TAG_END);
          }
+         
+         printf("DEBUG: Httptask: Breaking loop normally (status=%ld)\n", hi.status);
          break;
       }
+      printf("DEBUG: Httptask: Loop completed after %d iterations\n", loop_count);
    }
    else
-   {  Updatetaskattrs(AOURL_Error,TRUE,TAG_END);
+   {  printf("DEBUG: Httptask: Makehttpaddr failed, setting error\n");
+      Updatetaskattrs(AOURL_Error,TRUE,TAG_END);
    }
+   printf("DEBUG: Httptask: EXIT\n");
    if(hi.connect) FREE(hi.connect);
    if(hi.tunnel) FREE(hi.tunnel);
    if(hi.hostport) FREE(hi.hostport);

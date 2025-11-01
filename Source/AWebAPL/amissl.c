@@ -57,6 +57,7 @@ struct Assl
    UBYTE *hostname;
    BOOL denied;
    BOOL closed;  /* CRITICAL: Flag to prevent use-after-free - set when SSL objects are freed */
+   struct SignalSemaphore use_sema;  /* CRITICAL: Per-object semaphore to protect SSL object usage vs cleanup */
 };
 
 struct Library *AmiSSLMasterBase;
@@ -88,7 +89,11 @@ struct Assl *Assl_initamissl(struct Library *socketbase)
    }
    
    if(socketbase && (assl=ALLOCSTRUCT(Assl,1,MEMF_CLEAR)))
-   {  
+   {  /* CRITICAL: Initialize per-object semaphore FIRST, before any other operations */
+      /* This must be done even if library initialization fails, to prevent bus errors */
+      InitSemaphore(&assl->use_sema);
+      assl->closed = FALSE;
+      
       /* Check if AmiSSLMaster library is already open - reuse if so */
       if(!AmiSSLMasterBase)
       {
@@ -150,10 +155,11 @@ struct Assl *Assl_initamissl(struct Library *socketbase)
          assl->amisslmasterbase = AmiSSLMasterBase;
          assl->amisslbase = AmiSSLBase;
          assl->amissslextbase = AmiSSLExtBase;
+         /* Semaphore already initialized above, and closed flag already set to FALSE */
       }
       else
       {  
-         /* Libraries failed to open */
+         /* Libraries failed to open - semaphore was already initialized, so safe to free */
          FREE(assl);
          assl=NULL;
       }
@@ -202,26 +208,45 @@ static int __saveds __stdargs
 
 __asm void Assl_cleanup(register __a0 struct Assl *assl)
 {  if(assl)
-   {  /* Clean up ALL SSL resources for this instance */
-      /* This is called when the entire Assl structure is being destroyed */
-      /* CRITICAL: Assl_closessl() should have already freed SSL objects */
-      /* But we check here to handle cases where Assl_closessl() wasn't called */
-      if(assl->amisslbase && !assl->closed)
-      {  /* SSL objects still exist and haven't been closed properly */
-         /* Call Assl_closessl() to properly clean them up */
-         printf("DEBUG: Assl_cleanup: SSL objects still exist, calling Assl_closessl() first\n");
+   {  /* CRITICAL: Validate assl pointer before accessing semaphore field */
+      if((ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0)
+      {  printf("DEBUG: Assl_cleanup: Invalid Assl pointer (%p), skipping\n", assl);
+         return;
+      }
+      
+      /* CRITICAL: First ensure SSL objects are closed */
+      /* Assl_closessl() is idempotent and handles its own locking */
+      if(assl->amisslbase)
+      {  /* Call Assl_closessl() to properly clean up SSL objects */
+         /* It will handle semaphore protection and is safe to call even if already closed */
          Assl_closessl(assl);
       }
+      
+      /* CRITICAL: Now obtain semaphore to ensure no concurrent operations */
+      /* All SSL operations should be complete at this point */
+      ObtainSemaphore(&assl->use_sema);
       
       /* CRITICAL: Do NOT close global libraries here - they may be in use by other instances */
       /* The global AmiSSLMasterBase and AmiSSLBase are shared across all SSL connections */
       /* Only clear the local references, but don't close the libraries */
       /* Libraries will be cleaned up at program exit by the OS if still open */
+      /* Assl_closessl() already nulled ssl and sslctx */
+      /* We just need to null the library bases to signal this object is truly dead */
       assl->amisslbase = NULL;
       assl->amisslmasterbase = NULL;
       assl->amissslextbase = NULL;
+      /* 'closed' flag was already set by Assl_closessl() */
       
-      FREE(assl);
+      /* CRITICAL: Release semaphore */
+      ReleaseSemaphore(&assl->use_sema);
+      
+      /* CRITICAL: DO NOT FREE THE STRUCT HERE! */
+      /* FREE(assl); <-- THIS IS THE BUG! */
+      /* The semaphore 'use_sema' is part of the struct itself */
+      /* If we free the struct here, another task might try to obtain the semaphore */
+      /* and crash accessing freed memory */
+      /* The caller (AWeb) must now be responsible for calling FREE(assl) */
+      /* after it calls Assl_cleanup() */
    }
 }
 
@@ -320,9 +345,17 @@ __asm void Assl_closessl(register __a0 struct Assl *assl)
          return;
       }
       
-      /* CRITICAL: Validate amisslbase pointer is reasonable before accessing */
+      /* CRITICAL: Semaphore is always accessible if assl pointer is valid (it's a field in the struct) */
+      /* Use per-object semaphore to prevent cleanup while read/write operations are in progress */
+      /* Obtain semaphore to ensure no concurrent read/write operations */
+      /* CRITICAL: Do this BEFORE accessing other fields to ensure we hold the lock during validation */
+      ObtainSemaphore(&assl->use_sema);
+      
+      /* CRITICAL: Validate amisslbase pointer is reasonable after obtaining semaphore */
+      /* This ensures we have the lock before checking if cleanup is needed */
       if(!assl->amisslbase || (ULONG)assl->amisslbase < 0x1000 || (ULONG)assl->amisslbase >= 0xFFFFFFF0)
-      {  printf("DEBUG: Assl_closessl: Invalid amisslbase pointer (%p), skipping\n", assl ? assl->amisslbase : NULL);
+      {  printf("DEBUG: Assl_closessl: Invalid amisslbase pointer (%p), releasing semaphore and skipping\n", assl->amisslbase);
+         ReleaseSemaphore(&assl->use_sema);
          return;
       }
       
@@ -332,6 +365,7 @@ __asm void Assl_closessl(register __a0 struct Assl *assl)
       /* If already closed, just return without doing anything */
       if(assl->closed)
       {  printf("DEBUG: Assl_closessl: SSL connection already closed, skipping\n");
+         ReleaseSemaphore(&assl->use_sema);
          return;
       }
       
@@ -340,17 +374,12 @@ __asm void Assl_closessl(register __a0 struct Assl *assl)
       /* SSL_free() and SSL_CTX_free() may access shared OpenSSL state during cleanup */
       printf("DEBUG: Assl_closessl: Closing SSL connection\n");
       
-      /* CRITICAL: Protect SSL cleanup with semaphore */
+      /* CRITICAL: Mark as closed BEFORE freeing to prevent any further use */
+      assl->closed = TRUE;
+      
+      /* CRITICAL: Protect SSL cleanup with global semaphore for OpenSSL internal state */
       /* SSL_free() and SSL_CTX_free() may access shared internal structures */
       ObtainSemaphore(&ssl_init_sema);
-      
-      /* CRITICAL: Double-check closed flag after obtaining semaphore */
-      /* Another task might have closed it while we were waiting for the semaphore */
-      if(assl->closed)
-      {  printf("DEBUG: Assl_closessl: SSL connection was closed by another task, releasing semaphore\n");
-         ReleaseSemaphore(&ssl_init_sema);
-         return;
-      }
       
       /* CRITICAL: Shutdown SSL connection gracefully before freeing */
       /* This ensures SSL is properly disconnected from socket */
@@ -395,12 +424,11 @@ __asm void Assl_closessl(register __a0 struct Assl *assl)
       {  printf("DEBUG: Assl_closessl: No SSL context to free\n");
       }
       
-      /* CRITICAL: Mark this Assl as closed to prevent use-after-free */
-      /* Set flag BEFORE releasing semaphore to ensure visibility */
-      assl->closed = TRUE;
-      
-      /* CRITICAL: Release semaphore after cleanup is complete */
+      /* CRITICAL: Release global semaphore after cleanup is complete */
       ReleaseSemaphore(&ssl_init_sema);
+      
+      /* CRITICAL: Release per-object semaphore - cleanup is complete, safe to allow new operations */
+      ReleaseSemaphore(&assl->use_sema);
    }
    else
    {  printf("DEBUG: Assl_closessl: Invalid parameters (assl=%p, amisslbase=%p)\n",
@@ -412,96 +440,119 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
    register __d0 long sock,
    register __a1 UBYTE *hostname)
 {  long result=ASSLCONNECT_FAIL;
-   /* CRITICAL: Validate all pointers and structures before use */
-   /* CRITICAL: Check if SSL objects have been closed/freed to prevent use-after-free */
-   if(assl && assl->amisslbase && assl->sslctx && assl->ssl && !assl->closed && sock>=0)
-   {  struct Library *AmiSSLBase=assl->amisslbase;
-      
-      /* CRITICAL: Validate SSL context and SSL object pointers are reasonable */
-      if((ULONG)assl->sslctx < 0x1000 || (ULONG)assl->sslctx >= 0xFFFFFFF0 ||
-         (ULONG)assl->ssl < 0x1000 || (ULONG)assl->ssl >= 0xFFFFFFF0)
-      {  /* Invalid pointers - return failure */
-         printf("DEBUG: Assl_connect: Invalid SSL pointer (sslctx=%p, ssl=%p)\n", assl->sslctx, assl->ssl);
+   /* CRITICAL: Validate assl pointer before accessing semaphore field */
+   if(assl)
+   {  /* CRITICAL: Validate assl pointer range before accessing semaphore */
+      if((ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0)
+      {  printf("DEBUG: Assl_connect: Invalid Assl pointer (%p)\n", assl);
          return ASSLCONNECT_FAIL;
       }
       
-      assl->hostname=hostname;
+      /* CRITICAL: Obtain per-object semaphore to protect against cleanup */
+      /* This prevents Assl_closessl() from freeing SSL objects while we're using them */
+      /* CRITICAL: Obtain semaphore BEFORE accessing any struct fields */
+      ObtainSemaphore(&assl->use_sema);
       
-      /* CRITICAL: Validate socket descriptor is valid before use */
-      if(SSL_set_fd(assl->ssl,sock) == 0)
-      {  /* SSL_set_fd failed - SSL object might be invalid */
-         printf("DEBUG: Assl_connect: SSL_set_fd failed (sock=%ld)\n", sock);
-         return ASSLCONNECT_FAIL;
-      }
-      
-      /* Set Server Name Indication (SNI) for TLS handshake */
-      /* This is required for modern HTTPS servers that host multiple domains on one IP */
-      if(hostname && *hostname)
-      {  
-         /* Validate hostname pointer is reasonable before dereferencing */
-         if((ULONG)hostname < 0x1000 || (ULONG)hostname >= 0xFFFFFFF0)
-         {  /* Invalid hostname pointer - skip SNI but continue connection */
-            printf("DEBUG: Assl_connect: Invalid hostname pointer (%p), skipping SNI\n", hostname);
+      /* CRITICAL: Validate all pointers and structures AFTER obtaining semaphore */
+      /* Check 'closed' flag *inside* the locked section to prevent race condition */
+      if(assl->amisslbase && assl->sslctx && assl->ssl && !assl->closed && sock>=0)
+      {  struct Library *AmiSSLBase=assl->amisslbase;
+         
+         /* CRITICAL: Validate SSL context and SSL object pointers are reasonable */
+         if((ULONG)assl->sslctx < 0x1000 || (ULONG)assl->sslctx >= 0xFFFFFFF0 ||
+            (ULONG)assl->ssl < 0x1000 || (ULONG)assl->ssl >= 0xFFFFFFF0)
+         {  /* Invalid pointers - return failure */
+            printf("DEBUG: Assl_connect: Invalid SSL pointer (sslctx=%p, ssl=%p)\n", assl->sslctx, assl->ssl);
+            ReleaseSemaphore(&assl->use_sema);
+            return ASSLCONNECT_FAIL;
          }
-         else
-         {  /* Validate hostname length before use */
-            long hostname_len;
-            hostname_len = strlen((char *)hostname);
-            if(hostname_len > 0 && hostname_len < 256)
-            {  /* CRITICAL: Use SSL_set_tlsext_host_name() as per AmiSSL example */
-               /* This is the proper way to set SNI in OpenSSL 3.x */
-               SSL_set_tlsext_host_name(assl->ssl, (char *)hostname);
-               printf("DEBUG: Assl_connect: Set SNI hostname to '%s'\n", hostname);
+         
+         assl->hostname=hostname;
+         
+         /* CRITICAL: Validate socket descriptor is valid before use */
+         if(SSL_set_fd(assl->ssl,sock) == 0)
+         {  /* SSL_set_fd failed - SSL object might be invalid */
+            printf("DEBUG: Assl_connect: SSL_set_fd failed (sock=%ld)\n", sock);
+            ReleaseSemaphore(&assl->use_sema);
+            return ASSLCONNECT_FAIL;
+         }
+         
+         /* Set Server Name Indication (SNI) for TLS handshake */
+         /* This is required for modern HTTPS servers that host multiple domains on one IP */
+         if(hostname && *hostname)
+         {  
+            /* Validate hostname pointer is reasonable before dereferencing */
+            if((ULONG)hostname < 0x1000 || (ULONG)hostname >= 0xFFFFFFF0)
+            {  /* Invalid hostname pointer - skip SNI but continue connection */
+               printf("DEBUG: Assl_connect: Invalid hostname pointer (%p), skipping SNI\n", hostname);
             }
             else
-            {  printf("DEBUG: Assl_connect: Invalid hostname length (%ld), skipping SNI\n", hostname_len);
+            {  /* Validate hostname length before use */
+               long hostname_len;
+               hostname_len = strlen((char *)hostname);
+               if(hostname_len > 0 && hostname_len < 256)
+               {  /* CRITICAL: Use SSL_set_tlsext_host_name() as per AmiSSL example */
+                  /* This is the proper way to set SNI in OpenSSL 3.x */
+                  SSL_set_tlsext_host_name(assl->ssl, (char *)hostname);
+                  printf("DEBUG: Assl_connect: Set SNI hostname to '%s'\n", hostname);
+               }
+               else
+               {  printf("DEBUG: Assl_connect: Invalid hostname length (%ld), skipping SNI\n", hostname_len);
+               }
+            }
+         }
+         else
+         {  printf("DEBUG: Assl_connect: No hostname provided, skipping SNI\n");
+         }
+         
+         /* Perform SSL/TLS handshake */
+         /* SSL_connect() returns:
+          *   1 = handshake completed successfully
+          *   0 = handshake not completed, needs more I/O (error)
+          *  <0 = error occurred
+          */
+         /* CRITICAL: SSL_connect() operates on a unique SSL object per connection */
+         /* OpenSSL 3.x is thread-safe when each connection has its own SSL object */
+         /* CRITICAL: Keep semaphore held during SSL_connect() to prevent cleanup from freeing SSL object */
+         /* This ensures Assl_closessl() will wait until the handshake completes */
+         {  long ssl_result;
+            printf("DEBUG: Assl_connect: Calling SSL_connect()...\n");
+            
+            ssl_result = SSL_connect(assl->ssl);
+            
+            printf("DEBUG: Assl_connect: SSL_connect() returned %ld\n", ssl_result);
+            if(ssl_result == 1)
+            {  /* Handshake completed successfully */
+               result=ASSLCONNECT_OK;
+               printf("DEBUG: Assl_connect: SSL handshake successful\n");
+            }
+            else if(assl->denied)
+            {  /* Certificate was denied by user */
+               result=ASSLCONNECT_DENIED;
+               printf("DEBUG: Assl_connect: SSL certificate denied by user\n");
+            }
+            else
+            {  /* Handshake failed - get error details */
+               long ssl_error;
+               ssl_error = SSL_get_error(assl->ssl, ssl_result);
+               printf("DEBUG: Assl_connect: SSL_connect failed, SSL_get_error returned %ld\n", ssl_error);
+               /* If error is SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE, */
+               /* it means more I/O is needed, which shouldn't happen with blocking sockets */
+               /* For now, treat any non-success as failure */
+               result=ASSLCONNECT_FAIL;
             }
          }
       }
       else
-      {  printf("DEBUG: Assl_connect: No hostname provided, skipping SNI\n");
+      {  printf("DEBUG: Assl_connect: Invalid parameters or already closed (assl=%p, amisslbase=%p, sslctx=%p, ssl=%p, sock=%ld, closed=%d)\n",
+                assl, assl ? assl->amisslbase : NULL, assl ? assl->sslctx : NULL, assl ? assl->ssl : NULL, sock, assl ? assl->closed : -1);
       }
       
-      /* Perform SSL/TLS handshake */
-      /* SSL_connect() returns:
-       *   1 = handshake completed successfully
-       *   0 = handshake not completed, needs more I/O (error)
-       *  <0 = error occurred
-       */
-      /* CRITICAL: SSL_connect() operates on a unique SSL object per connection */
-      /* OpenSSL 3.x is thread-safe when each connection has its own SSL object */
-      /* No semaphore needed - concurrent SSL_connect() on different connections is safe */
-      {  long ssl_result;
-         printf("DEBUG: Assl_connect: Calling SSL_connect()...\n");
-         
-         ssl_result = SSL_connect(assl->ssl);
-         
-         printf("DEBUG: Assl_connect: SSL_connect() returned %ld\n", ssl_result);
-         if(ssl_result == 1)
-         {  /* Handshake completed successfully */
-            result=ASSLCONNECT_OK;
-            printf("DEBUG: Assl_connect: SSL handshake successful\n");
-         }
-         else if(assl->denied)
-         {  /* Certificate was denied by user */
-            result=ASSLCONNECT_DENIED;
-            printf("DEBUG: Assl_connect: SSL certificate denied by user\n");
-         }
-         else
-         {  /* Handshake failed - get error details */
-            long ssl_error;
-            ssl_error = SSL_get_error(assl->ssl, ssl_result);
-            printf("DEBUG: Assl_connect: SSL_connect failed, SSL_get_error returned %ld\n", ssl_error);
-            /* If error is SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE, */
-            /* it means more I/O is needed, which shouldn't happen with blocking sockets */
-            /* For now, treat any non-success as failure */
-            result=ASSLCONNECT_FAIL;
-         }
-      }
+      /* CRITICAL: Always release semaphore before returning */
+      ReleaseSemaphore(&assl->use_sema);
    }
    else
-   {  printf("DEBUG: Assl_connect: Invalid parameters (assl=%p, amisslbase=%p, sslctx=%p, ssl=%p, sock=%ld)\n",
-             assl, assl ? assl->amisslbase : NULL, assl ? assl->sslctx : NULL, assl ? assl->ssl : NULL, sock);
+   {  printf("DEBUG: Assl_connect: Invalid Assl pointer (%p)\n", assl);
    }
    return result;
 }
@@ -511,29 +562,54 @@ __asm char *Assl_geterror(register __a0 struct Assl *assl,
 {  long err;
    UBYTE *p=NULL;
    short i;
-   if(assl && assl->amisslbase && errbuf)
-   {  struct Library *AmiSSLBase=assl->amisslbase;
-      /* Modern OpenSSL doesn't need these deprecated functions */
-      /* ERR_load_SSL_strings(); */
-      err=ERR_get_error();
-      if(err)
-      {  ERR_error_string(err,errbuf);
-         /* errbuf now contains something like: 
-            "error:1408806E:SSL routines:SSL_SET_CERTIFICATE:certificate verify failed"
-            Find the descriptive text after the 4th colon. */
-         for(i=0,p=errbuf;i<4 && p;i++)
-         {  p=strchr(p,':');
-            if(!p) break;
-            p++;
+   /* CRITICAL: Validate assl pointer before use */
+   if(assl && errbuf)
+   {  /* CRITICAL: Validate assl pointer range before accessing semaphore field */
+      if((ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0)
+      {  strcpy(errbuf, "Invalid Assl object");
+         return errbuf;
+      }
+      
+      /* CRITICAL: Obtain semaphore to protect access to amisslbase */
+      ObtainSemaphore(&assl->use_sema);
+      
+      /* CRITICAL: Check if amisslbase is still valid after obtaining semaphore */
+      if(assl->amisslbase && (ULONG)assl->amisslbase >= 0x1000 && (ULONG)assl->amisslbase < 0xFFFFFFF0)
+      {  struct Library *AmiSSLBase=assl->amisslbase;
+         /* Modern OpenSSL doesn't need these deprecated functions */
+         /* ERR_load_SSL_strings(); */
+         err=ERR_get_error();
+         if(err)
+         {  ERR_error_string(err,errbuf);
+            /* errbuf now contains something like: 
+               "error:1408806E:SSL routines:SSL_SET_CERTIFICATE:certificate verify failed"
+               Find the descriptive text after the 4th colon. */
+            for(i=0,p=errbuf;i<4 && p;i++)
+            {  p=strchr(p,':');
+               if(!p) break;
+               p++;
+            }
+         }
+         else
+         {  /* No error available, provide default message */
+            strcpy(errbuf, "Unknown SSL error");
+            p=errbuf;
          }
       }
       else
-      {  /* No error available, provide default message */
-         strcpy(errbuf, "Unknown SSL error");
+      {  /* SSL objects already cleaned up */
+         strcpy(errbuf, "SSL connection closed");
          p=errbuf;
       }
+      
+      /* CRITICAL: Release semaphore */
+      ReleaseSemaphore(&assl->use_sema);
    }
-   if(!p) p=errbuf;
+   else
+   {  /* Invalid parameters */
+      if(errbuf) strcpy(errbuf, "Invalid parameters");
+   }
+   if(!p && errbuf) p=errbuf;
    return (char *)p;
 }
 
@@ -541,30 +617,61 @@ __asm long Assl_write(register __a0 struct Assl *assl,
    register __a1 char *buffer,
    register __d0 long length)
 {  long result=-1;
-   /* CRITICAL: Validate all pointers and SSL resources before use */
-   /* CRITICAL: Check if SSL objects have been closed/freed to prevent use-after-free */
-   if(assl && assl->amisslbase && assl->ssl && assl->sslctx && !assl->closed && buffer && length>0)
-   {  struct Library *AmiSSLBase=assl->amisslbase;
-      /* CRITICAL: Validate SSL object pointer is reasonable */
-      if((ULONG)assl->ssl >= 0x1000 && (ULONG)assl->ssl < 0xFFFFFFF0 &&
-         (ULONG)assl->sslctx >= 0x1000 && (ULONG)assl->sslctx < 0xFFFFFFF0)
-      {  /* CRITICAL: SSL_write() operates on a unique SSL object per connection */
-         /* OpenSSL 3.x is thread-safe when each connection has its own SSL object */
-         /* No semaphore needed - concurrent writes on different connections are safe */
-         result=SSL_write(assl->ssl,buffer,length);
+   /* CRITICAL: Validate basic parameters first */
+   if(assl && buffer && length>0)
+   {  /* CRITICAL: Validate assl pointer before accessing semaphore field */
+      if((ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0)
+      {  printf("DEBUG: Assl_write: Invalid Assl pointer (%p)\n", assl);
+         return -1;
+      }
+      
+      /* CRITICAL: Use per-object semaphore to protect check-and-use of SSL objects */
+      /* This prevents cleanup from freeing SSL objects while we're using them */
+      /* CRITICAL: Obtain semaphore BEFORE accessing other fields */
+      ObtainSemaphore(&assl->use_sema);
+      
+      /* CRITICAL: Validate amisslbase after obtaining semaphore */
+      if(!assl->amisslbase || (ULONG)assl->amisslbase < 0x1000 || (ULONG)assl->amisslbase >= 0xFFFFFFF0)
+      {  printf("DEBUG: Assl_write: Invalid amisslbase pointer (%p), releasing semaphore\n", assl->amisslbase);
+         ReleaseSemaphore(&assl->use_sema);
+         return -1;
+      }
+      
+      /* CRITICAL: Check if SSL objects have been closed/freed AFTER obtaining semaphore */
+      /* This ensures cleanup can't happen while we check and use the SSL object */
+      if(assl->ssl && assl->sslctx && !assl->closed)
+      {  struct Library *AmiSSLBase=assl->amisslbase;
+         /* CRITICAL: Validate SSL object pointer is reasonable */
+         if((ULONG)assl->ssl >= 0x1000 && (ULONG)assl->ssl < 0xFFFFFFF0 &&
+            (ULONG)assl->sslctx >= 0x1000 && (ULONG)assl->sslctx < 0xFFFFFFF0)
+         {  /* CRITICAL: SSL_write() operates on a unique SSL object per connection */
+            /* OpenSSL 3.x is thread-safe when each connection has its own SSL object */
+            /* CRITICAL: Keep semaphore held during I/O to prevent cleanup from freeing SSL object */
+            /* This serializes operations on the SAME connection, but different connections are independent */
+            result=SSL_write(assl->ssl,buffer,length);
+            ReleaseSemaphore(&assl->use_sema);
+            return result;  /* Return immediately after I/O completes */
+         }
+         else
+         {  printf("DEBUG: Assl_write: Invalid SSL pointer (ssl=%p, sslctx=%p)\n", assl->ssl, assl->sslctx);
+            ReleaseSemaphore(&assl->use_sema);
+         }
+      }
+      else if(assl->closed)
+      {  /* SSL connection has been closed - return error */
+         printf("DEBUG: Assl_write: SSL connection already closed\n");
+         ReleaseSemaphore(&assl->use_sema);
+         result = -1;  /* Return error to indicate connection closed */
       }
       else
-      {  printf("DEBUG: Assl_write: Invalid SSL pointer (ssl=%p, sslctx=%p)\n", assl->ssl, assl->sslctx);
+      {  printf("DEBUG: Assl_write: SSL objects not available (ssl=%p, sslctx=%p, closed=%d)\n",
+                assl->ssl, assl->sslctx, assl->closed);
+         ReleaseSemaphore(&assl->use_sema);
       }
    }
-   else if(assl && assl->closed)
-   {  /* SSL connection has been closed - return error */
-      printf("DEBUG: Assl_write: SSL connection already closed\n");
-      result = -1;  /* Return error to indicate connection closed */
-   }
    else
-   {  printf("DEBUG: Assl_write: Invalid parameters (assl=%p, amisslbase=%p, ssl=%p, sslctx=%p, closed=%d, buffer=%p, length=%ld)\n",
-             assl, assl ? assl->amisslbase : NULL, assl ? assl->ssl : NULL, assl ? assl->sslctx : NULL, assl ? assl->closed : -1, buffer, length);
+   {  printf("DEBUG: Assl_write: Invalid parameters (assl=%p, amisslbase=%p, buffer=%p, length=%ld)\n",
+             assl, assl ? assl->amisslbase : NULL, buffer, length);
    }
    return result;
 }
@@ -573,49 +680,110 @@ __asm long Assl_read(register __a0 struct Assl *assl,
    register __a1 char *buffer,
    register __d0 long length)
 {  long result=-1;
-   /* CRITICAL: Validate all pointers and SSL resources before use */
-   /* CRITICAL: Check if SSL objects have been closed/freed to prevent use-after-free */
-   if(assl && assl->amisslbase && assl->ssl && assl->sslctx && !assl->closed && buffer && length>0)
-   {  struct Library *AmiSSLBase=assl->amisslbase;
-      /* CRITICAL: Validate SSL object pointer is reasonable */
-      if((ULONG)assl->ssl >= 0x1000 && (ULONG)assl->ssl < 0xFFFFFFF0 &&
-         (ULONG)assl->sslctx >= 0x1000 && (ULONG)assl->sslctx < 0xFFFFFFF0)
-      {  /* CRITICAL: SSL_read() operates on a unique SSL object per connection */
-         /* OpenSSL 3.x is thread-safe when each connection has its own SSL object */
-         /* No semaphore needed - concurrent reads on different connections are safe */
-         result=SSL_read(assl->ssl,buffer,length);
+   /* CRITICAL: Validate basic parameters first */
+   if(assl && buffer && length>0)
+   {  /* CRITICAL: Validate assl pointer before accessing semaphore field */
+      if((ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0)
+      {  printf("DEBUG: Assl_read: Invalid Assl pointer (%p)\n", assl);
+         return -1;
+      }
+      
+      /* CRITICAL: Use per-object semaphore to protect check-and-use of SSL objects */
+      /* This prevents cleanup from freeing SSL objects while we're using them */
+      /* CRITICAL: Obtain semaphore BEFORE accessing other fields */
+      ObtainSemaphore(&assl->use_sema);
+      
+      /* CRITICAL: Validate amisslbase after obtaining semaphore */
+      if(!assl->amisslbase || (ULONG)assl->amisslbase < 0x1000 || (ULONG)assl->amisslbase >= 0xFFFFFFF0)
+      {  printf("DEBUG: Assl_read: Invalid amisslbase pointer (%p), releasing semaphore\n", assl->amisslbase);
+         ReleaseSemaphore(&assl->use_sema);
+         return -1;
+      }
+      
+      /* CRITICAL: Check if SSL objects have been closed/freed AFTER obtaining semaphore */
+      /* This ensures cleanup can't happen while we check and use the SSL object */
+      if(assl->ssl && assl->sslctx && !assl->closed)
+      {  struct Library *AmiSSLBase=assl->amisslbase;
+         /* CRITICAL: Validate SSL object pointer is reasonable */
+         if((ULONG)assl->ssl >= 0x1000 && (ULONG)assl->ssl < 0xFFFFFFF0 &&
+            (ULONG)assl->sslctx >= 0x1000 && (ULONG)assl->sslctx < 0xFFFFFFF0)
+         {  /* CRITICAL: SSL_read() operates on a unique SSL object per connection */
+            /* OpenSSL 3.x is thread-safe when each connection has its own SSL object */
+            /* CRITICAL: Keep semaphore held during I/O to prevent cleanup from freeing SSL object */
+            /* This serializes operations on the SAME connection, but different connections are independent */
+            result=SSL_read(assl->ssl,buffer,length);
+            ReleaseSemaphore(&assl->use_sema);
+            return result;  /* Return immediately after I/O completes */
+         }
+         else
+         {  printf("DEBUG: Assl_read: Invalid SSL pointer (ssl=%p, sslctx=%p)\n", assl->ssl, assl->sslctx);
+            ReleaseSemaphore(&assl->use_sema);
+         }
+      }
+      else if(assl->closed)
+      {  /* SSL connection has been closed - return error to indicate connection closed */
+         printf("DEBUG: Assl_read: SSL connection already closed\n");
+         ReleaseSemaphore(&assl->use_sema);
+         result = 0;  /* Return 0 to indicate EOF/connection closed */
       }
       else
-      {  printf("DEBUG: Assl_read: Invalid SSL pointer (ssl=%p, sslctx=%p)\n", assl->ssl, assl->sslctx);
+      {  printf("DEBUG: Assl_read: SSL objects not available (ssl=%p, sslctx=%p, closed=%d)\n",
+                assl->ssl, assl->sslctx, assl->closed);
+         ReleaseSemaphore(&assl->use_sema);
       }
    }
-   else if(assl && assl->closed)
-   {  /* SSL connection has been closed - return error to indicate connection closed */
-      printf("DEBUG: Assl_read: SSL connection already closed\n");
-      result = 0;  /* Return 0 to indicate EOF/connection closed */
-   }
    else
-   {  printf("DEBUG: Assl_read: Invalid parameters (assl=%p, amisslbase=%p, ssl=%p, sslctx=%p, closed=%d, buffer=%p, length=%ld)\n",
-             assl, assl ? assl->amisslbase : NULL, assl ? assl->ssl : NULL, assl ? assl->sslctx : NULL, assl ? assl->closed : -1, buffer, length);
+   {  printf("DEBUG: Assl_read: Invalid parameters (assl=%p, amisslbase=%p, buffer=%p, length=%ld)\n",
+             assl, assl ? assl->amisslbase : NULL, buffer, length);
    }
    return result;
 }
 
 __asm char *Assl_getcipher(register __a0 struct Assl *assl)
 {  char *result=NULL;
-   /* CRITICAL: Check if SSL objects have been closed/freed to prevent use-after-free */
-   if(assl && assl->amisslbase && assl->ssl && !assl->closed)
-   {  struct Library *AmiSSLBase=assl->amisslbase;
-      result=(char *)SSL_get_cipher(assl->ssl);
+   /* CRITICAL: Validate assl pointer before use */
+   if(assl)
+   {  /* CRITICAL: Validate assl pointer range before accessing semaphore field */
+      if((ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0)
+      {  return NULL;
+      }
+      
+      /* CRITICAL: Use per-object semaphore to protect check-and-use of SSL objects */
+      /* Obtain semaphore BEFORE accessing any fields to prevent race conditions */
+      ObtainSemaphore(&assl->use_sema);
+      
+      /* CRITICAL: Check if amisslbase and SSL objects are still valid after obtaining semaphore */
+      if(assl->amisslbase && (ULONG)assl->amisslbase >= 0x1000 && (ULONG)assl->amisslbase < 0xFFFFFFF0 &&
+         assl->ssl && (ULONG)assl->ssl >= 0x1000 && (ULONG)assl->ssl < 0xFFFFFFF0 && !assl->closed)
+      {  struct Library *AmiSSLBase=assl->amisslbase;
+         result=(char *)SSL_get_cipher(assl->ssl);
+      }
+      
+      ReleaseSemaphore(&assl->use_sema);
    }
    return result;
 }
 
 __asm char *Assl_libname(register __a0 struct Assl *assl)
 {  char *result=NULL;
-   if(assl && assl->amisslbase)
-   {  struct Library *AmiSSLBase=assl->amisslbase;
-      result=(char *)AmiSSLBase->lib_IdString;
+   /* CRITICAL: Validate assl pointer before use */
+   if(assl)
+   {  /* CRITICAL: Validate assl pointer range before accessing semaphore field */
+      if((ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0)
+      {  return NULL;
+      }
+      
+      /* CRITICAL: Use per-object semaphore to protect read of amisslbase */
+      ObtainSemaphore(&assl->use_sema);
+      
+      /* CRITICAL: Check if amisslbase is still valid after obtaining semaphore */
+      if(assl->amisslbase && (ULONG)assl->amisslbase >= 0x1000 && (ULONG)assl->amisslbase < 0xFFFFFFF0)
+      {  struct Library *AmiSSLBase=assl->amisslbase;
+         result=(char *)AmiSSLBase->lib_IdString;
+      }
+      
+      /* CRITICAL: Release semaphore */
+      ReleaseSemaphore(&assl->use_sema);
    }
    return result;
 }
