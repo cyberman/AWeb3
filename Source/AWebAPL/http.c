@@ -2,8 +2,8 @@
  * 
  * This file is part of the AWeb APL distribution
  *
- * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025 amigazen project
+ * Original Copyright (C) 2002 Yvon Rozijn
+ * Rewrite Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -473,6 +473,7 @@ static BOOL Readheaders(struct Httpinfo *hi)
       else if(STRNIEQUAL(hi->fd->block,"Content-Length:",15))
       {  long i=0;
          sscanf(hi->fd->block+15," %ld",&i);
+         hi->partlength = i; /* Store for use in Readdata to track compressed data consumption */
          Updatetaskattrs(
             AOURL_Contentlength,i,
             TAG_END);
@@ -780,6 +781,8 @@ static BOOL Readdata(struct Httpinfo *hi)
    z_stream d_stream;
    BOOL d_stream_initialized=FALSE; /* Track if d_stream has been initialized */
    BOOL exit_main_loop=FALSE; /* Flag to exit main loop for gzip processing */
+   long compressed_bytes_consumed=0; /* Track how much compressed data we've consumed for Content-Length validation */
+   long total_compressed_read=0; /* Track total compressed bytes READ from network (before copying to gzipbuffer) */
 
    if(hi->boundary)
    {  bdlength=strlen(hi->boundary);
@@ -1106,6 +1109,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                               if(actual_copy > 0 && gziplength + actual_copy <= total_chunk_data && gzipbuffer)
                               {  memcpy(gzipbuffer + gziplength, hi->fd->block + copy_start, actual_copy);
                                  gziplength += actual_copy;
+                                 compressed_bytes_consumed += actual_copy; /* Track compressed data consumed */
                                  printf("DEBUG: Chunked+gzip: Copied %ld bytes from first chunk starting at gzip_start=%ld (chunk_size=%ld, bytes_in_block=%ld, expected=%ld, gziplength now=%ld, max=%ld)\n", 
                                         actual_copy, gzip_start, chunk_size, bytes_in_block, expected_bytes, gziplength, total_chunk_data);
                                  
@@ -1237,6 +1241,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                               if(actual_copy > 0)
                               {  memcpy(gzipbuffer + gziplength, hi->fd->block + chunk_pos, actual_copy);
                                  gziplength += actual_copy;
+                                 compressed_bytes_consumed += actual_copy; /* Track compressed data consumed */
                                  printf("DEBUG: Chunked+gzip: Copied %ld bytes from chunk (size=%ld, partial copy, total=%ld, pos=%ld)\n", 
                                         actual_copy, chunk_size, gziplength, chunk_pos);
                               }
@@ -1249,6 +1254,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                               if(actual_copy > 0 && gziplength + actual_copy <= total_chunk_data && gzipbuffer)
                               {  memcpy(gzipbuffer + gziplength, hi->fd->block + chunk_pos, actual_copy);
                                  gziplength += actual_copy;
+                                 compressed_bytes_consumed += actual_copy; /* Track compressed data consumed */
                                  printf("DEBUG: Chunked+gzip: Copied %ld bytes from chunk (size=%ld, total=%ld, pos=%ld)\n", 
                                         actual_copy, chunk_size, gziplength, chunk_pos);
                               }
@@ -1257,6 +1263,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                                  if(actual_copy > 0 && gziplength + actual_copy <= total_chunk_data && gzipbuffer)
                                  {  memcpy(gzipbuffer + gziplength, hi->fd->block + chunk_pos, actual_copy);
                                     gziplength += actual_copy;
+                                    compressed_bytes_consumed += actual_copy; /* Track compressed data consumed */
                                     printf("DEBUG: Chunked+gzip: Copied partial chunk %ld bytes (extends beyond block, size=%ld, total=%ld)\n", 
                                            actual_copy, chunk_size, gziplength);
                                  }
@@ -1302,11 +1309,17 @@ static BOOL Readdata(struct Httpinfo *hi)
                {  /* Non-chunked: Only copy the actual gzip data, skip any prefix */
                   gziplength = hi->blocklength - gzip_start;
                   
-                  /* CRITICAL: Validate gziplength to prevent memory corruption */
-                  if(gziplength > 0 && gziplength <= gzip_buffer_size && gziplength <= hi->blocklength) {
-                      gzipbuffer = ALLOCTYPE(UBYTE, gziplength, 0);
+                  /* CRITICAL: Track total compressed bytes read from network */
+                  /* For non-chunked, all data in blocklength after headers is compressed */
+                  total_compressed_read = hi->blocklength;
+                  
+                  /* CRITICAL: For non-chunked gzip, allocate full buffer size since we don't know total size */
+                  /* This prevents buffer overflow when appending more data later */
+                  if(gziplength > 0 && gziplength <= hi->blocklength) {
+                      gzipbuffer = ALLOCTYPE(UBYTE, gzip_buffer_size, 0);
                       if(gzipbuffer) {
                           memcpy(gzipbuffer, hi->fd->block + gzip_start, gziplength);
+                          compressed_bytes_consumed += gziplength; /* Track compressed data consumed */
                       } else {
                           printf("DEBUG: CRITICAL: Failed to allocate gzip buffer, disabling gzip\n");
                           hi->flags &= ~HTTPIF_GZIPENCODED;
@@ -1332,11 +1345,16 @@ static BOOL Readdata(struct Httpinfo *hi)
                   printf("DEBUG: Found gzip magic at start of block\n");
                   gziplength = hi->blocklength;
                   
-                  /* CRITICAL: Validate gziplength to prevent memory corruption */
+                  /* CRITICAL: Track total compressed bytes read from network */
+                  total_compressed_read = hi->blocklength;
+                  
+                  /* CRITICAL: For non-chunked gzip, allocate full buffer size since we don't know total size */
+                  /* This prevents buffer overflow when appending more data later */
                   if(gziplength > 0 && gziplength <= gzip_buffer_size) {
-                      gzipbuffer = ALLOCTYPE(UBYTE, gziplength, 0);
+                      gzipbuffer = ALLOCTYPE(UBYTE, gzip_buffer_size, 0);
                       if(gzipbuffer) {
                           memcpy(gzipbuffer, hi->fd->block, gziplength);
+                          compressed_bytes_consumed += gziplength; /* Track compressed data consumed */
                       } else {
                           printf("DEBUG: CRITICAL: Failed to allocate gzip buffer, disabling gzip\n");
                           hi->flags &= ~HTTPIF_GZIPENCODED;
@@ -1500,11 +1518,19 @@ static BOOL Readdata(struct Httpinfo *hi)
          {  /* Process gzip data immediately */
             printf("DEBUG: Processing gzip data inside main loop, avail_in=%lu\n", d_stream.avail_in);
             
-            /* Process gzip in the main loop, just like the original code */
-            while(!gzip_end && d_stream.avail_in > 0)
+            /* CRITICAL: Process ALL gzip data in this loop to avoid duplicate processing */
+            /* Process gzip completely in the main loop - this prevents the second loop from running */
+            while(!gzip_end && hi->flags & HTTPIF_GZIPDECODING && gzipbuffer != NULL && d_stream_initialized)
             {  long decompressed_len;
                
-               err=inflate(&d_stream,Z_SYNC_FLUSH);
+               /* Only call inflate if we have input */
+               if(d_stream.avail_in > 0)
+               {  err=inflate(&d_stream,Z_SYNC_FLUSH);
+               }
+               else
+               {  /* No input - need to read more data */
+                  err=Z_OK; /* Signal that we need more input */
+               }
                
                if(err==Z_BUF_ERROR || err==Z_OK)
                {  /* Output buffer full or OK - process decompressed data */
@@ -1527,15 +1553,66 @@ static BOOL Readdata(struct Httpinfo *hi)
                      d_stream.avail_out=hi->fd->blocksize;
                   }
                   if(err==Z_OK && d_stream.avail_in==0)
-                  {  /* Need more input - read next chunk */
+                  {  /* Need more input - read next block */
                      if(!Readblock(hi))
                      {  printf("DEBUG: No more data for gzip, ending\n");
                         gzip_end=1;
                         break;
                      }
-                     /* For non-chunked, we already have all data in gzipbuffer */
-                     /* For chunked, we need to extract and add to gzipbuffer */
-                     if(hi->flags & HTTPIF_CHUNKED)
+                     /* Update total compressed bytes read from network */
+                     total_compressed_read += hi->blocklength;
+                     
+                     /* CRITICAL: Continue loop to process the newly read data */
+                     /* For non-chunked, append new block data to gzipbuffer */
+                     /* For chunked, we need to extract chunk data and add to gzipbuffer */
+                     if(!(hi->flags & HTTPIF_CHUNKED))
+                     {  /* Non-chunked: Append all new block data to gzipbuffer */
+                        long remaining_space;
+                        long bytes_to_append;
+                        long used_space;
+                        
+                        /* Calculate space used in buffer (from start to next_in + remaining) */
+                        used_space = (d_stream.next_in - gzipbuffer) + d_stream.avail_in;
+                        remaining_space = gzip_buffer_size - used_space;
+                        
+                        if(remaining_space <= 0 || hi->blocklength > remaining_space)
+                        {  printf("DEBUG: Non-chunked gzip: Buffer full or block too large (remaining=%ld, block=%ld), cannot continue\n",
+                                  remaining_space, hi->blocklength);
+                           gzip_end = 1;
+                           break;
+                        }
+                        
+                        bytes_to_append = MIN(hi->blocklength, remaining_space);
+                        if(bytes_to_append > 0 && gziplength + bytes_to_append <= gzip_buffer_size)
+                        {  /* Move unprocessed data to start if needed */
+                           if(d_stream.next_in != gzipbuffer && d_stream.avail_in > 0)
+                           {  memmove(gzipbuffer, d_stream.next_in, d_stream.avail_in);
+                              gziplength = d_stream.avail_in;
+                           }
+                           else if(d_stream.avail_in == 0)
+                           {  gziplength = 0;
+                           }
+                           
+                           /* Append new data */
+                           memcpy(gzipbuffer + gziplength, hi->fd->block, bytes_to_append);
+                           gziplength += bytes_to_append;
+                           compressed_bytes_consumed += bytes_to_append;
+                           
+                           /* Update zlib stream */
+                           d_stream.next_in = gzipbuffer;
+                           d_stream.avail_in = gziplength;
+                           
+                           printf("DEBUG: Non-chunked gzip: Added %ld bytes from new block (total in buffer=%ld)\n",
+                                  bytes_to_append, gziplength);
+                           
+                           /* Clear block for next read */
+                           hi->blocklength = 0;
+                           
+                           /* CRITICAL: Continue loop to process the newly added data */
+                           continue;
+                        }
+                     }
+                     else if(hi->flags & HTTPIF_CHUNKED)
                      {  /* Extract chunk data from new block and append to gzipbuffer */
                         UBYTE *chunk_p;
                         long chunk_pos;
@@ -1646,6 +1723,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                                  hi->blocklength > 0 && available_space <= hi->blocklength)
                               {  memcpy(gzipbuffer + gziplength, hi->fd->block, available_space);
                                  gziplength += available_space;
+                                 compressed_bytes_consumed += available_space; /* Track compressed data consumed */
                               }
                               else
                               {  printf("DEBUG: CRITICAL: Invalid pointers for memcpy in continuation (gzipbuffer=%p, block=%p, gziplength=%ld, available_space=%ld, blocklength=%ld), aborting\n",
@@ -1819,6 +1897,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                                     (chunk_pos + available_space) <= hi->blocklength)
                                  {  memcpy(gzipbuffer + gziplength, hi->fd->block + chunk_pos, available_space);
                                     gziplength += available_space;
+                                    compressed_bytes_consumed += available_space; /* Track compressed data consumed */
                                  }
                                  else
                                  {  printf("DEBUG: CRITICAL: Invalid pointers for memcpy in chunk extraction (gzipbuffer=%p, block=%p, gziplength=%ld, available_space=%ld, chunk_pos=%ld, blocklength=%ld), aborting\n",
@@ -1897,8 +1976,20 @@ static BOOL Readdata(struct Httpinfo *hi)
                            TAG_END);
                      }
                   }
-                  gzip_end=1;
-                  break;
+                  
+                  /* CRITICAL: For chunked encoding, zlib may finish before all chunks are processed */
+                  /* If there's still data in blocklength, it might be more chunks or chunk continuation */
+                  /* We need to continue processing chunks until we get the final "0\r\n\r\n" chunk */
+                  if(hi->flags & HTTPIF_CHUNKED && hi->blocklength > 0)
+                  {  printf("DEBUG: Z_STREAM_END but %ld bytes remain in block for chunked encoding, continuing chunk processing\n", hi->blocklength);
+                     /* Don't exit yet - continue processing chunks */
+                     /* The remaining data will be processed in the next iteration */
+                  }
+                  else
+                  {  /* Non-chunked or no remaining data - gzip is complete */
+                     gzip_end=1;
+                     break;
+                  }
                }
                else
                {  printf("DEBUG: Gzip error: %d, ending\n", err);
@@ -1917,15 +2008,208 @@ static BOOL Readdata(struct Httpinfo *hi)
                hi->flags &= ~HTTPIF_GZIPENCODED;
                printf("DEBUG: Gzip processing complete\n");
                
+               /* CRITICAL: For chunked+gzip, we need to continue processing remaining chunks */
+               /* even after gzip finishes, until we reach the final "0\r\n\r\n" chunk */
+               if(hi->flags & HTTPIF_CHUNKED)
+               {  printf("DEBUG: Chunked+gzip: Gzip complete, discarding remaining chunks until final chunk\n");
+                  /* Process remaining data in blocklength, then continue reading chunks */
+                  /* until we find the final "0\r\n\r\n" chunk */
+                  /* Note: remaining data might be chunk continuation (not starting with hex digits) */
+                  while(hi->blocklength > 0 || Readblock(hi))
+                  {  UBYTE *chunk_p;
+                     long chunk_pos;
+                     long chunk_size;
+                     long chunk_data_end;
+                     BOOL final_chunk_found;
+                     UBYTE first_char;
+                     BOOL is_chunk_header;
+                     
+                     if(hi->blocklength <= 0) break;
+                     
+                     chunk_p = hi->fd->block;
+                     chunk_pos = 0;
+                     final_chunk_found = FALSE;
+                     
+                     /* Parse chunks in current block until we find final chunk or run out of data */
+                     while(chunk_pos < hi->blocklength)
+                     {  /* Check if this looks like a chunk header (starts with hex digit) */
+                        /* or continuation data (starts with non-hex) */
+                        first_char = chunk_p[chunk_pos];
+                        is_chunk_header = FALSE;
+                        if((first_char >= '0' && first_char <= '9') ||
+                           (first_char >= 'A' && first_char <= 'F') ||
+                           (first_char >= 'a' && first_char <= 'f'))
+                        {  is_chunk_header = TRUE;
+                        }
+                        
+                        if(!is_chunk_header)
+                        {  /* This is continuation data from a previous chunk - skip until we find CRLF */
+                           /* which indicates end of chunk data, then we'll see next chunk header */
+                           printf("DEBUG: Chunked+gzip: Found continuation data (starts with 0x%02X), skipping to next chunk boundary\n", first_char);
+                           /* Skip until we find CRLF (end of chunk data) */
+                           while(chunk_pos < hi->blocklength - 1)
+                           {  if(chunk_p[chunk_pos] == '\r' && chunk_p[chunk_pos + 1] == '\n')
+                              {  chunk_pos += 2; /* Skip CRLF */
+                                 break; /* Now we should see next chunk header */
+                              }
+                              chunk_pos++;
+                           }
+                           if(chunk_pos >= hi->blocklength - 1)
+                           {  /* CRLF not found in this block - need more data */
+                              /* Move remaining data to start */
+                              if(chunk_pos < hi->blocklength)
+                              {  long remaining;
+                                 remaining = hi->blocklength - chunk_pos;
+                                 memmove(hi->fd->block, chunk_p + chunk_pos, remaining);
+                                 hi->blocklength = remaining;
+                              }
+                              break; /* Exit inner loop to read more */
+                           }
+                           /* Continue to parse next chunk header */
+                           continue;
+                        }
+                        
+                        /* Skip whitespace */
+                        while(chunk_pos < hi->blocklength && 
+                              (chunk_p[chunk_pos] == ' ' || chunk_p[chunk_pos] == '\t'))
+                        {  chunk_pos++;
+                        }
+                        
+                        if(chunk_pos >= hi->blocklength) break;
+                        
+                        /* Parse chunk size */
+                        chunk_size = 0;
+                        while(chunk_pos < hi->blocklength)
+                        {  UBYTE c;
+                           long digit;
+                           c = chunk_p[chunk_pos];
+                           if(c >= '0' && c <= '9')
+                           {  digit = c - '0';
+                           }
+                           else if(c >= 'A' && c <= 'F')
+                           {  digit = c - 'A' + 10;
+                           }
+                           else if(c >= 'a' && c <= 'f')
+                           {  digit = c - 'a' + 10;
+                           }
+                           else
+                           {  break;
+                           }
+                           chunk_size = chunk_size * 16 + digit;
+                           chunk_pos++;
+                        }
+                        
+                        /* Skip chunk extension and CRLF */
+                        while(chunk_pos < hi->blocklength && 
+                              chunk_p[chunk_pos] != '\r' && chunk_p[chunk_pos] != '\n')
+                        {  chunk_pos++;
+                        }
+                        if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\r')
+                        {  chunk_pos++;
+                        }
+                        if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\n')
+                        {  chunk_pos++;
+                        }
+                        
+                        if(chunk_size == 0)
+                        {  /* Final chunk found */
+                           printf("DEBUG: Chunked+gzip: Final chunk (0) found, all chunks processed\n");
+                           final_chunk_found = TRUE;
+                           /* Skip final CRLF if present */
+                           if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\r')
+                           {  chunk_pos++;
+                           }
+                           if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\n')
+                           {  chunk_pos++;
+                           }
+                           break;
+                        }
+                        
+                        /* Skip chunk data and trailing CRLF */
+                        chunk_data_end = chunk_pos + chunk_size;
+                        if(chunk_data_end > hi->blocklength)
+                        {  /* Chunk extends beyond current block - need more data */
+                           printf("DEBUG: Chunked+gzip: Chunk size %ld extends beyond block, need more data\n", chunk_size);
+                           /* Move remaining data to start of block */
+                           if(chunk_pos < hi->blocklength)
+                           {  long remaining;
+                              remaining = hi->blocklength - chunk_pos;
+                              memmove(hi->fd->block, chunk_p + chunk_pos, remaining);
+                              hi->blocklength = remaining;
+                           }
+                           break; /* Exit inner loop to read more */
+                        }
+                        
+                        chunk_pos = chunk_data_end;
+                        /* Skip trailing CRLF after chunk data */
+                        if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\r')
+                        {  chunk_pos++;
+                        }
+                        if(chunk_pos < hi->blocklength && chunk_p[chunk_pos] == '\n')
+                        {  chunk_pos++;
+                        }
+                        
+                        printf("DEBUG: Chunked+gzip: Discarded chunk of size %ld\n", chunk_size);
+                     }
+                     
+                     if(final_chunk_found)
+                     {  /* Final chunk found - we're done */
+                        hi->blocklength = 0;
+                        break;
+                     }
+                     
+                     /* Move any remaining data to start of block for next iteration */
+                     if(chunk_pos < hi->blocklength)
+                     {  long remaining;
+                        remaining = hi->blocklength - chunk_pos;
+                        memmove(hi->fd->block, chunk_p + chunk_pos, remaining);
+                        hi->blocklength = remaining;
+                     }
+                     else
+                     {  hi->blocklength = 0;
+                     }
+                  }
+                  
+                  printf("DEBUG: Chunked+gzip: Finished discarding remaining chunks\n");
+                  result = !eof;
+                  break;
+               }
+               
                /* CRITICAL: For non-chunked gzip streams, all data has been decompressed */
+               /* Account for any remaining compressed data in current block */
+               if(hi->blocklength > 0)
+               {  total_compressed_read += hi->blocklength;
+                  printf("DEBUG: Accounting for %ld bytes remaining in block after gzip completion\n", hi->blocklength);
+               }
+               
                /* Clear blocklength to prevent processing remaining compressed data as uncompressed */
                hi->blocklength = 0;
                
-               /* CRITICAL: For non-chunked responses, after gzip completes, we're done with this response */
-               /* Continue reading until EOF to consume any remaining compressed data */
-               while(Readblock(hi))
-               {  /* Discard remaining compressed data - it's already been decompressed */
-                  hi->blocklength = 0;
+               /* CRITICAL: For non-chunked responses with Content-Length, we need to read */
+               /* exactly that much compressed data from network before exiting */
+               if(hi->partlength > 0)
+               {  /* We have a Content-Length - need to read that much compressed data total from network */
+                  printf("DEBUG: Gzip decompression complete, read %ld/%ld compressed bytes from network so far\n", 
+                         total_compressed_read, hi->partlength);
+                  while(total_compressed_read < hi->partlength && Readblock(hi))
+                  {  long compressed_in_block;
+                     compressed_in_block = hi->blocklength;
+                     total_compressed_read += compressed_in_block;
+                     hi->blocklength = 0; /* Discard consumed compressed data */
+                     printf("DEBUG: Read %ld bytes of compressed data from network, total=%ld/%ld\n", 
+                            compressed_in_block, total_compressed_read, hi->partlength);
+                  }
+                  printf("DEBUG: Finished reading compressed data from network: %ld/%ld bytes\n", 
+                         total_compressed_read, hi->partlength);
+               }
+               else
+               {  /* No Content-Length - read until EOF to consume remaining compressed data */
+                  printf("DEBUG: No Content-Length, reading until EOF to consume remaining compressed data\n");
+                  while(Readblock(hi))
+                  {  /* Discard remaining compressed data - it's already been decompressed */
+                     total_compressed_read += hi->blocklength;
+                     hi->blocklength = 0;
+                  }
                }
                
                /* Exit Readdata - gzip response is complete */
@@ -2060,7 +2344,17 @@ static BOOL Readdata(struct Httpinfo *hi)
       printf("DEBUG: Exited main for(;;) loop, now checking gzip processing\n");
       
       /* Gzip processing loop - continues until stream is complete */
-      /* Note: HTTPIF_GZIPDECODING is set during gzip initialization, so this loop will run */
+      /* CRITICAL: This loop should NOT run if gzip was already processed in the main loop */
+      /* The inline loop above processes ALL gzip data, so this should only handle edge cases */
+      
+      /* CRITICAL: Clean up flags if resources are already cleaned up BEFORE checking loop condition */
+      /* This prevents the loop from trying to run with invalid resources */
+      if(hi->flags & HTTPIF_GZIPDECODING && (gzipbuffer == NULL || !d_stream_initialized)) {
+         printf("DEBUG: Flag is set but resources cleaned up - clearing flags to prevent crash\n");
+         hi->flags &= ~HTTPIF_GZIPDECODING;
+         hi->flags &= ~HTTPIF_GZIPENCODED;
+      }
+      
       if(d_stream_initialized) {
          printf("DEBUG: Checking gzip loop condition: flags=0x%04X, HTTPIF_GZIPDECODING=0x%04X, gzip_end=%u, gzipbuffer=%p, d_stream.avail_in=%lu\n",
                 hi->flags, HTTPIF_GZIPDECODING, gzip_end, gzipbuffer, d_stream.avail_in);
@@ -2079,6 +2373,7 @@ static BOOL Readdata(struct Httpinfo *hi)
       } else {
          printf("DEBUG: NOT entering gzip loop - flags check: %d, gzip_end check: %d, gzipbuffer check: %d, d_stream_initialized: %d\n",
                 (hi->flags & HTTPIF_GZIPDECODING) != 0, gzip_end == 0, gzipbuffer != NULL, d_stream_initialized);
+         /* Clean up if flag is still set but we're not entering the loop */
          if(hi->flags & HTTPIF_GZIPDECODING) {
             printf("DEBUG: Flag is set but loop not running - cleaning up\n");
             if(gzipbuffer) {
@@ -2104,10 +2399,24 @@ static BOOL Readdata(struct Httpinfo *hi)
          BOOL data_valid;
          int i;
          
-         if(gzip_end>0) break;
+         /* CRITICAL: Re-validate all conditions inside loop to prevent crashes */
+         if(gzip_end>0 || gzipbuffer == NULL || !d_stream_initialized) {
+            printf("DEBUG: Gzip loop: Invalid state detected, exiting (gzip_end=%d, gzipbuffer=%p, d_stream_initialized=%d)\n",
+                   gzip_end, gzipbuffer, d_stream_initialized);
+            break;
+         }
+         
+         /* CRITICAL: Validate d_stream.next_in points to valid memory before using it */
+         if(d_stream.next_in != NULL && d_stream.next_in != gzipbuffer && 
+            (d_stream.next_in < gzipbuffer || d_stream.next_in >= gzipbuffer + gzip_buffer_size)) {
+            printf("DEBUG: CRITICAL: d_stream.next_in (%p) is invalid, clearing flags\n", d_stream.next_in);
+            hi->flags &= ~HTTPIF_GZIPDECODING;
+            hi->flags &= ~HTTPIF_GZIPENCODED;
+            break;
+         }
          
          /* Process the current gzip data */
-         if(d_stream.avail_in > 0) {
+         if(d_stream.avail_in > 0 && d_stream.next_in != NULL) {
             err=inflate(&d_stream,Z_SYNC_FLUSH);
          } else {
             err=Z_OK; /* No input to process */
@@ -2179,6 +2488,23 @@ static BOOL Readdata(struct Httpinfo *hi)
                   }
                   hi->flags |= HTTPIF_DATA_PROCESSED;
                }
+            }
+            
+            /* CRITICAL: When Z_STREAM_END is returned, zlib has finished decompressing */
+            /* compressed_bytes_consumed tracks data we've copied to gzipbuffer and processed */
+            /* For Content-Length tracking, we need to account for any remaining unprocessed data in the buffer */
+            /* Note: d_stream.avail_in at Z_STREAM_END should typically be 0 for a valid gzip stream */
+            if(!(hi->flags & HTTPIF_CHUNKED) && hi->partlength > 0)
+            {  long remaining_in_buffer;
+               remaining_in_buffer = d_stream.avail_in;
+               if(remaining_in_buffer > 0)
+               {  printf("DEBUG: Z_STREAM_END: %ld bytes remain unprocessed in buffer (this is unusual for gzip)\n", remaining_in_buffer);
+                  /* This data is part of what was read from network, but not processed by zlib */
+                  /* For Content-Length tracking, we should count it, but it's already counted in compressed_bytes_consumed */
+                  /* since we copied it to gzipbuffer. The issue is zlib didn't consume it all. */
+               }
+               printf("DEBUG: Z_STREAM_END: compressed_bytes_consumed=%ld, Content-Length=%ld, remaining_in_buffer=%ld\n",
+                      compressed_bytes_consumed, hi->partlength, remaining_in_buffer);
             }
             
             /* CRITICAL: Clean up immediately when stream ends */
@@ -2253,7 +2579,65 @@ static BOOL Readdata(struct Httpinfo *hi)
          
          /* If we need more input data, read it */
          if((err==Z_OK || err==Z_BUF_ERROR) && d_stream.avail_in==0 && !gzip_end)
-         {              /* Add timeout protection to prevent infinite hanging */
+         {  /* Read more compressed data from network */
+            if(!Readblock(hi))
+            {  printf("DEBUG: No more data for gzip, ending\n");
+               gzip_end = 1;
+               break;
+            }
+            /* Update total compressed bytes read from network */
+            total_compressed_read += hi->blocklength;
+            
+            /* For non-chunked, append new block data to gzipbuffer */
+            if(!(hi->flags & HTTPIF_CHUNKED))
+            {  /* Non-chunked: Append all new block data to gzipbuffer */
+               long remaining_space;
+               long bytes_to_append;
+               long used_space;
+               
+               /* Calculate space used in buffer */
+               used_space = (d_stream.next_in - gzipbuffer) + d_stream.avail_in;
+               remaining_space = gzip_buffer_size - used_space;
+               
+               if(remaining_space <= 0 || hi->blocklength > remaining_space)
+               {  printf("DEBUG: Non-chunked gzip: Buffer full (remaining=%ld, block=%ld), ending\n",
+                         remaining_space, hi->blocklength);
+                  gzip_end = 1;
+                  break;
+               }
+               
+               bytes_to_append = MIN(hi->blocklength, remaining_space);
+               if(bytes_to_append > 0)
+               {  /* Move unprocessed data to start if needed */
+                  if(d_stream.next_in != gzipbuffer && d_stream.avail_in > 0)
+                  {  memmove(gzipbuffer, d_stream.next_in, d_stream.avail_in);
+                     gziplength = d_stream.avail_in;
+                  }
+                  else if(d_stream.avail_in == 0)
+                  {  gziplength = 0;
+                  }
+                  
+                  /* Append new data */
+                  if(gziplength + bytes_to_append <= gzip_buffer_size)
+                  {  memcpy(gzipbuffer + gziplength, hi->fd->block, bytes_to_append);
+                     gziplength += bytes_to_append;
+                     compressed_bytes_consumed += bytes_to_append;
+                     
+                     /* Update zlib stream */
+                     d_stream.next_in = gzipbuffer;
+                     d_stream.avail_in = gziplength;
+                     
+                     printf("DEBUG: Non-chunked gzip: Added %ld bytes from new block (total in buffer=%ld)\n",
+                            bytes_to_append, gziplength);
+                     
+                     /* Clear block */
+                     hi->blocklength = 0;
+                  }
+               }
+            }
+            /* For chunked encoding, we need to extract chunks - this is handled in the chunked+gzip section above */
+            
+            /* Add timeout protection to prevent infinite hanging */
             if(++loop_count > 200) {
                printf("DEBUG: Too many gzip input cycles, finishing\n");
                /* CRITICAL: Clean up when loop limit reached */
@@ -2409,6 +2793,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                      gzip_data_start >= 0 && gzip_data_start < hi->blocklength &&
                      (gzip_data_start + chunk_data_len) <= hi->blocklength)
                   {  memcpy(gzipbuffer + gziplength, hi->fd->block + gzip_data_start, chunk_data_len);
+                     compressed_bytes_consumed += chunk_data_len; /* Track compressed data consumed */
                   }
                   else
                   {  printf("DEBUG: CRITICAL: Invalid pointers for memcpy (gzipbuffer=%p, block=%p, gziplength=%ld, chunk_data_len=%ld, gzip_data_start=%ld, blocklength=%ld), aborting\n",
@@ -2646,17 +3031,40 @@ static BOOL Readdata(struct Httpinfo *hi)
          hi->flags &= ~HTTPIF_GZIPENCODED;
          printf("DEBUG: Gzip cleanup complete, flags after cleanup=0x%04X\n", hi->flags);
          
+         /* CRITICAL: Account for any remaining compressed data in current block */
+         if(hi->blocklength > 0)
+         {  total_compressed_read += hi->blocklength;
+            printf("DEBUG: Accounting for %ld bytes remaining in block after gzip cleanup\n", hi->blocklength);
+         }
+         
          /* CRITICAL: Reset blocklength to 0 after gzip processing is complete */
          /* This is safe because all gzip data has been processed and sent via Updatetaskattrs */
          hi->blocklength = 0;
          
          /* CRITICAL: For non-chunked gzip streams, all data has been decompressed */
-         /* Continue reading until EOF to consume any remaining compressed data */
+         /* For Content-Length responses, read exactly that much compressed data from network */
          if(!(hi->flags & HTTPIF_CHUNKED))
-         {  printf("DEBUG: Non-chunked gzip complete, discarding remaining compressed data\n");
-            while(Readblock(hi))
-            {  /* Discard remaining compressed data - it's already been decompressed */
-               hi->blocklength = 0;
+         {  if(hi->partlength > 0)
+            {  printf("DEBUG: Non-chunked gzip complete, read %ld/%ld compressed bytes from network, reading remaining\n", 
+                      total_compressed_read, hi->partlength);
+               while(total_compressed_read < hi->partlength && Readblock(hi))
+               {  long compressed_in_block;
+                  compressed_in_block = hi->blocklength;
+                  total_compressed_read += compressed_in_block;
+                  hi->blocklength = 0; /* Discard consumed compressed data */
+                  printf("DEBUG: Read %ld bytes from network, total=%ld/%ld\n", 
+                         compressed_in_block, total_compressed_read, hi->partlength);
+               }
+               printf("DEBUG: Finished reading compressed data from network: %ld/%ld bytes\n", 
+                      total_compressed_read, hi->partlength);
+            }
+            else
+            {  printf("DEBUG: Non-chunked gzip complete, no Content-Length, reading until EOF\n");
+               while(Readblock(hi))
+               {  /* Discard remaining compressed data - it's already been decompressed */
+                  total_compressed_read += hi->blocklength;
+                  hi->blocklength = 0;
+               }
             }
             /* Exit Readdata - gzip response is complete */
             result = !eof;
