@@ -287,7 +287,7 @@ static struct Chardes chars[]=
    "auml",  228,
    "bdquo", 8222,
    "brvbar",166,
-   "bull",  8226,
+   "bull",  183,  /* Latin-1 MIDDLE DOT (·) for bullet - U+00B7 */
    "ccedil",231,
    "cedil", 184,
    "cent",  162,
