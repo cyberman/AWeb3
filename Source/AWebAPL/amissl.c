@@ -44,33 +44,7 @@
 #include <openssl/err.h>
 #include <openssl/crypto.h>
 
-/* SAS/C pragmas for AmiSSL functions */
-#ifdef __SASC
-#pragma libcall AmiSSLMasterBase OpenAmiSSLTags 3c 8002
-#pragma libcall AmiSSLMasterBase CloseAmiSSL 2a 00
-#pragma libcall AmiSSLBase InitAmiSSLA 24 801
-#pragma libcall AmiSSLBase CleanupAmiSSLA 2a 801
-#pragma libcall AmiSSLBase SSL_new 1e 801
-#pragma libcall AmiSSLBase SSL_free 24 801
-#pragma libcall AmiSSLBase SSL_CTX_new 2a 801
-#pragma libcall AmiSSLBase SSL_CTX_free 30 801
-#pragma libcall AmiSSLBase SSL_set_fd 36 9802
-#pragma libcall AmiSSLBase SSL_connect 3c 801
-#pragma libcall AmiSSLBase SSL_write 42 9803
-#pragma libcall AmiSSLBase SSL_read 48 9803
-#pragma libcall AmiSSLBase SSL_get_cipher 4e 801
-#pragma libcall AmiSSLBase SSL_CTX_set_default_verify_paths 54 801
-#pragma libcall AmiSSLBase SSL_CTX_set_options 5a 9802
-#pragma libcall AmiSSLBase SSL_CTX_set_cipher_list 60 9802
-#pragma libcall AmiSSLBase SSL_CTX_set_verify 66 9803
-#pragma libcall AmiSSLBase X509_STORE_CTX_get_current_cert 6c 801
-#pragma libcall AmiSSLBase X509_STORE_CTX_get_error 72 801
-#pragma libcall AmiSSLBase X509_get_subject_name 78 801
-#pragma libcall AmiSSLBase X509_NAME_oneline 7e 9803
-#pragma libcall AmiSSLBase ERR_get_error 84 00
-#pragma libcall AmiSSLBase ERR_error_string 8a 9802
-#pragma libcall AmiSSLBase SSL_set1_host 68e8 9802
-#endif
+/* Pragma definitions are provided by <proto/amissl.h> and <proto/amisslmaster.h> */
 
 /*-----------------------------------------------------------------------*/
 
@@ -251,7 +225,15 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
          if(hostname && *hostname && assl->ssl)
          {  
             /* Set the hostname for SNI - returns 0 on success, 1 on error */
+            /* SSL_set1_host sets both certificate verification hostname and SNI */
             SSL_set1_host(assl->ssl, (char *)hostname);
+            
+            /* CRITICAL: Also explicitly set SNI using SSL_ctrl */
+            /* Some servers require explicit SNI setting even if SSL_set1_host is used */
+            /* SSL_CTRL_SET_TLSEXT_HOSTNAME = 55, TLSEXT_NAMETYPE_host_name = 0 */
+            /* This is equivalent to SSL_set_tlsext_host_name(ssl, hostname) */
+            /* Use numeric constants in case macro definitions aren't available */
+            SSL_ctrl(assl->ssl, 55L, 0L, (char *)hostname);
          }
          
          if(SSL_connect(assl->ssl)>=0)
