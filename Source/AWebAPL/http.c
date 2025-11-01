@@ -2349,8 +2349,14 @@ static BOOL Readdata(struct Httpinfo *hi)
       
       /* CRITICAL: Clean up flags if resources are already cleaned up BEFORE checking loop condition */
       /* This prevents the loop from trying to run with invalid resources */
-      if(hi->flags & HTTPIF_GZIPDECODING && (gzipbuffer == NULL || !d_stream_initialized)) {
-         printf("DEBUG: Flag is set but resources cleaned up - clearing flags to prevent crash\n");
+      /* CRITICAL: Also check if gzip_end was set, meaning gzip processing completed */
+      if(hi->flags & HTTPIF_GZIPDECODING && (gzipbuffer == NULL || !d_stream_initialized || gzip_end)) {
+         if(gzipbuffer == NULL || !d_stream_initialized) {
+            printf("DEBUG: Flag is set but resources cleaned up - clearing flags to prevent crash\n");
+         }
+         if(gzip_end) {
+            printf("DEBUG: Flag is set but gzip_end is set - clearing flags as gzip processing is complete\n");
+         }
          hi->flags &= ~HTTPIF_GZIPDECODING;
          hi->flags &= ~HTTPIF_GZIPENCODED;
       }
@@ -3195,8 +3201,16 @@ static BOOL Readdata(struct Httpinfo *hi)
    }
    
    /* CRITICAL: Force cleanup of any pending network operations to prevent exit hanging */
+   /* CRITICAL: For SSL connections, must close SSL BEFORE closing socket */
    if(hi->sock >= 0) {
       printf("DEBUG: Force closing socket to prevent exit hanging\n");
+      /* CRITICAL: If this is an SSL connection, close SSL first */
+#ifndef DEMOVERSION
+      if(hi->flags & HTTPIF_SSL && hi->assl)
+      {  printf("DEBUG: Force closing SSL connection before socket\n");
+         Assl_closessl(hi->assl);
+      }
+#endif
       /* Use AmigaOS socket close function */
       if(hi->socketbase) {
          a_close(hi->sock, hi->socketbase);
@@ -3420,6 +3434,13 @@ static BOOL Openlibraries(struct Httpinfo *hi)
    if(hi->flags&HTTPIF_SSL)
    {  
 #ifndef DEMOVERSION
+      /* CRITICAL: Each HTTPS connection must have its own dedicated Assl object */
+      /* If hi->assl already exists, clean it up first to prevent reuse */
+      if(hi->assl)
+      {  Assl_closessl(hi->assl);
+         Assl_cleanup(hi->assl);
+         hi->assl = NULL;
+      }
       if(hi->assl=Tcpopenssl(hi->socketbase))
       {  /* ok */
          /* Additional check for amisslmaster.library (AmiSSL 4+) */
@@ -3458,10 +3479,16 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
    
 #ifndef DEMOVERSION
    if(hi->flags&HTTPIF_SSL)
-   {  if(!Assl_openssl(hi->assl)) return -1;
+   {  printf("DEBUG: Opensocket: Calling Assl_openssl() before creating socket\n");
+      if(!Assl_openssl(hi->assl))
+      {  printf("DEBUG: Opensocket: Assl_openssl() failed, returning -1\n");
+         return -1;
+      }
+      printf("DEBUG: Opensocket: Assl_openssl() succeeded\n");
    }
 #endif
    sock=a_socket(hent->h_addrtype,SOCK_STREAM,0,hi->socketbase);
+   printf("DEBUG: Opensocket: Created socket %ld\n", sock);
    if(sock<0)
    {  Assl_closessl(hi->assl);
       return -1;
@@ -3497,10 +3524,48 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
    printf("DEBUG: Attempting to connect to %s:%ld (SSL=%s)\n", 
           hent->h_name, hi->port, (hi->flags&HTTPIF_SSL) ? "YES" : "NO");
    if(!a_connect(hi->sock,hent,hi->port,hi->socketbase))
-   {  printf("DEBUG: TCP connect failed\n");
+   {  /* TCP connect succeeded - a_connect returns 0 on success */
+      printf("DEBUG: TCP connect succeeded\n");
+      ok=TRUE;
+#ifndef DEMOVERSION
+      /* For SSL connections, proceed with SSL handshake */
+      if(hi->flags&HTTPIF_SSL)
+      {  hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"(NULL)";
+         printf("DEBUG: Starting SSL connection to '%s'\n", hostname_str);
+         
+         /* CRITICAL: Ensure SSL resources are valid before attempting connection */
+         if(hi->assl && hi->sock >= 0)
+         {  result=Assl_connect(hi->assl,hi->sock,hi->hostname);
+            printf("DEBUG: SSL connect result: %ld (ASSLCONNECT_OK=%d)\n", result, ASSLCONNECT_OK);
+            ok=(result==ASSLCONNECT_OK);
+            if(result==ASSLCONNECT_DENIED) hi->flags|=HTTPIF_NOSSLREQ;
+            if(!ok && !(hi->flags&HTTPIF_NOSSLREQ))
+            {  UBYTE errbuf[128],*p;
+               p=Assl_geterror(hi->assl,errbuf);
+               if(Securerequest(hi,p))
+               {  hi->flags|=HTTPIF_RETRYNOSSL;
+               }
+            }
+         }
+         else
+         {  printf("DEBUG: SSL connection aborted - invalid SSL resources (assl=%p, sock=%ld)\n",
+                   hi->assl, hi->sock);
+            ok=FALSE;
+            hi->flags|=HTTPIF_NOSSLREQ;
+         }
+      }
+#endif
+   }
+   else
+   {  /* TCP connect failed - a_connect returns non-zero on failure */
+      printf("DEBUG: TCP connect failed\n");
+      /* CRITICAL: TCP connect failed - cannot proceed with SSL or HTTP */
+      /* Set ok=FALSE to indicate connection failure */
+      ok=FALSE;
 #ifndef DEMOVERSION
       if(hi->flags&HTTPIF_SSL)
-      {  if(hi->flags&HTTPIF_SSLTUNNEL)
+      {  /* Only proceed if this is an SSL tunnel - tunnel setup uses separate connection */
+         if(hi->flags&HTTPIF_SSLTUNNEL)
          {  UBYTE *creq;
             UBYTE *p;
             long creqlen;
@@ -3543,38 +3608,45 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
                hi->flags|=HTTPIF_SSL;
                FREE(creq);
             }
-         }
-         else ok=TRUE;
-         
-         if(ok)
-         {  hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"(NULL)";
-            printf("DEBUG: Starting SSL connection to '%s'\n", hostname_str);
             
-            /* CRITICAL: Ensure SSL resources are valid before attempting connection */
-            if(hi->assl && hi->sock >= 0)
-            {  result=Assl_connect(hi->assl,hi->sock,hi->hostname);
-               printf("DEBUG: SSL connect result: %ld (ASSLCONNECT_OK=%d)\n", result, ASSLCONNECT_OK);
-               ok=(result==ASSLCONNECT_OK);
-               if(result==ASSLCONNECT_DENIED) hi->flags|=HTTPIF_NOSSLREQ;
-               if(!ok && !(hi->flags&HTTPIF_NOSSLREQ))
-               {  UBYTE errbuf[128],*p;
-                  p=Assl_geterror(hi->assl,errbuf);
-                  if(Securerequest(hi,p))
-                  {  hi->flags|=HTTPIF_RETRYNOSSL;
+            /* If tunnel setup succeeded, proceed with SSL connection */
+            if(ok)
+            {  hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"(NULL)";
+               printf("DEBUG: Starting SSL connection to '%s'\n", hostname_str);
+               
+               /* CRITICAL: Ensure SSL resources are valid before attempting connection */
+               if(hi->assl && hi->sock >= 0)
+               {  result=Assl_connect(hi->assl,hi->sock,hi->hostname);
+                  printf("DEBUG: SSL connect result: %ld (ASSLCONNECT_OK=%d)\n", result, ASSLCONNECT_OK);
+                  ok=(result==ASSLCONNECT_OK);
+                  if(result==ASSLCONNECT_DENIED) hi->flags|=HTTPIF_NOSSLREQ;
+                  if(!ok && !(hi->flags&HTTPIF_NOSSLREQ))
+                  {  UBYTE errbuf[128],*p;
+                     p=Assl_geterror(hi->assl,errbuf);
+                     if(Securerequest(hi,p))
+                     {  hi->flags|=HTTPIF_RETRYNOSSL;
+                     }
                   }
                }
+               else
+               {  printf("DEBUG: SSL connection aborted - invalid SSL resources (assl=%p, sock=%ld)\n",
+                         hi->assl, hi->sock);
+                  ok=FALSE;
+                  hi->flags|=HTTPIF_NOSSLREQ;
+               }
             }
-            else
-            {  printf("DEBUG: SSL connection aborted - invalid SSL resources (assl=%p, sock=%ld)\n",
-                      hi->assl, hi->sock);
-               ok=FALSE;
-               hi->flags|=HTTPIF_NOSSLREQ;
-            }
+         }
+         else
+         {  /* CRITICAL: For direct SSL connections, TCP connect MUST succeed first */
+            /* Cannot proceed with SSL if TCP connection failed */
+            printf("DEBUG: TCP connect failed for SSL connection - cannot proceed with SSL handshake\n");
+            ok=FALSE;
          }
       }
       else
 #endif
-      {  ok=TRUE;
+      {  /* For non-SSL connections, TCP connect failure means connection failed */
+         ok=FALSE;
       }
    }
    return ok;
@@ -3741,10 +3813,18 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
             {  Tcperror(fd,TCPERR_NOCONNECT,
                   (hi->flags&HTTPIF_SSLTUNNEL)?hi->hostport:(UBYTE *)hent->h_name);
             }
+            /* CRITICAL: Close SSL connection BEFORE closing socket */
+            /* SSL shutdown needs the socket to still be open */
             if(hi->assl)
             {  Assl_closessl(hi->assl);
+               /* CRITICAL: DON'T set hi->assl to NULL here - Assl_cleanup() will handle it */
+               /* Assl_closessl() only closes the connection, doesn't free the Assl structure */
             }
-            a_close(hi->sock,hi->socketbase);
+            /* Now safe to close socket - SSL has been properly shut down */
+            if(hi->sock >= 0)
+            {  a_close(hi->sock,hi->socketbase);
+               hi->sock = -1;
+            }
          }
          else error=TRUE;
       }
@@ -3757,8 +3837,12 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
    {  Tcperror(fd,TCPERR_NOLIB);
    }
 #ifndef DEMOVERSION
+   /* CRITICAL: Clean up Assl structure - this frees the structure itself */
+   /* Assl_closessl() already freed SSL resources, so Assl_cleanup() should only free the structure */
    if(hi->assl)
-   {  Assl_cleanup(hi->assl);
+   {  /* CRITICAL: Assl_cleanup() will free SSL resources again if they still exist */
+      /* But Assl_closessl() should have already freed them, so this should just free the struct */
+      Assl_cleanup(hi->assl);
       hi->assl=NULL;
    }
 #endif

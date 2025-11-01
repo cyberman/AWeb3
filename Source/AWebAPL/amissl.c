@@ -62,11 +62,30 @@ struct Library *AmiSSLMasterBase;
 struct Library *AmiSSLBase;
 struct Library *AmiSSLExtBase;
 
+/* Semaphore to protect OpenSSL object creation/destruction */
+/* SSL_CTX_new(), SSL_new(), SSL_free(), SSL_CTX_free() may access shared internal state */
+/* Per-connection I/O operations (SSL_read, SSL_write, SSL_connect) don't need protection */
+/* OPENSSL_init_ssl() is called once per task in Assl_initamissl(), not here */
+static struct SignalSemaphore ssl_init_sema = {0};
+
+/* Initialize SSL initialization semaphore - called once at startup */
+static void InitSSLSemaphore(void)
+{  InitSemaphore(&ssl_init_sema);
+}
+
 /*-----------------------------------------------------------------------*/
 
 struct Assl *Assl_initamissl(struct Library *socketbase)
 {  
    struct Assl *assl;
+   static BOOL sema_initialized = FALSE;
+   
+   /* Initialize semaphore on first call */
+   if(!sema_initialized)
+   {  InitSSLSemaphore();
+      sema_initialized = TRUE;
+   }
+   
    if(socketbase && (assl=ALLOCSTRUCT(Assl,1,MEMF_CLEAR)))
    {  
       /* Check if AmiSSLMaster library is already open - reuse if so */
@@ -76,6 +95,7 @@ struct Assl *Assl_initamissl(struct Library *socketbase)
          if(AmiSSLMasterBase=OpenLibrary("amisslmaster.library",AMISSLMASTER_MIN_VERSION))
          {  
             /* Use new OpenAmiSSLTags API for AmiSSL 5.20+ */
+            /* AmiSSL_InitAmiSSL defaults to TRUE, so InitAmiSSL() will be called automatically */
             if(OpenAmiSSLTags(AMISSL_CURRENT_VERSION,
                               AmiSSL_UsesOpenSSLStructs, TRUE,
                               AmiSSL_GetAmiSSLBase, &AmiSSLBase,
@@ -84,7 +104,10 @@ struct Assl *Assl_initamissl(struct Library *socketbase)
                               AmiSSL_ErrNoPtr, &errno,
                               TAG_END) == 0)
             {  
-               /* Success - libraries are now open */
+               /* Success - libraries are now open and InitAmiSSL() was called by OpenAmiSSLTags */
+               /* CRITICAL: According to AmiSSL examples, OPENSSL_init_ssl() should be called */
+               /* once per task/application. It's idempotent, so safe to call multiple times */
+               OPENSSL_init_ssl_32(OPENSSL_INIT_SSL_DEFAULT | OPENSSL_INIT_ADD_ALL_CIPHERS | OPENSSL_INIT_ADD_ALL_DIGESTS, NULL);
             }
             else
             {  
@@ -100,6 +123,24 @@ struct Assl *Assl_initamissl(struct Library *socketbase)
             PutStr("ERROR: Could not open amisslmaster.library.\n");
             Lowlevelreq("AWeb requires amisslmaster.library version 5.20 or newer for SSL/TLS connections.\nPlease install or update AmiSSL and try again.");
          }
+      }
+      else
+      {  /* Libraries already open by another task - but THIS task still needs InitAmiSSL() */
+         /* CRITICAL: Each subprocess/task MUST call InitAmiSSL() separately per AmiSSL docs */
+         /* Even though libraries are shared, each task needs its own initialization */
+         if(InitAmiSSL(AmiSSL_ErrNoPtr, &errno,
+                       AmiSSL_SocketBase, socketbase,
+                       AmiSSL_GetAmiSSLBase, &AmiSSLBase,
+                       AmiSSL_GetAmiSSLExtBase, &AmiSSLExtBase,
+                       TAG_END) != 0)
+         {  /* InitAmiSSL failed for this task */
+            PutStr("ERROR: InitAmiSSL() failed for this task.\n");
+            FREE(assl);
+            return NULL;
+         }
+         /* CRITICAL: OPENSSL_init_ssl() must be called once per task */
+         /* It's idempotent, so safe to call even if called by another task */
+         OPENSSL_init_ssl_32(OPENSSL_INIT_SSL_DEFAULT | OPENSSL_INIT_ADD_ALL_CIPHERS | OPENSSL_INIT_ADD_ALL_DIGESTS, NULL);
       }
       
       /* If libraries are open, store references in this context */
@@ -149,64 +190,178 @@ static int __saveds __stdargs
 
 __asm void Assl_cleanup(register __a0 struct Assl *assl)
 {  if(assl)
-   {  if(assl->ssl)
-      {  SSL_free(assl->ssl);
-         assl->ssl=NULL;
-      }
-      if(assl->sslctx)
-      {  SSL_CTX_free(assl->sslctx);
-         assl->sslctx=NULL;
-      }
+   {  /* Clean up ALL SSL resources for this instance */
+      /* This is called when the entire Assl structure is being destroyed */
       if(assl->amisslbase)
-      {  /* Clean up AmiSSL */
-         struct Library *AmiSSLBase=assl->amisslbase;
-         CleanupAmiSSLA(NULL);
-         AmiSSLBase = NULL;
-         AmiSSLExtBase = NULL;
+      {  struct Library *AmiSSLBase=assl->amisslbase;
+         if(assl->ssl)
+         {  SSL_free(assl->ssl);
+            assl->ssl=NULL;
+         }
+         if(assl->sslctx)
+         {  SSL_CTX_free(assl->sslctx);
+            assl->sslctx=NULL;
+         }
       }
-      if(assl->amisslmasterbase)
-      {  /* Close AmiSSL */
-         CloseAmiSSL();
-         CloseLibrary(assl->amisslmasterbase);
-         assl->amisslmasterbase = NULL;
-         AmiSSLMasterBase = NULL;
-      }
+      
+      /* CRITICAL: Do NOT close global libraries here - they may be in use by other instances */
+      /* The global AmiSSLMasterBase and AmiSSLBase are shared across all SSL connections */
+      /* Only clear the local references, but don't close the libraries */
+      /* Libraries will be cleaned up at program exit by the OS if still open */
+      assl->amisslbase = NULL;
+      assl->amisslmasterbase = NULL;
+      assl->amissslextbase = NULL;
+      
       FREE(assl);
    }
 }
 
 __asm BOOL Assl_openssl(register __a0 struct Assl *assl)
-{  if(assl && assl->amisslbase)
+{  BOOL result=FALSE;
+   if(assl && assl->amisslbase)
    {  struct Library *AmiSSLBase=assl->amisslbase;
-      /* Modern OpenSSL doesn't need these deprecated functions */
-      /* SSLeay_add_ssl_algorithms(); */
-      /* SSL_load_error_strings(); */
+      
+      /* CRITICAL: Protect entire SSL context/object creation with semaphore */
+      /* SSL_CTX_new() and SSL_new() access shared OpenSSL internal state */
+      /* Even though each connection gets its own objects, creation must be serialized */
+      ObtainSemaphore(&ssl_init_sema);
+      
+      /* CRITICAL: OPENSSL_init_ssl() is now called once per task in Assl_initamissl() */
+      /* It should NOT be called here per connection - that's the bug! */
+      
+      /* CRITICAL: SSL context must be created fresh for each connection */
+      /* Do NOT reuse SSL contexts - they are NOT thread-safe for concurrent use */
+      /* CRITICAL: This function must ONLY be called on a clean Assl object */
+      /* If sslctx or ssl already exist, that indicates a bug - the Assl is still in use */
+      /* Each HTTPS connection must have its own dedicated Assl object */
+      if(assl->sslctx || assl->ssl)
+      {  printf("ERROR: Assl_openssl called on Assl that already has SSL objects (sslctx=%p, ssl=%p)\n",
+                assl->sslctx, assl->ssl);
+         printf("ERROR: This indicates the Assl object is being reused or is still in use by another task\n");
+         printf("ERROR: Each HTTPS connection must have its own dedicated Assl object\n");
+         /* CRITICAL: Do NOT free existing objects - they may be in use by another task */
+         /* Return failure to indicate this is an error condition */
+         ReleaseSemaphore(&ssl_init_sema);
+         return FALSE;
+      }
+      
+      /* Create new SSL context for this connection */
+      /* CRITICAL: SSL_CTX_new() accesses shared OpenSSL state - must be serialized */
+      printf("DEBUG: Assl_openssl: Creating new SSL context\n");
       if(assl->sslctx=SSL_CTX_new(TLS_client_method()))
-      {  SSL_CTX_set_default_verify_paths(assl->sslctx);
+      {  printf("DEBUG: Assl_openssl: SSL context created successfully\n");
+         /* Set default certificate verification paths */
+         SSL_CTX_set_default_verify_paths(assl->sslctx);
+         
          /* Enhanced security: disable weak protocols and ciphers */
          SSL_CTX_set_options(assl->sslctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3);
+         
+         /* Set cipher list to strong ciphers only */
          SSL_CTX_set_cipher_list(assl->sslctx,"HIGH:!aNULL:!eNULL:!EXPORT:!DES:!3DES:!MD5:!PSK@STRENGTH");
+         
+         /* Set certificate verification callback */
          SSL_CTX_set_verify(assl->sslctx,SSL_VERIFY_FAIL_IF_NO_PEER_CERT,Certcallback);
+      }
+      else
+      {  printf("DEBUG: Assl_openssl: Failed to create SSL context\n");
+      }
+      
+      /* CRITICAL: Reset denied flag for new connection */
+      assl->denied=FALSE;
+      
+      /* Create new SSL object from context for this connection */
+      /* CRITICAL: SSL_new() accesses shared OpenSSL state - must be serialized */
+      if(assl->sslctx)
+      {  printf("DEBUG: Assl_openssl: Creating new SSL object from context\n");
          if(assl->ssl=SSL_new(assl->sslctx))
-         {  Settaskuserdata(assl);
+         {  printf("DEBUG: Assl_openssl: SSL object created successfully\n");
+            /* Store assl pointer for use in certificate callback */
+            Settaskuserdata(assl);
+         }
+         else
+         {  printf("DEBUG: Assl_openssl: Failed to create SSL object\n");
          }
       }
+      else
+      {  printf("DEBUG: Assl_openssl: Cannot create SSL object - no SSL context\n");
+      }
+      
+      /* Set result based on success */
+      result = (BOOL)(assl->sslctx && assl->ssl);
+      
+      /* CRITICAL: Release semaphore after all SSL object creation is complete */
+      ReleaseSemaphore(&ssl_init_sema);
    }
-   return (BOOL)(assl && assl->ssl);
+   else
+   {  printf("DEBUG: Assl_openssl: Invalid parameters (assl=%p, amisslbase=%p)\n",
+             assl, assl ? assl->amisslbase : NULL);
+      result = FALSE;
+   }
+   
+   return result;
 }
 
 __asm void Assl_closessl(register __a0 struct Assl *assl)
 {  if(assl && assl->amisslbase)
    {  struct Library *AmiSSLBase=assl->amisslbase;
+      /* CRITICAL: Properly shutdown SSL before freeing to prevent corruption */
+      /* MUST shutdown SSL connection BEFORE freeing SSL object */
+      /* SSL_free() and SSL_CTX_free() may access shared OpenSSL state during cleanup */
+      printf("DEBUG: Assl_closessl: Closing SSL connection\n");
+      
+      /* CRITICAL: Protect SSL cleanup with semaphore */
+      /* SSL_free() and SSL_CTX_free() may access shared internal structures */
+      ObtainSemaphore(&ssl_init_sema);
+      
+      /* CRITICAL: Shutdown SSL connection gracefully before freeing */
+      /* This ensures SSL is properly disconnected from socket */
       if(assl->ssl)
-      {  /* SSL_Shutdown(assl->ssl); */
-         SSL_free(assl->ssl);
-         assl->ssl=NULL;
+      {  /* Validate pointer is reasonable before use */
+         if((ULONG)assl->ssl >= 0x1000 && (ULONG)assl->ssl < 0xFFFFFFF0)
+         {  /* Attempt graceful shutdown - SSL_shutdown may need to be called twice */
+            /* First call sends close_notify, second call waits for peer's close_notify */
+            /* For simplicity, we try once and ignore errors if socket is already closed */
+            printf("DEBUG: Assl_closessl: Attempting SSL shutdown\n");
+            SSL_shutdown(assl->ssl);  /* Ignore return value - socket may already be closed */
+            
+            printf("DEBUG: Assl_closessl: Freeing SSL object at %p\n", assl->ssl);
+            /* CRITICAL: SSL_free() will automatically detach socket and clean up */
+            SSL_free(assl->ssl);
+            assl->ssl=NULL;
+         }
+         else
+         {  printf("DEBUG: Assl_closessl: Invalid SSL object pointer (%p), clearing reference\n", assl->ssl);
+            assl->ssl=NULL;
+         }
       }
+      else
+      {  printf("DEBUG: Assl_closessl: No SSL object to free\n");
+      }
+      
+      /* CRITICAL: Free SSL context AFTER SSL object is freed */
+      /* Context can only be safely freed after all SSL objects using it are freed */
       if(assl->sslctx)
-      {  SSL_CTX_free(assl->sslctx);
-         assl->sslctx=NULL;
+      {  /* Validate pointer is reasonable before freeing */
+         if((ULONG)assl->sslctx >= 0x1000 && (ULONG)assl->sslctx < 0xFFFFFFF0)
+         {  printf("DEBUG: Assl_closessl: Freeing SSL context at %p\n", assl->sslctx);
+            SSL_CTX_free(assl->sslctx);
+            assl->sslctx=NULL;
+         }
+         else
+         {  printf("DEBUG: Assl_closessl: Invalid SSL context pointer (%p), clearing reference\n", assl->sslctx);
+            assl->sslctx=NULL;
+         }
       }
+      else
+      {  printf("DEBUG: Assl_closessl: No SSL context to free\n");
+      }
+      
+      /* CRITICAL: Release semaphore after cleanup is complete */
+      ReleaseSemaphore(&ssl_init_sema);
+   }
+   else
+   {  printf("DEBUG: Assl_closessl: Invalid parameters (assl=%p, amisslbase=%p)\n",
+             assl, assl ? assl->amisslbase : NULL);
    }
 }
 
@@ -214,35 +369,95 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
    register __d0 long sock,
    register __a1 UBYTE *hostname)
 {  long result=ASSLCONNECT_FAIL;
-   if(assl && assl->amisslbase && assl->ssl && sock>=0)
+   /* CRITICAL: Validate all pointers and structures before use */
+   if(assl && assl->amisslbase && assl->sslctx && assl->ssl && sock>=0)
    {  struct Library *AmiSSLBase=assl->amisslbase;
+      
+      /* CRITICAL: Validate SSL context and SSL object pointers are reasonable */
+      if((ULONG)assl->sslctx < 0x1000 || (ULONG)assl->sslctx >= 0xFFFFFFF0 ||
+         (ULONG)assl->ssl < 0x1000 || (ULONG)assl->ssl >= 0xFFFFFFF0)
+      {  /* Invalid pointers - return failure */
+         printf("DEBUG: Assl_connect: Invalid SSL pointer (sslctx=%p, ssl=%p)\n", assl->sslctx, assl->ssl);
+         return ASSLCONNECT_FAIL;
+      }
+      
       assl->hostname=hostname;
-      if(SSL_set_fd(assl->ssl,sock))
+      
+      /* CRITICAL: Validate socket descriptor is valid before use */
+      if(SSL_set_fd(assl->ssl,sock) == 0)
+      {  /* SSL_set_fd failed - SSL object might be invalid */
+         printf("DEBUG: Assl_connect: SSL_set_fd failed (sock=%ld)\n", sock);
+         return ASSLCONNECT_FAIL;
+      }
+      
+      /* Set Server Name Indication (SNI) for TLS handshake */
+      /* This is required for modern HTTPS servers that host multiple domains on one IP */
+      if(hostname && *hostname)
       {  
-         /* Set Server Name Indication (SNI) for TLS handshake */
-         /* This is required for modern HTTPS servers */
-         /* SSL_set1_host is the recommended OpenSSL 1.1.0+ function for SNI */
-         if(hostname && *hostname && assl->ssl)
-         {  
-            /* Set the hostname for SNI - returns 0 on success, 1 on error */
-            /* SSL_set1_host sets both certificate verification hostname and SNI */
-            SSL_set1_host(assl->ssl, (char *)hostname);
-            
-            /* CRITICAL: Also explicitly set SNI using SSL_ctrl */
-            /* Some servers require explicit SNI setting even if SSL_set1_host is used */
-            /* SSL_CTRL_SET_TLSEXT_HOSTNAME = 55, TLSEXT_NAMETYPE_host_name = 0 */
-            /* This is equivalent to SSL_set_tlsext_host_name(ssl, hostname) */
-            /* Use numeric constants in case macro definitions aren't available */
-            SSL_ctrl(assl->ssl, 55L, 0L, (char *)hostname);
+         /* Validate hostname pointer is reasonable before dereferencing */
+         if((ULONG)hostname < 0x1000 || (ULONG)hostname >= 0xFFFFFFF0)
+         {  /* Invalid hostname pointer - skip SNI but continue connection */
+            printf("DEBUG: Assl_connect: Invalid hostname pointer (%p), skipping SNI\n", hostname);
          }
-         
-         if(SSL_connect(assl->ssl)>=0)
-         {  result=ASSLCONNECT_OK;
-         }
-         else if(assl->denied)
-         {  result=ASSLCONNECT_DENIED;
+         else
+         {  /* Validate hostname length before use */
+            long hostname_len;
+            hostname_len = strlen((char *)hostname);
+            if(hostname_len > 0 && hostname_len < 256)
+            {  /* CRITICAL: Use SSL_set_tlsext_host_name() as per AmiSSL example */
+               /* This is the proper way to set SNI in OpenSSL 3.x */
+               SSL_set_tlsext_host_name(assl->ssl, (char *)hostname);
+               printf("DEBUG: Assl_connect: Set SNI hostname to '%s'\n", hostname);
+            }
+            else
+            {  printf("DEBUG: Assl_connect: Invalid hostname length (%ld), skipping SNI\n", hostname_len);
+            }
          }
       }
+      else
+      {  printf("DEBUG: Assl_connect: No hostname provided, skipping SNI\n");
+      }
+      
+      /* Perform SSL/TLS handshake */
+      /* SSL_connect() returns:
+       *   1 = handshake completed successfully
+       *   0 = handshake not completed, needs more I/O (error)
+       *  <0 = error occurred
+       */
+      /* CRITICAL: SSL_connect() operates on a unique SSL object per connection */
+      /* OpenSSL 3.x is thread-safe when each connection has its own SSL object */
+      /* No semaphore needed - concurrent SSL_connect() on different connections is safe */
+      {  long ssl_result;
+         printf("DEBUG: Assl_connect: Calling SSL_connect()...\n");
+         
+         ssl_result = SSL_connect(assl->ssl);
+         
+         printf("DEBUG: Assl_connect: SSL_connect() returned %ld\n", ssl_result);
+         if(ssl_result == 1)
+         {  /* Handshake completed successfully */
+            result=ASSLCONNECT_OK;
+            printf("DEBUG: Assl_connect: SSL handshake successful\n");
+         }
+         else if(assl->denied)
+         {  /* Certificate was denied by user */
+            result=ASSLCONNECT_DENIED;
+            printf("DEBUG: Assl_connect: SSL certificate denied by user\n");
+         }
+         else
+         {  /* Handshake failed - get error details */
+            long ssl_error;
+            ssl_error = SSL_get_error(assl->ssl, ssl_result);
+            printf("DEBUG: Assl_connect: SSL_connect failed, SSL_get_error returned %ld\n", ssl_error);
+            /* If error is SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE, */
+            /* it means more I/O is needed, which shouldn't happen with blocking sockets */
+            /* For now, treat any non-success as failure */
+            result=ASSLCONNECT_FAIL;
+         }
+      }
+   }
+   else
+   {  printf("DEBUG: Assl_connect: Invalid parameters (assl=%p, amisslbase=%p, sslctx=%p, ssl=%p, sock=%ld)\n",
+             assl, assl ? assl->amisslbase : NULL, assl ? assl->sslctx : NULL, assl ? assl->ssl : NULL, sock);
    }
    return result;
 }
@@ -282,9 +497,24 @@ __asm long Assl_write(register __a0 struct Assl *assl,
    register __a1 char *buffer,
    register __d0 long length)
 {  long result=-1;
-   if(assl && assl->amisslbase && assl->ssl && buffer && length>0)
+   /* CRITICAL: Validate all pointers and SSL resources before use */
+   if(assl && assl->amisslbase && assl->ssl && assl->sslctx && buffer && length>0)
    {  struct Library *AmiSSLBase=assl->amisslbase;
-      result=SSL_write(assl->ssl,buffer,length);
+      /* CRITICAL: Validate SSL object pointer is reasonable */
+      if((ULONG)assl->ssl >= 0x1000 && (ULONG)assl->ssl < 0xFFFFFFF0 &&
+         (ULONG)assl->sslctx >= 0x1000 && (ULONG)assl->sslctx < 0xFFFFFFF0)
+      {  /* CRITICAL: SSL_write() operates on a unique SSL object per connection */
+         /* OpenSSL 3.x is thread-safe when each connection has its own SSL object */
+         /* No semaphore needed - concurrent writes on different connections are safe */
+         result=SSL_write(assl->ssl,buffer,length);
+      }
+      else
+      {  printf("DEBUG: Assl_write: Invalid SSL pointer (ssl=%p, sslctx=%p)\n", assl->ssl, assl->sslctx);
+      }
+   }
+   else
+   {  printf("DEBUG: Assl_write: Invalid parameters (assl=%p, amisslbase=%p, ssl=%p, sslctx=%p, buffer=%p, length=%ld)\n",
+             assl, assl ? assl->amisslbase : NULL, assl ? assl->ssl : NULL, assl ? assl->sslctx : NULL, buffer, length);
    }
    return result;
 }
@@ -293,9 +523,24 @@ __asm long Assl_read(register __a0 struct Assl *assl,
    register __a1 char *buffer,
    register __d0 long length)
 {  long result=-1;
-   if(assl && assl->amisslbase && assl->ssl && buffer && length>0)
+   /* CRITICAL: Validate all pointers and SSL resources before use */
+   if(assl && assl->amisslbase && assl->ssl && assl->sslctx && buffer && length>0)
    {  struct Library *AmiSSLBase=assl->amisslbase;
-      result=SSL_read(assl->ssl,buffer,length);
+      /* CRITICAL: Validate SSL object pointer is reasonable */
+      if((ULONG)assl->ssl >= 0x1000 && (ULONG)assl->ssl < 0xFFFFFFF0 &&
+         (ULONG)assl->sslctx >= 0x1000 && (ULONG)assl->sslctx < 0xFFFFFFF0)
+      {  /* CRITICAL: SSL_read() operates on a unique SSL object per connection */
+         /* OpenSSL 3.x is thread-safe when each connection has its own SSL object */
+         /* No semaphore needed - concurrent reads on different connections are safe */
+         result=SSL_read(assl->ssl,buffer,length);
+      }
+      else
+      {  printf("DEBUG: Assl_read: Invalid SSL pointer (ssl=%p, sslctx=%p)\n", assl->ssl, assl->sslctx);
+      }
+   }
+   else
+   {  printf("DEBUG: Assl_read: Invalid parameters (assl=%p, amisslbase=%p, ssl=%p, sslctx=%p, buffer=%p, length=%ld)\n",
+             assl, assl ? assl->amisslbase : NULL, assl ? assl->ssl : NULL, assl ? assl->sslctx : NULL, buffer, length);
    }
    return result;
 }
