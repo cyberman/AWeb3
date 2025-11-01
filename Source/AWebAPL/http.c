@@ -50,6 +50,11 @@
 /* The proto header declares it as extern, so we need to provide the actual definition */
 struct Library *SocketBase;
 
+/* CRITICAL: Shared debug logging semaphore - defined here, used by http.c and amissl.c */
+/* This must be non-static so it can be shared between compilation units */
+struct SignalSemaphore debug_log_sema;
+BOOL debug_log_sema_initialized = FALSE;
+
 #ifndef LOCALONLY
 
 struct Httpinfo
@@ -143,8 +148,7 @@ struct Certaccept
 
 static LIST(Certaccept) certaccepts;
 static struct SignalSemaphore certsema;
-static struct SignalSemaphore debug_log_sema;
-static BOOL debug_log_sema_initialized = FALSE;
+/* debug_log_sema is now defined above as a shared global */
 
 /*-----------------------------------------------------------------------*/
 
@@ -867,6 +871,15 @@ static BOOL Readdata(struct Httpinfo *hi)
                if(data_after_chunk < 10)
                {  debug_printf("DEBUG: Chunked+gzip: Not enough data yet (only %ld bytes after chunk header), waiting for more chunks\n", data_after_chunk);
                   /* Don't start gzip yet - wait for more data */
+                  /* CRITICAL: Must read more data before continuing, otherwise infinite loop */
+                  if(!Readblock(hi))
+                  {  /* No more data available - this shouldn't happen if gzip is encoded */
+                     debug_printf("DEBUG: Chunked+gzip: No more data available, disabling gzip\n");
+                     hi->flags &= ~HTTPIF_GZIPENCODED;
+                     hi->flags &= ~HTTPIF_GZIPDECODING;
+                     continue;
+                  }
+                  /* Data read, continue loop to process new data */
                   continue;
                }
                else
@@ -3538,16 +3551,23 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
    
    /* CRITICAL: Set global SocketBase for setsockopt() from proto/bsdsocket.h */
    /* The proto header expects SocketBase to be available, so we set it to hi->socketbase */
-   SocketBase = hi->socketbase;
-   
-   /* Set receive timeout - CRITICAL: This prevents SSL_connect() from hanging indefinitely */
-   if(setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
-   {  /* Timeout setting failed, but continue */
-   }
-   
-   /* Set send timeout - CRITICAL: This prevents SSL_connect() from hanging indefinitely */
-   if(setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
-   {  /* Timeout setting failed, but continue */
+   /* CRITICAL: Save and restore SocketBase to avoid race conditions with concurrent tasks */
+   {  struct Library *saved_socketbase_opensocket;
+      saved_socketbase_opensocket = SocketBase;
+      SocketBase = hi->socketbase;
+      
+      /* Set receive timeout - CRITICAL: This prevents SSL_connect() from hanging indefinitely */
+      if(setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
+      {  /* Timeout setting failed, but continue */
+      }
+      
+      /* Set send timeout - CRITICAL: This prevents SSL_connect() from hanging indefinitely */
+      if(setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
+      {  /* Timeout setting failed, but continue */
+      }
+      
+      /* CRITICAL: Restore SocketBase immediately after setsockopt() */
+      SocketBase = saved_socketbase_opensocket;
    }
    return sock;
 }
@@ -3587,8 +3607,8 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
          }
          /* CRITICAL: Ensure SSL resources are valid before attempting connection */
          else if(hi->assl && hi->sock >= 0)
-         {  /* CRITICAL: Set SocketBase before calling Assl_connect() for non-blocking I/O */
-            SocketBase = hi->socketbase;
+         {  /* CRITICAL: Assl_connect() now handles SocketBase internally via per-connection socketbase */
+            /* No need to set global SocketBase here - it's stored in the Assl struct to avoid race conditions */
             result=Assl_connect(hi->assl,hi->sock,hi->hostname);
             debug_printf("DEBUG: SSL connect result: %ld (ASSLCONNECT_OK=%d)\n", result, ASSLCONNECT_OK);
             ok=(result==ASSLCONNECT_OK);

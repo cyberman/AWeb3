@@ -48,6 +48,11 @@
 /* CRITICAL: SocketBase must be declared for IoctlSocket() and WaitSelect() */
 /* This is defined in http.c but we need it here too for SSL operations */
 extern struct Library *SocketBase;
+
+/* CRITICAL: Shared debug logging semaphore - defined in http.c, declared here */
+/* This ensures both http.c and amissl.c use the same semaphore for thread-safe logging */
+extern struct SignalSemaphore debug_log_sema;
+extern BOOL debug_log_sema_initialized;
 #include <amissl/amissl.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -62,6 +67,7 @@ struct Assl
 {  struct Library *amisslmasterbase;
    struct Library *amisslbase;
    struct Library *amissslextbase;
+   struct Library *socketbase;  /* CRITICAL: Store socketbase per-connection to avoid race condition with global SocketBase */
    SSL_CTX *sslctx;
    SSL *ssl;
    UBYTE *hostname;
@@ -80,15 +86,13 @@ struct Library *AmiSSLExtBase;
 /* OPENSSL_init_ssl() is called once per task in Assl_initamissl(), not here */
 static struct SignalSemaphore ssl_init_sema = {0};
 
-/* Semaphore for thread-safe debug logging */
-static struct SignalSemaphore debug_log_sema;
-static BOOL debug_log_sema_initialized = FALSE;
+/* Semaphore for thread-safe debug logging - shared with http.c via extern declaration */
 
 /* Initialize SSL initialization semaphore - called once at startup */
 static void InitSSLSemaphore(void)
 {  InitSemaphore(&ssl_init_sema);
-   InitSemaphore(&debug_log_sema);
-   debug_log_sema_initialized = TRUE;
+   /* NOTE: debug_log_sema is initialized in Inithttp() in http.c, not here */
+   /* We just use it here via the extern declaration */
 }
 
 /* Thread-safe debug logging wrapper */
@@ -122,7 +126,9 @@ struct Assl *Assl_initamissl(struct Library *socketbase)
    }
    
    if(socketbase && (assl=ALLOCSTRUCT(Assl,1,MEMF_CLEAR)))
-   {  /* CRITICAL: Initialize per-object semaphore FIRST, before any other operations */
+   {  /* CRITICAL: Store socketbase in Assl struct to avoid race condition with global SocketBase */
+      assl->socketbase = socketbase;
+      /* CRITICAL: Initialize per-object semaphore FIRST, before any other operations */
       /* This must be done even if library initialization fails, to prevent bus errors */
       InitSemaphore(&assl->use_sema);
       assl->closed = FALSE;
@@ -473,6 +479,8 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
    register __d0 long sock,
    register __a1 UBYTE *hostname)
 {  long result=ASSLCONNECT_FAIL;
+   struct Library *saved_socketbase = NULL;  /* CRITICAL: Save global SocketBase at function start for restoration */
+   
    /* CRITICAL: Validate assl pointer before accessing semaphore field */
    if(assl)
    {  /* CRITICAL: Validate assl pointer range before accessing semaphore */
@@ -480,6 +488,9 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
       {  debug_printf("DEBUG: Assl_connect: Invalid Assl pointer (%p)\n", assl);
          return ASSLCONNECT_FAIL;
       }
+      
+      /* CRITICAL: Save global SocketBase at start - we'll restore it at all exit points */
+      saved_socketbase = SocketBase;
       
       /* CRITICAL: Obtain per-object semaphore to protect against cleanup */
       /* This prevents Assl_closessl() from freeing SSL objects while we're using them */
@@ -496,6 +507,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
             (ULONG)assl->ssl < 0x1000 || (ULONG)assl->ssl >= 0xFFFFFFF0)
          {  /* Invalid pointers - return failure */
             debug_printf("DEBUG: Assl_connect: Invalid SSL pointer (sslctx=%p, ssl=%p)\n", assl->sslctx, assl->ssl);
+            SocketBase = saved_socketbase;  /* CRITICAL: Restore SocketBase before releasing semaphore */
             ReleaseSemaphore(&assl->use_sema);
             return ASSLCONNECT_FAIL;
          }
@@ -506,6 +518,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
          if(SSL_set_fd(assl->ssl,sock) == 0)
          {  /* SSL_set_fd failed - SSL object might be invalid */
             debug_printf("DEBUG: Assl_connect: SSL_set_fd failed (sock=%ld)\n", sock);
+            SocketBase = saved_socketbase;  /* CRITICAL: Restore SocketBase before releasing semaphore */
             ReleaseSemaphore(&assl->use_sema);
             return ASSLCONNECT_FAIL;
          }
@@ -555,7 +568,11 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
             
             /* CRITICAL: Get current socket blocking mode and set to non-blocking */
             /* This allows us to use WaitSelect() for timeout control */
-            /* CRITICAL: IoctlSocket() takes 3 arguments: (sock, req, argp) - SocketBase is global */
+            /* CRITICAL: Use per-connection socketbase instead of global SocketBase to avoid race conditions */
+            /* CRITICAL: Set global SocketBase temporarily for IoctlSocket() which requires it */
+            /* Since we hold use_sema, other tasks won't be modifying this Assl object, but they might change global SocketBase */
+            /* NOTE: saved_socketbase was already saved at function entry */
+            SocketBase = assl->socketbase;
             if(SocketBase && IoctlSocket(sock, FIONBIO, (char *)&nonblock) == 0)
             {  socket_is_nonblocking = TRUE;
                debug_printf("DEBUG: Assl_connect: Socket set to non-blocking mode\n");
@@ -563,14 +580,42 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
             else
             {  debug_printf("DEBUG: Assl_connect: Failed to set socket to non-blocking, using blocking mode\n");
             }
+            /* Restore saved SocketBase - each task will set its own when needed */
+            SocketBase = saved_socketbase;
             
             /* Get start time for timeout calculation */
             /* CRITICAL: GetSysTime() expects struct timeval (TimeVal_Type) */
+            /* NOTE: assl pointer was already validated at function entry, so this check is defensive */
+            if(!assl || (ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0)
+            {  debug_printf("DEBUG: Assl_connect: Invalid assl pointer after non-blocking setup (%p)\n", assl);
+               /* Restore socket blocking mode if needed */
+               if(socket_is_nonblocking && SocketBase)
+               {  ULONG nonblock_restore = 0;
+                  IoctlSocket(sock, FIONBIO, (char *)&nonblock_restore);
+               }
+               /* NOTE: Cannot release semaphore if assl is invalid, but we already hold it */
+               /* This should not happen since assl was validated at entry, but handle gracefully */
+               if(assl && (ULONG)assl >= 0x1000 && (ULONG)assl < 0xFFFFFFF0)
+               {  ReleaseSemaphore(&assl->use_sema);
+               }
+               return ASSLCONNECT_FAIL;
+            }
+            
+            debug_printf("DEBUG: Assl_connect: Getting start time for timeout calculation\n");
             GetSysTime(&start_time);
+            debug_printf("DEBUG: Assl_connect: Start time obtained, entering SSL handshake loop\n");
             
             /* Attempt SSL handshake with timeout loop */
             while(!handshake_complete && !assl->closed)
-            {  /* Check for task break before attempting handshake */
+            {  /* CRITICAL: Re-validate pointers before each iteration */
+               if(!assl || !assl->ssl || !assl->sslctx || !assl->amisslbase)
+               {  debug_printf("DEBUG: Assl_connect: Invalid pointers in handshake loop (assl=%p, ssl=%p, sslctx=%p, amisslbase=%p)\n",
+                          assl, assl ? assl->ssl : NULL, assl ? assl->sslctx : NULL, assl ? assl->amisslbase : NULL);
+                  result=ASSLCONNECT_FAIL;
+                  break;
+               }
+               
+               /* Check for task break before attempting handshake */
                if(Checktaskbreak())
                {  debug_printf("DEBUG: Assl_connect: Task break detected, aborting SSL handshake\n");
                   result=ASSLCONNECT_FAIL;
@@ -578,13 +623,71 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
                }
                
                /* Attempt SSL handshake */
+               /* CRITICAL: Validate SSL object and socket one more time immediately before SSL_connect() */
+               if(!assl->ssl || (ULONG)assl->ssl < 0x1000 || (ULONG)assl->ssl >= 0xFFFFFFF0)
+               {  debug_printf("DEBUG: Assl_connect: SSL object invalid right before SSL_connect() (ssl=%p)\n", assl->ssl);
+                  result=ASSLCONNECT_FAIL;
+                  SocketBase = saved_socketbase;  /* CRITICAL: Restore SocketBase before breaking */
+                  break;
+               }
+               if(sock < 0)
+               {  debug_printf("DEBUG: Assl_connect: Invalid socket descriptor (sock=%ld)\n", sock);
+                  result=ASSLCONNECT_FAIL;
+                  SocketBase = saved_socketbase;  /* CRITICAL: Restore SocketBase before breaking */
+                  break;
+               }
+               
+               debug_printf("DEBUG: Assl_connect: Calling SSL_connect() (attempt in loop, ssl=%p, sock=%ld)\n", assl->ssl, sock);
+               
+               /* CRITICAL: Final validation immediately before SSL_connect() */
+               /* Validate all critical structures one more time to catch any corruption */
+               if(!assl || !assl->amisslbase || !assl->sslctx || !assl->ssl)
+               {  debug_printf("DEBUG: Assl_connect: Critical pointers became invalid just before SSL_connect() (assl=%p, amisslbase=%p, sslctx=%p, ssl=%p)\n",
+                          assl, assl ? assl->amisslbase : NULL, assl ? assl->sslctx : NULL, assl ? assl->ssl : NULL);
+                  result=ASSLCONNECT_FAIL;
+                  SocketBase = saved_socketbase;
+                  break;
+               }
+               
+               /* CRITICAL: Validate SSL object pointer range one more time */
+               if((ULONG)assl->ssl < 0x1000 || (ULONG)assl->ssl >= 0xFFFFFFF0 ||
+                  (ULONG)assl->sslctx < 0x1000 || (ULONG)assl->sslctx >= 0xFFFFFFF0)
+               {  debug_printf("DEBUG: Assl_connect: SSL pointers out of valid range just before SSL_connect() (ssl=%p, sslctx=%p)\n",
+                          assl->ssl, assl->sslctx);
+                  result=ASSLCONNECT_FAIL;
+                  SocketBase = saved_socketbase;
+                  break;
+               }
+               
+               /* CRITICAL: Validate socket descriptor is still valid */
+               if(sock < 0 || sock > 1000)
+               {  debug_printf("DEBUG: Assl_connect: Socket descriptor invalid just before SSL_connect() (sock=%ld)\n", sock);
+                  result=ASSLCONNECT_FAIL;
+                  SocketBase = saved_socketbase;
+                  break;
+               }
+               
+               /* CRITICAL: SSL_connect() can crash if SSL object or socket is invalid */
+               /* We hold the semaphore, so no other task should free assl->ssl, but validate after call */
+               /* NOTE: If this crashes, it's likely an OpenSSL/AmiSSL library bug */
                ssl_result = SSL_connect(assl->ssl);
+               
+               /* CRITICAL: Validate SSL object is still valid after SSL_connect() */
+               if(!assl || !assl->ssl || (ULONG)assl->ssl < 0x1000 || (ULONG)assl->ssl >= 0xFFFFFFF0)
+               {  debug_printf("DEBUG: Assl_connect: SSL object became invalid during SSL_connect() (assl=%p, ssl=%p)\n", assl, assl ? assl->ssl : NULL);
+                  result=ASSLCONNECT_FAIL;
+                  SocketBase = saved_socketbase;  /* CRITICAL: Restore SocketBase before breaking */
+                  break;
+               }
+               
+               debug_printf("DEBUG: Assl_connect: SSL_connect() returned %ld\n", ssl_result);
                
                if(ssl_result == 1)
                {  /* Handshake completed successfully */
                   result=ASSLCONNECT_OK;
                   handshake_complete = TRUE;
                   debug_printf("DEBUG: Assl_connect: SSL handshake successful\n");
+                  SocketBase = saved_socketbase;  /* CRITICAL: Restore SocketBase before breaking */
                   break;
                }
                
@@ -593,6 +696,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
                {  result=ASSLCONNECT_DENIED;
                   handshake_complete = TRUE;
                   debug_printf("DEBUG: Assl_connect: SSL certificate denied by user\n");
+                  SocketBase = saved_socketbase;  /* CRITICAL: Restore SocketBase before breaking */
                   break;
                }
                
@@ -602,14 +706,17 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
                /* Check if we need more I/O */
                if(ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE)
                {  /* SSL needs more I/O - wait for socket to be ready */
+                  struct Library *saved_socketbase_wait;  /* CRITICAL: C89 - declare at start of block */
+                  ULONG elapsed_secs;
+                  
                   /* CRITICAL: Check timeout */
                   GetSysTime(&current_time);
                   /* Calculate elapsed time in seconds */
-                  {  ULONG elapsed_secs;
-                     elapsed_secs = current_time.tv_secs - start_time.tv_secs;
+                  {  elapsed_secs = current_time.tv_secs - start_time.tv_secs;
                      if(elapsed_secs >= (ULONG)timeout_seconds)
                      {  debug_printf("DEBUG: Assl_connect: SSL handshake timeout after %ld seconds\n", timeout_seconds);
                         result=ASSLCONNECT_FAIL;
+                        SocketBase = saved_socketbase;  /* CRITICAL: Restore SocketBase before breaking */
                         break;
                      }
                   }
@@ -630,8 +737,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
                   FD_SET(sock, &exceptfds);
                   
                   /* Calculate remaining timeout */
-                  {  ULONG elapsed_secs;
-                     elapsed_secs = current_time.tv_secs - start_time.tv_secs;
+                  {  elapsed_secs = current_time.tv_secs - start_time.tv_secs;
                      if(elapsed_secs >= (ULONG)timeout_seconds)
                      {  timeout.tv_sec = 0;
                         timeout.tv_micro = 100000;  /* 0.1 second minimum */
@@ -643,16 +749,21 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
                   }
                   
                   /* Wait for socket to be ready with timeout */
-                  /* CRITICAL: SocketBase must be set by caller before calling Assl_connect() */
-                  if(!SocketBase)
-                  {  debug_printf("DEBUG: Assl_connect: SocketBase not set, aborting\n");
+                  /* CRITICAL: Use per-connection socketbase - already set above */
+                  if(!assl->socketbase)
+                  {  debug_printf("DEBUG: Assl_connect: socketbase not set in Assl struct, aborting\n");
                      result=ASSLCONNECT_FAIL;
+                     SocketBase = saved_socketbase;  /* CRITICAL: Restore SocketBase before breaking */
                      break;
                   }
+                  /* CRITICAL: Set global SocketBase for WaitSelect() - save and restore to avoid race conditions */
+                  saved_socketbase_wait = SocketBase;
+                  SocketBase = assl->socketbase;
                   
                   /* Check for task break before waiting */
                   if(Checktaskbreak())
                   {  debug_printf("DEBUG: Assl_connect: Task break detected before WaitSelect, aborting\n");
+                     SocketBase = saved_socketbase;  /* CRITICAL: Restore function-level SocketBase before breaking */
                      result=ASSLCONNECT_FAIL;
                      break;
                   }
@@ -669,6 +780,9 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
                      /* WaitSelect with timeout - break signal (Ctrl+C) is automatically handled */
                      wait_result = WaitSelect(sock + 1, &readfds, &writefds, &exceptfds, &timeout, &signals);
                      
+                     /* CRITICAL: Restore SocketBase immediately after WaitSelect() */
+                     SocketBase = saved_socketbase_wait;
+                     
                      /* CRITICAL: Check errno for EINTR when WaitSelect returns -1 (break signal) */
                      /* Per SDK docs: When break signal received, WaitSelect returns -1 with EINTR */
                      /* The signals mask is UNDEFINED when -1 is returned, so we check errno instead */
@@ -680,6 +794,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
                            if(Checktaskbreak())
                            {  debug_printf("DEBUG: Assl_connect: Task break detected, aborting SSL handshake\n");
                               result=ASSLCONNECT_FAIL;
+                              SocketBase = saved_socketbase;  /* CRITICAL: Restore SocketBase before breaking */
                               break;
                            }
                            /* Continue loop to retry - break signal might be transient */
@@ -692,6 +807,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
                            if(Checktaskbreak())
                            {  debug_printf("DEBUG: Assl_connect: Task break detected, aborting\n");
                               result=ASSLCONNECT_FAIL;
+                              SocketBase = saved_socketbase;  /* CRITICAL: Restore SocketBase before breaking */
                               break;
                            }
                            /* Continue loop to retry - transient errors can occur */
@@ -703,6 +819,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
                      if(assl->closed || !assl->amisslbase || !assl->sslctx || !assl->ssl)
                      {  debug_printf("DEBUG: Assl_connect: SSL object closed during WaitSelect, aborting\n");
                         result=ASSLCONNECT_FAIL;
+                        SocketBase = saved_socketbase;  /* CRITICAL: Restore SocketBase before breaking */
                         break;
                      }
                      
@@ -714,6 +831,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
                            if(elapsed_secs >= (ULONG)timeout_seconds)
                            {  debug_printf("DEBUG: Assl_connect: WaitSelect timeout, SSL handshake timed out\n");
                               result=ASSLCONNECT_FAIL;
+                              SocketBase = saved_socketbase;  /* CRITICAL: Restore SocketBase before breaking */
                               break;
                            }
                            else
@@ -723,6 +841,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
                               if(Checktaskbreak())
                               {  debug_printf("DEBUG: Assl_connect: Task break detected, aborting\n");
                                  result=ASSLCONNECT_FAIL;
+                                 SocketBase = saved_socketbase;  /* CRITICAL: Restore SocketBase before breaking */
                                  break;
                               }
                               /* Continue loop to retry */
@@ -736,6 +855,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
                         {  /* Socket has exception condition - connection failed */
                            debug_printf("DEBUG: Assl_connect: Socket exception detected, handshake failed\n");
                            result=ASSLCONNECT_FAIL;
+                           SocketBase = saved_socketbase;  /* CRITICAL: Restore SocketBase before breaking */
                            break;
                         }
                         /* Socket is ready - semaphore still held, continue to retry SSL_connect() */
@@ -747,25 +867,57 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
                }
                else
                {  /* SSL error that's not WANT_READ/WANT_WRITE - handshake failed */
-                  debug_printf("DEBUG: Assl_connect: SSL_connect failed, SSL_get_error returned %ld\n", ssl_error);
+                  /* CRITICAL: For SSL_ERROR_SYSCALL, check errno for underlying system error */
+                  if(ssl_error == SSL_ERROR_SYSCALL)
+                  {  long errno_value = errno;
+                     debug_printf("DEBUG: Assl_connect: SSL_connect failed with SSL_ERROR_SYSCALL (errno=%ld)\n", errno_value);
+                     /* Common causes: connection reset, network unreachable, timeout, etc. */
+                     if(errno_value == ECONNRESET)
+                     {  debug_printf("DEBUG: Assl_connect: Connection reset by peer\n");
+                     }
+                     else if(errno_value == ETIMEDOUT)
+                     {  debug_printf("DEBUG: Assl_connect: Connection timeout\n");
+                     }
+                     else if(errno_value == ECONNREFUSED)
+                     {  debug_printf("DEBUG: Assl_connect: Connection refused\n");
+                     }
+                     else if(errno_value == ENETUNREACH)
+                     {  debug_printf("DEBUG: Assl_connect: Network unreachable\n");
+                     }
+                  }
+                  else
+                  {  debug_printf("DEBUG: Assl_connect: SSL_connect failed, SSL_get_error returned %ld\n", ssl_error);
+                  }
                   result=ASSLCONNECT_FAIL;
+                  SocketBase = saved_socketbase;  /* CRITICAL: Restore SocketBase before breaking */
                   break;
                }
             }
             
             /* CRITICAL: Restore socket blocking mode if we changed it */
-            if(socket_is_nonblocking && SocketBase)
-            {  nonblock = 0;
+            /* CRITICAL: SocketBase should already be restored from WaitSelect(), but ensure it's restored */
+            if(socket_is_nonblocking && assl->socketbase)
+            {  /* CRITICAL: Set global SocketBase temporarily for IoctlSocket() */
+               struct Library *saved_socketbase_restore = SocketBase;
+               SocketBase = assl->socketbase;
+               nonblock = 0;
                if(IoctlSocket(sock, FIONBIO, (char *)&nonblock) == 0)
                {  debug_printf("DEBUG: Assl_connect: Socket restored to blocking mode\n");
                }
+               SocketBase = saved_socketbase_restore;  /* Restore */
             }
+            /* CRITICAL: Ensure SocketBase is restored (defensive - should already be restored) */
+            SocketBase = saved_socketbase;
          }
       }
       else
       {  debug_printf("DEBUG: Assl_connect: Invalid parameters or already closed (assl=%p, amisslbase=%p, sslctx=%p, ssl=%p, sock=%ld, closed=%d)\n",
                 assl, assl ? assl->amisslbase : NULL, assl ? assl->sslctx : NULL, assl ? assl->ssl : NULL, sock, assl ? assl->closed : -1);
       }
+      
+      /* CRITICAL: Always restore SocketBase before releasing semaphore and returning */
+      /* This ensures we don't leave SocketBase in an inconsistent state */
+      SocketBase = saved_socketbase;
       
       /* CRITICAL: Always release semaphore before returning */
       ReleaseSemaphore(&assl->use_sema);
@@ -926,7 +1078,7 @@ __asm long Assl_read(register __a0 struct Assl *assl,
          /* CRITICAL: Validate SSL object pointer is reasonable */
          if((ULONG)assl->ssl >= 0x1000 && (ULONG)assl->ssl < 0xFFFFFFF0 &&
             (ULONG)assl->sslctx >= 0x1000 && (ULONG)assl->sslctx < 0xFFFFFFF0)
-         {  /* CRITICAL: SSL_read() operates on a unique SSL object per connection */
+         {              /* CRITICAL: SSL_read() operates on a unique SSL object per connection */
             /* OpenSSL 3.x is thread-safe when each connection has its own SSL object */
             /* CRITICAL: Keep semaphore held during I/O to prevent cleanup from freeing SSL object */
             /* This serializes operations on the SAME connection, but different connections are independent */
