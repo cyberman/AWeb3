@@ -69,6 +69,7 @@
 #pragma libcall AmiSSLBase X509_NAME_oneline 7e 9803
 #pragma libcall AmiSSLBase ERR_get_error 84 00
 #pragma libcall AmiSSLBase ERR_error_string 8a 9802
+#pragma libcall AmiSSLBase SSL_set1_host 68e8 9802
 #endif
 
 /*-----------------------------------------------------------------------*/
@@ -94,41 +95,50 @@ struct Assl *Assl_initamissl(struct Library *socketbase)
    struct Assl *assl;
    if(socketbase && (assl=ALLOCSTRUCT(Assl,1,MEMF_CLEAR)))
    {  
-      /* Open AmiSSLMaster library first */
-      if(AmiSSLMasterBase=assl->amisslmasterbase=OpenLibrary("amisslmaster.library",AMISSLMASTER_MIN_VERSION))
-      {  
-         /* Use new OpenAmiSSLTags API for AmiSSL 5.20+ */
-         if(OpenAmiSSLTags(AMISSL_CURRENT_VERSION,
-                           AmiSSL_UsesOpenSSLStructs, TRUE,
-                           AmiSSL_GetAmiSSLBase, &AmiSSLBase,
-                           AmiSSL_GetAmiSSLExtBase, &AmiSSLExtBase,
-                           AmiSSL_SocketBase, socketbase,
-                           AmiSSL_ErrNoPtr, &errno,
-                           TAG_END) == 0)
+      /* Check if AmiSSLMaster library is already open - reuse if so */
+      if(!AmiSSLMasterBase)
+      {
+         /* Open AmiSSLMaster library first */
+         if(AmiSSLMasterBase=OpenLibrary("amisslmaster.library",AMISSLMASTER_MIN_VERSION))
          {  
-            /* Success - store the library bases */
-            assl->amisslbase = AmiSSLBase;
-            assl->amissslextbase = AmiSSLExtBase;
-            
-            PutStr("DEBUG: AmiSSL 5.20+ initialized successfully\n");
+            /* Use new OpenAmiSSLTags API for AmiSSL 5.20+ */
+            if(OpenAmiSSLTags(AMISSL_CURRENT_VERSION,
+                              AmiSSL_UsesOpenSSLStructs, TRUE,
+                              AmiSSL_GetAmiSSLBase, &AmiSSLBase,
+                              AmiSSL_GetAmiSSLExtBase, &AmiSSLExtBase,
+                              AmiSSL_SocketBase, socketbase,
+                              AmiSSL_ErrNoPtr, &errno,
+                              TAG_END) == 0)
+            {  
+               /* Success - libraries are now open */
+            }
+            else
+            {  
+               /* OpenAmiSSLTags failed */
+               PutStr("ERROR: OpenAmiSSLTags() failed.\n");
+               Lowlevelreq("AWeb could not initialize AmiSSL 5.20+.\nPlease check your AmiSSL installation and try again.");
+               CloseLibrary(AmiSSLMasterBase);
+               AmiSSLMasterBase = NULL;
+            }
          }
          else
          {  
-            /* OpenAmiSSLTags failed */
-            PutStr("ERROR: OpenAmiSSLTags() failed.\n");
-            Lowlevelreq("AWeb could not initialize AmiSSL 5.20+.\nPlease check your AmiSSL installation and try again.");
-            CloseLibrary(AmiSSLMasterBase);
-            assl->amisslmasterbase = NULL;
+            PutStr("ERROR: Could not open amisslmaster.library.\n");
+            Lowlevelreq("AWeb requires amisslmaster.library version 5.20 or newer for SSL/TLS connections.\nPlease install or update AmiSSL and try again.");
          }
+      }
+      
+      /* If libraries are open, store references in this context */
+      if(AmiSSLMasterBase && AmiSSLBase)
+      {
+         assl->amisslmasterbase = AmiSSLMasterBase;
+         assl->amisslbase = AmiSSLBase;
+         assl->amissslextbase = AmiSSLExtBase;
       }
       else
       {  
-         PutStr("ERROR: Could not open amisslmaster.library.\n");
-         Lowlevelreq("AWeb requires amisslmaster.library version 5.20 or newer for SSL/TLS connections.\nPlease install or update AmiSSL and try again.");
-      }
-      
-      if(!assl->amisslbase)
-      {  FREE(assl);
+         /* Libraries failed to open */
+         FREE(assl);
          assl=NULL;
       }
    }
@@ -234,7 +244,17 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
    {  struct Library *AmiSSLBase=assl->amisslbase;
       assl->hostname=hostname;
       if(SSL_set_fd(assl->ssl,sock))
-      {  if(SSL_connect(assl->ssl)>=0)
+      {  
+         /* Set Server Name Indication (SNI) for TLS handshake */
+         /* This is required for modern HTTPS servers */
+         /* SSL_set1_host is the recommended OpenSSL 1.1.0+ function for SNI */
+         if(hostname && *hostname && assl->ssl)
+         {  
+            /* Set the hostname for SNI - returns 0 on success, 1 on error */
+            SSL_set1_host(assl->ssl, (char *)hostname);
+         }
+         
+         if(SSL_connect(assl->ssl)>=0)
          {  result=ASSLCONNECT_OK;
          }
          else if(assl->denied)

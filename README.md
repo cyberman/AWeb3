@@ -10,17 +10,17 @@ This is AWeb 3 APL open source version, an HTML 3 web browser for Amiga.
 
 *Minds awaken, free*
 
-**amigazen project** uses modern software development tools and methods to update and rerelease classic Amiga open source software. Our releases include this new AWeb, a new Amiga Python 2, and the ToolKit project - a universal SDK for Amiga.
+**amigazen project** uses modern software development tools and methods to update and rerelease classic Amiga open source software. Projects include a new AWeb, a new Amiga Python 2, and the ToolKit project - a universal SDK for Amiga.
 
-Key to our approach is ensuring every project can be built with the same common set of development tools and configurations, so we created the ToolKit project to provide a standard configuration for Amiga development. All *amigazen project* releases will be guaranteed to build against the ToolKit standard so that anyone can download and begin contributing straightaway without having to tailor the toolchain for their own setup.
+Key to the amigazen project approach is ensuring every project can be built with the same common set of development tools and configurations, so the ToolKit project was created to provide a standard configuration for Amiga development. All *amigazen project* releases will be guaranteed to build against the ToolKit standard so that anyone can download and begin contributing straightaway without having to tailor the toolchain for their own setup.
 
 The original authors of the *AWeb* software are not affiliated with the amigazen project. This software is redistributed on terms described in the documentation, particularly the file LICENSE or LICENSE.md
 
-Our philosophy is based on openness:
+The amigazen project philosophy philosophy is based on openness:
 
 *Open* to anyone and everyone	- *Open* source and free for all	- *Open* your mind and create!
 
-PRs for all of our projects are gratefully received at [GitHub](https://github.com/amigazen/). While our focus now is on classic 68k software, we do intend that all amigazen project releases can be ported to other Amiga-like systems including AROS and MorphOS where feasible.
+PRs for all projects are gratefully received at [GitHub](https://github.com/amigazen/). While the focus now is on classic 68k software, it is intended that all amigazen project releases can be ported to other Amiga-like systems including AROS and MorphOS where feasible.
 
 ## About AWeb 3
 
@@ -41,6 +41,11 @@ The roadmap for AWeb 3 under amigazen project is, for now:
 ### AWeb 3.6
 
 - Stable re-release of AWeb 3.4 functionality built against ReAction, Roadshow (with INet225 support disabled), P96 (replacing no longer supported Cybergraphics libraries), AmiSSL 5 and NDK3.2
+- Cherry pick of the most important patches from the various 3.5 releases found in the wild, where code is available
+- Add GZip compression support
+- Update to AmiSSL 5.20
+- Refresh icons
+- Change inconsistent names AWeb-II, AWeb3: and AWebPath: to simply "AWeb"
 
 ### AWeb 3.7
 
@@ -50,7 +55,7 @@ The roadmap for AWeb 3 under amigazen project is, for now:
 
 ### Future releases
 
-- Wait and see! We have some exciting developments in mind
+- Wait and see! 
 
 ## About ToolKit
 
