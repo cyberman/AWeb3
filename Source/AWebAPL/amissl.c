@@ -43,6 +43,7 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/crypto.h>
+#include <stdarg.h>
 
 /* Pragma definitions are provided by <proto/amissl.h> and <proto/amisslmaster.h> */
 
@@ -70,9 +71,32 @@ struct Library *AmiSSLExtBase;
 /* OPENSSL_init_ssl() is called once per task in Assl_initamissl(), not here */
 static struct SignalSemaphore ssl_init_sema = {0};
 
+/* Semaphore for thread-safe debug logging */
+static struct SignalSemaphore debug_log_sema;
+static BOOL debug_log_sema_initialized = FALSE;
+
 /* Initialize SSL initialization semaphore - called once at startup */
 static void InitSSLSemaphore(void)
 {  InitSemaphore(&ssl_init_sema);
+   InitSemaphore(&debug_log_sema);
+   debug_log_sema_initialized = TRUE;
+}
+
+/* Thread-safe debug logging wrapper */
+static void debug_printf(const char *format, ...)
+{  va_list args;
+   
+   if(debug_log_sema_initialized)
+   {  ObtainSemaphore(&debug_log_sema);
+   }
+   
+   va_start(args, format);
+   vprintf(format, args);
+   va_end(args);
+   
+   if(debug_log_sema_initialized)
+   {  ReleaseSemaphore(&debug_log_sema);
+   }
 }
 
 /*-----------------------------------------------------------------------*/
@@ -210,7 +234,7 @@ __asm void Assl_cleanup(register __a0 struct Assl *assl)
 {  if(assl)
    {  /* CRITICAL: Validate assl pointer before accessing semaphore field */
       if((ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0)
-      {  printf("DEBUG: Assl_cleanup: Invalid Assl pointer (%p), skipping\n", assl);
+      {  debug_printf("DEBUG: Assl_cleanup: Invalid Assl pointer (%p), skipping\n", assl);
          return;
       }
       
@@ -281,9 +305,9 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl)
       
       /* Create new SSL context for this connection */
       /* CRITICAL: SSL_CTX_new() accesses shared OpenSSL state - must be serialized */
-      printf("DEBUG: Assl_openssl: Creating new SSL context\n");
+      debug_printf("DEBUG: Assl_openssl: Creating new SSL context\n");
       if(assl->sslctx=SSL_CTX_new(TLS_client_method()))
-      {  printf("DEBUG: Assl_openssl: SSL context created successfully\n");
+      {  debug_printf("DEBUG: Assl_openssl: SSL context created successfully\n");
          /* Set default certificate verification paths */
          SSL_CTX_set_default_verify_paths(assl->sslctx);
          
@@ -297,7 +321,7 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl)
          SSL_CTX_set_verify(assl->sslctx,SSL_VERIFY_FAIL_IF_NO_PEER_CERT,Certcallback);
       }
       else
-      {  printf("DEBUG: Assl_openssl: Failed to create SSL context\n");
+      {  debug_printf("DEBUG: Assl_openssl: Failed to create SSL context\n");
       }
       
       /* CRITICAL: Reset denied flag and closed flag for new connection */
@@ -307,18 +331,18 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl)
       /* Create new SSL object from context for this connection */
       /* CRITICAL: SSL_new() accesses shared OpenSSL state - must be serialized */
       if(assl->sslctx)
-      {  printf("DEBUG: Assl_openssl: Creating new SSL object from context\n");
+      {  debug_printf("DEBUG: Assl_openssl: Creating new SSL object from context\n");
          if(assl->ssl=SSL_new(assl->sslctx))
-         {  printf("DEBUG: Assl_openssl: SSL object created successfully\n");
+         {  debug_printf("DEBUG: Assl_openssl: SSL object created successfully\n");
             /* Store assl pointer for use in certificate callback */
             Settaskuserdata(assl);
          }
          else
-         {  printf("DEBUG: Assl_openssl: Failed to create SSL object\n");
+         {  debug_printf("DEBUG: Assl_openssl: Failed to create SSL object\n");
          }
       }
       else
-      {  printf("DEBUG: Assl_openssl: Cannot create SSL object - no SSL context\n");
+      {  debug_printf("DEBUG: Assl_openssl: Cannot create SSL object - no SSL context\n");
       }
       
       /* Set result based on success */
@@ -328,7 +352,7 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl)
       ReleaseSemaphore(&ssl_init_sema);
    }
    else
-   {  printf("DEBUG: Assl_openssl: Invalid parameters (assl=%p, amisslbase=%p)\n",
+   {  debug_printf("DEBUG: Assl_openssl: Invalid parameters (assl=%p, amisslbase=%p)\n",
              assl, assl ? assl->amisslbase : NULL);
       result = FALSE;
    }
@@ -341,7 +365,7 @@ __asm void Assl_closessl(register __a0 struct Assl *assl)
    {  struct Library *AmiSSLBase;
       /* CRITICAL: Validate Assl structure pointer is reasonable before accessing fields */
       if((ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0)
-      {  printf("DEBUG: Assl_closessl: Invalid Assl pointer (%p), skipping\n", assl);
+      {  debug_printf("DEBUG: Assl_closessl: Invalid Assl pointer (%p), skipping\n", assl);
          return;
       }
       
@@ -354,7 +378,7 @@ __asm void Assl_closessl(register __a0 struct Assl *assl)
       /* CRITICAL: Validate amisslbase pointer is reasonable after obtaining semaphore */
       /* This ensures we have the lock before checking if cleanup is needed */
       if(!assl->amisslbase || (ULONG)assl->amisslbase < 0x1000 || (ULONG)assl->amisslbase >= 0xFFFFFFF0)
-      {  printf("DEBUG: Assl_closessl: Invalid amisslbase pointer (%p), releasing semaphore and skipping\n", assl->amisslbase);
+      {  debug_printf("DEBUG: Assl_closessl: Invalid amisslbase pointer (%p), releasing semaphore and skipping\n", assl->amisslbase);
          ReleaseSemaphore(&assl->use_sema);
          return;
       }
@@ -364,7 +388,7 @@ __asm void Assl_closessl(register __a0 struct Assl *assl)
       /* CRITICAL: Make this function idempotent - safe to call multiple times */
       /* If already closed, just return without doing anything */
       if(assl->closed)
-      {  printf("DEBUG: Assl_closessl: SSL connection already closed, skipping\n");
+      {  debug_printf("DEBUG: Assl_closessl: SSL connection already closed, skipping\n");
          ReleaseSemaphore(&assl->use_sema);
          return;
       }
@@ -372,7 +396,7 @@ __asm void Assl_closessl(register __a0 struct Assl *assl)
       /* CRITICAL: Properly shutdown SSL before freeing to prevent corruption */
       /* MUST shutdown SSL connection BEFORE freeing SSL object */
       /* SSL_free() and SSL_CTX_free() may access shared OpenSSL state during cleanup */
-      printf("DEBUG: Assl_closessl: Closing SSL connection\n");
+      debug_printf("DEBUG: Assl_closessl: Closing SSL connection\n");
       
       /* CRITICAL: Mark as closed BEFORE freeing to prevent any further use */
       assl->closed = TRUE;
@@ -389,21 +413,21 @@ __asm void Assl_closessl(register __a0 struct Assl *assl)
          {  /* Attempt graceful shutdown - SSL_shutdown may need to be called twice */
             /* First call sends close_notify, second call waits for peer's close_notify */
             /* For simplicity, we try once and ignore errors if socket is already closed */
-            printf("DEBUG: Assl_closessl: Attempting SSL shutdown\n");
+            debug_printf("DEBUG: Assl_closessl: Attempting SSL shutdown\n");
             SSL_shutdown(assl->ssl);  /* Ignore return value - socket may already be closed */
             
-            printf("DEBUG: Assl_closessl: Freeing SSL object at %p\n", assl->ssl);
+            debug_printf("DEBUG: Assl_closessl: Freeing SSL object at %p\n", assl->ssl);
             /* CRITICAL: SSL_free() will automatically detach socket and clean up */
             SSL_free(assl->ssl);
             assl->ssl=NULL;
          }
          else
-         {  printf("DEBUG: Assl_closessl: Invalid SSL object pointer (%p), clearing reference\n", assl->ssl);
+         {  debug_printf("DEBUG: Assl_closessl: Invalid SSL object pointer (%p), clearing reference\n", assl->ssl);
             assl->ssl=NULL;
          }
       }
       else
-      {  printf("DEBUG: Assl_closessl: No SSL object to free\n");
+      {  debug_printf("DEBUG: Assl_closessl: No SSL object to free\n");
       }
       
       /* CRITICAL: Free SSL context AFTER SSL object is freed */
@@ -411,17 +435,17 @@ __asm void Assl_closessl(register __a0 struct Assl *assl)
       if(assl->sslctx)
       {  /* Validate pointer is reasonable before freeing */
          if((ULONG)assl->sslctx >= 0x1000 && (ULONG)assl->sslctx < 0xFFFFFFF0)
-         {  printf("DEBUG: Assl_closessl: Freeing SSL context at %p\n", assl->sslctx);
+         {  debug_printf("DEBUG: Assl_closessl: Freeing SSL context at %p\n", assl->sslctx);
             SSL_CTX_free(assl->sslctx);
             assl->sslctx=NULL;
          }
          else
-         {  printf("DEBUG: Assl_closessl: Invalid SSL context pointer (%p), clearing reference\n", assl->sslctx);
+         {  debug_printf("DEBUG: Assl_closessl: Invalid SSL context pointer (%p), clearing reference\n", assl->sslctx);
             assl->sslctx=NULL;
          }
       }
       else
-      {  printf("DEBUG: Assl_closessl: No SSL context to free\n");
+      {  debug_printf("DEBUG: Assl_closessl: No SSL context to free\n");
       }
       
       /* CRITICAL: Release global semaphore after cleanup is complete */
@@ -431,7 +455,7 @@ __asm void Assl_closessl(register __a0 struct Assl *assl)
       ReleaseSemaphore(&assl->use_sema);
    }
    else
-   {  printf("DEBUG: Assl_closessl: Invalid parameters (assl=%p, amisslbase=%p)\n",
+   {  debug_printf("DEBUG: Assl_closessl: Invalid parameters (assl=%p, amisslbase=%p)\n",
              assl, assl ? assl->amisslbase : NULL);
    }
 }
@@ -444,7 +468,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
    if(assl)
    {  /* CRITICAL: Validate assl pointer range before accessing semaphore */
       if((ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0)
-      {  printf("DEBUG: Assl_connect: Invalid Assl pointer (%p)\n", assl);
+      {  debug_printf("DEBUG: Assl_connect: Invalid Assl pointer (%p)\n", assl);
          return ASSLCONNECT_FAIL;
       }
       
@@ -462,7 +486,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
          if((ULONG)assl->sslctx < 0x1000 || (ULONG)assl->sslctx >= 0xFFFFFFF0 ||
             (ULONG)assl->ssl < 0x1000 || (ULONG)assl->ssl >= 0xFFFFFFF0)
          {  /* Invalid pointers - return failure */
-            printf("DEBUG: Assl_connect: Invalid SSL pointer (sslctx=%p, ssl=%p)\n", assl->sslctx, assl->ssl);
+            debug_printf("DEBUG: Assl_connect: Invalid SSL pointer (sslctx=%p, ssl=%p)\n", assl->sslctx, assl->ssl);
             ReleaseSemaphore(&assl->use_sema);
             return ASSLCONNECT_FAIL;
          }
@@ -472,7 +496,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
          /* CRITICAL: Validate socket descriptor is valid before use */
          if(SSL_set_fd(assl->ssl,sock) == 0)
          {  /* SSL_set_fd failed - SSL object might be invalid */
-            printf("DEBUG: Assl_connect: SSL_set_fd failed (sock=%ld)\n", sock);
+            debug_printf("DEBUG: Assl_connect: SSL_set_fd failed (sock=%ld)\n", sock);
             ReleaseSemaphore(&assl->use_sema);
             return ASSLCONNECT_FAIL;
          }
@@ -484,7 +508,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
             /* Validate hostname pointer is reasonable before dereferencing */
             if((ULONG)hostname < 0x1000 || (ULONG)hostname >= 0xFFFFFFF0)
             {  /* Invalid hostname pointer - skip SNI but continue connection */
-               printf("DEBUG: Assl_connect: Invalid hostname pointer (%p), skipping SNI\n", hostname);
+               debug_printf("DEBUG: Assl_connect: Invalid hostname pointer (%p), skipping SNI\n", hostname);
             }
             else
             {  /* Validate hostname length before use */
@@ -494,15 +518,15 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
                {  /* CRITICAL: Use SSL_set_tlsext_host_name() as per AmiSSL example */
                   /* This is the proper way to set SNI in OpenSSL 3.x */
                   SSL_set_tlsext_host_name(assl->ssl, (char *)hostname);
-                  printf("DEBUG: Assl_connect: Set SNI hostname to '%s'\n", hostname);
+                  debug_printf("DEBUG: Assl_connect: Set SNI hostname to '%s'\n", hostname);
                }
                else
-               {  printf("DEBUG: Assl_connect: Invalid hostname length (%ld), skipping SNI\n", hostname_len);
+               {  debug_printf("DEBUG: Assl_connect: Invalid hostname length (%ld), skipping SNI\n", hostname_len);
                }
             }
          }
          else
-         {  printf("DEBUG: Assl_connect: No hostname provided, skipping SNI\n");
+         {  debug_printf("DEBUG: Assl_connect: No hostname provided, skipping SNI\n");
          }
          
          /* Perform SSL/TLS handshake */
@@ -516,26 +540,26 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
          /* CRITICAL: Keep semaphore held during SSL_connect() to prevent cleanup from freeing SSL object */
          /* This ensures Assl_closessl() will wait until the handshake completes */
          {  long ssl_result;
-            printf("DEBUG: Assl_connect: Calling SSL_connect()...\n");
+            debug_printf("DEBUG: Assl_connect: Calling SSL_connect()...\n");
             
             ssl_result = SSL_connect(assl->ssl);
             
-            printf("DEBUG: Assl_connect: SSL_connect() returned %ld\n", ssl_result);
+            debug_printf("DEBUG: Assl_connect: SSL_connect() returned %ld\n", ssl_result);
             if(ssl_result == 1)
             {  /* Handshake completed successfully */
                result=ASSLCONNECT_OK;
-               printf("DEBUG: Assl_connect: SSL handshake successful\n");
+               debug_printf("DEBUG: Assl_connect: SSL handshake successful\n");
             }
             else if(assl->denied)
             {  /* Certificate was denied by user */
                result=ASSLCONNECT_DENIED;
-               printf("DEBUG: Assl_connect: SSL certificate denied by user\n");
+               debug_printf("DEBUG: Assl_connect: SSL certificate denied by user\n");
             }
             else
             {  /* Handshake failed - get error details */
                long ssl_error;
                ssl_error = SSL_get_error(assl->ssl, ssl_result);
-               printf("DEBUG: Assl_connect: SSL_connect failed, SSL_get_error returned %ld\n", ssl_error);
+               debug_printf("DEBUG: Assl_connect: SSL_connect failed, SSL_get_error returned %ld\n", ssl_error);
                /* If error is SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE, */
                /* it means more I/O is needed, which shouldn't happen with blocking sockets */
                /* For now, treat any non-success as failure */
@@ -544,7 +568,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
          }
       }
       else
-      {  printf("DEBUG: Assl_connect: Invalid parameters or already closed (assl=%p, amisslbase=%p, sslctx=%p, ssl=%p, sock=%ld, closed=%d)\n",
+      {  debug_printf("DEBUG: Assl_connect: Invalid parameters or already closed (assl=%p, amisslbase=%p, sslctx=%p, ssl=%p, sock=%ld, closed=%d)\n",
                 assl, assl ? assl->amisslbase : NULL, assl ? assl->sslctx : NULL, assl ? assl->ssl : NULL, sock, assl ? assl->closed : -1);
       }
       
@@ -552,7 +576,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
       ReleaseSemaphore(&assl->use_sema);
    }
    else
-   {  printf("DEBUG: Assl_connect: Invalid Assl pointer (%p)\n", assl);
+   {  debug_printf("DEBUG: Assl_connect: Invalid Assl pointer (%p)\n", assl);
    }
    return result;
 }
@@ -621,7 +645,7 @@ __asm long Assl_write(register __a0 struct Assl *assl,
    if(assl && buffer && length>0)
    {  /* CRITICAL: Validate assl pointer before accessing semaphore field */
       if((ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0)
-      {  printf("DEBUG: Assl_write: Invalid Assl pointer (%p)\n", assl);
+      {  debug_printf("DEBUG: Assl_write: Invalid Assl pointer (%p)\n", assl);
          return -1;
       }
       
@@ -632,7 +656,7 @@ __asm long Assl_write(register __a0 struct Assl *assl,
       
       /* CRITICAL: Validate amisslbase after obtaining semaphore */
       if(!assl->amisslbase || (ULONG)assl->amisslbase < 0x1000 || (ULONG)assl->amisslbase >= 0xFFFFFFF0)
-      {  printf("DEBUG: Assl_write: Invalid amisslbase pointer (%p), releasing semaphore\n", assl->amisslbase);
+      {  debug_printf("DEBUG: Assl_write: Invalid amisslbase pointer (%p), releasing semaphore\n", assl->amisslbase);
          ReleaseSemaphore(&assl->use_sema);
          return -1;
       }
@@ -653,24 +677,24 @@ __asm long Assl_write(register __a0 struct Assl *assl,
             return result;  /* Return immediately after I/O completes */
          }
          else
-         {  printf("DEBUG: Assl_write: Invalid SSL pointer (ssl=%p, sslctx=%p)\n", assl->ssl, assl->sslctx);
+         {  debug_printf("DEBUG: Assl_write: Invalid SSL pointer (ssl=%p, sslctx=%p)\n", assl->ssl, assl->sslctx);
             ReleaseSemaphore(&assl->use_sema);
          }
       }
       else if(assl->closed)
       {  /* SSL connection has been closed - return error */
-         printf("DEBUG: Assl_write: SSL connection already closed\n");
+         debug_printf("DEBUG: Assl_write: SSL connection already closed\n");
          ReleaseSemaphore(&assl->use_sema);
          result = -1;  /* Return error to indicate connection closed */
       }
       else
-      {  printf("DEBUG: Assl_write: SSL objects not available (ssl=%p, sslctx=%p, closed=%d)\n",
+      {  debug_printf("DEBUG: Assl_write: SSL objects not available (ssl=%p, sslctx=%p, closed=%d)\n",
                 assl->ssl, assl->sslctx, assl->closed);
          ReleaseSemaphore(&assl->use_sema);
       }
    }
    else
-   {  printf("DEBUG: Assl_write: Invalid parameters (assl=%p, amisslbase=%p, buffer=%p, length=%ld)\n",
+   {  debug_printf("DEBUG: Assl_write: Invalid parameters (assl=%p, amisslbase=%p, buffer=%p, length=%ld)\n",
              assl, assl ? assl->amisslbase : NULL, buffer, length);
    }
    return result;
@@ -684,7 +708,7 @@ __asm long Assl_read(register __a0 struct Assl *assl,
    if(assl && buffer && length>0)
    {  /* CRITICAL: Validate assl pointer before accessing semaphore field */
       if((ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0)
-      {  printf("DEBUG: Assl_read: Invalid Assl pointer (%p)\n", assl);
+      {  debug_printf("DEBUG: Assl_read: Invalid Assl pointer (%p)\n", assl);
          return -1;
       }
       
@@ -695,7 +719,7 @@ __asm long Assl_read(register __a0 struct Assl *assl,
       
       /* CRITICAL: Validate amisslbase after obtaining semaphore */
       if(!assl->amisslbase || (ULONG)assl->amisslbase < 0x1000 || (ULONG)assl->amisslbase >= 0xFFFFFFF0)
-      {  printf("DEBUG: Assl_read: Invalid amisslbase pointer (%p), releasing semaphore\n", assl->amisslbase);
+      {  debug_printf("DEBUG: Assl_read: Invalid amisslbase pointer (%p), releasing semaphore\n", assl->amisslbase);
          ReleaseSemaphore(&assl->use_sema);
          return -1;
       }
@@ -716,24 +740,24 @@ __asm long Assl_read(register __a0 struct Assl *assl,
             return result;  /* Return immediately after I/O completes */
          }
          else
-         {  printf("DEBUG: Assl_read: Invalid SSL pointer (ssl=%p, sslctx=%p)\n", assl->ssl, assl->sslctx);
+         {  debug_printf("DEBUG: Assl_read: Invalid SSL pointer (ssl=%p, sslctx=%p)\n", assl->ssl, assl->sslctx);
             ReleaseSemaphore(&assl->use_sema);
          }
       }
       else if(assl->closed)
       {  /* SSL connection has been closed - return error to indicate connection closed */
-         printf("DEBUG: Assl_read: SSL connection already closed\n");
+         debug_printf("DEBUG: Assl_read: SSL connection already closed\n");
          ReleaseSemaphore(&assl->use_sema);
          result = 0;  /* Return 0 to indicate EOF/connection closed */
       }
       else
-      {  printf("DEBUG: Assl_read: SSL objects not available (ssl=%p, sslctx=%p, closed=%d)\n",
+      {  debug_printf("DEBUG: Assl_read: SSL objects not available (ssl=%p, sslctx=%p, closed=%d)\n",
                 assl->ssl, assl->sslctx, assl->closed);
          ReleaseSemaphore(&assl->use_sema);
       }
    }
    else
-   {  printf("DEBUG: Assl_read: Invalid parameters (assl=%p, amisslbase=%p, buffer=%p, length=%ld)\n",
+   {  debug_printf("DEBUG: Assl_read: Invalid parameters (assl=%p, amisslbase=%p, buffer=%p, length=%ld)\n",
              assl, assl ? assl->amisslbase : NULL, buffer, length);
    }
    return result;
