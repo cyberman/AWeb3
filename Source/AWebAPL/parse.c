@@ -249,7 +249,7 @@ static struct Chardes chars[]=
    "Atilde",195,
    "Auml",  196,
    "Ccedil",199,
-   "Dagger",8225,
+   "Dagger",135,  /* Latin-1 double dagger (Windows-1252 extension) */
    "ETH",   208,
    "Eacute",201,
    "Ecirc", 202,
@@ -260,22 +260,22 @@ static struct Chardes chars[]=
    "Igrave",204,
    "Iuml",  207,
    "Ntilde",209,
-   "OElig", 338,
+   "OElig", 338,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "Oacute",211,
    "Ocirc", 212,
    "Ograve",210,
    "Oslash",216,
    "Otilde",213,
    "Ouml",  214,
-   "Prime", 8243,
-   "Scaron",352,
+   "Prime", 148,  /* Approximated as right double quote in Latin-1 */
+   "Scaron",352,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "THORN", 222,
    "Uacute",218,
    "Ucirc", 219,
    "Ugrave",217,
    "Uuml",  220,
    "Yacute",221,
-   "Yuml",  376,
+   "Yuml",  376,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "aacute",225,
    "acirc", 226,
    "acute", 180,
@@ -285,95 +285,95 @@ static struct Chardes chars[]=
    "aring", 229,
    "atilde",227,
    "auml",  228,
-   "bdquo", 8222,
+   "bdquo", 132,  /* Latin-1 double low-9 quotation mark (Windows-1252 extension) */
    "brvbar",166,
    "bull",  183,  /* Latin-1 MIDDLE DOT (·) for bullet - U+00B7 */
    "ccedil",231,
    "cedil", 184,
    "cent",  162,
-   "circ",  710,
+   "circ",  136,  /* Latin-1 circumflex accent (Windows-1252 extension) */
    "copy",  169,
    "curren",164,
-   "dagger",8224,
+   "dagger",134,  /* Latin-1 dagger (Windows-1252 extension) */
    "deg",   176,
    "divide",247,
    "eacute",233,
    "ecirc", 234,
    "egrave",232,
-   "empty", 8709,
-   "emsp",  8195,
-   "ensp",  8194,
+   "empty", 8709,  /* No Latin-1 equivalent, kept as Unicode for translation */
+   "emsp",  8195,  /* No Latin-1 equivalent, kept as Unicode for translation */
+   "ensp",  8194,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "eth",   240,
    "euml",  235,
-   "fnof",  402,
+   "fnof",  402,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "frac12",189,
    "frac14",188,
    "frac34",190,
-   "frasl", 8260,
-   "ge",    8805,
+   "frasl", 8260,  /* No Latin-1 equivalent, kept as Unicode for translation */
+   "ge",    8805,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "gt",    62,
-   "hellip",8230,
+   "hellip",133,  /* Latin-1 horizontal ellipsis (Windows-1252 extension) */
    "iacute",237,
    "icirc", 238,
    "iexcl", 161,
    "igrave",236,
    "iquest",191,
    "iuml",  239,
-   "lang",  9001,
+   "lang",  9001,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "laquo", 171,
-   "ldquo", 8220,
-   "le",    8804,
-   "lowast",8727,
-   "loz",   9674,
-   "lsaquo",8249,
-   "lsquo", 8216,
+   "ldquo", 147,  /* Latin-1 left double quotation mark (Windows-1252 extension) */
+   "le",    8804,  /* No Latin-1 equivalent, kept as Unicode for translation */
+   "lowast",8727,  /* No Latin-1 equivalent, kept as Unicode for translation */
+   "loz",   9674,  /* No Latin-1 equivalent, kept as Unicode for translation */
+   "lsaquo",139,  /* Latin-1 single left-pointing angle quotation mark (Windows-1252 extension) */
+   "lsquo", 145,  /* Latin-1 left single quotation mark (Windows-1252 extension) */
    "lt",    60,
    "macr",  175,
-   "mdash", 8212,
+   "mdash", 151,  /* Latin-1 em dash (Windows-1252 extension) */
    "micro", 181,
    "middot",183,
-   "minus", 8722,
+   "minus", 8722,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "nbsp",  160,
-   "ndash", 8211,
+   "ndash", 150,  /* Latin-1 en dash (Windows-1252 extension) */
    "not",   172,
    "ntilde",241,
    "oacute",243,
    "ocirc", 244,
-   "oelig", 339,
+   "oelig", 339,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "ograve",242,
-   "oline", 8254,
+   "oline", 175,  /* Approximated as macron in Latin-1 */
    "ordf",  170,
    "ordm",  186,
    "oslash",248,
    "otilde",245,
    "ouml",  246,
    "para",  182,
-   "permil",8240,
+   "permil",137,  /* Latin-1 per mille sign (Windows-1252 extension) */
    "plusmn",177,
    "pound", 163,
-   "prime", 8242,
+   "prime", 146,  /* Approximated as right single quote in Latin-1 */
    "quot",  34,
-   "rang",  9002,
+   "rang",  9002,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "raquo", 187,
    "reg",   174,
-   "rdquo", 8221,
-   "rsaquo",8250,
-   "rsquo", 8217,
-   "sbquo", 8218,
-   "scaron",353,
+   "rdquo", 148,  /* Latin-1 right double quotation mark (Windows-1252 extension) */
+   "rsaquo",155,  /* Latin-1 single right-pointing angle quotation mark (Windows-1252 extension) */
+   "rsquo", 146,  /* Latin-1 right single quotation mark (Windows-1252/ISO 8859-1 extension) */
+   "sbquo", 130,  /* Latin-1 single low-9 quotation mark (Windows-1252 extension) */
+   "scaron",353,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "sdot",  8901,
    "sect",  167,
    "shy",   173,
-   "sim",   8764,
+   "sim",   8764,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "sup1",  185,
    "sup2",  178,
    "sup3",  179,
    "szlig", 223,
-   "thinsp",8201,
+   "thinsp",8201,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "thorn", 254,
-   "tilde", 732,
+   "tilde", 152,  /* Latin-1 small tilde (Windows-1252 extension) */
    "times", 215,
-   "trade", 8482,
+   "trade", 8482,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "uacute",250,
    "ucirc", 251,
    "ugrave",249,
@@ -382,8 +382,8 @@ static struct Chardes chars[]=
    "yacute",253,
    "yen",   165,
    "yuml",  255,
-   "zwj",   8205,
-   "zwnj",  8204,
+   "zwj",   8205,  /* No Latin-1 equivalent, kept as Unicode for translation */
+   "zwnj",  8204,  /* No Latin-1 equivalent, kept as Unicode for translation */
 };
 #define NRCHARS (sizeof(chars)/sizeof(struct Chardes))
 
