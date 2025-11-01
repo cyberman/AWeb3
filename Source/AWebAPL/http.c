@@ -25,6 +25,7 @@
 #include <proto/dos.h>
 #include <proto/utility.h>
 #include <proto/socket.h>
+#include <proto/bsdsocket.h>
 #include "aweb.h"
 #include "tcperr.h"
 #include "fetchdriver.h"
@@ -45,9 +46,9 @@
 #define SO_SNDTIMEO 0x1005
 #endif
 
-
-
-
+/* CRITICAL: Define SocketBase for setsockopt() from proto/bsdsocket.h */
+/* The proto header declares it as extern, so we need to provide the actual definition */
+struct Library *SocketBase;
 
 #ifndef LOCALONLY
 
@@ -2312,7 +2313,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                AOURL_Datalength,blocklength,
                   AOURL_Contenttype,hi->parttype,
                TAG_END);
-            } else {
+         } else {
                debug_printf("DEBUG: WARNING: parttype is empty or invalid! Sending data without content type (will default to octet-stream)\n");
                debug_printf("DEBUG: parttype[0]=0x%02X, parttype='%.31s'\n", (unsigned char)hi->parttype[0], hi->parttype);
                Updatetaskattrs(
@@ -3535,16 +3536,19 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
    timeout.tv_sec = 30;  /* 30 second timeout */
    timeout.tv_usec = 0;
    
-   /* Set receive timeout */
-/*   if(a_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout), hi->socketbase) < 0)
+   /* CRITICAL: Set global SocketBase for setsockopt() from proto/bsdsocket.h */
+   /* The proto header expects SocketBase to be available, so we set it to hi->socketbase */
+   SocketBase = hi->socketbase;
+   
+   /* Set receive timeout - CRITICAL: This prevents SSL_connect() from hanging indefinitely */
+   if(setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
    {  /* Timeout setting failed, but continue */
    }
-*/   
-   /* Set send timeout */
-/*   if(a_setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout), hi->socketbase) < 0)
+   
+   /* Set send timeout - CRITICAL: This prevents SSL_connect() from hanging indefinitely */
+   if(setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
    {  /* Timeout setting failed, but continue */
    }
-*/   
    return sock;
 }
 
@@ -3583,7 +3587,9 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
          }
          /* CRITICAL: Ensure SSL resources are valid before attempting connection */
          else if(hi->assl && hi->sock >= 0)
-         {  result=Assl_connect(hi->assl,hi->sock,hi->hostname);
+         {  /* CRITICAL: Set SocketBase before calling Assl_connect() for non-blocking I/O */
+            SocketBase = hi->socketbase;
+            result=Assl_connect(hi->assl,hi->sock,hi->hostname);
             debug_printf("DEBUG: SSL connect result: %ld (ASSLCONNECT_OK=%d)\n", result, ASSLCONNECT_OK);
             ok=(result==ASSLCONNECT_OK);
             if(result==ASSLCONNECT_DENIED) hi->flags|=HTTPIF_NOSSLREQ;
@@ -3920,7 +3926,7 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                   }
                   else
                   {  debug_printf("DEBUG: Httpretrieve: About to call Httpresponse() - this may take a while\n");
-                     Httpresponse(hi,TRUE);
+                  Httpresponse(hi,TRUE);
                      debug_printf("DEBUG: Httpretrieve: Httpresponse() returned\n");
                   }
                }

@@ -29,16 +29,25 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <sys/filio.h>  /* For FIONBIO */
+#include <sys/errno.h>  /* For EINTR and errno */
+/* struct timeval and fd_set are provided by <sys/socket.h> via <proto/bsdsocket.h> */
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/utility.h>
+#include <proto/timer.h>  /* For GetSysTime() */
 #include <proto/amisslmaster.h>
 #include <proto/amissl.h>
+#include <proto/bsdsocket.h>  /* For WaitSelect(), IoctlSocket(), Errno() */
 #include <libraries/amisslmaster.h>
 #include <libraries/amissl.h>
 #include "aweb.h"
 #include "awebssl.h"
 #include "task.h"
+
+/* CRITICAL: SocketBase must be declared for IoctlSocket() and WaitSelect() */
+/* This is defined in http.c but we need it here too for SSL operations */
+extern struct Library *SocketBase;
 #include <amissl/amissl.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -529,41 +538,227 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
          {  debug_printf("DEBUG: Assl_connect: No hostname provided, skipping SNI\n");
          }
          
-         /* Perform SSL/TLS handshake */
-         /* SSL_connect() returns:
-          *   1 = handshake completed successfully
-          *   0 = handshake not completed, needs more I/O (error)
-          *  <0 = error occurred
-          */
-         /* CRITICAL: SSL_connect() operates on a unique SSL object per connection */
-         /* OpenSSL 3.x is thread-safe when each connection has its own SSL object */
-         /* CRITICAL: Keep semaphore held during SSL_connect() to prevent cleanup from freeing SSL object */
-         /* This ensures Assl_closessl() will wait until the handshake completes */
+         /* Perform SSL/TLS handshake with timeout protection */
+         /* CRITICAL: SSL_connect() can block indefinitely, so we use non-blocking I/O */
+         /* with WaitSelect() to implement a proper timeout */
          {  long ssl_result;
-            debug_printf("DEBUG: Assl_connect: Calling SSL_connect()...\n");
+            long ssl_error;
+            ULONG nonblock = 1;
+            fd_set readfds, writefds, exceptfds;
+            struct timeval timeout;
+            struct timeval start_time, current_time;
+            long timeout_seconds = 30;  /* 30 second timeout for SSL handshake */
+            BOOL socket_is_nonblocking = FALSE;
+            BOOL handshake_complete = FALSE;
             
-            ssl_result = SSL_connect(assl->ssl);
+            debug_printf("DEBUG: Assl_connect: Starting SSL handshake with timeout protection\n");
             
-            debug_printf("DEBUG: Assl_connect: SSL_connect() returned %ld\n", ssl_result);
-            if(ssl_result == 1)
-            {  /* Handshake completed successfully */
-               result=ASSLCONNECT_OK;
-               debug_printf("DEBUG: Assl_connect: SSL handshake successful\n");
-            }
-            else if(assl->denied)
-            {  /* Certificate was denied by user */
-               result=ASSLCONNECT_DENIED;
-               debug_printf("DEBUG: Assl_connect: SSL certificate denied by user\n");
+            /* CRITICAL: Get current socket blocking mode and set to non-blocking */
+            /* This allows us to use WaitSelect() for timeout control */
+            /* CRITICAL: IoctlSocket() takes 3 arguments: (sock, req, argp) - SocketBase is global */
+            if(SocketBase && IoctlSocket(sock, FIONBIO, (char *)&nonblock) == 0)
+            {  socket_is_nonblocking = TRUE;
+               debug_printf("DEBUG: Assl_connect: Socket set to non-blocking mode\n");
             }
             else
-            {  /* Handshake failed - get error details */
-               long ssl_error;
+            {  debug_printf("DEBUG: Assl_connect: Failed to set socket to non-blocking, using blocking mode\n");
+            }
+            
+            /* Get start time for timeout calculation */
+            /* CRITICAL: GetSysTime() expects struct timeval (TimeVal_Type) */
+            GetSysTime(&start_time);
+            
+            /* Attempt SSL handshake with timeout loop */
+            while(!handshake_complete && !assl->closed)
+            {  /* Check for task break before attempting handshake */
+               if(Checktaskbreak())
+               {  debug_printf("DEBUG: Assl_connect: Task break detected, aborting SSL handshake\n");
+                  result=ASSLCONNECT_FAIL;
+                  break;
+               }
+               
+               /* Attempt SSL handshake */
+               ssl_result = SSL_connect(assl->ssl);
+               
+               if(ssl_result == 1)
+               {  /* Handshake completed successfully */
+                  result=ASSLCONNECT_OK;
+                  handshake_complete = TRUE;
+                  debug_printf("DEBUG: Assl_connect: SSL handshake successful\n");
+                  break;
+               }
+               
+               /* Check for certificate denial */
+               if(assl->denied)
+               {  result=ASSLCONNECT_DENIED;
+                  handshake_complete = TRUE;
+                  debug_printf("DEBUG: Assl_connect: SSL certificate denied by user\n");
+                  break;
+               }
+               
+               /* Get SSL error to determine next action */
                ssl_error = SSL_get_error(assl->ssl, ssl_result);
-               debug_printf("DEBUG: Assl_connect: SSL_connect failed, SSL_get_error returned %ld\n", ssl_error);
-               /* If error is SSL_ERROR_WANT_READ or SSL_ERROR_WANT_WRITE, */
-               /* it means more I/O is needed, which shouldn't happen with blocking sockets */
-               /* For now, treat any non-success as failure */
-               result=ASSLCONNECT_FAIL;
+               
+               /* Check if we need more I/O */
+               if(ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE)
+               {  /* SSL needs more I/O - wait for socket to be ready */
+                  /* CRITICAL: Check timeout */
+                  GetSysTime(&current_time);
+                  /* Calculate elapsed time in seconds */
+                  {  ULONG elapsed_secs;
+                     elapsed_secs = current_time.tv_secs - start_time.tv_secs;
+                     if(elapsed_secs >= (ULONG)timeout_seconds)
+                     {  debug_printf("DEBUG: Assl_connect: SSL handshake timeout after %ld seconds\n", timeout_seconds);
+                        result=ASSLCONNECT_FAIL;
+                        break;
+                     }
+                  }
+                  
+                  /* Set up fd_set for WaitSelect() */
+                  FD_ZERO(&readfds);
+                  FD_ZERO(&writefds);
+                  FD_ZERO(&exceptfds);
+                  
+                  if(ssl_error == SSL_ERROR_WANT_READ)
+                  {  FD_SET(sock, &readfds);
+                     debug_printf("DEBUG: Assl_connect: SSL wants read, waiting for socket ready\n");
+                  }
+                  else
+                  {  FD_SET(sock, &writefds);
+                     debug_printf("DEBUG: Assl_connect: SSL wants write, waiting for socket ready\n");
+                  }
+                  FD_SET(sock, &exceptfds);
+                  
+                  /* Calculate remaining timeout */
+                  {  ULONG elapsed_secs;
+                     elapsed_secs = current_time.tv_secs - start_time.tv_secs;
+                     if(elapsed_secs >= (ULONG)timeout_seconds)
+                     {  timeout.tv_sec = 0;
+                        timeout.tv_micro = 100000;  /* 0.1 second minimum */
+                     }
+                     else
+                     {  timeout.tv_sec = timeout_seconds - elapsed_secs;
+                        timeout.tv_micro = 0;
+                     }
+                  }
+                  
+                  /* Wait for socket to be ready with timeout */
+                  /* CRITICAL: SocketBase must be set by caller before calling Assl_connect() */
+                  if(!SocketBase)
+                  {  debug_printf("DEBUG: Assl_connect: SocketBase not set, aborting\n");
+                     result=ASSLCONNECT_FAIL;
+                     break;
+                  }
+                  
+                  /* Check for task break before waiting */
+                  if(Checktaskbreak())
+                  {  debug_printf("DEBUG: Assl_connect: Task break detected before WaitSelect, aborting\n");
+                     result=ASSLCONNECT_FAIL;
+                     break;
+                  }
+                  
+                  /* Wait for socket to be ready with timeout */
+                  /* CRITICAL: Keep semaphore held - WaitSelect will respect timeout, preventing indefinite blocking */
+                  /* If cleanup needs the semaphore, it will wait - this is safe because WaitSelect has a timeout */
+                  /* CRITICAL: Do NOT pass SIGBREAKF_CTRL_C in signals parameter - it conflicts with break signal mask */
+                  /* WaitSelect automatically handles break signal (Ctrl+C) and returns -1 with EINTR */
+                  {  ULONG signals = 0;  /* No user signals - rely on break signal handling and timeout */
+                     long wait_result;
+                     long errno_value;
+                     
+                     /* WaitSelect with timeout - break signal (Ctrl+C) is automatically handled */
+                     wait_result = WaitSelect(sock + 1, &readfds, &writefds, &exceptfds, &timeout, &signals);
+                     
+                     /* CRITICAL: Check errno for EINTR when WaitSelect returns -1 (break signal) */
+                     /* Per SDK docs: When break signal received, WaitSelect returns -1 with EINTR */
+                     /* The signals mask is UNDEFINED when -1 is returned, so we check errno instead */
+                     if(wait_result == -1)
+                     {  errno_value = errno;  /* Use global errno variable from bsdsocket.library */
+                        if(errno_value == EINTR)
+                        {  /* Break signal received (Ctrl+C) - check for task break */
+                           debug_printf("DEBUG: Assl_connect: WaitSelect interrupted by break signal (EINTR)\n");
+                           if(Checktaskbreak())
+                           {  debug_printf("DEBUG: Assl_connect: Task break detected, aborting SSL handshake\n");
+                              result=ASSLCONNECT_FAIL;
+                              break;
+                           }
+                           /* Continue loop to retry - break signal might be transient */
+                           continue;
+                        }
+                        else
+                        {  /* Other error - log and retry */
+                           debug_printf("DEBUG: Assl_connect: WaitSelect error (result=%ld, errno=%ld), retrying\n", wait_result, errno_value);
+                           /* Check for task break */
+                           if(Checktaskbreak())
+                           {  debug_printf("DEBUG: Assl_connect: Task break detected, aborting\n");
+                              result=ASSLCONNECT_FAIL;
+                              break;
+                           }
+                           /* Continue loop to retry - transient errors can occur */
+                           continue;
+                        }
+                     }
+                     
+                     /* Check if object was closed while we were waiting */
+                     if(assl->closed || !assl->amisslbase || !assl->sslctx || !assl->ssl)
+                     {  debug_printf("DEBUG: Assl_connect: SSL object closed during WaitSelect, aborting\n");
+                        result=ASSLCONNECT_FAIL;
+                        break;
+                     }
+                     
+                     if(wait_result == 0)
+                     {  /* Timeout - check if we've exceeded total timeout */
+                        GetSysTime(&current_time);
+                        {  ULONG elapsed_secs;
+                           elapsed_secs = current_time.tv_secs - start_time.tv_secs;
+                           if(elapsed_secs >= (ULONG)timeout_seconds)
+                           {  debug_printf("DEBUG: Assl_connect: WaitSelect timeout, SSL handshake timed out\n");
+                              result=ASSLCONNECT_FAIL;
+                              break;
+                           }
+                           else
+                           {  /* Partial timeout - retry with remaining time */
+                              debug_printf("DEBUG: Assl_connect: WaitSelect partial timeout, retrying\n");
+                              /* Check for task break */
+                              if(Checktaskbreak())
+                              {  debug_printf("DEBUG: Assl_connect: Task break detected, aborting\n");
+                                 result=ASSLCONNECT_FAIL;
+                                 break;
+                              }
+                              /* Continue loop to retry */
+                              continue;
+                           }
+                        }
+                     }
+                     else if(wait_result > 0)
+                     {  /* WaitSelect succeeded - check for exception conditions */
+                        if(FD_ISSET(sock, &exceptfds))
+                        {  /* Socket has exception condition - connection failed */
+                           debug_printf("DEBUG: Assl_connect: Socket exception detected, handshake failed\n");
+                           result=ASSLCONNECT_FAIL;
+                           break;
+                        }
+                        /* Socket is ready - semaphore still held, continue to retry SSL_connect() */
+                     }
+                  }
+                  
+                  /* Socket is ready - continue loop to retry SSL_connect() */
+                  continue;
+               }
+               else
+               {  /* SSL error that's not WANT_READ/WANT_WRITE - handshake failed */
+                  debug_printf("DEBUG: Assl_connect: SSL_connect failed, SSL_get_error returned %ld\n", ssl_error);
+                  result=ASSLCONNECT_FAIL;
+                  break;
+               }
+            }
+            
+            /* CRITICAL: Restore socket blocking mode if we changed it */
+            if(socket_is_nonblocking && SocketBase)
+            {  nonblock = 0;
+               if(IoctlSocket(sock, FIONBIO, (char *)&nonblock) == 0)
+               {  debug_printf("DEBUG: Assl_connect: Socket restored to blocking mode\n");
+               }
             }
          }
       }
