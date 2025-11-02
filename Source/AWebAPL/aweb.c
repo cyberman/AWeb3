@@ -76,6 +76,7 @@
 #include <proto/timer.h>
 
 __near long __stack=16384;
+const char *stack_cookie = "$STACK: 16384";
 
 #ifdef DEVELOPER
 #define PROFILE

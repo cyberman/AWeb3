@@ -1,7 +1,7 @@
 FROM     startup.o
 TO       aweblib/startup.aweblib
 NODEBUG
-LIB      lib:scnb.lib
+LIB      lib:scnb.lib lib:reaction.lib
 MAP      startup.map
 NOICONS
 

@@ -24,9 +24,12 @@
 #define AWEBSSL_H
 
 /* SAS/C 64-bit integer workaround for OPENSSL_init_ssl() */
-/* For 64-bit parameters, high 32-bits go in D0, low 32-bits in D1 */
+/* OPENSSL_init_ssl() expects uint64_t: high 32-bits in D0, low 32-bits in D1 */
+/* Since our constants fit in 32 bits (high bits are 0), we can pass directly */
+/* SAS/C should handle the 32-bit to 64-bit conversion automatically */
+/* If this causes issues, a wrapper function may be needed (see amissl.c) */
 #define OPENSSL_init_ssl_32(opts, settings) \
-	(putreg(REG_D1,opts), OPENSSL_init_ssl(0, settings))
+	OPENSSL_init_ssl((unsigned long)(opts), settings)
 
 struct Assl *Assl_initamissl(struct Library *socketbase);
 

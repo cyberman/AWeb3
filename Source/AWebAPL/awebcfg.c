@@ -21,6 +21,7 @@
 #include "awebcfg.h"
 
 __near long __stack=8192;
+const char *stack_cookie = "$STACK: 8192";
 
 // Library base pointers - only declare those that don't have proto headers
 // Note: gradientslider.gadget doesn't have a proto file in the Amiga NDK

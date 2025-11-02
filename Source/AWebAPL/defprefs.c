@@ -209,7 +209,7 @@ struct Prefs defprefs=
       FALSE,                                 /* form warn */
       TRUE,                                  /* spam block */
       TRUE,                                  /* ftp email address */
-      COOKIES_ASK,                           /* use cookies */
+      COOKIES_QUIET,                           /* use cookies */
       TRUE,                                  /* RFC 2109 cookies */
       EMPTYLIST(Nocookie,defprefs.nocookie), /* no cookie domains */
       "",                                    /* email address */
@@ -1353,10 +1353,10 @@ BOOL Initdefprefs(void)
    Adddefmenu(AMENU_ITEM,MSG_SETTINGS_BGIMAGES,"@BGIMAGES");
    Adddefmenu(AMENU_ITEM,MSG_SETTINGS_BGSOUND,"@BGSOUND");
    Adddefmenu(AMENU_SEPARATOR,NULL,NULL);
-   Adddefmenu(AMENU_ITEM,MSG_SETTINGS_BROWSER,"SYSTEM AWeb:AWebCfg BROWSER CONFIG %c PUBSCREEN %n");
-   Adddefmenu(AMENU_ITEM,MSG_SETTINGS_PROGRAM,"SYSTEM AWeb:AWebCfg PROGRAM CONFIG %c PUBSCREEN %n");
-   Adddefmenu(AMENU_ITEM,MSG_SETTINGS_GUI,"SYSTEM AWeb:AWebCfg GUI CONFIG %c PUBSCREEN %n");
-   Adddefmenu(AMENU_ITEM,MSG_SETTINGS_NETWORK,"SYSTEM AWeb:AWebCfg NETWORK CONFIG %c PUBSCREEN %n");
+   Adddefmenu(AMENU_ITEM,MSG_SETTINGS_BROWSER,"SYSTEM AWebCfg BROWSER CONFIG %c PUBSCREEN %n");
+   Adddefmenu(AMENU_ITEM,MSG_SETTINGS_PROGRAM,"SYSTEM AWebCfg PROGRAM CONFIG %c PUBSCREEN %n");
+   Adddefmenu(AMENU_ITEM,MSG_SETTINGS_GUI,"SYSTEM AWebCfg GUI CONFIG %c PUBSCREEN %n");
+   Adddefmenu(AMENU_ITEM,MSG_SETTINGS_NETWORK,"SYSTEM AWebCfg NETWORK CONFIG %c PUBSCREEN %n");
 #ifndef NEED35
    if(!has35)
    {  Adddefmenu(AMENU_ITEM,MSG_SETTINGS_CLASSACT,"SYSTEM SYS:Prefs/Reaction PUBSCREEN %n");
@@ -1371,7 +1371,7 @@ BOOL Initdefprefs(void)
    Adddefmenu(AMENU_MENU,MSG_HELP_MENU,NULL);
    Adddefmenu(AMENU_ITEM,MSG_HELP_HELP,"OPEN file:///AWeb:docs/aweb.html");
    Adddefmenu(AMENU_SEPARATOR,NULL,NULL);
-   Adddefmenu(AMENU_ITEM,MSG_HELP_AWEBHOME,"OPEN http://www.amigazen.com");
+   Adddefmenu(AMENU_ITEM,MSG_HELP_AWEBHOME,"OPEN http://www.amigazen.com/aweb/");
 
    Adddefmenu(AMENU_MENU,MSG_AREXX_MENU,NULL);
    Adddefmenu(AMENU_ITEM,MSG_AREXX_AREXX,"@AREXX");
@@ -1379,8 +1379,10 @@ BOOL Initdefprefs(void)
 
 
 #ifndef LOCALONLY
-   if(!Adduserbutton(&defprefs.buttons,"amigazen project",
-      "OPEN http://www.amigazen.com")) return FALSE;
+   if(!Adduserbutton(&defprefs.buttons,"AWeb 3",
+      "OPEN http://www.amigazen.com/aweb/")) return FALSE;
+   if(!Adduserbutton(&defprefs.buttons,"Aminet",
+      "OPEN http://www.aminet.net/")) return FALSE;
 #endif
 #ifdef OSVERSION
    if(!Adduserbutton(&defprefs.buttons,"Modes",
@@ -1403,12 +1405,15 @@ BOOL Initdefprefs(void)
 #ifndef LOCALONLY
    if(!Adduserbutton(&defprefs.buttons,Getmainstr(MSG_USERBUTTON_CACHE),
       "SUBWINDOW CACHEBROWSER OPEN")) return FALSE;
+   /*
    if(!Adduserbutton(&defprefs.buttons,"News:",
       "OPEN news:")) return FALSE;
+   */
 #endif
+/*
    if(!Adduserbutton(&defprefs.buttons,Getmainstr(MSG_USERBUTTON_CLOCK),
       "SYSTEM SYS:Utilities/Clock pubscreen %n digital format 2 top 0 left 9999")) return FALSE;
-
+*/
    if(!Addpopupitem(&defprefs.popupmenu[PUPT_IMAGE],
       PUPF_INMEM,Getmainstr(MSG_POPUP_FLUSHIMAGE),"FLUSHCACHE URL %u")) return FALSE;
    if(!Addpopupitem(&defprefs.popupmenu[PUPT_IMAGE],
