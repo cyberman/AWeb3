@@ -5,25 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.6.0pre-alpha] - 2025-11-02
+## [3.6alpha1] - 2025-11-03
 
 ### Changed
 - **UI Framework:** Migrated from ClassAct classes and headers to ReAction equivalents
 - **Graphics System:** Refactored to use P96 instead of Cybergraphics
 - **SSL Implementation:** Completely rewritten to use AmiSSL v5.2
+- **Command Line arguments:** Any URL arguments passed on the command line that are missing the URL protocol are assumed to be local files to open instead
 - **Build System:** Updated smakefiles to build against NDK3.2 and ToolKit SDK
 - **Executable:** Renamed core executable from 'AWeb-II' to 'AWeb'
 - **Assign Path:** Changed all occurences of 'AWebPath:" and "AWeb3:" to simply "AWeb:"
-- **URLs:** Updated default search and navigation URLs to websites relevant in 2025
-- **English default strings:** Corrected many english grammar issues in default strings and restored buildable catalogs
-- **Library Base typecasts:** Fixed most Library typecast warnings
+- **Defaults:** Updated default search and navigation URLs to websites relevant in 2025, and optimised default settings
+- **English corrections:** Corrected many english grammar issues in default labels and restored buildable catalogs
+- **Background color:** Changed default background color to pure white instead of Amiga grey
+- **Image links:** No longer adds a border by default to images that have <a> links associated with them
+- **Default search engine:** Changed default search engine to BoingSearch.com. Also works with FrogFind.com
 - **reaction.lib:** Incorporated reaction.lib into build because this is needed to autoopen gradientslider.gadget since NDK3.2 is missing the protos
 - **AWebCfg builds:** The AWebCfg build in the original 3.4 APL release was broken in several ways. Now fixed
 - **Documentation:** Partial update of documentation to reflect reality of 2025
 - **Refactoring:** Some refactoring of ezlists and image plugins
-- **Cookies:** Default cookie setting is now to set to Accept without asking user
+- **Cookies:** Default cookie setting is now to set to Accept without asking user, and they're no longer called 'Netscape Cookies'
 - **HTTP code:** Almost completely rewritten to support HTTP 1.1 and added new encodings including chunked and/or gzip and work with Roadshow version of bsdsocket.library headers and AmiSSL 5.2. Includes far more error and bounds checking than original version.
 - **zlib:** Statically linked version of zlib included to support gzip encoded http streams. Future plan is to refactor this to use z.library
+- **XML entities:** Many new XML character entities such as &bull; and &rsquo; are now supported and mapped to best Latin-1 equivalent
+- **UTF-8:** Added a stopgap UTF-8 conversion to prevent common 'additional glyph' issues
 
 ### Fixed
 - **HTTP/HTTPS Code Refactoring:**
@@ -46,7 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Non-Blocking I/O:** Implemented proper non-blocking SSL handshake with WaitSelect() timeout handling for servers that require it
   - **Task Exit Handling:** Added Checktaskbreak() calls to allow graceful exit during blocking SSL operations
   - **Opensocket() Validation:** Added socketbase validation throughout Opensocket() to detect and handle cases where library is closed during SSL initialization
+  - **Build warnings:** Fixed many Library typecast warnings and other build warnings due to type mismatches
+  - **Locale targets:** Fixed broken locale/cfglocale object targets in smakefile
 
 ### Removed
-- **INet225 Support:** Disabled INet225 support - removed all support for socket.library, use bsdsocket.library instead
-- **Miami Support:** Disabled MiamiSSL support - although MiamiSSL supports bsdsocket.library, miamissl.library and miami.library are no longer support which probably stops Miami's bsdsocket.library working properly too
+- **INet225 Support:** Disabled INet225 support - removed all support for socket.library, use a bsdsocket.library instead
+- **Miami Support:** Disabled MiamiSSL support - although Miami supports bsdsocket.library, miamissl.library and miami.library are no longer supported which probably stops Miami's bsdsocket.library working properly too
+- **Gopher:** - Gopher plugin is not turned on by default although the plugin still builds
+- **News:** - NNTP news plugin is not turned by default although the plugin still builds
