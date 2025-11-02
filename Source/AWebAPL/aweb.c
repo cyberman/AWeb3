@@ -487,7 +487,7 @@ static BOOL Openinitialdoc(UBYTE *initialurl,UBYTE local,BOOL veryfirst)
    BOOL opened=FALSE;
    if(local)
    {  if(urlname=ALLOCTYPE(UBYTE,strlen(initialurl)+20,0))
-      {  strcpy(urlname,"file://localhost/");
+      {  strcpy(urlname,"file:///");
          strcat(urlname,initialurl);
          url=Findurl("",urlname,0);
          FREE(urlname);
@@ -1225,6 +1225,24 @@ static void Getprogramname(struct WBStartup *wbs)
    }
 }
 
+/* Check if URL string starts with a known protocol prefix */
+static BOOL Hasprotocol(UBYTE *url)
+{  if(!url) return FALSE;
+   /* Check for protocols that use "://" */
+   if(STRNIEQUAL(url,"HTTP://",7)) return TRUE;
+   if(STRNIEQUAL(url,"HTTPS://",8)) return TRUE;
+   if(STRNIEQUAL(url,"FTP://",6)) return TRUE;
+   if(STRNIEQUAL(url,"GOPHER://",9)) return TRUE;
+   if(STRNIEQUAL(url,"FILE://",7)) return TRUE;
+   if(STRNIEQUAL(url,"NNTP://",7)) return TRUE;
+   if(STRNIEQUAL(url,"TELNET://",9)) return TRUE;
+   /* Check for protocols that use ":" without "//" */
+   if(STRNIEQUAL(url,"MAILTO:",7)) return TRUE;
+   if(STRNIEQUAL(url,"NEWS:",5)) return TRUE;
+   if(STRNIEQUAL(url,"X-AWEB:",7)) return TRUE;
+   return FALSE;
+}
+
 static void Getarguments(struct WBStartup *wbs)
 {  long args[16]={0};
    UBYTE *argtemplate="URL/M,LOCAL/S,CONFIG/K,HOTLIST/K"
@@ -1251,8 +1269,16 @@ static void Getarguments(struct WBStartup *wbs)
          for(ttp=dob->do_ToolTypes;ttp && *ttp;ttp++)
          {  if(STRNIEQUAL(*ttp,"URL=",4))
             {  if(nurl<16)
-               {  localinitialurl[nurl]=0;
-                  initialurls[nurl++]=Dupstr(*ttp+4,-1);
+               {  UBYTE *urlstr=*ttp+4;
+                  initialurls[nurl]=Dupstr(urlstr,-1);
+                  /* If URL lacks protocol, treat as local file path */
+                  if(initialurls[nurl] && !Hasprotocol(initialurls[nurl]))
+                  {  localinitialurl[nurl]=1;
+                  }
+                  else
+                  {  localinitialurl[nurl]=0;
+                  }
+                  nurl++;
                }
             }
             else if(STRIEQUAL(*ttp,"LOCAL")) args[1]=TRUE;
@@ -1288,8 +1314,16 @@ static void Getarguments(struct WBStartup *wbs)
       {  UBYTE **p;
          for(p=(UBYTE **)args[0];p && *p;p++)
          {  if(nurl<16)
-            {  localinitialurl[nurl]=0;
-               initialurls[nurl++]=Dupstr(*p,-1);
+            {  UBYTE *urlstr=*p;
+               initialurls[nurl]=Dupstr(urlstr,-1);
+               /* If URL lacks protocol, treat as local file path */
+               if(initialurls[nurl] && !Hasprotocol(initialurls[nurl]))
+               {  localinitialurl[nurl]=1;
+               }
+               else
+               {  localinitialurl[nurl]=0;
+               }
+               nurl++;
             }
          }
          if(args[2]) Setprefsname((UBYTE *)args[2]);
