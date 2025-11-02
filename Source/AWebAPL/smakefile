@@ -100,6 +100,9 @@ http.o:     http.c aweb.h awebtcp.h tcperr.h fetchdriver.h application.h task.h 
     @echo "        Compiling $*.c..."
     @sc idir=netinclude: $*.c to $*.o
 
+locale.o: aweb.cd
+   catcomp aweb.cd cfile locale.h objfile locale.o
+
 nameserv.o: nameserv.c aweb.h awebtcp.h
     @echo "        Compiling $*.c..."
     @sc idir=netinclude: $*.c to $*.o

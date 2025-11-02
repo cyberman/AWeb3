@@ -97,11 +97,11 @@ struct Prefs defprefs=
       { 0,0,0xffffffff },                    /* new link */
       { 0,0,0x99999999 },                    /* old link */
       { 0xaaaaaaaa,0,0 },                    /* selected link */
-      { 0xaaaaaaaa,0xaaaaaaaa,0xaaaaaaaa },  /* background */
+      { 0xffffffff,0xffffffff,0xffffffff },  /* background */
       { 0,0,0 },                             /* text */
       FALSE,                                 /* screenpens */
       HTML_TOLERANT,                         /* html mode */
-      TRUE,                                  /* underline links */
+      FALSE,                                 /* underline links */
       TRUE,                                  /* do colours */
       TRUE,                                  /* do bg sound */
       5,                                     /* blink rate */
@@ -129,7 +129,7 @@ struct Prefs defprefs=
       FALSE,                                 /* auto open hotlist */
       FALSE,                                 /* auto open winhis */
       FALSE,                                 /* auto open netstat */
-      FALSE,                                 /* center requesters */
+      TRUE,                                 /* center requesters */
       "C:Ed",                                /* editor cmd */
       "\"%f\"",                              /* editor args */
       "SYS:Utilities/MultiView",             /* viewer cmd */
@@ -182,7 +182,7 @@ struct Prefs defprefs=
       "file:///AWeb:docs/AWeb.html",     /* home url */
 #endif
       "index.html",                          /* local index */
-      "https://html.duckduckgo.com/?q=%s",   /* search url */
+      "http://www.boingsearch.com/?q=%s",   /* search url */
       "",                                    /* spoof ID */
       FALSE,                                 /* ignore mime */
       TRUE,                                  /* start home page */

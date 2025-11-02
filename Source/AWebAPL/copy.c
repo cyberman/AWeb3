@@ -1047,9 +1047,11 @@ static long Setcopy(struct Copy *cop,struct Amset *ams)
             Popupselectcopy(cop,(UBYTE *)tag->ti_Data);
             break;
          case AOELT_Link:
-            if(tag->ti_Data && !(cop->flags&CPYF_BORDERSET))
-            {  cop->border=1;
-            }
+            /* Don't automatically add borders to linked images.
+             * Early browsers like Mosaic added borders by default, but by HTML4 era
+             * (1997-1999), this was considered poor design and web authors commonly
+             * used border=0 to remove them. We now respect the HTML border attribute
+             * only - if border is not specified, no border is drawn. */
             super=TRUE;
             break;
          default:

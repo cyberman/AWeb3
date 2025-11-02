@@ -551,7 +551,29 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
    BOOL strict=(doc->htmlmode==HTML_STRICT),lf=(doc->pmode==DPM_TEXTAREA);
    short l;
    while(p<end)
-   {  n=*p;
+   {  /* Detect and decode UTF-8 sequences. UTF-8 characters in range 0x80-0x7FF
+       * are encoded as 2 bytes: 0xC0-0xDF followed by 0x80-0xBF.
+       * This handles common cases like copyright (0xC2 0xA9) -> 0xA9.
+       * Format: 110xxxxx 10xxxxxx where xxxxx xxxxxx is the 11-bit code point */
+      if((*p & 0xE0) == 0xC0 && p+1 < end && (p[1] & 0xC0) == 0x80)
+      {  ULONG utf8_char;
+         /* 2-byte UTF-8: extract 11 bits from the two bytes */
+         utf8_char = ((*p & 0x1F) << 6) | (p[1] & 0x3F);
+         /* Convert to Latin-1 equivalent if in range 0x80-0xFF */
+         if(utf8_char >= 0x80 && utf8_char <= 0xFF)
+         {  *p = (UBYTE)utf8_char;
+            /* Remove the second byte by shifting remaining bytes left */
+            if(p+2 <= end)
+            {  memmove(p+1, p+2, end - (p+2));
+            }
+            ta->length--;
+            end--;
+            n=*p;
+            p++;
+            continue;
+         }
+      }
+      n=*p;
       if(*p=='&')
       {  q=p;
          if(++q>=end) break;
