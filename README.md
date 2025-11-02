@@ -267,7 +267,7 @@ The roadmap for AWeb 3 under amigazen project is, for now:
 - Add HTTP/1.1, chunked encoding and gzip compressed http streams support
 - Update to AmiSSL 5.20
 - Refresh icons, images and other supporting materials
-- Make minor fixesm improvements and change default configuration settings to sensible values
+- Make minor fixes, improvements and change default configuration settings to sensible values
 
 ### AWeb 3.7
 
@@ -279,15 +279,49 @@ The roadmap for AWeb 3 under amigazen project is, for now:
 
 - Wait and see! 
 
-## About ToolKit
+## Frequently Asked Questions
 
-**ToolKit** exists to solve the problem that most Amiga software was written in the 1980s and 90s, by individuals working alone, each with their own preferred setup for where their dev tools are run from, where their include files, static libs and other toolchain artifacts could be found, which versions they used and which custom modifications they made. Open source collaboration did not exist as we know it in 2025. 
+### What is the ultimate aim of the new AWeb project?
 
-**ToolKit** from amigazen project is a work in progress to make a standardised installation of not just the Native Developer Kit, but the compilers, build tools and third party components needed to be able to consistently build projects in collaboration with others, without each contributor having to change build files to work with their particular toolchain configuration. 
+The Amiga actually had one of the first graphical web browsers - AMosaic reimplemented Mosaic natively for Amiga using MUI, and came out not long after the Mac and Windows versions of Mosaic. This was later followed by IBrowse, Voyager and AWeb itself. A browser called Web Cruiser was announced by Finale Development, the team behind ClassAct, but was quickly cancelled as it became clear the Amiga platform would no longer be commercially viable.
 
-All *amigazen project* releases will release in a ready to build configuration according to the ToolKit standard.
+Of these, the closest thing to a browser integrating tightly into the Amiga operating system is AWeb, due to its use of the ClassAct, now ReAction, user interface toolkit, as well as DataTypes, ARexx and extending the Amiga's BOOPSI and shared library architecture for its own plugin system. 
 
-Each component of **ToolKit** is open source and will have it's own github repo, while ToolKit itself will eventually be released as an easy to install package containing the redistributable components, as well as scripts to easily install the parts that are not freely redistributable from archive.
+When AWeb was originally developed, web standards were in a state of rapid flux and many websites relied on plugin technologies such as Shockwave Flash and Java Applets, making it a challenge for any browser developer to keep up let alone one working on their own. Ironically in 2025 the needs of a 'classic web browser' are lesser as both Flash and Applets have died off completely, although modern browsers employ a variety of new standards to provide similar capabilities for interactive 'web apps'.
+
+The release of AWeb as open source was a generous act by its author, and the code itself a masterpiece of software design, one that deserves continued effort to "finish the job" started all those years ago.
+
+In this context, finishing the job means both completing support for the final versions of those web standards and, with the benefit of hindsight, the way those features ended up being used in practice. It also means leveraging the AWeb architecture in new ways to extend the Amiga platform to provide reusable services such as HTML rendering and HTTP processing in a way that other platforms have enjoyed in the intervening years and true to the Amiga platform's famous modularity.
+
+### What is amigazen project's plan for the future of AWeb?
+
+The first release 3.6 is designed to be a stable rebuild of version 3.4 updated to build with the latest NDK and relevant third party SDKs such as AmiSSL 5 and RoadShow, still also using SAS/C like the original release. The most important changes from the various beta releases of 3.5 will also be cherry picked for inclusion where they don't break compatibility with classic Amiga.
+
+Later releases will then add new features missing from AWeb's standards support incrementally.
+
+The intention will be to eventually reach a version of AWeb that implements at least some of CSS including CSS2, HTML standards up to XHTML and XMLHttpRequest() in JavaScript, with a DOM, which should give AWeb compatibility up to the equivalent of about 2008 to 2010 era web content, though this may mean by the time the work is finished it is almost an entirely new web browser...
+
+### Will AWeb support modern websites?
+
+Since the advent of HTML5, CSS3, WebAssembly, WebGL and more new web technologies, the browser has become an operating system unto itself. Indeed, many popular applications are these days written to use the Electron runtime, built on Chromium and Blink and are thus hybrid web apps, not truly native apps. This is why there are really only 3 browser engines left - WebKit as supported by Apple, Blink, originally forked from WebKit and used in Chromium which is the foundation of most current web browsers from Google Chrome itself to Microsoft Edge and new browsers from AI startups, and the venerable Gecko used by Firefox, now in its new Rust based iteration. 
+
+Some legacy forks remain such as the Goanna continuation of the original C based Gecko code, but the sheer cost involved in maintaining a browser engine in 2025 means no it's not realistic to expect AWeb can support these features on any platform let alone on classic Amiga with its legacy constraints.
+
+### What happened to the AWeb Open Source Development Team?
+
+No idea, but their website at aweb.sunsite.dk has been deactivated since 2009 and their sourcecode only available in snapshots across various Amiga file libraries, in fact they seem to have frequently done their work not in compliance with the AWeb Public License. Some of their members remain active on other Amiga development projects mostly for OS4. It is now the year 2025. Some of their content, such as their ticket boards, can still be viewed on archive.org including a tentative plan for an AWeb 4 based on KHTML - the very same engine that later became WebKit - but it seems the sourcecode repository for any of their versions was never public or have been lost to history.
+
+### Will this new version of AWeb be available for OS4, AROS or MorphOS?
+
+Ports of AWeb - version 3.5 - already exist, so at some point it should be possible to re-merge the platform specific changes in. Unfortunately most of the work done on the 3.5 beta releases made no effort to retain compatibility with a native Amiga classic build, so this new release starts again updating from the original 3.4 release from Yvon Rozijn.
+
+The first priority however is to get a good, stable build of AWeb in the form Yvon left it in when he gave it to the community.
+
+The current AWeb 3.6 runs well on OS4 as a 68k binary at least in standalone mode, without it's plugins, which reportedly conflict with the way OS4 manages classic shared libraries.
+
+### Can I contribute to the new AWeb?
+
+Yes please! Whether code, testing or translations and documentation, all contributions are welcome and will remain free and open source in the spirit and letter of the AWeb Public License. See also (CONTRIBUTING.md)
 
 ## Contact 
 
