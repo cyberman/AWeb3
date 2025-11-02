@@ -46,11 +46,11 @@
 #define SO_SNDTIMEO 0x1005
 #endif
 
-/* CRITICAL: Define SocketBase for setsockopt() from proto/bsdsocket.h */
+/* Define SocketBase for setsockopt() from proto/bsdsocket.h */
 /* The proto header declares it as extern, so we need to provide the actual definition */
 struct Library *SocketBase;
 
-/* CRITICAL: Shared debug logging semaphore - defined here, used by http.c and amissl.c */
+/* Shared debug logging semaphore - defined here, used by http.c and amissl.c */
 /* This must be non-static so it can be shared between compilation units */
 struct SignalSemaphore debug_log_sema;
 BOOL debug_log_sema_initialized = FALSE;
@@ -839,7 +839,7 @@ static BOOL Readdata(struct Httpinfo *hi)
             gzip_start = 0;
             search_start = 0;
             
-            /* CRITICAL: Handle chunked encoding + gzip combination */
+            /* Handle chunked encoding + gzip combination */
             /* When chunked encoding is present, skip chunk headers before looking for gzip magic */
             if(hi->flags & HTTPIF_CHUNKED)
             {  /* Skip chunk size line (e.g., "3259\r\n") */
@@ -863,7 +863,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                 }
             }
             
-            /* CRITICAL: Don't start gzip if we haven't found gzip magic and we have chunked encoding */
+            /* Don't start gzip if we haven't found gzip magic and we have chunked encoding */
             /* With chunked encoding, we need to wait until we have actual gzip data */
             if(gzip_start < 0 && (hi->flags & HTTPIF_CHUNKED))
             {  /* Check if we have enough data after chunk header to potentially contain gzip magic */
@@ -871,7 +871,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                if(data_after_chunk < 10)
                {  debug_printf("DEBUG: Chunked+gzip: Not enough data yet (only %ld bytes after chunk header), waiting for more chunks\n", data_after_chunk);
                   /* Don't start gzip yet - wait for more data */
-                  /* CRITICAL: Must read more data before continuing, otherwise infinite loop */
+                  /* Must read more data before continuing, otherwise infinite loop */
                   if(!Readblock(hi))
                   {  /* No more data available - this shouldn't happen if gzip is encoded */
                      debug_printf("DEBUG: Chunked+gzip: No more data available, disabling gzip\n");
@@ -902,7 +902,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                   long total_chunk_data;
                   long initial_gzip_size;
                   
-                  /* CRITICAL: Start parsing from beginning of block, not from search_start */
+                  /* Start parsing from beginning of block, not from search_start */
                   /* search_start is after the first chunk header, but we need to parse from the start */
                   chunk_pos = 0;
                   total_chunk_data = 0;
@@ -1156,7 +1156,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                                  debug_printf("DEBUG: Chunked+gzip: Copied %ld bytes from first chunk starting at gzip_start=%ld (chunk_size=%ld, bytes_in_block=%ld, expected=%ld, gziplength now=%ld, max=%ld)\n", 
                                         actual_copy, gzip_start, chunk_size, bytes_in_block, expected_bytes, gziplength, total_chunk_data);
                                  
-                                 /* CRITICAL: If chunk extends beyond block, we need to continue it in next block */
+                                 /* If chunk extends beyond block, we need to continue it in next block */
                                  /* Don't advance past chunk boundary if chunk wasn't fully copied */
                                  if(bytes_in_block < expected_bytes)
                                  {  /* Chunk continues in next block - leave block position at end of data we copied */
@@ -1341,7 +1341,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                      debug_printf("DEBUG: Chunked+gzip: Extracted %ld bytes of chunk data (gzip_start=%ld, total_chunk_data=%ld)\n", gziplength, gzip_start, total_chunk_data);
                   }
                   else
-                  {  debug_printf("DEBUG: CRITICAL: Failed to allocate gzip buffer for chunked data\n");
+                  {  debug_printf("DEBUG: Failed to allocate gzip buffer for chunked data\n");
                      hi->flags &= ~HTTPIF_GZIPENCODED;
                      hi->flags &= ~HTTPIF_GZIPDECODING;
                      gzip_end = 1;
@@ -1352,11 +1352,11 @@ static BOOL Readdata(struct Httpinfo *hi)
                {  /* Non-chunked: Only copy the actual gzip data, skip any prefix */
                 gziplength = hi->blocklength - gzip_start;
                 
-                  /* CRITICAL: Track total compressed bytes read from network */
+                  /* Track total compressed bytes read from network */
                   /* For non-chunked, all data in blocklength after headers is compressed */
                   total_compressed_read = hi->blocklength;
                   
-                  /* CRITICAL: For non-chunked gzip, allocate full buffer size since we don't know total size */
+                  /* For non-chunked gzip, allocate full buffer size since we don't know total size */
                   /* This prevents buffer overflow when appending more data later */
                   if(gziplength > 0 && gziplength <= hi->blocklength) {
                       gzipbuffer = ALLOCTYPE(UBYTE, gzip_buffer_size, 0);
@@ -1364,14 +1364,14 @@ static BOOL Readdata(struct Httpinfo *hi)
                         memcpy(gzipbuffer, hi->fd->block + gzip_start, gziplength);
                           compressed_bytes_consumed += gziplength; /* Track compressed data consumed */
                     } else {
-                        debug_printf("DEBUG: CRITICAL: Failed to allocate gzip buffer, disabling gzip\n");
+                        debug_printf("DEBUG: Failed to allocate gzip buffer, disabling gzip\n");
                         hi->flags &= ~HTTPIF_GZIPENCODED;
                         hi->flags &= ~HTTPIF_GZIPDECODING;
                         gzip_end = 1;
                         break;
                     }
                 } else {
-                    debug_printf("DEBUG: CRITICAL: Invalid gziplength %ld, disabling gzip\n", gziplength);
+                    debug_printf("DEBUG: Invalid gziplength %ld, disabling gzip\n", gziplength);
                     hi->flags &= ~HTTPIF_GZIPENCODED;
                     hi->flags &= ~HTTPIF_GZIPDECODING;
                     gzip_end = 1;
@@ -1388,10 +1388,10 @@ static BOOL Readdata(struct Httpinfo *hi)
                   debug_printf("DEBUG: Found gzip magic at start of block\n");
                   gziplength = hi->blocklength;
                   
-                  /* CRITICAL: Track total compressed bytes read from network */
+                  /* Track total compressed bytes read from network */
                   total_compressed_read = hi->blocklength;
                   
-                  /* CRITICAL: For non-chunked gzip, allocate full buffer size since we don't know total size */
+                  /* For non-chunked gzip, allocate full buffer size since we don't know total size */
                   /* This prevents buffer overflow when appending more data later */
                   if(gziplength > 0 && gziplength <= gzip_buffer_size) {
                       gzipbuffer = ALLOCTYPE(UBYTE, gzip_buffer_size, 0);
@@ -1399,14 +1399,14 @@ static BOOL Readdata(struct Httpinfo *hi)
                         memcpy(gzipbuffer, hi->fd->block, gziplength);
                           compressed_bytes_consumed += gziplength; /* Track compressed data consumed */
                     } else {
-                        debug_printf("DEBUG: CRITICAL: Failed to allocate gzip buffer, disabling gzip\n");
+                        debug_printf("DEBUG: Failed to allocate gzip buffer, disabling gzip\n");
                         hi->flags &= ~HTTPIF_GZIPENCODED;
                         hi->flags &= ~HTTPIF_GZIPDECODING;
                         gzip_end = 1;
                         break;
                     }
                 } else {
-                      debug_printf("DEBUG: CRITICAL: Invalid gziplength %ld, disabling gzip\n", gziplength);
+                      debug_printf("DEBUG: Invalid gziplength %ld, disabling gzip\n", gziplength);
                     hi->flags &= ~HTTPIF_GZIPENCODED;
                     hi->flags &= ~HTTPIF_GZIPDECODING;
                     gzip_end = 1;
@@ -1422,9 +1422,9 @@ static BOOL Readdata(struct Httpinfo *hi)
                }
             }
             
-            /* CRITICAL: Verify we have valid gzip magic before starting */
+            /* Verify we have valid gzip magic before starting */
             if(!gzipbuffer || gziplength < 3 || gzipbuffer[0] != 0x1F || gzipbuffer[1] != 0x8B || gzipbuffer[2] != 0x08)
-            {  debug_printf("DEBUG: CRITICAL: No valid gzip magic found (first 3 bytes: %02X %02X %02X), disabling gzip\n",
+            {  debug_printf("DEBUG: No valid gzip magic found (first 3 bytes: %02X %02X %02X), disabling gzip\n",
                       gzipbuffer && gziplength >= 1 ? gzipbuffer[0] : 0,
                       gzipbuffer && gziplength >= 2 ? gzipbuffer[1] : 0,
                       gzipbuffer && gziplength >= 3 ? gzipbuffer[2] : 0);
@@ -1447,9 +1447,9 @@ static BOOL Readdata(struct Httpinfo *hi)
             d_stream.avail_out=0;
             d_stream.next_out=Z_NULL;
             
-            /* CRITICAL: Validate zlib stream structure before initialization */
+            /* Validate zlib stream structure before initialization */
             if((ULONG)&d_stream < 0x1000 || (ULONG)&d_stream > 0xFFFFFFF0) {
-               debug_printf("DEBUG: CRITICAL: Invalid zlib stream pointer 0x%08lX\n", (ULONG)&d_stream);
+               debug_printf("DEBUG: Invalid zlib stream pointer 0x%08lX\n", (ULONG)&d_stream);
                if(gzipbuffer) FREE(gzipbuffer);
                gzipbuffer = NULL;
                hi->flags &= ~HTTPIF_GZIPENCODED;
@@ -1473,11 +1473,11 @@ static BOOL Readdata(struct Httpinfo *hi)
                d_stream_initialized = TRUE; /* Mark d_stream as initialized */
             }
             
-                     /* CRITICAL: Validate gzip buffer allocation to prevent heap corruption */
+                     /* Validate gzip buffer allocation to prevent heap corruption */
          if(gzipbuffer && gziplength > 0) {
             /* Check if gzipbuffer pointer is valid */
             if((ULONG)gzipbuffer < 0x1000 || (ULONG)gzipbuffer > 0xFFFFFFF0) {
-               debug_printf("DEBUG: CRITICAL: Invalid gzipbuffer pointer 0x%08lX\n", (ULONG)gzipbuffer);
+               debug_printf("DEBUG: Invalid gzipbuffer pointer 0x%08lX\n", (ULONG)gzipbuffer);
                FREE(gzipbuffer);
                gzipbuffer = NULL;
                   inflateEnd(&d_stream);
@@ -1489,7 +1489,7 @@ static BOOL Readdata(struct Httpinfo *hi)
             
             /* Check if gziplength is reasonable */
             if(gziplength > gzip_buffer_size || gziplength <= 0) {
-               debug_printf("DEBUG: CRITICAL: Invalid gziplength: %ld (max: %ld)\n", gziplength, gzip_buffer_size);
+               debug_printf("DEBUG: Invalid gziplength: %ld (max: %ld)\n", gziplength, gzip_buffer_size);
                FREE(gzipbuffer);
                gzipbuffer = NULL;
                   inflateEnd(&d_stream);
@@ -1502,16 +1502,16 @@ static BOOL Readdata(struct Httpinfo *hi)
             d_stream.next_in=gzipbuffer;
             d_stream.avail_in=gziplength;
             
-            /* CRITICAL: Validate blocksize before setting output buffer to prevent overflow */
+            /* Validate blocksize before setting output buffer to prevent overflow */
             if(hi->fd->blocksize > 0 && hi->fd->blocksize <= INPUTBLOCKSIZE) {
                 d_stream.next_out=hi->fd->block;
                 d_stream.avail_out=hi->fd->blocksize;
                 debug_printf("DEBUG: Setting zlib output buffer to %ld bytes\n", hi->fd->blocksize);
             } else {
-                debug_printf("DEBUG: CRITICAL: Invalid blocksize %ld, using safe default\n", hi->fd->blocksize);
+                debug_printf("DEBUG: Invalid blocksize %ld, using safe default\n", hi->fd->blocksize);
                 d_stream.next_out=hi->fd->block;
                 d_stream.avail_out=INPUTBLOCKSIZE;
-                /* CRITICAL: Reset corrupted blocksize to prevent memory corruption */
+                /* Reset corrupted blocksize to prevent memory corruption */
                 hi->fd->blocksize = INPUTBLOCKSIZE;
             }
                 
@@ -1542,13 +1542,13 @@ static BOOL Readdata(struct Httpinfo *hi)
                 continue;
             }
             
-            /* CRITICAL: After copying data to gzipbuffer, clear block to prevent reprocessing */
+            /* After copying data to gzipbuffer, clear block to prevent reprocessing */
             /* For chunked encoding, we've already extracted and copied the gzip data */
             /* For non-chunked, we've copied all data to gzipbuffer */
             /* Either way, we don't want to process this block again as regular data */
             hi->blocklength = 0;
             
-            /* CRITICAL: Set the decoding flag so we can process gzip */
+            /* Set the decoding flag so we can process gzip */
             hi->flags |= HTTPIF_GZIPDECODING;
             debug_printf("DEBUG: Set HTTPIF_GZIPDECODING flag (0x%04X), gzipbuffer=%p, gziplength=%ld, avail_in=%lu, d_stream_initialized=%d\n", 
                    hi->flags, gzipbuffer, gziplength, d_stream.avail_in, d_stream_initialized);
@@ -1556,12 +1556,12 @@ static BOOL Readdata(struct Httpinfo *hi)
             /* Now process the gzip data immediately */
          }
 
-         /* CRITICAL: Process gzip data if flag is set */
+         /* Process gzip data if flag is set */
          if(hi->flags & HTTPIF_GZIPDECODING && gzipbuffer != NULL && d_stream_initialized)
          {  /* Process gzip data immediately */
             debug_printf("DEBUG: Processing gzip data inside main loop, avail_in=%lu\n", d_stream.avail_in);
             
-            /* CRITICAL: Process ALL gzip data in this loop to avoid duplicate processing */
+            /* Process ALL gzip data in this loop to avoid duplicate processing */
             /* Process gzip completely in the main loop - this prevents the second loop from running */
             while(!gzip_end && hi->flags & HTTPIF_GZIPDECODING && gzipbuffer != NULL && d_stream_initialized)
             {  long decompressed_len;
@@ -1605,7 +1605,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                      /* Update total compressed bytes read from network */
                      total_compressed_read += hi->blocklength;
                      
-                     /* CRITICAL: Continue loop to process the newly read data */
+                     /* Continue loop to process the newly read data */
                      /* For non-chunked, append new block data to gzipbuffer */
                      /* For chunked, we need to extract chunk data and add to gzipbuffer */
                      if(!(hi->flags & HTTPIF_CHUNKED))
@@ -1651,7 +1651,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                            /* Clear block for next read */
                            hi->blocklength = 0;
                            
-                           /* CRITICAL: Continue loop to process the newly added data */
+                           /* Continue loop to process the newly added data */
             continue;
                         }
                      }
@@ -1673,7 +1673,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                         chunk_pos = 0;
                         new_data_start = 0;
                         
-                        /* CRITICAL: Check if this block is continuing a chunk from previous block */
+                        /* Check if this block is continuing a chunk from previous block */
                         /* If block doesn't start with hex digits (chunk header), it's continuation of previous chunk */
                         is_continuation = FALSE;
                         if(hi->blocklength > 0)
@@ -1693,26 +1693,26 @@ static BOOL Readdata(struct Httpinfo *hi)
                            /* Calculate available space and copy what we can */
                            remaining_unprocessed = d_stream.avail_in;
                            
-                           /* CRITICAL: Validate remaining_unprocessed is reasonable */
+                           /* Validate remaining_unprocessed is reasonable */
                            if(remaining_unprocessed < 0 || remaining_unprocessed > gzip_buffer_size)
-                           {  debug_printf("DEBUG: CRITICAL: Invalid remaining_unprocessed (%ld) in continuation, resetting to 0\n", remaining_unprocessed);
+                           {  debug_printf("DEBUG: Invalid remaining_unprocessed (%ld) in continuation, resetting to 0\n", remaining_unprocessed);
                               remaining_unprocessed = 0;
                            }
                            
                            if(remaining_unprocessed > 0)
-                           {  /* CRITICAL: Validate next_in pointer before pointer arithmetic */
+                           {  /* Validate next_in pointer before pointer arithmetic */
                               if(gzipbuffer && d_stream.next_in >= gzipbuffer && 
                                  d_stream.next_in < gzipbuffer + gzip_buffer_size)
                               {  used_space = (d_stream.next_in - gzipbuffer) + remaining_unprocessed;
-                                 /* CRITICAL: Validate used_space is reasonable */
+                                 /* Validate used_space is reasonable */
                                  if(used_space < 0 || used_space > gzip_buffer_size)
-                                 {  debug_printf("DEBUG: CRITICAL: Invalid used_space (%ld) in continuation, resetting\n", used_space);
+                                 {  debug_printf("DEBUG: Invalid used_space (%ld) in continuation, resetting\n", used_space);
                                     used_space = remaining_unprocessed; /* Fallback */
                                     if(used_space > gzip_buffer_size) used_space = gzip_buffer_size;
                                  }
                               }
                               else
-                              {  debug_printf("DEBUG: CRITICAL: Invalid d_stream.next_in pointer (%p) in continuation, resetting\n", d_stream.next_in);
+                              {  debug_printf("DEBUG: Invalid d_stream.next_in pointer (%p) in continuation, resetting\n", d_stream.next_in);
                                  used_space = remaining_unprocessed; /* Fallback */
                                  if(used_space > gzip_buffer_size) used_space = gzip_buffer_size;
                               }
@@ -1731,9 +1731,9 @@ static BOOL Readdata(struct Httpinfo *hi)
                            /* Move unprocessed data to start if needed */
                            if(remaining_unprocessed > 0 && d_stream.next_in != gzipbuffer)
                            {  bytes_to_move = remaining_unprocessed;
-                              /* CRITICAL: Validate all pointers and sizes before memmove */
+                              /* Validate all pointers and sizes before memmove */
                               if(bytes_to_move > gzip_buffer_size)
-                              {  debug_printf("DEBUG: CRITICAL: bytes_to_move (%ld) exceeds buffer size (%ld) in continuation, resetting\n",
+                              {  debug_printf("DEBUG: bytes_to_move (%ld) exceeds buffer size (%ld) in continuation, resetting\n",
                                         bytes_to_move, gzip_buffer_size);
                                  gziplength = 0;
                                  remaining_unprocessed = 0;
@@ -1746,7 +1746,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                                  gziplength = bytes_to_move;
                               }
                               else
-                              {  debug_printf("DEBUG: CRITICAL: Invalid pointer state for memmove in continuation (next_in=%p, gzipbuffer=%p, bytes=%ld, buffer_size=%ld), resetting\n",
+                              {  debug_printf("DEBUG: Invalid pointer state for memmove in continuation (next_in=%p, gzipbuffer=%p, bytes=%ld, buffer_size=%ld), resetting\n",
                                         d_stream.next_in, gzipbuffer, bytes_to_move, gzip_buffer_size);
                                  gziplength = 0;
                                  remaining_unprocessed = 0;
@@ -1759,7 +1759,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                            /* Copy continuation data to buffer */
                            available_space = MIN(hi->blocklength, remaining_space);
                            if(gziplength + available_space <= gzip_buffer_size)
-                           {  /* CRITICAL: Validate pointers before memcpy */
+                           {  /* Validate pointers before memcpy */
                               if(gzipbuffer && hi->fd && hi->fd->block &&
                                  gziplength >= 0 && gziplength < gzip_buffer_size &&
                                  available_space > 0 && available_space <= (gzip_buffer_size - gziplength) &&
@@ -1769,7 +1769,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                                  compressed_bytes_consumed += available_space; /* Track compressed data consumed */
                               }
                               else
-                              {  debug_printf("DEBUG: CRITICAL: Invalid pointers for memcpy in continuation (gzipbuffer=%p, block=%p, gziplength=%ld, available_space=%ld, blocklength=%ld), aborting\n",
+                              {  debug_printf("DEBUG: Invalid pointers for memcpy in continuation (gzipbuffer=%p, block=%p, gziplength=%ld, available_space=%ld, blocklength=%ld), aborting\n",
                                         gzipbuffer, hi->fd ? hi->fd->block : NULL, gziplength, available_space, hi->blocklength);
                                  gzip_end = 1;
                                  break;
@@ -1845,35 +1845,35 @@ static BOOL Readdata(struct Httpinfo *hi)
                            {  chunk_pos++;
                            }
                            
-                           /* CRITICAL: Calculate remaining unprocessed data and available space */
+                           /* Calculate remaining unprocessed data and available space */
                            /* If avail_in > 0, we have unprocessed data starting at next_in */
                            /* If avail_in == 0, we've consumed all data and can reuse buffer */
                            
                            remaining_unprocessed = d_stream.avail_in;
                            
-                           /* CRITICAL: Validate remaining_unprocessed is reasonable */
+                           /* Validate remaining_unprocessed is reasonable */
                            if(remaining_unprocessed < 0 || remaining_unprocessed > gzip_buffer_size)
-                           {  debug_printf("DEBUG: CRITICAL: Invalid remaining_unprocessed (%ld) in chunk extraction, resetting to 0\n", remaining_unprocessed);
+                           {  debug_printf("DEBUG: Invalid remaining_unprocessed (%ld) in chunk extraction, resetting to 0\n", remaining_unprocessed);
                               remaining_unprocessed = 0;
                            }
                            
                            if(remaining_unprocessed > 0)
                            {  /* We have unprocessed data - calculate how much buffer is used */
-                              /* CRITICAL: Validate next_in pointer before pointer arithmetic */
+                              /* Validate next_in pointer before pointer arithmetic */
                               if(gzipbuffer && d_stream.next_in >= gzipbuffer && 
                                  d_stream.next_in < gzipbuffer + gzip_buffer_size)
                               {  /* Used space = data from start to next_in + remaining unprocessed */
                                  used_space = (d_stream.next_in - gzipbuffer) + remaining_unprocessed;
-                                 /* CRITICAL: Validate used_space is reasonable */
+                                 /* Validate used_space is reasonable */
                                  if(used_space < 0 || used_space > gzip_buffer_size)
-                                 {  debug_printf("DEBUG: CRITICAL: Invalid used_space (%ld) calculated from next_in=%p, gzipbuffer=%p, remaining=%ld\n",
+                                 {  debug_printf("DEBUG: Invalid used_space (%ld) calculated from next_in=%p, gzipbuffer=%p, remaining=%ld\n",
                                            used_space, d_stream.next_in, gzipbuffer, remaining_unprocessed);
                                     used_space = remaining_unprocessed; /* Fallback to just remaining */
                                     if(used_space > gzip_buffer_size) used_space = gzip_buffer_size;
                                  }
                               }
                               else
-                              {  debug_printf("DEBUG: CRITICAL: Invalid d_stream.next_in pointer (%p) for gzipbuffer (%p), resetting\n",
+                              {  debug_printf("DEBUG: Invalid d_stream.next_in pointer (%p) for gzipbuffer (%p), resetting\n",
                                         d_stream.next_in, gzipbuffer);
                                  used_space = remaining_unprocessed; /* Fallback */
                                  if(used_space > gzip_buffer_size) used_space = gzip_buffer_size;
@@ -1899,9 +1899,9 @@ static BOOL Readdata(struct Httpinfo *hi)
                               /* If we have unprocessed data, move it to start of buffer first */
                               if(remaining_unprocessed > 0 && d_stream.next_in != gzipbuffer)
                               {  bytes_to_move = remaining_unprocessed;
-                                 /* CRITICAL: Validate all pointers and sizes before memmove */
+                                 /* Validate all pointers and sizes before memmove */
                                  if(bytes_to_move > gzip_buffer_size)
-                                 {  debug_printf("DEBUG: CRITICAL: bytes_to_move (%ld) exceeds buffer size (%ld), resetting\n",
+                                 {  debug_printf("DEBUG: bytes_to_move (%ld) exceeds buffer size (%ld), resetting\n",
                                            bytes_to_move, gzip_buffer_size);
                                     gziplength = 0;
                                     remaining_unprocessed = 0;
@@ -1932,7 +1932,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                               
                               /* Append new chunk data to buffer */
                               if(gziplength + available_space <= gzip_buffer_size)
-                              {  /* CRITICAL: Validate pointers before memcpy */
+                              {  /* Validate pointers before memcpy */
                                  if(gzipbuffer && hi->fd && hi->fd->block &&
                                     gziplength >= 0 && gziplength < gzip_buffer_size &&
                                     available_space > 0 && available_space <= (gzip_buffer_size - gziplength) &&
@@ -1943,7 +1943,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                                     compressed_bytes_consumed += available_space; /* Track compressed data consumed */
                                  }
                                  else
-                                 {  debug_printf("DEBUG: CRITICAL: Invalid pointers for memcpy in chunk extraction (gzipbuffer=%p, block=%p, gziplength=%ld, available_space=%ld, chunk_pos=%ld, blocklength=%ld), aborting\n",
+                                 {  debug_printf("DEBUG: Invalid pointers for memcpy in chunk extraction (gzipbuffer=%p, block=%p, gziplength=%ld, available_space=%ld, chunk_pos=%ld, blocklength=%ld), aborting\n",
                                            gzipbuffer, hi->fd ? hi->fd->block : NULL, gziplength, available_space, chunk_pos, hi->blocklength);
                                     gzip_end = 1;
                                     break;
@@ -2020,7 +2020,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                      }
                   }
                   
-                  /* CRITICAL: For chunked encoding, zlib may finish before all chunks are processed */
+                  /* For chunked encoding, zlib may finish before all chunks are processed */
                   /* If there's still data in blocklength, it might be more chunks or chunk continuation */
                   /* We need to continue processing chunks until we get the final "0\r\n\r\n" chunk */
                   if(hi->flags & HTTPIF_CHUNKED && hi->blocklength > 0)
@@ -2051,7 +2051,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                hi->flags &= ~HTTPIF_GZIPENCODED;
                debug_printf("DEBUG: Gzip processing complete\n");
                
-               /* CRITICAL: For chunked+gzip, we need to continue processing remaining chunks */
+               /* For chunked+gzip, we need to continue processing remaining chunks */
                /* even after gzip finishes, until we reach the final "0\r\n\r\n" chunk */
                if(hi->flags & HTTPIF_CHUNKED)
                {  debug_printf("DEBUG: Chunked+gzip: Gzip complete, discarding remaining chunks until final chunk\n");
@@ -2218,7 +2218,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                   break;
                }
                
-               /* CRITICAL: For non-chunked gzip streams, all data has been decompressed */
+               /* For non-chunked gzip streams, all data has been decompressed */
                /* Account for any remaining compressed data in current block */
                if(hi->blocklength > 0)
                {  total_compressed_read += hi->blocklength;
@@ -2228,7 +2228,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                /* Clear blocklength to prevent processing remaining compressed data as uncompressed */
                hi->blocklength = 0;
                
-               /* CRITICAL: For non-chunked responses with Content-Length, we need to read */
+               /* For non-chunked responses with Content-Length, we need to read */
                /* exactly that much compressed data from network before exiting */
                if(hi->partlength > 0)
                {  /* We have a Content-Length - need to read that much compressed data total from network */
@@ -2262,7 +2262,7 @@ static BOOL Readdata(struct Httpinfo *hi)
             continue; /* Skip regular data processing */
          }
 
-         /* CRITICAL: Boundary detection for multipart data */
+         /* Boundary detection for multipart data */
          boundary=partial=eof=FALSE;
          if(bdcopy)
          {  /* Look for [CR]LF--<boundary>[--][CR]LF or any possible part thereof. */
@@ -2305,19 +2305,19 @@ static BOOL Readdata(struct Httpinfo *hi)
          }
          if(!boundary && !partial) blocklength=hi->blocklength;
          
-         /* CRITICAL: Validate blocklength to prevent memory corruption */
+         /* Validate blocklength to prevent memory corruption */
          if(blocklength < 0 || blocklength > hi->blocklength) {
-            debug_printf("DEBUG: CRITICAL: Invalid blocklength %ld, resetting to %ld\n", blocklength, hi->blocklength);
+            debug_printf("DEBUG: Invalid blocklength %ld, resetting to %ld\n", blocklength, hi->blocklength);
             blocklength = hi->blocklength;
          }
          
-         /* CRITICAL: Validate data before calling Updatetaskattrs to prevent memory corruption */
+         /* Validate data before calling Updatetaskattrs to prevent memory corruption */
          if(hi->fd && hi->fd->block && blocklength >= 0 && blocklength <= hi->fd->blocksize) {
             debug_printf("DEBUG: Validating data before Updatetaskattrs: block=%p, length=%ld, parttype='%s' (strlen=%ld)\n", 
                    hi->fd->block, blocklength, 
                    hi->parttype[0] ? (char *)hi->parttype : "(none)",
                    hi->parttype[0] ? strlen(hi->parttype) : 0);
-            /* CRITICAL: Include content type if available to prevent defaulting to octet-stream */
+            /* Include content type if available to prevent defaulting to octet-stream */
             /* Check if parttype is valid by checking first character and length */
             if(hi->parttype[0] != '\0' && hi->parttype[0] != 0 && strlen(hi->parttype) > 0) {
                debug_printf("DEBUG: Sending data with content type: '%s' (length=%ld)\n", hi->parttype, strlen(hi->parttype));
@@ -2335,27 +2335,27 @@ static BOOL Readdata(struct Httpinfo *hi)
                   TAG_END);
             }
          } else {
-            debug_printf("DEBUG: CRITICAL: Invalid data detected, skipping Updatetaskattrs to prevent memory corruption\n");
+            debug_printf("DEBUG: Invalid data detected, skipping Updatetaskattrs to prevent memory corruption\n");
             debug_printf("DEBUG: fd=%p, block=%p, blocklength=%ld, blocksize=%ld\n", 
                    hi->fd, hi->fd ? hi->fd->block : NULL, blocklength, hi->fd ? hi->fd->blocksize : 0);
          }
          
-         /* CRITICAL: Safe memory move with bounds checking */
+         /* Safe memory move with bounds checking */
          if(blocklength < hi->blocklength && blocklength > 0) {
             move_length = hi->blocklength - blocklength;
             if(move_length > 0 && move_length <= hi->fd->blocksize) {
                memmove(hi->fd->block, hi->fd->block + blocklength, move_length);
                hi->blocklength = move_length;
             } else {
-               debug_printf("DEBUG: CRITICAL: Invalid move_length %ld, resetting blocklength\n", move_length);
+               debug_printf("DEBUG: Invalid move_length %ld, resetting blocklength\n", move_length);
                hi->blocklength = 0;
             }
          } else if(blocklength >= hi->blocklength) {
             hi->blocklength = 0;
          }
          
-         /* CRITICAL: Handle blocklength differently for gzip vs non-gzip data */
-         /* CRITICAL: This code should NEVER run if gzip decoding is active because we break out earlier */
+         /* Handle blocklength differently for gzip vs non-gzip data */
+         /* This code should NEVER run if gzip decoding is active because we break out earlier */
          if(hi->flags & HTTPIF_GZIPDECODING)
          {  /* This should not happen - we should have broken out earlier */
             debug_printf("DEBUG: ERROR: Regular data processing with gzip flag set! This is a bug.\n");
@@ -2367,7 +2367,7 @@ static BOOL Readdata(struct Httpinfo *hi)
          }
          else
          {  /* Only subtract blocklength for non-gzip data */
-            /* CRITICAL: Only subtract if blocklength is valid and >= blocklength */
+            /* Only subtract if blocklength is valid and >= blocklength */
             if(hi->blocklength > 0 && hi->blocklength >= blocklength)
             {  hi->blocklength-=blocklength;
             }
@@ -2387,12 +2387,12 @@ static BOOL Readdata(struct Httpinfo *hi)
       debug_printf("DEBUG: Exited main for(;;) loop, now checking gzip processing\n");
       
       /* Gzip processing loop - continues until stream is complete */
-      /* CRITICAL: This loop should NOT run if gzip was already processed in the main loop */
+      /* This loop should NOT run if gzip was already processed in the main loop */
       /* The inline loop above processes ALL gzip data, so this should only handle edge cases */
       
-      /* CRITICAL: Clean up flags if resources are already cleaned up BEFORE checking loop condition */
+      /* Clean up flags if resources are already cleaned up BEFORE checking loop condition */
       /* This prevents the loop from trying to run with invalid resources */
-      /* CRITICAL: Also check if gzip_end was set, meaning gzip processing completed */
+      /* Also check if gzip_end was set, meaning gzip processing completed */
       if(hi->flags & HTTPIF_GZIPDECODING && (gzipbuffer == NULL || !d_stream_initialized || gzip_end)) {
          if(gzipbuffer == NULL || !d_stream_initialized) {
             debug_printf("DEBUG: Flag is set but resources cleaned up - clearing flags to prevent crash\n");
@@ -2448,17 +2448,17 @@ static BOOL Readdata(struct Httpinfo *hi)
          BOOL data_valid;
          int i;
          
-         /* CRITICAL: Re-validate all conditions inside loop to prevent crashes */
+         /* Re-validate all conditions inside loop to prevent crashes */
          if(gzip_end>0 || gzipbuffer == NULL || !d_stream_initialized) {
             debug_printf("DEBUG: Gzip loop: Invalid state detected, exiting (gzip_end=%d, gzipbuffer=%p, d_stream_initialized=%d)\n",
                    gzip_end, gzipbuffer, d_stream_initialized);
             break;
          }
          
-         /* CRITICAL: Validate d_stream.next_in points to valid memory before using it */
+         /* Validate d_stream.next_in points to valid memory before using it */
          if(d_stream.next_in != NULL && d_stream.next_in != gzipbuffer && 
             (d_stream.next_in < gzipbuffer || d_stream.next_in >= gzipbuffer + gzip_buffer_size)) {
-            debug_printf("DEBUG: CRITICAL: d_stream.next_in (%p) is invalid, clearing flags\n", d_stream.next_in);
+            debug_printf("DEBUG: d_stream.next_in (%p) is invalid, clearing flags\n", d_stream.next_in);
             hi->flags &= ~HTTPIF_GZIPDECODING;
             hi->flags &= ~HTTPIF_GZIPENCODED;
             break;
@@ -2479,9 +2479,9 @@ static BOOL Readdata(struct Httpinfo *hi)
             hi->blocklength=hi->fd->blocksize-d_stream.avail_out;
             debug_printf("DEBUG: Processing %ld bytes of decompressed data\n", hi->blocklength);
             
-            /* CRITICAL: Validate blocklength before processing to prevent memory corruption */
+            /* Validate blocklength before processing to prevent memory corruption */
             if(hi->blocklength < 0 || hi->blocklength > hi->fd->blocksize) {
-               debug_printf("DEBUG: CRITICAL: Invalid blocklength %ld in Z_BUF_ERROR, resetting to prevent memory corruption\n", hi->blocklength);
+               debug_printf("DEBUG: Invalid blocklength %ld in Z_BUF_ERROR, resetting to prevent memory corruption\n", hi->blocklength);
                hi->blocklength = 0;
                inflateEnd(&d_stream);
                hi->flags &= ~HTTPIF_GZIPENCODED;
@@ -2539,7 +2539,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                }
             }
             
-            /* CRITICAL: When Z_STREAM_END is returned, zlib has finished decompressing */
+            /* When Z_STREAM_END is returned, zlib has finished decompressing */
             /* compressed_bytes_consumed tracks data we've copied to gzipbuffer and processed */
             /* For Content-Length tracking, we need to account for any remaining unprocessed data in the buffer */
             /* Note: d_stream.avail_in at Z_STREAM_END should typically be 0 for a valid gzip stream */
@@ -2556,7 +2556,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                       compressed_bytes_consumed, hi->partlength, remaining_in_buffer);
             }
             
-            /* CRITICAL: Clean up immediately when stream ends */
+            /* Clean up immediately when stream ends */
             if(d_stream_initialized) {
                inflateEnd(&d_stream);
                d_stream_initialized = FALSE;
@@ -2575,7 +2575,7 @@ static BOOL Readdata(struct Httpinfo *hi)
             if(err==Z_NEED_DICT) printf("zlib NEED DICT - avail_in=%lu, avail_out=%lu\n", d_stream.avail_in, d_stream.avail_out);
             if(err==Z_MEM_ERROR) printf("zlib MEM ERROR - avail_in=%lu, avail_out=%lu\n", d_stream.avail_in, d_stream.avail_out);
             
-            /* CRITICAL: On any zlib error, process any valid decompressed data first */
+            /* On any zlib error, process any valid decompressed data first */
             /* Then safely disable gzip to prevent memory corruption */
             if(d_stream.avail_out < hi->fd->blocksize) {
                /* We might have some valid decompressed data before the error */
@@ -2689,7 +2689,7 @@ static BOOL Readdata(struct Httpinfo *hi)
             /* Add timeout protection to prevent infinite hanging */
             if(++loop_count > 200) {
                debug_printf("DEBUG: Too many gzip input cycles, finishing\n");
-               /* CRITICAL: Clean up when loop limit reached */
+               /* Clean up when loop limit reached */
                if(d_stream_initialized) {
                   inflateEnd(&d_stream);
                   d_stream_initialized = FALSE;
@@ -2704,7 +2704,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                break;
             }
             
-            /* CRITICAL: For chunked encoding, read into block first, then extract chunk data */
+            /* For chunked encoding, read into block first, then extract chunk data */
             if(hi->flags & HTTPIF_CHUNKED)
             {  /* Declare all variables at start of block for C89 compliance */
                long chunk_data_start;
@@ -2718,7 +2718,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                /* Read chunk data into block buffer first */
                if(!Readblock(hi))
                {  debug_printf("DEBUG: End of chunked gzip stream\n");
-                  /* CRITICAL: Clean up when we reach end of stream */
+                  /* Clean up when we reach end of stream */
                   if(d_stream_initialized) {
                      inflateEnd(&d_stream);
                      d_stream_initialized = FALSE;
@@ -2770,21 +2770,21 @@ static BOOL Readdata(struct Httpinfo *hi)
                
                chunk_data_len = hi->blocklength - gzip_data_start;
                if(chunk_data_len > 0)
-               {  /* CRITICAL: For chunked encoding, accumulate chunks into a larger buffer */
+               {  /* For chunked encoding, accumulate chunks into a larger buffer */
                   /* Calculate remaining unprocessed data */
                   remaining_unprocessed = d_stream.avail_in;
                   
-                  /* CRITICAL: Validate remaining_unprocessed is reasonable */
+                  /* Validate remaining_unprocessed is reasonable */
                   if(remaining_unprocessed < 0 || remaining_unprocessed > gzip_buffer_size)
-                  {  debug_printf("DEBUG: CRITICAL: Invalid remaining_unprocessed (%ld), resetting to 0\n", remaining_unprocessed);
+                  {  debug_printf("DEBUG: Invalid remaining_unprocessed (%ld), resetting to 0\n", remaining_unprocessed);
                      remaining_unprocessed = 0;
                   }
                   
                   /* Move remaining unprocessed data to start of buffer to make room */
                   if(d_stream.next_in != gzipbuffer && remaining_unprocessed > 0)
-                  {  /* CRITICAL: Validate pointers and sizes before memmove to prevent corruption */
+                  {  /* Validate pointers and sizes before memmove to prevent corruption */
                      if(remaining_unprocessed > gzip_buffer_size)
-                     {  debug_printf("DEBUG: CRITICAL: remaining_unprocessed (%ld) exceeds buffer size (%ld), resetting\n",
+                     {  debug_printf("DEBUG: remaining_unprocessed (%ld) exceeds buffer size (%ld), resetting\n",
                                remaining_unprocessed, gzip_buffer_size);
                         remaining_unprocessed = 0;
                         gziplength = 0;
@@ -2799,7 +2799,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                         gziplength = remaining_unprocessed;
                      }
                      else
-                     {  debug_printf("DEBUG: CRITICAL: Invalid pointer state for memmove (next_in=%p, gzipbuffer=%p, remaining=%ld, buffer_size=%ld), resetting\n",
+                     {  debug_printf("DEBUG: Invalid pointer state for memmove (next_in=%p, gzipbuffer=%p, remaining=%ld, buffer_size=%ld), resetting\n",
                                d_stream.next_in, gzipbuffer, remaining_unprocessed, gzip_buffer_size);
                         remaining_unprocessed = 0;
                         gziplength = 0;
@@ -2821,7 +2821,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                             chunk_data_len, available_space);
                      chunk_data_len = available_space > 0 ? available_space : 0;
                      if(chunk_data_len <= 0)
-                     {  debug_printf("DEBUG: CRITICAL: No space in gzipbuffer for chunk data\n");
+                     {  debug_printf("DEBUG: No space in gzipbuffer for chunk data\n");
                         gzip_end = 1;
                         break;
                      }
@@ -2829,13 +2829,13 @@ static BOOL Readdata(struct Httpinfo *hi)
                   
                   /* Append chunk data to end of gzipbuffer */
                   if(gziplength + chunk_data_len > gzip_buffer_size)
-                  {  debug_printf("DEBUG: CRITICAL: Buffer overflow! gziplength=%ld, chunk_data_len=%ld, buffer_size=%ld\n",
+                  {  debug_printf("DEBUG: Buffer overflow! gziplength=%ld, chunk_data_len=%ld, buffer_size=%ld\n",
                             gziplength, chunk_data_len, gzip_buffer_size);
                      gzip_end = 1;
                      break;
                   }
                   
-                  /* CRITICAL: Validate source and destination pointers before memcpy */
+                  /* Validate source and destination pointers before memcpy */
                   if(gzipbuffer && hi->fd->block && 
                      gziplength >= 0 && gziplength < gzip_buffer_size &&
                      chunk_data_len > 0 && chunk_data_len <= available_space &&
@@ -2845,7 +2845,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                      compressed_bytes_consumed += chunk_data_len; /* Track compressed data consumed */
                   }
                   else
-                  {  debug_printf("DEBUG: CRITICAL: Invalid pointers for memcpy (gzipbuffer=%p, block=%p, gziplength=%ld, chunk_data_len=%ld, gzip_data_start=%ld, blocklength=%ld), aborting\n",
+                  {  debug_printf("DEBUG: Invalid pointers for memcpy (gzipbuffer=%p, block=%p, gziplength=%ld, chunk_data_len=%ld, gzip_data_start=%ld, blocklength=%ld), aborting\n",
                             gzipbuffer, hi->fd ? hi->fd->block : NULL, gziplength, chunk_data_len, gzip_data_start, hi->blocklength);
                      gzip_end = 1;
                      break;
@@ -2890,7 +2890,7 @@ static BOOL Readdata(struct Httpinfo *hi)
             }
          }
          
-         /* CRITICAL: Only calculate blocklength if we have decompressed data */
+         /* Only calculate blocklength if we have decompressed data */
          /* Don't reset blocklength here - it may still contain valid data */
          if(d_stream.avail_out < hi->fd->blocksize) {
             /* We have decompressed some data */
@@ -2898,9 +2898,9 @@ static BOOL Readdata(struct Httpinfo *hi)
             
             debug_printf("DEBUG: Gzip decompressed %ld bytes\n", decompressed_len);
          
-            /* CRITICAL: Validate decompressed length immediately to prevent memory corruption */
+            /* Validate decompressed length immediately to prevent memory corruption */
             if(decompressed_len < 0 || decompressed_len > hi->fd->blocksize) {
-               debug_printf("DEBUG: CRITICAL: Invalid decompressed length %ld calculated, aborting\n", decompressed_len);
+               debug_printf("DEBUG: Invalid decompressed length %ld calculated, aborting\n", decompressed_len);
             inflateEnd(&d_stream);
             hi->flags &= ~HTTPIF_GZIPENCODED;
             hi->flags &= ~HTTPIF_GZIPDECODING;
@@ -2909,11 +2909,11 @@ static BOOL Readdata(struct Httpinfo *hi)
             break;
          }
          
-                  /* CRITICAL: Process decompressed data immediately to ensure it's not lost */
+                  /* Process decompressed data immediately to ensure it's not lost */
             if(hi->fd && hi->fd->block && decompressed_len > 0) {
                debug_printf("DEBUG: Processing %ld bytes of decompressed data immediately\n", decompressed_len);
             
-            /* CRITICAL: Ensure proper content type is set for HTML parsing */
+            /* Ensure proper content type is set for HTML parsing */
             /* Check if we have HTML content type from headers */
             if(hi->parttype[0] && strstr(hi->parttype, "text/html")) {
                debug_printf("DEBUG: Content type is HTML, ensuring proper parsing\n");
@@ -2946,9 +2946,9 @@ static BOOL Readdata(struct Httpinfo *hi)
             }
          }
          
-         /* CRITICAL: Memory bounds validation with actual canary-like protection */
+         /* Memory bounds validation with actual canary-like protection */
          if(hi->blocklength < 0 || hi->blocklength > hi->fd->blocksize) {
-            debug_printf("DEBUG: CRITICAL: Invalid blocklength %ld after decompression, aborting\n", hi->blocklength);
+            debug_printf("DEBUG: Invalid blocklength %ld after decompression, aborting\n", hi->blocklength);
             inflateEnd(&d_stream);
             hi->flags &= ~HTTPIF_GZIPENCODED;
             hi->flags &= ~HTTPIF_GZIPDECODING;
@@ -2957,14 +2957,14 @@ static BOOL Readdata(struct Httpinfo *hi)
             break;
          }
          
-         /* CRITICAL: Buffer overflow protection - validate the actual buffer */
+         /* Buffer overflow protection - validate the actual buffer */
          if(hi->fd->block && hi->blocklength > 0) {
             buffer_start = hi->fd->block;
             buffer_end = buffer_start + hi->blocklength;
             
             /* Check if buffer pointers are valid memory addresses */
             if((ULONG)buffer_start < 0x1000 || (ULONG)buffer_start > 0xFFFFFFF0) {
-               debug_printf("DEBUG: CRITICAL: Invalid buffer start address 0x%08lX\n", (ULONG)buffer_start);
+               debug_printf("DEBUG: Invalid buffer start address 0x%08lX\n", (ULONG)buffer_start);
                hi->blocklength = 0;
                gzip_end = 1;
                break;
@@ -2972,7 +2972,7 @@ static BOOL Readdata(struct Httpinfo *hi)
             
             /* Check if buffer end is within valid range */
             if((ULONG)buffer_end < 0x1000 || (ULONG)buffer_end > 0xFFFFFFF0) {
-               debug_printf("DEBUG: CRITICAL: Invalid buffer end address 0x%08lX\n", (ULONG)buffer_end);
+               debug_printf("DEBUG: Invalid buffer end address 0x%08lX\n", (ULONG)buffer_end);
                hi->blocklength = 0;
                gzip_end = 1;
                break;
@@ -2980,26 +2980,26 @@ static BOOL Readdata(struct Httpinfo *hi)
             
             /* Verify buffer doesn't wrap around */
             if((ULONG)buffer_end <= (ULONG)buffer_start) {
-               debug_printf("DEBUG: CRITICAL: Buffer wrap-around detected\n");
+               debug_printf("DEBUG: Buffer wrap-around detected\n");
                hi->blocklength = 0;
                gzip_end = 1;
                break;
             }
             
-            /* CRITICAL: Heap corruption detection - check memory allocation integrity */
+            /* Heap corruption detection - check memory allocation integrity */
             if(hi->fd->blocksize > 0) {
                /* Check if blocksize is reasonable (not corrupted) */
                if(hi->fd->blocksize > 1024*1024) { /* 1MB max */
-                  debug_printf("DEBUG: CRITICAL: Corrupted blocksize detected: %ld\n", hi->fd->blocksize);
+                  debug_printf("DEBUG: Corrupted blocksize detected: %ld\n", hi->fd->blocksize);
                   hi->blocklength = 0;
                   gzip_end = 1;
                   break;
                }
                
-               /* CRITICAL: Only validate that block pointer is a reasonable memory address */
+               /* Only validate that block pointer is a reasonable memory address */
                /* Don't check if it's within filedata structure - it's a separate buffer! */
                if((ULONG)buffer_start < 0x1000 || (ULONG)buffer_start > 0xFFFFFFF0) {
-                  debug_printf("DEBUG: CRITICAL: Block pointer is invalid memory address: 0x%08lX\n", (ULONG)buffer_start);
+                  debug_printf("DEBUG: Block pointer is invalid memory address: 0x%08lX\n", (ULONG)buffer_start);
                   hi->blocklength = 0;
                   gzip_end = 1;
                   break;
@@ -3007,9 +3007,9 @@ static BOOL Readdata(struct Httpinfo *hi)
             }
          }
          
-         /* CRITICAL: Safety check - ensure blocklength is valid to prevent memory corruption */
+         /* Safety check - ensure blocklength is valid to prevent memory corruption */
          if(hi->blocklength < 0 || hi->blocklength > hi->fd->blocksize) {
-            debug_printf("DEBUG: CRITICAL: Invalid blocklength %ld, resetting to 0 to prevent crash\n", hi->blocklength);
+            debug_printf("DEBUG: Invalid blocklength %ld, resetting to 0 to prevent crash\n", hi->blocklength);
             hi->blocklength = 0;
             
             /* If we get invalid data, disable gzip to prevent further corruption */
@@ -3026,15 +3026,15 @@ static BOOL Readdata(struct Httpinfo *hi)
             gzip_end=1;
          }
          
-         /* CRITICAL: Validate decompressed data to prevent memory corruption */
+         /* Validate decompressed data to prevent memory corruption */
          if(hi->blocklength > 0) {
             data_check = hi->fd->block;
             data_valid = TRUE;
             i = 0;
             
-            /* CRITICAL: Buffer pointer validation FIRST */
+            /* Buffer pointer validation FIRST */
             if((ULONG)data_check < 0x1000 || (ULONG)data_check > 0xFFFFFFF0) {
-               debug_printf("DEBUG: CRITICAL: Invalid buffer pointer 0x%08lX, disabling gzip\n", (ULONG)data_check);
+               debug_printf("DEBUG: Invalid buffer pointer 0x%08lX, disabling gzip\n", (ULONG)data_check);
                hi->flags &= ~HTTPIF_GZIPENCODED;
                hi->flags &= ~HTTPIF_GZIPDECODING;
                hi->blocklength = 0;
@@ -3053,7 +3053,7 @@ static BOOL Readdata(struct Httpinfo *hi)
             }
             
             if(!data_valid) {
-               debug_printf("DEBUG: CRITICAL: Decompressed data contains invalid characters, disabling gzip\n");
+               debug_printf("DEBUG: Decompressed data contains invalid characters, disabling gzip\n");
                hi->flags &= ~HTTPIF_GZIPENCODED;
                hi->flags &= ~HTTPIF_GZIPDECODING;
                hi->blocklength = 0;
@@ -3063,7 +3063,7 @@ static BOOL Readdata(struct Httpinfo *hi)
          }
       } /* End of gzip processing while loop */
       
-      /* CRITICAL: Clean up gzip resources after processing */
+      /* Clean up gzip resources after processing */
       if(hi->flags & HTTPIF_GZIPDECODING) {
          debug_printf("DEBUG: Cleaning up gzip resources, flags before cleanup=0x%04X, d_stream_initialized=%d\n", 
                 hi->flags, d_stream_initialized);
@@ -3080,17 +3080,17 @@ static BOOL Readdata(struct Httpinfo *hi)
          hi->flags &= ~HTTPIF_GZIPENCODED;
          debug_printf("DEBUG: Gzip cleanup complete, flags after cleanup=0x%04X\n", hi->flags);
          
-         /* CRITICAL: Account for any remaining compressed data in current block */
+         /* Account for any remaining compressed data in current block */
          if(hi->blocklength > 0)
          {  total_compressed_read += hi->blocklength;
             debug_printf("DEBUG: Accounting for %ld bytes remaining in block after gzip cleanup\n", hi->blocklength);
          }
          
-         /* CRITICAL: Reset blocklength to 0 after gzip processing is complete */
+         /* Reset blocklength to 0 after gzip processing is complete */
          /* This is safe because all gzip data has been processed and sent via Updatetaskattrs */
          hi->blocklength = 0;
          
-         /* CRITICAL: For non-chunked gzip streams, all data has been decompressed */
+         /* For non-chunked gzip streams, all data has been decompressed */
          /* For Content-Length responses, read exactly that much compressed data from network */
          if(!(hi->flags & HTTPIF_CHUNKED))
          {  if(hi->partlength > 0)
@@ -3132,10 +3132,10 @@ static BOOL Readdata(struct Httpinfo *hi)
          d_stream_initialized = FALSE;
       }
       
-      /* CRITICAL: Validate blocklength before continuing */
+      /* Validate blocklength before continuing */
       /* Only validate if we're not in a gzip state transition */
       if(!(hi->flags & HTTPIF_GZIPDECODING) && (hi->blocklength < 0 || hi->blocklength > hi->fd->blocksize)) {
-         debug_printf("DEBUG: CRITICAL: Invalid blocklength %ld after gzip processing, resetting to prevent corruption\n", hi->blocklength);
+         debug_printf("DEBUG: Invalid blocklength %ld after gzip processing, resetting to prevent corruption\n", hi->blocklength);
          hi->blocklength = 0;
       }
       
@@ -3151,14 +3151,14 @@ static BOOL Readdata(struct Httpinfo *hi)
       else
       {  debug_printf("DEBUG: No data to process, blocklength=%ld, calling Readblock\n", hi->blocklength);
          
-         /* CRITICAL: Validate blocklength before proceeding to prevent memory corruption */
+         /* Validate blocklength before proceeding to prevent memory corruption */
          if(hi->blocklength < 0 || hi->blocklength > hi->fd->blocksize) {
-            debug_printf("DEBUG: CRITICAL: Invalid blocklength %ld detected in main loop, resetting to prevent OS crash\n", hi->blocklength);
+            debug_printf("DEBUG: Invalid blocklength %ld detected in main loop, resetting to prevent OS crash\n", hi->blocklength);
             hi->blocklength = 0;
             
-            /* CRITICAL: Disable gzip if it's causing corruption */
+            /* Disable gzip if it's causing corruption */
             if(hi->flags & (HTTPIF_GZIPENCODED | HTTPIF_GZIPDECODING)) {
-               debug_printf("DEBUG: CRITICAL: Disabling corrupted gzip processing\n");
+               debug_printf("DEBUG: Disabling corrupted gzip processing\n");
                hi->flags &= ~HTTPIF_GZIPENCODED;
                hi->flags &= ~HTTPIF_GZIPDECODING;
                
@@ -3170,7 +3170,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                inflateEnd(&d_stream);
             }
             
-            /* CRITICAL: Reset corrupted buffer to prevent OS crash */
+            /* Reset corrupted buffer to prevent OS crash */
             if(hi->fd && hi->fd->block) {
                hi->fd->block[0] = '\0'; /* Safe reset */
             }
@@ -3178,7 +3178,7 @@ static BOOL Readdata(struct Httpinfo *hi)
             break;
          }
          
-         /* CRITICAL: Check if data was already processed to prevent duplication */
+         /* Check if data was already processed to prevent duplication */
          if(hi->flags & HTTPIF_DATA_PROCESSED) {
             debug_printf("DEBUG: Data already processed, skipping Readblock to prevent duplication\n");
             hi->flags &= ~HTTPIF_DATA_PROCESSED; /* Clear the flag for next iteration */
@@ -3197,7 +3197,7 @@ static BOOL Readdata(struct Httpinfo *hi)
             if(hi->blocklength > 0) {
                debug_printf("DEBUG: Have %ld bytes of data, processing what we have\n", hi->blocklength);
                /* Process the data we already have before breaking */
-               /* CRITICAL: Include content type if available */
+               /* Include content type if available */
                if(hi->parttype[0] != '\0' && hi->parttype[0] != 0 && strlen(hi->parttype) > 0) {
                   debug_printf("DEBUG: Sending final data with content type: '%s' (length=%ld)\n", hi->parttype, strlen(hi->parttype));
                   Updatetaskattrs(
@@ -3230,24 +3230,24 @@ static BOOL Readdata(struct Httpinfo *hi)
    
    if(bdcopy) FREE(bdcopy);
    
-   /* CRITICAL: Always clean up gzip resources to prevent memory corruption */
+   /* Always clean up gzip resources to prevent memory corruption */
    if(gzipbuffer) 
    {  FREE(gzipbuffer);
       gzipbuffer = NULL;
    }
    
-   /* CRITICAL: Always clean up zlib stream to prevent memory corruption */
+   /* Always clean up zlib stream to prevent memory corruption */
    if(d_stream_initialized)
    {  inflateEnd(&d_stream);
       d_stream_initialized = FALSE;
       debug_printf("DEBUG: Zlib stream cleaned up\n");
    }
    
-   /* CRITICAL: Force cleanup of any pending network operations to prevent exit hanging */
-   /* CRITICAL: For SSL connections, must close SSL BEFORE closing socket */
+   /* Force cleanup of any pending network operations to prevent exit hanging */
+   /* For SSL connections, must close SSL BEFORE closing socket */
    if(hi->sock >= 0) {
       debug_printf("DEBUG: Force closing socket to prevent exit hanging\n");
-      /* CRITICAL: If this is an SSL connection, close SSL first */
+      /* If this is an SSL connection, close SSL first */
 #ifndef DEMOVERSION
       if(hi->flags & HTTPIF_SSL && hi->assl)
       {  debug_printf("DEBUG: Force closing SSL connection before socket\n");
@@ -3261,46 +3261,46 @@ static BOOL Readdata(struct Httpinfo *hi)
       hi->sock = -1;
    }
    
-   /* CRITICAL: Final memory corruption detection and prevention */
+   /* Final memory corruption detection and prevention */
    if(hi->fd && hi->fd->block) {
       if(hi->blocklength < 0 || hi->blocklength > hi->fd->blocksize) {
-         debug_printf("DEBUG: CRITICAL: Final safety check - invalid blocklength %ld, resetting to 0\n", hi->blocklength);
+         debug_printf("DEBUG: Final safety check - invalid blocklength %ld, resetting to 0\n", hi->blocklength);
          hi->blocklength = 0;
          
-         /* CRITICAL: Reset buffer to prevent memory corruption from spreading */
+         /* Reset buffer to prevent memory corruption from spreading */
          if(hi->fd->blocksize > 0 && hi->fd->blocksize <= INPUTBLOCKSIZE) {
             hi->fd->block[0] = '\0'; /* Safe reset */
-            debug_printf("DEBUG: CRITICAL: Buffer reset to prevent OS corruption\n");
+            debug_printf("DEBUG: Buffer reset to prevent OS corruption\n");
          }
          
-         /* CRITICAL: Disable gzip if it's causing corruption */
+         /* Disable gzip if it's causing corruption */
          if(hi->flags & (HTTPIF_GZIPENCODED | HTTPIF_GZIPDECODING)) {
-            debug_printf("DEBUG: CRITICAL: Final cleanup - disabling corrupted gzip processing\n");
+            debug_printf("DEBUG: Final cleanup - disabling corrupted gzip processing\n");
             hi->flags &= ~HTTPIF_GZIPENCODED;
             hi->flags &= ~HTTPIF_GZIPDECODING;
          }
       }
    } else {
-      debug_printf("DEBUG: CRITICAL: Invalid fd or block pointer detected, resetting to prevent OS crash\n");
+      debug_printf("DEBUG: Invalid fd or block pointer detected, resetting to prevent OS crash\n");
       hi->blocklength = 0;
    }
    
-   /* CRITICAL: Final validation before return to prevent memory corruption */
+   /* Final validation before return to prevent memory corruption */
    if(hi->fd && (ULONG)hi->fd < 0x1000 || (ULONG)hi->fd > 0xFFFFFFF0) {
-      debug_printf("DEBUG: CRITICAL: Corrupted fd pointer detected! fd=0x%08lX\n", (ULONG)hi->fd);
+      debug_printf("DEBUG: Corrupted fd pointer detected! fd=0x%08lX\n", (ULONG)hi->fd);
       hi->fd = NULL;
       hi->blocklength = 0;
    }
    
-   /* CRITICAL: Final blocklength validation to prevent OS crash */
+   /* Final blocklength validation to prevent OS crash */
    if(hi->blocklength < 0) {
-      debug_printf("DEBUG: CRITICAL: Final blocklength validation failed: %ld, forcing reset to prevent OS crash\n", hi->blocklength);
+      debug_printf("DEBUG: Final blocklength validation failed: %ld, forcing reset to prevent OS crash\n", hi->blocklength);
       hi->blocklength = 0;
    }
    
-   /* CRITICAL: Final validation before return to prevent memory corruption */
+   /* Final validation before return to prevent memory corruption */
    if(hi->fd && (ULONG)hi->fd < 0x1000 || (ULONG)hi->fd > 0xFFFFFFF0) {
-      debug_printf("DEBUG: CRITICAL: Corrupted fd pointer detected! fd=0x%08lX\n", (ULONG)hi->fd);
+      debug_printf("DEBUG: Corrupted fd pointer detected! fd=0x%08lX\n", (ULONG)hi->fd);
       hi->fd = NULL;
       hi->blocklength = 0;
    }
@@ -3368,7 +3368,7 @@ static void Httpresponse(struct Httpinfo *hi,BOOL readfirst)
             else
             {              debug_printf("DEBUG: No boundary, calling Readdata directly\n");
                
-               /* CRITICAL: Add memory corruption protection before calling Readdata */
+               /* Add memory corruption protection before calling Readdata */
                if(hi->fd && hi->fd->block && hi->fd->blocksize > 0 && hi->fd->blocksize <= INPUTBLOCKSIZE) {
                   debug_printf("DEBUG: Memory validation passed, calling Readdata\n");
                   debug_printf("DEBUG: Httpresponse: About to call Readdata() - this is the main data read\n");
@@ -3376,17 +3376,17 @@ static void Httpresponse(struct Httpinfo *hi,BOOL readfirst)
                   debug_printf("DEBUG: Httpresponse: Readdata() returned\n");
                   debug_printf("DEBUG: Readdata() completed\n");
                   
-                  /* CRITICAL: Validate memory integrity after Readdata */
+                  /* Validate memory integrity after Readdata */
                   if(hi->fd && hi->fd->block) {
                      if(hi->blocklength < 0 || hi->blocklength > hi->fd->blocksize) {
-                        debug_printf("DEBUG: CRITICAL: Memory corruption detected after Readdata! blocklength=%ld\n", hi->blocklength);
-                        debug_printf("DEBUG: CRITICAL: Resetting to prevent OS crash\n");
+                        debug_printf("DEBUG: Memory corruption detected after Readdata! blocklength=%ld\n", hi->blocklength);
+                        debug_printf("DEBUG: Resetting to prevent OS crash\n");
                         hi->blocklength = 0;
                         hi->fd->block[0] = '\0'; /* Safe reset */
                      }
                   }
                } else {
-                  debug_printf("DEBUG: CRITICAL: Invalid memory state detected, skipping Readdata to prevent OS crash\n");
+                  debug_printf("DEBUG: Invalid memory state detected, skipping Readdata to prevent OS crash\n");
                   debug_printf("DEBUG: fd=%p, block=%p, blocksize=%ld\n", hi->fd, hi->fd ? hi->fd->block : NULL, hi->fd ? hi->fd->blocksize : 0);
                   hi->blocklength = 0;
                }
@@ -3480,12 +3480,12 @@ static BOOL Openlibraries(struct Httpinfo *hi)
    if(hi->flags&HTTPIF_SSL)
    {  
 #ifndef DEMOVERSION
-      /* CRITICAL: Each HTTPS connection must have its own dedicated Assl object */
+      /* Each HTTPS connection must have its own dedicated Assl object */
       /* If hi->assl already exists, clean it up first to prevent reuse */
       if(hi->assl)
       {  Assl_closessl(hi->assl);
          Assl_cleanup(hi->assl);
-         /* CRITICAL: Free the struct after Assl_cleanup() has cleaned it up */
+         /* Free the struct after Assl_cleanup() has cleaned it up */
          /* Assl_cleanup() no longer frees the struct to prevent use-after-free crashes */
          FREE(hi->assl);
          hi->assl = NULL;
@@ -3497,7 +3497,7 @@ static BOOL Openlibraries(struct Httpinfo *hi)
          if(!amisslmaster)
          {  Lowlevelreq("AWeb requires amisslmaster.library for SSL/TLS connections.\nPlease install AmiSSL 5.20 or newer and try again.");
             Assl_cleanup(hi->assl);
-            /* CRITICAL: Free the struct after Assl_cleanup() has cleaned it up */
+            /* Free the struct after Assl_cleanup() has cleaned it up */
             FREE(hi->assl);
             hi->assl = NULL;
             result = FALSE;
@@ -3528,7 +3528,7 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
 {  long sock;
    struct timeval timeout;
    
-   /* CRITICAL: Validate socketbase is still valid before using it */
+   /* Validate socketbase is still valid before using it */
    /* Another task might have closed the library, invalidating our handle */
    if(!hi->socketbase)
    {  debug_printf("DEBUG: Opensocket: socketbase is NULL, returning -1\n");
@@ -3537,7 +3537,7 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
    
 #ifndef DEMOVERSION
    if(hi->flags&HTTPIF_SSL)
-   {  /* CRITICAL: Validate socketbase again before SSL operations */
+   {  /* Validate socketbase again before SSL operations */
       if(!hi->socketbase)
       {  debug_printf("DEBUG: Opensocket: socketbase became NULL before SSL init, returning -1\n");
          return -1;
@@ -3549,7 +3549,7 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
       }
       debug_printf("DEBUG: Opensocket: Assl_openssl() succeeded\n");
       
-      /* CRITICAL: Validate socketbase is still valid after SSL init */
+      /* Validate socketbase is still valid after SSL init */
       /* Another task might have closed the library during SSL initialization */
       if(!hi->socketbase)
       {  debug_printf("DEBUG: Opensocket: socketbase became NULL during SSL init, returning -1\n");
@@ -3558,7 +3558,7 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
       }
    }
 #endif
-   /* CRITICAL: Final validation before creating socket */
+   /* Final validation before creating socket */
    if(!hi->socketbase)
    {  debug_printf("DEBUG: Opensocket: socketbase is NULL before socket creation, returning -1\n");
       return -1;
@@ -3574,24 +3574,24 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
    timeout.tv_sec = 30;  /* 30 second timeout */
    timeout.tv_usec = 0;
    
-   /* CRITICAL: Set global SocketBase for setsockopt() from proto/bsdsocket.h */
+   /* Set global SocketBase for setsockopt() from proto/bsdsocket.h */
    /* The proto header expects SocketBase to be available, so we set it to hi->socketbase */
-   /* CRITICAL: Save and restore SocketBase to avoid race conditions with concurrent tasks */
+   /* Save and restore SocketBase to avoid race conditions with concurrent tasks */
    {  struct Library *saved_socketbase_opensocket;
       saved_socketbase_opensocket = SocketBase;
       SocketBase = hi->socketbase;
       
-      /* Set receive timeout - CRITICAL: This prevents SSL_connect() from hanging indefinitely */
+      /* Set receive timeout - This prevents SSL_connect() from hanging indefinitely */
       if(setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
       {  /* Timeout setting failed, but continue */
       }
       
-      /* Set send timeout - CRITICAL: This prevents SSL_connect() from hanging indefinitely */
+      /* Set send timeout - This prevents SSL_connect() from hanging indefinitely */
       if(setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
       {  /* Timeout setting failed, but continue */
       }
       
-      /* CRITICAL: Restore SocketBase immediately after setsockopt() */
+      /* Restore SocketBase immediately after setsockopt() */
       SocketBase = saved_socketbase_opensocket;
    }
    return sock;
@@ -3619,10 +3619,10 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
       {  hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"(NULL)";
          debug_printf("DEBUG: Starting SSL connection to '%s'\n", hostname_str);
          
-         /* CRITICAL: Check for exit signal before starting blocking SSL handshake */
+         /* Check for exit signal before starting blocking SSL handshake */
          if(Checktaskbreak())
          {  debug_printf("DEBUG: Connect: Exit signal detected, aborting SSL connection\n");
-            /* CRITICAL: Close socket to interrupt any blocking SSL operations */
+            /* Close socket to interrupt any blocking SSL operations */
             if(hi->sock >= 0 && hi->socketbase)
             {  debug_printf("DEBUG: Connect: Closing socket to interrupt SSL operations\n");
                a_close(hi->sock, hi->socketbase);
@@ -3630,9 +3630,9 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
             }
             ok=FALSE;
          }
-         /* CRITICAL: Ensure SSL resources are valid before attempting connection */
+         /* Ensure SSL resources are valid before attempting connection */
          else if(hi->assl && hi->sock >= 0)
-         {  /* CRITICAL: Assl_connect() now handles SocketBase internally via per-connection socketbase */
+         {  /* Assl_connect() now handles SocketBase internally via per-connection socketbase */
             /* No need to set global SocketBase here - it's stored in the Assl struct to avoid race conditions */
             result=Assl_connect(hi->assl,hi->sock,hi->hostname);
             debug_printf("DEBUG: SSL connect result: %ld (ASSLCONNECT_OK=%d)\n", result, ASSLCONNECT_OK);
@@ -3658,7 +3658,7 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
    else
    {  /* TCP connect failed - a_connect returns non-zero on failure */
       debug_printf("DEBUG: TCP connect failed\n");
-      /* CRITICAL: TCP connect failed - cannot proceed with SSL or HTTP */
+      /* TCP connect failed - cannot proceed with SSL or HTTP */
       /* Set ok=FALSE to indicate connection failure */
       ok=FALSE;
 #ifndef DEMOVERSION
@@ -3713,7 +3713,7 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
             {  hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"(NULL)";
                debug_printf("DEBUG: Starting SSL connection to '%s'\n", hostname_str);
                
-               /* CRITICAL: Ensure SSL resources are valid before attempting connection */
+               /* Ensure SSL resources are valid before attempting connection */
                if(hi->assl && hi->sock >= 0)
                {  result=Assl_connect(hi->assl,hi->sock,hi->hostname);
                   debug_printf("DEBUG: SSL connect result: %ld (ASSLCONNECT_OK=%d)\n", result, ASSLCONNECT_OK);
@@ -3736,7 +3736,7 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
             }
          }
          else
-         {  /* CRITICAL: For direct SSL connections, TCP connect MUST succeed first */
+         {  /* For direct SSL connections, TCP connect MUST succeed first */
             /* Cannot proceed with SSL if TCP connection failed */
             debug_printf("DEBUG: TCP connect failed for SSL connection - cannot proceed with SSL handshake\n");
             ok=FALSE;
@@ -3886,10 +3886,10 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                hi->flags&HTTPIF_SSL?"HTTPS":"HTTP",hent->h_name);
             
                debug_printf("DEBUG: Httpretrieve: Calling Connect()\n");
-               /* CRITICAL: Check for exit signal before starting blocking connection */
+               /* Check for exit signal before starting blocking connection */
                if(Checktaskbreak())
                {  debug_printf("DEBUG: Httpretrieve: Exit signal detected, aborting connection\n");
-                  /* CRITICAL: Close socket to interrupt any blocking operations */
+                  /* Close socket to interrupt any blocking operations */
                   if(hi->sock >= 0 && hi->socketbase)
                   {  debug_printf("DEBUG: Httpretrieve: Closing socket to interrupt operations\n");
                      a_close(hi->sock, hi->socketbase);
@@ -3952,10 +3952,10 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                   Updatetaskattrs(AOURL_Netstatus,NWS_WAIT,TAG_END);
                   Tcpmessage(fd,TCPMSG_WAITING,hi->flags&HTTPIF_SSL?"HTTPS":"HTTP");
                   
-                  /* CRITICAL: Check for exit signal before starting blocking HTTP response */
+                  /* Check for exit signal before starting blocking HTTP response */
                   if(Checktaskbreak())
                   {  debug_printf("DEBUG: Httpretrieve: Exit signal detected, aborting HTTP response\n");
-                     /* CRITICAL: Close socket and SSL to interrupt any blocking operations */
+                     /* Close socket and SSL to interrupt any blocking operations */
 #ifndef DEMOVERSION
                      if(hi->assl)
                      {  debug_printf("DEBUG: Httpretrieve: Closing SSL connection due to exit\n");
@@ -3990,12 +3990,12 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
             }
             
             debug_printf("DEBUG: Httpretrieve: Cleaning up connection\n");
-            /* CRITICAL: Close SSL connection BEFORE closing socket */
+            /* Close SSL connection BEFORE closing socket */
             /* SSL shutdown needs the socket to still be open */
             if(hi->assl)
             {  debug_printf("DEBUG: Httpretrieve: Closing SSL connection\n");
                Assl_closessl(hi->assl);
-               /* CRITICAL: DON'T set hi->assl to NULL here - Assl_cleanup() will handle it */
+               /* DON'T set hi->assl to NULL here - Assl_cleanup() will handle it */
                /* Assl_closessl() only closes the connection, doesn't free the Assl structure */
             }
             /* Now safe to close socket - SSL has been properly shut down */
@@ -4026,16 +4026,16 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
       Tcperror(fd,TCPERR_NOLIB);
    }
 #ifndef DEMOVERSION
-   /* CRITICAL: Clean up Assl structure */
-   /* CRITICAL: Must clean up Assl BEFORE closing socketbase library */
+   /* Clean up Assl structure */
+   /* Must clean up Assl BEFORE closing socketbase library */
    /* This ensures SSL operations are fully complete before library is closed */
    /* Assl_closessl() already freed SSL resources, so Assl_cleanup() will just mark it as cleaned */
    if(hi->assl)
    {  debug_printf("DEBUG: Httpretrieve: Cleaning up Assl structure\n");
-      /* CRITICAL: Assl_closessl() should have already freed SSL resources */
+      /* Assl_closessl() should have already freed SSL resources */
       /* Assl_cleanup() will null out library bases to mark the object as dead */
       Assl_cleanup(hi->assl);
-      /* CRITICAL: Free the struct after Assl_cleanup() has cleaned it up */
+      /* Free the struct after Assl_cleanup() has cleaned it up */
       /* Assl_cleanup() no longer frees the struct to prevent use-after-free crashes */
       FREE(hi->assl);
       hi->assl=NULL;
@@ -4043,9 +4043,9 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
    }
 #endif
    
-   /* CRITICAL: Only close socketbase library after all SSL operations are complete */
+   /* Only close socketbase library after all SSL operations are complete */
    /* This ensures no concurrent SSL operations are using the library when we close it */
-   /* CRITICAL: Must wait until Assl is fully cleaned up before closing socketbase */
+   /* Must wait until Assl is fully cleaned up before closing socketbase */
    if(hi->socketbase)
    {  debug_printf("DEBUG: Httpretrieve: Closing socketbase library\n");
       CloseLibrary(hi->socketbase);

@@ -1,0 +1,67 @@
+# AWeb Project - Build Artifacts
+# This .gitignore excludes all build artifacts for all git repositories in the project
+
+# =============================================================================
+# CONFIGURATION AND TEMPORARY FILES
+# =============================================================================
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Log files
+*.log
+logs/
+
+# =============================================================================
+# AMIGA-SPECIFIC CONFIGURATION
+# =============================================================================
+
+# Amiga build scripts output
+output.txt
+*.map
+*.map.info
+*.gst
+*.gst.info
+awebgst
+
+# =============================================================================
+# ARCHIVE FILES
+# =============================================================================
+
+# Compressed archives
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.rar
+*.7z
+
+# Amiga-specific build artifacts
+*.o
+*.so
+*.O
+*.lib
+*.exe
+Source/*/*.aweblib
+Source/AWebAPL/AWeb
+Source/AWebAPL/AWebJS
+Source/AWebAPL/AWebCfg
