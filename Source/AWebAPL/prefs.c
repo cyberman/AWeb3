@@ -252,8 +252,17 @@ static BOOL Openfonts(void)
       {  ta.ta_Name=prefs.font[j][i].fontname;
          ta.ta_YSize=prefs.font[j][i].fontsize;
          if(!(prefs.font[j][i].font=OpenDiskFont(&ta)))
-         {  ta.ta_Name="topaz.font";
-            if(!(prefs.font[j][i].font=OpenDiskFont(&ta))) return FALSE;
+         {  /* Fallback to bitmap fonts if scalable fonts not available */
+            if(j==0)
+            {  ta.ta_Name="times.font";
+            }
+            else
+            {  ta.ta_Name="courier.font";
+            }
+            if(!(prefs.font[j][i].font=OpenDiskFont(&ta)))
+            {  ta.ta_Name="topaz.font";
+               if(!(prefs.font[j][i].font=OpenDiskFont(&ta))) return FALSE;
+            }
          }
       }
       Setloadreqlevel(j+1,2);

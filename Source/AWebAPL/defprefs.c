@@ -51,22 +51,22 @@
 struct Prefs defprefs=
 {  {  /* browser prefs */
       {  {  /* font [0] normal */
-            {  "times.font",     11,NULL },
-            {  "times.font",     13,NULL },
-            {  "times.font",     15,NULL },
-            {  "times.font",     18,NULL },
-            {  "times.font",     24,NULL },
-            {  "times.font",     30,NULL },
-            {  "times.font",     36,NULL },
+            {  "CGTimes.font",     11,NULL },
+            {  "CGTimes.font",     13,NULL },
+            {  "CGTimes.font",     15,NULL },
+            {  "CGTimes.font",     18,NULL },
+            {  "CGTimes.font",     24,NULL },
+            {  "CGTimes.font",     30,NULL },
+            {  "CGTimes.font",     36,NULL },
          },
          {  /* font [1] fixed */
-            {  "courier.font",   11,NULL },
-            {  "courier.font",   13,NULL },
-            {  "courier.font",   15,NULL },
-            {  "courier.font",   18,NULL },
-            {  "courier.font",   24,NULL },
-            {  "courier.font",   30,NULL },
-            {  "courier.font",   36,NULL },
+            {  "LetterGothic.font",   11,NULL },
+            {  "LetterGothic.font",   13,NULL },
+            {  "LetterGothic.font",   15,NULL },
+            {  "LetterGothic.font",   18,NULL },
+            {  "LetterGothic.font",   24,NULL },
+            {  "LetterGothic.font",   30,NULL },
+            {  "LetterGothic.font",   36,NULL },
          },
       },
       EMPTYLIST(Fontalias,defprefs.aliaslist), /* font alias */
@@ -1166,15 +1166,158 @@ BOOL Initdefprefs(void)
       UnlockPubScreen(NULL,screen);
    }
    
-   alias="Arial,Helvetica";
-   font="helvetica.font";
+   /* Serif font aliases - map to CGTimes.font (scalable) */
+   alias="Times New Roman,Times,serif";
+   font="CGTimes.font";
    Adddeffontalias(alias,0,font,9);
    Adddeffontalias(alias,1,font,11);
    Adddeffontalias(alias,2,font,13);
    Adddeffontalias(alias,3,font,15);
    Adddeffontalias(alias,4,font,18);
    Adddeffontalias(alias,5,font,24);
-   Adddeffontalias(alias,6,font,24);
+   Adddeffontalias(alias,6,font,36);
+   
+   alias="Georgia";
+   font="CGTimes.font";
+   Adddeffontalias(alias,0,font,9);
+   Adddeffontalias(alias,1,font,11);
+   Adddeffontalias(alias,2,font,13);
+   Adddeffontalias(alias,3,font,15);
+   Adddeffontalias(alias,4,font,18);
+   Adddeffontalias(alias,5,font,24);
+   Adddeffontalias(alias,6,font,36);
+   
+   alias="Palatino";
+   font="CGTimes.font";
+   Adddeffontalias(alias,0,font,9);
+   Adddeffontalias(alias,1,font,11);
+   Adddeffontalias(alias,2,font,13);
+   Adddeffontalias(alias,3,font,15);
+   Adddeffontalias(alias,4,font,18);
+   Adddeffontalias(alias,5,font,24);
+   Adddeffontalias(alias,6,font,36);
+   
+   alias="Garamond";
+   font="CGTimes.font";
+   Adddeffontalias(alias,0,font,9);
+   Adddeffontalias(alias,1,font,11);
+   Adddeffontalias(alias,2,font,13);
+   Adddeffontalias(alias,3,font,15);
+   Adddeffontalias(alias,4,font,18);
+   Adddeffontalias(alias,5,font,24);
+   Adddeffontalias(alias,6,font,36);
+   
+   alias="Book Antiqua";
+   font="CGTimes.font";
+   Adddeffontalias(alias,0,font,9);
+   Adddeffontalias(alias,1,font,11);
+   Adddeffontalias(alias,2,font,13);
+   Adddeffontalias(alias,3,font,15);
+   Adddeffontalias(alias,4,font,18);
+   Adddeffontalias(alias,5,font,24);
+   Adddeffontalias(alias,6,font,36);
+   
+   /* Sans-serif font aliases - map to CGTriumvirate.font (scalable) */
+   alias="Arial,Helvetica,sans-serif";
+   font="CGTriumvirate.font";
+   Adddeffontalias(alias,0,font,9);
+   Adddeffontalias(alias,1,font,11);
+   Adddeffontalias(alias,2,font,13);
+   Adddeffontalias(alias,3,font,15);
+   Adddeffontalias(alias,4,font,18);
+   Adddeffontalias(alias,5,font,24);
+   Adddeffontalias(alias,6,font,36);
+   
+   alias="Verdana";
+   font="CGTriumvirate.font";
+   Adddeffontalias(alias,0,font,9);
+   Adddeffontalias(alias,1,font,11);
+   Adddeffontalias(alias,2,font,13);
+   Adddeffontalias(alias,3,font,15);
+   Adddeffontalias(alias,4,font,18);
+   Adddeffontalias(alias,5,font,24);
+   Adddeffontalias(alias,6,font,36);
+   
+   alias="Trebuchet MS";
+   font="CGTriumvirate.font";
+   Adddeffontalias(alias,0,font,9);
+   Adddeffontalias(alias,1,font,11);
+   Adddeffontalias(alias,2,font,13);
+   Adddeffontalias(alias,3,font,15);
+   Adddeffontalias(alias,4,font,18);
+   Adddeffontalias(alias,5,font,24);
+   Adddeffontalias(alias,6,font,36);
+   
+   alias="Tahoma";
+   font="CGTriumvirate.font";
+   Adddeffontalias(alias,0,font,9);
+   Adddeffontalias(alias,1,font,11);
+   Adddeffontalias(alias,2,font,13);
+   Adddeffontalias(alias,3,font,15);
+   Adddeffontalias(alias,4,font,18);
+   Adddeffontalias(alias,5,font,24);
+   Adddeffontalias(alias,6,font,36);
+   
+   alias="Lucida Sans Unicode";
+   font="CGTriumvirate.font";
+   Adddeffontalias(alias,0,font,9);
+   Adddeffontalias(alias,1,font,11);
+   Adddeffontalias(alias,2,font,13);
+   Adddeffontalias(alias,3,font,15);
+   Adddeffontalias(alias,4,font,18);
+   Adddeffontalias(alias,5,font,24);
+   Adddeffontalias(alias,6,font,36);
+   
+   alias="Comic Sans MS";
+   font="CGTriumvirate.font";
+   Adddeffontalias(alias,0,font,9);
+   Adddeffontalias(alias,1,font,11);
+   Adddeffontalias(alias,2,font,13);
+   Adddeffontalias(alias,3,font,15);
+   Adddeffontalias(alias,4,font,18);
+   Adddeffontalias(alias,5,font,24);
+   Adddeffontalias(alias,6,font,36);
+   
+   alias="Impact";
+   font="CGTriumvirate.font";
+   Adddeffontalias(alias,0,font,9);
+   Adddeffontalias(alias,1,font,11);
+   Adddeffontalias(alias,2,font,13);
+   Adddeffontalias(alias,3,font,15);
+   Adddeffontalias(alias,4,font,18);
+   Adddeffontalias(alias,5,font,24);
+   Adddeffontalias(alias,6,font,36);
+   
+   /* Monospace font aliases - map to LetterGothic.font (scalable) */
+   alias="Courier New,Courier,monospace";
+   font="LetterGothic.font";
+   Adddeffontalias(alias,0,font,9);
+   Adddeffontalias(alias,1,font,11);
+   Adddeffontalias(alias,2,font,13);
+   Adddeffontalias(alias,3,font,15);
+   Adddeffontalias(alias,4,font,18);
+   Adddeffontalias(alias,5,font,24);
+   Adddeffontalias(alias,6,font,36);
+   
+   alias="Lucida Console";
+   font="LetterGothic.font";
+   Adddeffontalias(alias,0,font,9);
+   Adddeffontalias(alias,1,font,11);
+   Adddeffontalias(alias,2,font,13);
+   Adddeffontalias(alias,3,font,15);
+   Adddeffontalias(alias,4,font,18);
+   Adddeffontalias(alias,5,font,24);
+   Adddeffontalias(alias,6,font,36);
+   
+   alias="Consolas";
+   font="LetterGothic.font";
+   Adddeffontalias(alias,0,font,9);
+   Adddeffontalias(alias,1,font,11);
+   Adddeffontalias(alias,2,font,13);
+   Adddeffontalias(alias,3,font,15);
+   Adddeffontalias(alias,4,font,18);
+   Adddeffontalias(alias,5,font,24);
+   Adddeffontalias(alias,6,font,36);
    
    if(!Addmimeinfo(&defprefs.mimelist,
       "TEXT","HTML","html htm shtml phtml asp",MDRIVER_INTERNAL,"","")) return FALSE;
