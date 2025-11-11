@@ -529,11 +529,17 @@ static void Driverfunction(struct Fetch *fch)
          fch->fd->validate=MSG_EPART_NOAWEBLIB;
       }
    }
-   /* Legacy protocol removed - Gopher support discontinued */
    else if(STRNIEQUAL(fch->name,"GOPHER://",9))
-   {  fch->driverfun=Errorschemetask;
-      fch->fd->name=fch->name;
-      fch->fd->validate=MSG_EPART_ADDRSCHEME;
+   {  if(fch->fdbase=Openaweblib("AWeb:aweblib/gopher.aweblib"))
+      {  fch->driverfun=AWEBLIBENTRY(fch->fdbase,0);
+         fch->fd->name=Unescape(fch->name+9);
+         fch->flags|=FCHF_NETSLOT;
+      }
+      else
+      {  fch->driverfun=Errorschemetask;
+         fch->fd->name=fch->name;
+         fch->fd->validate=MSG_EPART_NOAWEBLIB;
+      }
    }
    /* Legacy protocols removed - Telnet support discontinued */
    else if(STRNIEQUAL(fch->name,"TELNET:",7))
@@ -562,11 +568,17 @@ static void Driverfunction(struct Fetch *fch)
          fch->fd->validate=MSG_EPART_NOPROGRAM;
       }
    }
-   /* Legacy protocols removed - News/NNTP support discontinued */
    else if(STRNIEQUAL(fch->name,"NEWS:",5) || STRNIEQUAL(fch->name,"NNTP://",7))
-   {  fch->driverfun=Errorschemetask;
-      fch->fd->name=fch->name;
-      fch->fd->validate=MSG_EPART_ADDRSCHEME;
+   {  if(fch->fdbase=Openaweblib("AWeb:aweblib/news.aweblib"))
+      {  fch->driverfun=AWEBLIBENTRY(fch->fdbase,0);
+         fch->fd->name=fch->name;
+         fch->flags|=FCHF_NETSLOT;
+      }
+      else
+      {  fch->driverfun=Errorschemetask;
+         fch->fd->name=fch->name;
+         fch->fd->validate=MSG_EPART_NOAWEBLIB;
+      }
    }
    else
 #endif /* !LOCALONLY */

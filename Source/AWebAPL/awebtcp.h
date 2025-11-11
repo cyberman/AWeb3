@@ -21,7 +21,9 @@
 #define AWEBTCP_H
 
 #ifndef SYS_TYPES_H
+#ifndef u_long
 typedef unsigned long u_long;
+#endif
 #endif
 
 #include <exec/types.h>

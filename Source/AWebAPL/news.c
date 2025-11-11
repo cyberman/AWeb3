@@ -257,7 +257,7 @@ static void Subscribe(struct Fetchdriver *fd,UBYTE *name,BOOL showlist);
 
 /*-----------------------------------------------------------------------*/
 
-#define SUBSCRIBEDNAME "AWebPath:AWeb.News"
+#define SUBSCRIBEDNAME "AWeb:AWeb.News"
 
 /* Allocate a group. Note AllocVec is used because the list may be cleaned
  * up after AwebPluginBase is closed. */
@@ -367,7 +367,7 @@ static struct Group *Findgroup(struct Newsinfo *ni,UBYTE *name)
 
 /*-----------------------------------------------------------------------*/
 
-#define ACTIVENAME "AWebPath:AWeb.Active"
+#define ACTIVENAME "AWeb:AWeb.Active"
 
 /* See if active file is present and valid.
  * Returns the file handle if it is valid, NULL otherwise.

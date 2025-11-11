@@ -22,6 +22,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <proto/exec.h>
+#include <proto/socket.h>
 #include "aweblib.h"
 #include "tcperr.h"
 #include "fetchdriver.h"
@@ -380,17 +381,27 @@ static void Makeindex(struct Fetchdriver *fd)
 }
 
 /* Set socket timeouts to prevent hanging connections */
-static void SetSocketTimeouts(long sock, struct Library *SocketBase)
+static void SetSocketTimeouts(long sock, struct Library *socketbase)
 {  struct timeval timeout;
+   extern struct Library *SocketBase;
+   struct Library *saved_socketbase;
    
    timeout.tv_sec = 30;  /* 30 second timeout */
    timeout.tv_usec = 0;
    
-   /* Set receive timeout - use Amiga socket library function */
-   a_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout), SocketBase);
+   /* Set global SocketBase for setsockopt() from proto/socket.h */
+   /* Save and restore SocketBase to avoid race conditions */
+   saved_socketbase = SocketBase;
+   SocketBase = socketbase;
    
-   /* Set send timeout - use Amiga socket library function */
-   a_setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout), SocketBase);
+   /* Set receive timeout - use standard socket library function */
+   setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+   
+   /* Set send timeout - use standard socket library function */
+   setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout));
+   
+   /* Restore SocketBase */
+   SocketBase = saved_socketbase;
 }
 
 __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
@@ -402,7 +413,7 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
    long sock;
    long result,length;
    AwebTcpBase=Opentcp(&SocketBase,fd,!fd->validate);
-   if(SocketBase)
+   if(SocketBase && AwebTcpBase)
    {  if(Makegopheraddr(&ha,fd->name))
       {  if(ha.type=='7' && !ha.query)
          {  Makeindex(fd);
@@ -411,48 +422,53 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
          {  Updatetaskattrs(AOURL_Netstatus,NWS_LOOKUP,TAG_END);
             Tcpmessage(fd,TCPMSG_LOOKUP,ha.hostname);
             if(hent=Lookup(ha.hostname,SocketBase))
-            {  if((sock=a_socket(hent->h_addrtype,SOCK_STREAM,0,SocketBase))>=0)
-               {  /* Set socket timeouts to prevent hanging connections */
-                  SetSocketTimeouts(sock, SocketBase);
-                  
-                  Updatetaskattrs(AOURL_Netstatus,NWS_CONNECT,TAG_END);
-                  Tcpmessage(fd,TCPMSG_CONNECT,"Gopher",hent->h_name);
-                  if(!a_connect(sock,hent,ha.port,SocketBase))
-                  {  length=sprintf(fd->block,"%s\r\n",ha.selector);
-                     result=(a_send(sock,fd->block,length,0,SocketBase)==length);
-                     if(result)
-                     {  Updatetaskattrs(AOURL_Netstatus,NWS_WAIT,TAG_END);
-                        Tcpmessage(fd,TCPMSG_WAITING,"Gopher");
-                        for(;;)
-                        {  length=a_recv(sock,fd->block,INPUTBLOCKSIZE,0,SocketBase);
-                           if(length<0 || Checktaskbreak())
-                           {  error=TRUE;
-                              break;
+            {  /* Validate hostent structure before use */
+               if(hent->h_name && hent->h_addr_list && hent->h_addr_list[0])
+               {  if((sock=a_socket(hent->h_addrtype,SOCK_STREAM,0,SocketBase))>=0)
+                  {  Updatetaskattrs(AOURL_Netstatus,NWS_CONNECT,TAG_END);
+                     Tcpmessage(fd,TCPMSG_CONNECT,"Gopher",hent->h_name);
+                     if(!a_connect(sock,hent,ha.port,SocketBase))
+                     {  length=sprintf(fd->block,"%s\r\n",ha.selector);
+                        result=(a_send(sock,fd->block,length,0,SocketBase)==length);
+                        if(result)
+                        {  Updatetaskattrs(AOURL_Netstatus,NWS_WAIT,TAG_END);
+                           Tcpmessage(fd,TCPMSG_WAITING,"Gopher");
+                           for(;;)
+                           {  length=a_recv(sock,fd->block,INPUTBLOCKSIZE,0,SocketBase);
+                              if(length<0 || Checktaskbreak())
+                              {  error=TRUE;
+                                 break;
+                              }
+                              if(ha.type=='1' || ha.type=='7')
+                              {  Builddir(fd,&resp,length);
+                              }
+                              else if(ha.type=='0')
+                              {  Deleteperiods(fd,&resp,length);
+                              }
+                              else
+                              {  Updatetaskattrs(
+                                    AOURL_Data,fd->block,
+                                    AOURL_Datalength,length,
+                                    TAG_END);
+                              }
+                              if(length==0) break;
                            }
-                           if(ha.type=='1' || ha.type=='7')
-                           {  Builddir(fd,&resp,length);
-                           }
-                           else if(ha.type=='0')
-                           {  Deleteperiods(fd,&resp,length);
-                           }
-                           else
-                           {  Updatetaskattrs(
-                                 AOURL_Data,fd->block,
-                                 AOURL_Datalength,length,
-                                 TAG_END);
-                           }
-                           if(length==0) break;
+                           a_shutdown(sock,2,SocketBase);
                         }
-                        a_shutdown(sock,2,SocketBase);
+                        else error=TRUE;
                      }
-                     else error=TRUE;
+                     else
+                     {  Tcperror(fd,TCPERR_NOCONNECT,hent->h_name ? hent->h_name : ha.hostname);
+                     }
+                     a_close(sock,SocketBase);
                   }
-                  else
-                  {  Tcperror(fd,TCPERR_NOCONNECT,hent->h_name);
-                  }
-                  a_close(sock,SocketBase);
+                  else error=TRUE;
                }
-               else error=TRUE;
+               else
+               {  /* Invalid hostent structure */
+                  Tcperror(fd,TCPERR_NOHOST,ha.hostname);
+                  error=TRUE;
+               }
             }
             else
             {  Tcperror(fd,TCPERR_NOHOST,ha.hostname);
