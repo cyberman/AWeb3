@@ -994,11 +994,21 @@ __asm char *Assl_geterror(register __a0 struct Assl *assl,
 {  long err;
    UBYTE *p=NULL;
    short i;
+   /* Local buffer for ERR_error_string() - OpenSSL can write up to 256 bytes */
+   /* We use a local buffer to prevent overflow of caller's buffer */
+   char local_errbuf[256];
+   /* Conservative maximum size to copy to caller's buffer */
+   /* Assume caller provides at least 80 bytes (historical AWeb minimum) */
+   /* Use 79 to leave room for null terminator */
+   const long max_copy = 79;
+   
    /* Validate assl pointer before use */
    if(assl && errbuf)
    {  /* Validate assl pointer range before accessing semaphore field */
       if((ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0)
-      {  strcpy(errbuf, "Invalid Assl object");
+      {  /* Use strncpy with explicit null-termination to prevent overflow */
+         strncpy(errbuf, "Invalid Assl object", max_copy);
+         errbuf[max_copy] = '\0';
          return errbuf;
       }
       
@@ -1012,25 +1022,42 @@ __asm char *Assl_geterror(register __a0 struct Assl *assl,
          /* ERR_load_SSL_strings(); */
          err=ERR_get_error();
          if(err)
-         {  ERR_error_string(err,errbuf);
+         {  /* Use local buffer for ERR_error_string() to prevent overflow */
+            /* ERR_error_string() can write up to 256 bytes unconditionally */
+            ERR_error_string(err, local_errbuf);
             /* errbuf now contains something like: 
                "error:1408806E:SSL routines:SSL_SET_CERTIFICATE:certificate verify failed"
                Find the descriptive text after the 4th colon. */
-            for(i=0,p=errbuf;i<4 && p;i++)
+            for(i=0,p=local_errbuf;i<4 && p;i++)
             {  p=strchr(p,':');
                if(!p) break;
                p++;
             }
+            /* If we found the descriptive part, copy it; otherwise copy the full error */
+            if(p && *p)
+            {  /* Copy descriptive part to caller's buffer with bounds checking */
+               strncpy(errbuf, p, max_copy);
+               errbuf[max_copy] = '\0';
+               p = errbuf;
+            }
+            else
+            {  /* No descriptive part found, copy full error message */
+               strncpy(errbuf, local_errbuf, max_copy);
+               errbuf[max_copy] = '\0';
+               p = errbuf;
+            }
          }
          else
          {  /* No error available, provide default message */
-            strcpy(errbuf, "Unknown SSL error");
+            strncpy(errbuf, "Unknown SSL error", max_copy);
+            errbuf[max_copy] = '\0';
             p=errbuf;
          }
       }
       else
       {  /* SSL objects already cleaned up */
-         strcpy(errbuf, "SSL connection closed");
+         strncpy(errbuf, "SSL connection closed", max_copy);
+         errbuf[max_copy] = '\0';
          p=errbuf;
       }
       
@@ -1039,7 +1066,10 @@ __asm char *Assl_geterror(register __a0 struct Assl *assl,
    }
    else
    {  /* Invalid parameters */
-      if(errbuf) strcpy(errbuf, "Invalid parameters");
+      if(errbuf)
+      {  strncpy(errbuf, "Invalid parameters", max_copy);
+         errbuf[max_copy] = '\0';
+      }
    }
    if(!p && errbuf) p=errbuf;
    return (char *)p;
