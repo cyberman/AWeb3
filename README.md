@@ -250,30 +250,53 @@ AWeb includes two JavaScript development tools:
 - **AWebJS**: Standalone JavaScript interpreter for testing scripts outside the browser
 - **JavaScript Debugger**: Built-in step-through debugger with variable inspection and expression evaluation
 
-## Roadmap
+## amigazen project roadmap for AWeb
 
 The first AWeb APL open source release was version 3.4, in 2003 from the _AWeb Open Source Development Team_.
 
-Since then one further "3.5" beta release was made for both OS4 and classic Amiga, however the source code to the 68k release of 3.5 seem to no longer be available to the public, if it ever was. The OS4 version is available on os4depot. This release incorporated many improvements to JavaScript, image rendering and much more.
+Since then one further "3.5" beta release was made for both OS4 and classic Amiga, however the sourcecode to the 68k release of 3.5 seems to no longer be available to the public in a buildable form, if it ever was. Snapshots for versions for other platforms such as OS4 can be found, such as on os4depot, but the developers of 3.5 did not seem to bother to maintain compatibility with the classic Amiga build tools.
 
-Thus, this version 3.6 is derived directly from the 3.4 source code release. 
+Thus, this version 3.6 is derived directly from the 3.4 source code release, with the intent that future releases will incorporate cherry-picked improvements from the 3.5 branch where the changes have added value. 
 
-The roadmap for AWeb 3 under amigazen project is, for now:
+The roadmap for AWeb under amigazen project is, for now:
 
 ### AWeb 3.6
 
-- Stable re-release of AWeb 3.4 functionality built against ReAction, Roadshow (with INet225 support disabled), P96 (replacing no longer supported Cybergraphics libraries), AmiSSL 5 and NDK3.2
-- Cherry pick the most important patches from the various 3.5 releases found in the wild, where code is available
-- Add HTTP/1.1, chunked encoding and gzip compressed http streams support
-- Update to AmiSSL 5.20
-- Refresh icons, images and other supporting materials
-- Make minor fixes, improvements and change default configuration settings to sensible values
+The first release from amigazen project is version 3.6. The goals of this release are simply:
+
+- Ensure AWeb can be built with supported SDKs
+- Set sensible default prefs based on conventions that emerged in the years since AWeb was still state of the art
+- Package both binary and sourcecode releases properly for ease of distribution and installation 
+- Refactor the HTTP and SSL code to work better with modern web servers using HTTP/1.1, gzip, chunked encoding and modern TLS using AmiSSL
+
+The full list of changes in version 3.6 compared to version 3.4 is:
+- Stable re-release of AWeb 3.4 functionality built against support SDKs i.e. ReAction, Roadshow (with INet225 support disabled), P96 (replacing no longer supported Cybergraphics libraries), AmiSSL 5.2 and NDK3.2
+- Adding HTTP/1.1, chunked encoding and gzip compressed http streams support with a refactored http module
+- Renamed the application to simply _AWeb_, not AWeb-II or AWeb3, just _AWeb_ and the assign is also now just _AWeb:_ and will be automatically created on launch if it does not already exist
+- Refactoring the SSL module code to stablise it and update it to use AmiSSL 5.20 or later
+- Changing default configuration settings to sensible values including white default background, Cookies accepted by default and scalable fonts
+- Added support for some additional XML entities that have equivalents in Latin-1
+- Fixed a bug where utf-8 encoded characters would be interpreted as single byte characters
 
 ### AWeb 3.7
 
+The plan for the next release 3.7 is currently to:
+
+- Cherry pick changes from the available snapshots of 3.5 where there is value in doing so 
+- Add optional support for anti-aliased text using ttengine.library
+- Replace built-in zlib with support for z.library shared library version
 - Update image libraries to newer versions for JPEG, PNG and GIF
-- Explore adding plugin support for WebP
-- Cherry pick additional OS4 native build patches and other enhancements from 3.5 release
+- Explore adding plugin support for WebP format images
+- Add support for non-Latin1 codepages
+
+### AWeb 3.8
+
+The plan for release 3.8 is currently to:
+
+- Complete the support for HTML 4.01
+- Add support for XHTML 1.0
+- Add support for CSS 1 and 2
+- Upgrade the JavaScript engine to support JavaScript 1.5 AKA ECMAScript 3.0
 
 ### Future releases
 
