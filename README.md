@@ -236,12 +236,11 @@ Features **not** supported in JavaScript 1.1:
 - ❌ `switch` statement (multi-way branching)
 - ❌ Regular Expressions (`RegExp` object)
 - ❌ Exception handling (`try`/`catch`/`finally`)
-- ❌ JSON parsing/stringifying
-- ❌ `Array` methods like `forEach`, `map`, `filter` (ES5 features)
-- ❌ `let`/`const` variable declarations (ES6 features)
-- ❌ Arrow functions (ES6 features)
-- ❌ Classes (ES6 features)
-- ❌ Modern DOM manipulation methods
+- ❌ Additional `Array` methods (`concat`, `slice`, `splice`, `push`, `pop`, `shift`, `unshift`)
+- ❌ Additional `String` methods (`match`, `replace`, `search`, `split`)
+- ❌ `Function.prototype.apply()` and `call()` methods
+- ❌ DOM manipulation methods (`getElementById`, `getElementsByTagName`, `createElement`, etc.)
+- ❌ XMLHttpRequest (AJAX) - asynchronous HTTP requests from JavaScript
 
 ### JavaScript Tools
 
@@ -250,7 +249,7 @@ AWeb includes two JavaScript development tools:
 - **AWebJS**: Standalone JavaScript interpreter for testing scripts outside the browser
 - **JavaScript Debugger**: Built-in step-through debugger with variable inspection and expression evaluation
 
-## amigazen project roadmap for AWeb
+## Roadmap
 
 The first AWeb APL open source release was version 3.4, in 2003 from the _AWeb Open Source Development Team_.
 
@@ -332,11 +331,11 @@ Some legacy forks remain such as the Goanna continuation of the original C based
 
 ### What happened to the AWeb Open Source Development Team?
 
-No idea, but their website at aweb.sunsite.dk has been deactivated since 2009 and their sourcecode only available in snapshots across various Amiga file libraries, in fact they seem to have frequently done their work not in compliance with the AWeb Public License. Some of their members remain active on other Amiga development projects mostly for OS4. It is now the year 2025. Some of their content, such as their ticket boards, can still be viewed on archive.org including a tentative plan for an AWeb 4 based on KHTML - the very same engine that later became WebKit - but it seems the sourcecode repository for any of their versions was never public or have been lost to history.
+No idea, but their website at aweb.sunsite.dk has been deactivated since 2009 and their sourcecode only available in snapshots across various Amiga file libraries, in fact they seem to have frequently done their work not in compliance with the AWeb Public License. Some of their members remain active on other Amiga development projects mostly for OS4. It is now the year 2025. Some of their content, such as their ticket boards, can still be viewed on archive.org including a tentative plan for an AWeb 4 based on KHTML - the very same engine that later became WebKit - but it seems the sourcecode repository for any of their versions was never public or has been lost to history.
 
 ### Will this new version of AWeb be available for OS4, AROS or MorphOS?
 
-Ports of AWeb - version 3.5 - already exist, so at some point it should be possible to re-merge the platform specific changes in. Unfortunately most of the work done on the 3.5 beta releases made no effort to retain compatibility with a native Amiga classic build, so this new release starts again updating from the original 3.4 release from Yvon Rozijn.
+Ports of AWeb - version 3.5 - already exist, so at some point it should be possible to re-merge the platform specific changes in. Unfortunately most of the work done on the 3.5 beta releases made no effort to retain compatibility with a native Amiga classic builds, so this new release starts again updating from the original 3.4 release from Yvon Rozijn.
 
 The first priority however is to get a good, stable build of AWeb in the form Yvon left it in when he gave it to the community.
 

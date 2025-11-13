@@ -338,6 +338,35 @@ static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **requ
 
 /*-----------------------------------------------------------------------*/
 
+/* Reset socket receive timeout after successful data receipt */
+/* This ensures the timeout counter resets every time data is received */
+/* SO_RCVTIMEO is per-operation, but explicitly resetting ensures fresh timeout for next operation */
+static void ResetSocketTimeout(struct Httpinfo *hi)
+{  struct timeval timeout;
+   extern struct Library *SocketBase;
+   struct Library *saved_socketbase;
+   
+   /* Only reset if socket is valid and socketbase is available */
+   if(!hi || hi->sock < 0 || !hi->socketbase)
+   {  return;
+   }
+   
+   timeout.tv_sec = 15;  /* 15 second timeout per operation - reasonable for modern networks */
+   timeout.tv_usec = 0;
+   
+   /* Set global SocketBase for setsockopt() from proto/bsdsocket.h */
+   /* Save and restore SocketBase to avoid race conditions */
+   saved_socketbase = SocketBase;
+   SocketBase = hi->socketbase;
+   
+   /* Reset receive timeout - this ensures next recv() gets a fresh 15-second timeout */
+   /* This is important for long data transfers where gaps between packets might occur */
+   setsockopt(hi->sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+   
+   /* Restore SocketBase */
+   SocketBase = saved_socketbase;
+}
+
 /* Receive a block through SSL or socket. */
 static long Receive(struct Httpinfo *hi,UBYTE *buffer,long length)
 {  long result;
@@ -398,6 +427,12 @@ static BOOL Readblock(struct Httpinfo *hi)
    debug_printf("DEBUG: Readblock: adding %ld bytes to block, new total=%ld\n", n, hi->blocklength + n);
    
    hi->blocklength+=n;
+   
+   /* Reset socket timeout after successful data receipt */
+   /* This ensures the timeout counter resets every time data is received */
+   /* This prevents premature socket closure during long data transfers */
+   ResetSocketTimeout(hi);
+   
    if(hi->flags&HTTPIF_HEADERS)
    {  Messageread(hi->fd,hi->readheaders+=n);
    }
@@ -3571,7 +3606,10 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
    }
    
    /* Set socket timeouts to prevent hanging connections */
-   timeout.tv_sec = 30;  /* 30 second timeout */
+   /* Use reasonable timeout for modern networks (15 seconds per operation) */
+   /* This timeout applies per-operation, so each recv()/send() gets a fresh timeout */
+   /* Since it resets after each successful receive, long transfers can still complete */
+   timeout.tv_sec = 15;  /* 15 second timeout per operation - reasonable for modern networks */
    timeout.tv_usec = 0;
    
    /* Set global SocketBase for setsockopt() from proto/bsdsocket.h */
@@ -3581,12 +3619,15 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
       saved_socketbase_opensocket = SocketBase;
       SocketBase = hi->socketbase;
       
-      /* Set receive timeout - This prevents SSL_connect() from hanging indefinitely */
+      /* Set receive timeout - This prevents operations from hanging indefinitely */
+      /* SO_RCVTIMEO is per-operation, so each recv() gets a fresh 15-second timeout */
+      /* Since timeout resets after each successful receive, long transfers can complete */
       if(setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
       {  /* Timeout setting failed, but continue */
       }
       
-      /* Set send timeout - This prevents SSL_connect() from hanging indefinitely */
+      /* Set send timeout - This prevents operations from hanging indefinitely */
+      /* SO_SNDTIMEO is per-operation, so each send() gets a fresh 15-second timeout */
       if(setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
       {  /* Timeout setting failed, but continue */
       }
