@@ -1671,7 +1671,7 @@ void Closebrowser(void)
 
    /* CRITICAL: Send exit signals to all background tasks before shutting down */
    /* This prevents DNS lookups and other operations from hanging during exit */
-   printf("DEBUG: Closebrowser() called, sending exit signals to background tasks\n");
+   /* printf("DEBUG: Closebrowser() called, sending exit signals to background tasks\n"); */
    
    /* CRITICAL: Send exit signals to prevent hanging DNS lookups */
    /* We'll use multiple break signals to ensure all tasks get notified */
@@ -1679,7 +1679,7 @@ void Closebrowser(void)
    if(current_task) {
       /* Send break signals to the current task to notify background operations */
       SetSignal(0, SIGBREAKF_CTRL_C | SIGBREAKF_CTRL_D | SIGBREAKF_CTRL_E | SIGBREAKF_CTRL_F);
-      printf("DEBUG: Sent exit signals to current task\n");
+      /* printf("DEBUG: Sent exit signals to current task\n"); */
    }
    
    brmask=0;
@@ -1710,5 +1710,5 @@ void Closebrowser(void)
    memset(&nreq,0,sizeof(nreq));
    if(nport) DeleteMsgPort(nport);nport=NULL;
    
-   printf("DEBUG: Closebrowser() completed, all resources cleaned up\n");
+   /* printf("DEBUG: Closebrowser() completed, all resources cleaned up\n"); */
 }

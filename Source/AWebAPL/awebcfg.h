@@ -55,6 +55,7 @@
 #include <proto/gadtools.h>
 #include <proto/asl.h>
 #include <proto/colorwheel.h>
+#include <proto/alib.h>
 /* Note: proto/gradientslider.h is not available in the Amiga NDK, 
    so we declare the base pointer manually in the .c file */
 #include <proto/window.h>
