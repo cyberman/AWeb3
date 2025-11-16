@@ -289,6 +289,11 @@ static void debug_printf(const char *format, ...)
 {  va_list args;
    ULONG task_id;
    
+   /* Only output if HTTPDEBUG mode is enabled */
+   if(!httpdebug)
+   {  return;
+   }
+   
    task_id = get_task_id();
    
    if(debug_log_sema_initialized)

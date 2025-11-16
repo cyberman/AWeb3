@@ -164,6 +164,11 @@ static void debug_printf(const char *format, ...)
 {  va_list args;
    ULONG task_id;
    
+   /* Only output if HTTPDEBUG mode is enabled */
+   if(!httpdebug)
+   {  return;
+   }
+   
    task_id = get_task_id();
    
    if(debug_log_sema_initialized)
@@ -1506,7 +1511,7 @@ static BOOL Readdata(struct Httpinfo *hi)
             
             err=inflateInit2(&d_stream,16+15); // set zlib to expect 'gzip-header'
             if(err!=Z_OK) {
-               printf("zlib Init Fail: %d\n", err);
+               debug_printf("DEBUG: zlib Init Fail: %d\n", err);
                if(gzipbuffer) FREE(gzipbuffer);
                gzipbuffer = NULL;
                hi->flags &= ~HTTPIF_GZIPENCODED;
@@ -1561,11 +1566,13 @@ static BOOL Readdata(struct Httpinfo *hi)
                 hi->fd->blocksize = INPUTBLOCKSIZE;
             }
                 
-                debug_printf("DEBUG: First 16 bytes of gzip data: ");
-                for(i = 0; i < MIN(16, gziplength); i++) {
-                    printf("%02X ", gzipbuffer[i]);
+                if(httpdebug)
+                {  debug_printf("DEBUG: First 16 bytes of gzip data: ");
+                   for(i = 0; i < MIN(16, gziplength); i++) {
+                       printf("%02X ", gzipbuffer[i]);
+                   }
+                   printf("\n");
                 }
-                printf("\n");
                 
                 /* Verify this is actually gzip data */
                 if(gziplength >= 3 && gzipbuffer[0] == 0x1F && gzipbuffer[1] == 0x8B && gzipbuffer[2] == 0x08) {

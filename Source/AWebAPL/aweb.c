@@ -1260,11 +1260,12 @@ static void Getarguments(struct WBStartup *wbs)
 #ifndef DEMOVERSION
       ",VVIIV/S"
 #endif
+      ",HTTPDEBUG/S"
 #ifdef BETAKEYFILE
 #ifdef DEMOVERSION
       ",Q/S"
 #endif
-      ",HTTPDEBUG/S,NOPOOL/S,SPECDEBUG/S"
+      ",NOPOOL/S,SPECDEBUG/S"
 #ifdef DEVELOPER
       ",BLOCK/K/N,PROFILE/S,OODEBUG/K,OOMETHOD/K,OODELAY/S,USETEMP/S,OOKDEBUG/S"
 #endif
@@ -1295,11 +1296,11 @@ static void Getarguments(struct WBStartup *wbs)
             else if(STRIEQUAL(*ttp,"LOCAL")) args[1]=TRUE;
             else if(STRNIEQUAL(*ttp,"CONFIG=",7)) Setprefsname(*ttp+7);
             else if(STRNIEQUAL(*ttp,"HOTLIST=",8)) Sethotlistname(*ttp+8);
+            else if(STRIEQUAL(*ttp,"HTTPDEBUG")) httpdebug=TRUE;
 #ifndef DEMOVERSION
             else if(STRIEQUAL(*ttp,"VVIIV")) haiku=TRUE;
 #endif
 #ifdef BETAKEYFILE
-            else if(STRIEQUAL(*ttp,"HTTPDEBUG")) httpdebug=TRUE;
             else if(STRIEQUAL(*ttp,"NOPOOL")) nopool=TRUE;
 #ifdef DEVELOPER
             else if(STRNIEQUAL(*ttp,"BLOCK=",6)) sscanf(*ttp+6," %ld",&localblocksize);
@@ -1341,12 +1342,20 @@ static void Getarguments(struct WBStartup *wbs)
          if(args[3]) Sethotlistname((UBYTE *)args[3]);
 #ifndef DEMOVERSION
          if(args[4]) haiku=TRUE;
+         if(args[5]) httpdebug=TRUE;
+#else
+         if(args[4]) httpdebug=TRUE;
 #endif
 #ifdef BETAKEYFILE
-         if(args[5]) httpdebug=TRUE;
+#ifndef DEMOVERSION
          if(args[6]) nopool=TRUE;
          if(args[7]) specdebug=TRUE;
+#else
+         if(args[5]) nopool=TRUE;
+         if(args[6]) specdebug=TRUE;
+#endif
 #ifdef DEVELOPER
+#ifndef DEMOVERSION
          if(args[8]) localblocksize=*(long *)args[8];
          if(args[9]) profile=TRUE;
          if(args[10]) Setoodebug((UBYTE *)args[10]);
@@ -1354,6 +1363,15 @@ static void Getarguments(struct WBStartup *wbs)
          if(args[12]) Setoodelay();
          if(args[13]) usetemp=TRUE;
          if(args[14]) ookdebug=TRUE;
+#else
+         if(args[8]) localblocksize=*(long *)args[8];
+         if(args[9]) profile=TRUE;
+         if(args[10]) Setoodebug((UBYTE *)args[10]);
+         if(args[11]) Setoomethod((UBYTE *)args[11]);
+         if(args[12]) Setoodelay();
+         if(args[13]) usetemp=TRUE;
+         if(args[14]) ookdebug=TRUE;
+#endif
 #endif
 #endif
          FreeArgs(rda);
