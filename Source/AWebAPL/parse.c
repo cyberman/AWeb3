@@ -887,6 +887,114 @@ UBYTE *Parsecommentcompatible(UBYTE *p,UBYTE *end,BOOL eof)
    return p;
 }
 
+/* Parse XML declaration: <?xml version="1.0" encoding="..." standalone="yes"?>
+ * Extracts encoding if present and stores it in document flags.
+ * Returns pointer after ?> or NULL on error/eof */
+static UBYTE *Parsexmldeclaration(struct Document *doc,UBYTE *p,UBYTE *end,BOOL eof)
+{  UBYTE *attrstart,*attrend;
+   UBYTE attrname[32],attrvalue[64];
+   short i;
+   UBYTE quote;
+   
+   /* Skip "xml" target name */
+   while(p<end && isspace(*p)) p++;
+   if(p>=end-3) return NULL;
+   if(!STRNIEQUAL(p,"xml",3)) return NULL;  /* Not an XML declaration */
+   p+=3;
+   
+   /* Parse attributes: version, encoding, standalone */
+   while(p<end-1 && !(p[0]=='?' && p[1]=='>'))
+   {  while(p<end && isspace(*p)) p++;
+      if(p>=end-1) break;
+      if(p[0]=='?' && p[1]=='>') break;
+      
+      /* Parse attribute name */
+      i=0;
+      while(p<end && i<31 && (isalnum(*p) || *p=='-' || *p==':'))
+      {  attrname[i++]=*p++;
+      }
+      if(i==0) break;  /* Invalid attribute name */
+      attrname[i]='\0';
+      
+      while(p<end && isspace(*p)) p++;
+      if(p>=end || *p!='=') break;  /* Missing = */
+      p++;
+      while(p<end && isspace(*p)) p++;
+      
+      if(p>=end) break;
+      if(*p!='"' && *p!='\'') break;  /* Missing quote */
+      quote=*p++;
+      
+      /* Parse attribute value */
+      attrstart=p;
+      while(p<end && (*p!=quote || (p>attrstart && p[-1]=='\\')))
+      {  p++;
+      }
+      if(p>=end) break;  /* Unclosed quote */
+      attrend=p;
+      p++;  /* Skip closing quote */
+      
+      /* Extract encoding if this is the encoding attribute */
+      if(STRNIEQUAL(attrname,"encoding",8))
+      {  i=0;
+         while(attrstart<attrend && i<63)
+         {  attrvalue[i++]=*attrstart++;
+         }
+         attrvalue[i]='\0';
+         /* Store encoding - could be used to set DDF_FOREIGN flag */
+         /* For now, we just parse it but don't use it yet */
+      }
+   }
+   
+   /* Find closing ?> */
+   while(p<end-1 && !(p[0]=='?' && p[1]=='>')) p++;
+   if(p>=end-1) return NULL;  /* Missing closing ?> */
+   p+=2;  /* Skip ?> */
+   return p;
+}
+
+/* Parse DOCTYPE declaration: <!DOCTYPE root-element [PUBLIC "..." "..." | SYSTEM "..."] [...]>
+ * Extracts root element name if present.
+ * Returns pointer after > or NULL on error/eof */
+static UBYTE *Parsedoctypedeclaration(struct Document *doc,UBYTE *p,UBYTE *end,BOOL eof)
+{  UBYTE rootname[32];
+   short i;
+   UBYTE quote;
+   
+   /* Skip "DOCTYPE" keyword */
+   while(p<end && isspace(*p)) p++;
+   if(p>=end-7) return NULL;
+   if(!STRNIEQUAL(p,"DOCTYPE",7)) return NULL;  /* Not a DOCTYPE */
+   p+=7;
+   
+   while(p<end && isspace(*p)) p++;
+   if(p>=end) return NULL;
+   
+   /* Parse root element name (first identifier after DOCTYPE) */
+   i=0;
+   while(p<end && i<31 && (isalnum(*p) || *p=='-' || *p==':'))
+   {  rootname[i++]=*p++;
+   }
+   if(i>0)
+   {  rootname[i]='\0';
+      /* Root element name extracted - could be used for document type detection */
+   }
+   
+   /* Skip rest of DOCTYPE until closing > */
+   while(p<end && *p!='>')
+   {  if(*p=='"' || *p=='\'')
+      {  quote=*p++;
+         while(p<end && *p!=quote) p++;
+         if(p<end) p++;  /* Skip closing quote */
+      }
+      else p++;
+   }
+   
+   if(p>=end) return NULL;  /* Missing closing > */
+   p++;  /* Skip > */
+   return p;
+}
+
 BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
 {  UBYTE *p=src->buffer+(*srcpos);
    UBYTE *end=src->buffer+src->length;
@@ -902,9 +1010,11 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
    BOOL removenl;          /* Remove newlines from URL values */
    BOOL skipnewline;       /* Current value of the DPF_SKIPNEWLINE flag */
    long oldsrcpos;
-   /* Skip leading nullbytes */
+   /* Skip leading nullbytes and whitespace at document start */
    if((*srcpos)==0)
    {  while(p<end && !*p) p++;
+      /* Skip all leading whitespace at document start (before first tag) */
+      while(p<end && isspace(*p)) p++;
       *srcpos=p-src->buffer;
    }
    while(p<end && !(doc->pflags&DPF_SUSPEND))
@@ -913,9 +1023,27 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
       doc->args.length=0;
       skipnewline=BOOLVAL(doc->pflags&DPF_SKIPNEWLINE);
       if(p==end-1 && *p=='<' && !thisisdata) return Eofandexit(doc,eof);
-      if(p<end-1 && *p=='<' && (isalpha(p[1]) || p[1]=='/' || p[1]=='!') && !thisisdata)
+      if(p<end-1 && *p=='<' && (isalpha(p[1]) || p[1]=='/' || p[1]=='!' || p[1]=='?') && !thisisdata)
       {  BOOL endtag=FALSE;
          if(++p>=end) return Eofandexit(doc,eof);
+         if(*p=='?' && !(doc->pflags&(DPF_XMP|DPF_LISTING|DPF_JSCRIPT)))
+         {  /* XML processing instruction: <?target ... ?> */
+            UBYTE *newp;
+            /* Check if this is an XML declaration (<?xml ... ?>) */
+            if(p+1<end-3 && STRNIEQUAL(p+1,"xml",3))
+            {  newp=Parsexmldeclaration(doc,p+1,end,eof);
+               if(newp)
+               {  p=newp;
+                  continue;  /* Skip XML declaration, don't process it */
+               }
+            }
+            /* Not XML declaration or parse failed - skip as generic PI */
+            p++;
+            while(p<end-1 && !(p[0]=='?' && p[1]=='>')) p++;
+            if(p>=end-1) return Eofandexit(doc,eof);
+            p+=2;  /* skip ?> */
+            continue;  /* Skip this tag, don't process it */
+         }
          if(*p=='!' && !(doc->pflags&(DPF_XMP|DPF_LISTING|DPF_JSCRIPT)))
          {  tagtype=0;
             p++;
@@ -935,8 +1063,18 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
                }
                if(!p || p>=end) return Eofandexit(doc,eof);
             }
-            else  /* No real comment */
-            {  while(p<end && *p!='>') p++;  /* skip up to > */
+            else  /* No real comment - could be DOCTYPE or other declaration */
+            {  UBYTE *newp;
+               /* Check if this is a DOCTYPE declaration */
+               if(p<end-7 && STRNIEQUAL(p,"DOCTYPE",7))
+               {  newp=Parsedoctypedeclaration(doc,p,end,eof);
+                  if(newp)
+                  {  p=newp;
+                     continue;  /* Skip DOCTYPE, don't process it */
+                  }
+               }
+               /* Not DOCTYPE or parse failed - skip as generic declaration */
+               while(p<end && *p!='>') p++;  /* skip up to > */
                if(p>=end) return Eofandexit(doc,eof);
                p++;                          /* skip > */
             }
