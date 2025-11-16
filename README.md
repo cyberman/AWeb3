@@ -268,12 +268,12 @@ The first release from amigazen project is version 3.6. The goals of this releas
 - Package both binary and sourcecode releases properly for ease of distribution and installation 
 - Refactor the HTTP and SSL code to work better with modern web servers using HTTP/1.1, gzip, chunked encoding and modern TLS using AmiSSL
 
-The full list of changes in version 3.6 compared to version 3.4 is:
+The main changes in version 3.6 compared to version 3.4 are:
 - Stable re-release of AWeb 3.4 functionality built against support SDKs i.e. ReAction, Roadshow (with INet225 support disabled), P96 (replacing no longer supported Cybergraphics libraries), AmiSSL 5.2 and NDK3.2
 - Adding HTTP/1.1, chunked encoding and gzip compressed http streams support with a refactored http module
 - Renamed the application to simply _AWeb_, not AWeb-II or AWeb3, just _AWeb_ and the assign is also now just _AWeb:_ and will be automatically created on launch if it does not already exist
-- Refactoring the SSL module code to stablise it and update it to use AmiSSL 5.20 or later
-- Changing default configuration settings to sensible values including white default background, Cookies accepted by default and scalable fonts
+- Refactoring the SSL module code to stabilise it and update it to use AmiSSL 5.20 or later
+- Changing default configuration settings to sensible values including white default background, Cookies accepted by default, and scalable fonts
 - Added support for some additional XML entities that have equivalents in Latin-1
 - Fixed a bug where utf-8 encoded characters would be interpreted as single byte characters
 
@@ -284,7 +284,7 @@ The plan for the next release 3.7 is currently to:
 - Cherry pick changes from the available snapshots of 3.5 where there is value in doing so 
 - Add optional support for anti-aliased text using ttengine.library
 - Replace built-in zlib with support for z.library shared library version
-- Update image libraries to newer versions for JPEG, PNG and GIF
+- Update image codec libraries to newer versions for JPEG, PNG and GIF
 - Explore adding plugin support for WebP format images
 - Add support for non-Latin1 codepages
 
