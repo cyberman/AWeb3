@@ -39,7 +39,7 @@ AWeb no longer requires an installer script. It can run from anywhere. Just run 
 This alpha build supports a DEBUG/S command line option which will output a LOT of debugging output to the console for any network operations. If you use this, redirect the output to a file on a safe disk like the RAM: disk or, if running under emulation, a mounted host folder, just in case it causes filesystem corruption.
 </p>
 <p>
-The requirements for AWeb 3.6 remain the same as the original 3.4 release, however most websites, even those that only use HTML 3 and 4 features, require significant amounts of RAM - 8MB Fast RAM is probably a sensible minimum. It will of course fail to work with any modern website requiring HTML5, CSS3, video content,heavy JavaScript, etc. This build is not optimised for any particular CPU architecture.
+The requirements for AWeb 3.6 remain the same as the original 3.4 release, however most websites, even those that only use HTML 3 and 4 features, require significant amounts of RAM - 8MB Fast RAM is probably a sensible minimum. Some of the new default settings assume a more powerful Amiga than would have been common in the 1990s. It will of course fail to work with any modern website requiring HTML5, CSS3, video content,heavy JavaScript, etc. This build is not optimised for any particular CPU architecture.
 </p>
 
 <h2>What's New in 3.6 Alpha 2?</h2>
@@ -64,6 +64,7 @@ The requirements for AWeb 3.6 remain the same as the original 3.4 release, howev
 <li>Updated default bookmarks and default search engine is now boingsearch.com</li>
 <li>INet225 support removed - use bsdsocket.library instead</li>
 <li>MiamiSSL support removed - use AmiSSL 5.20+ instead</li>
+<li>Disk cache location defaults to T:</li>
 <li>CyberGraphX support removed (for now anyway) - this build uses P96 instead which should make it more viable under emulation and on OS4</li>
 </ul>
 
@@ -75,6 +76,7 @@ The requirements for AWeb 3.6 remain the same as the original 3.4 release, howev
 <li>The primary documentation has not yet been updated for release 3.6</li>
 <li>In particular this alpha release does not yet fully acknowledge the third party dependencies such as zlib</li>
 <li>The AWebPlugins are not enabled by default, you will need to enable them manually in the configuration</li>
+<li>Feedback is also particularly welcome on default settings and default programs</li>
 </ul>
 
 <h2>Contact</h2>

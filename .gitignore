@@ -61,6 +61,7 @@ awebgst
 *.O
 *.lib
 *.exe
+*.uaem
 Source/*/*.aweblib
 Source/AWebAPL/AWeb
 Source/AWebAPL/AWebJS
