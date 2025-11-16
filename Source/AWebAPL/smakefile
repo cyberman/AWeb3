@@ -358,3 +358,20 @@ jstring.o:  jstring.c awebjs.h
    @echo "        Compiling $*..."
    @sc $(DEBUG) $*.c
 
+
+install:
+   -copy clone AWeb TO //Internet/AWeb/AWeb
+   -copy clone AWebCfg TO //Internet/AWeb/AWebCfg
+   -copy clone AWebJS TO //Internet/AWeb/AWebJS
+   -copy clone aweblib/arexx.aweblib TO //Internet/AWeb/aweblib/arexx.aweblib
+   -copy clone aweblib/authorize.aweblib TO //Internet/AWeb/aweblib/authorize.aweblib
+   -copy clone aweblib/cachebrowser.aweblib TO //Internet/AWeb/aweblib/cachebrowser.aweblib
+   -copy clone aweblib/ftp.aweblib TO //Internet/AWeb/aweblib/ftp.aweblib
+   -copy clone aweblib/gopher.aweblib TO //Internet/AWeb/aweblib/gopher.aweblib
+   -copy clone aweblib/history.aweblib TO //Internet/AWeb/aweblib/history.aweblib
+   -copy clone aweblib/hotlist.aweblib TO //Internet/AWeb/aweblib/hotlist.aweblib
+   -copy clone aweblib/mail.aweblib TO //Internet/AWeb/aweblib/mail.aweblib
+   -copy clone aweblib/news.aweblib TO //Internet/AWeb/aweblib/news.aweblib
+   -copy clone aweblib/print.aweblib TO //Internet/AWeb/aweblib/print.aweblib
+   -copy clone aweblib/startup.aweblib TO //Internet/AWeb/aweblib/startup.aweblib
+   -copy clone aweblib/awebjs.aweblib TO //Internet/AWeb/aweblib/awebjs.aweblib

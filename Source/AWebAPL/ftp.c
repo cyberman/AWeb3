@@ -509,18 +509,17 @@ static long Getresponse(long sock,struct Ftpresponse *fr,struct Library *SocketB
 }
 
 /* Set socket timeouts to prevent hanging connections */
+/* Commented out - a_setsockopt not available in socket library
 static void SetSocketTimeouts(long sock, struct Library *SocketBase)
 {  struct timeval timeout;
    
-   timeout.tv_sec = 30;  /* 30 second timeout */
+   timeout.tv_sec = 30;  
    timeout.tv_usec = 0;
    
-   /* Set receive timeout - use Amiga socket library function */
    a_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout), SocketBase);
-   
-   /* Set send timeout - use Amiga socket library function */
    a_setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout), SocketBase);
 }
+*/
 
 /* Build an FTP command and send it. Return the numeric status. */
 static long Ftpcommand(long sock,struct Ftpresponse *fr,struct Library *SocketBase,
@@ -579,7 +578,7 @@ static BOOL Initdatasock(long ctrlsock,struct Fetchdriver *fd,struct Ftpresponse
    if((lsock=a_socket(addrtype,SOCK_STREAM,0,SocketBase))<0) return FALSE;
    
    /* Set socket timeouts to prevent hanging connections */
-   SetSocketTimeouts(lsock, SocketBase);
+   /* SetSocketTimeouts(lsock, SocketBase); */
    
    *plsock=lsock;
    if(fd->prefs->passiveftp)
@@ -752,7 +751,7 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
          if(hent=Lookup(fa.hostname,SocketBase))
          {  if((ctrlsock=a_socket(hent->h_addrtype,SOCK_STREAM,0,SocketBase))>=0)
             {  /* Set socket timeouts to prevent hanging connections */
-               SetSocketTimeouts(ctrlsock, SocketBase);
+               /* SetSocketTimeouts(ctrlsock, SocketBase); */
                
                Updatetaskattrs(AOURL_Netstatus,NWS_CONNECT,TAG_END);
                Tcpmessage(fd,TCPMSG_CONNECT,"FTP",hent->h_name);
