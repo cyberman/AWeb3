@@ -22,7 +22,7 @@ MSG_SET_REQTITLE_FONT (120001//)
 Select font
 ;
 MSG_SET_REQTITLE_SCREEN (//)
-Select screenmode
+Select Screenmode
 ;
 MSG_SET_REQTITLE_MAILTO (//)
 Select mailto: command
@@ -199,7 +199,7 @@ MSG_SET_HLP_A (//)
 %a = newsgroup or article
 ;
 MSG_SET_HLP_E (//)
-%e = e-mail address
+%e = email address
 ;
 MSG_SET_HLP_F (//)
 %f = path/file name
@@ -794,7 +794,7 @@ MSG_SET_NETWORK_SPAMBLOCK (//)
 _Activate spamblock when posting news
 ;
 MSG_SET_NETWORK_FTPEMAILADDR (//)
-Use e-mail address as _FTP anon password
+Use email address as _FTP anon password
 ;
 MSG_SET_NETWORK_SPOOFID (//)
 Spoo_f as
@@ -1138,13 +1138,13 @@ MSG_SET_MAIL_TAB_OPTIONS (//)
 _Options
 ;
 MSG_SET_MAIL_ADDRESS (//)
-_E-mail address
+_Email address
 ;
 MSG_SET_MAIL_REALNAME (//)
 _Real name
 ;
 MSG_SET_MAIL_REPLYTO (//)
-Re_ply to address
+Re_plyTo address
 ;
 MSG_SET_MAIL_ORGANIZATION (//)
 Or_ganization
@@ -1174,7 +1174,7 @@ MSG_SET_MAIL_NEWSQUOTEHDR (//)
 _Quote header
 ;
 MSG_SET_MAIL_NEWSUSER (//)
-News use_r name
+News use_rname
 ;
 MSG_SET_MAIL_NEWSPASSWORD (//)
 News _password
@@ -1189,7 +1189,7 @@ MSG_SET_MAIL_EXTNARGS (//)
 Ar_guments
 ;
 MSG_SET_MAIL_MAXARTICLES (//)
-Ma_x nr of articles
+Ma_x # of articles
 ;
 MSG_SET_MAIL_SORTED (//)
 So_rt articles
@@ -1272,16 +1272,16 @@ MSG_SET_NAVS_HOME (//)
 Home
 ;
 MSG_SET_NAVS_ADDHOT (//)
-Add to hotlist
+Add to Hotlist
 ;
 MSG_SET_NAVS_HOTLIST (//)
-Show hotlist
+Show Hotlist
 ;
 MSG_SET_NAVS_CANCEL (//)
 Cancel
 ;
 MSG_SET_NAVS_NETSTATUS (//)
-Network status
+Network Status
 ;
 MSG_SET_NAVS_SEARCH (//)
 Search
@@ -1301,19 +1301,19 @@ MSG_SET_PROJECT_OPEN (//)
 O/Open...
 ;
 MSG_SET_PROJECT_SAVEAS (//)
-A/Save as...
+A/Save As...
 ;
 MSG_SET_PROJECT_QUIT (//)
-Q/Quit settings
+Q/Close Settings
 ;
 MSG_SET_EDIT_MENU (130100//)
 Edit
 ;
 MSG_SET_EDIT_DEFAULTS (//)
-D/Reset to defaults
+D/Reset to Defaults
 ;
 MSG_SET_EDIT_LASTSAVED (//)
-L/Last saved
+L/Last Saved
 ;
 MSG_SET_EDIT_RESTORE (//)
 R/Restore
@@ -1322,20 +1322,20 @@ MSG_SET_WINDOWS_MENU (130200//)
 Windows
 ;
 MSG_SET_WINDOWS_BROWSER (//)
-Browser settings...
+Browser Settings...
 ;
 MSG_SET_WINDOWS_PROGRAM (//)
-Program settings...
+Program Settings...
 ;
 MSG_SET_WINDOWS_NETWORK (//)
-Network settings...
+Network Settings...
 ;
 MSG_SET_WINDOWS_CLASSACT (//)
-ClassAct settings...
+ReAction Settings...
 ;
 MSG_SET_WINDOWS_SNAPSHOT (//)
 Snapshot
 ;
 MSG_SET_WINDOWS_GUI (//)
-GUI settings...
+GUI Settings...
 ;

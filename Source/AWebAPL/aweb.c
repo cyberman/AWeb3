@@ -1112,10 +1112,21 @@ struct ClassLibrary *Openclass(UBYTE *name,long version)
 
 static BOOL Initall(void)
 {  long lock;
+   long existing;
    /* Must be done here before classes initialize */
-   if(lock=Lock("PROGDIR:",ACCESS_READ))
-   {  if(AssignLock("AWeb",lock)) awebpath=TRUE;
-      else UnLock(lock);
+   /* Check if AWeb: assign already exists - if so, don't replace it */
+   existing=Lock("AWeb:",ACCESS_READ);
+   if(existing)
+   {  UnLock(existing);
+      /* Assign already exists, don't create or remove it */
+      awebpath=FALSE;
+   }
+   else
+   {  /* Assign doesn't exist, create it */
+      if(lock=Lock("PROGDIR:",ACCESS_READ))
+      {  if(AssignLock("AWeb",lock)) awebpath=TRUE;
+         else UnLock(lock);
+      }
    }
    if(!(locale=OpenLocale(NULL))) return FALSE;
    if(!Initversion()) return FALSE;

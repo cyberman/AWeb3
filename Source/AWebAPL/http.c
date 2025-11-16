@@ -152,14 +152,25 @@ static struct SignalSemaphore certsema;
 
 /*-----------------------------------------------------------------------*/
 
-/* Thread-safe debug logging wrapper */
+/* Helper function to get Task ID for logging */
+static ULONG get_task_id(void)
+{  struct Task *task;
+   task = FindTask(NULL);
+   return (ULONG)task;
+}
+
+/* Thread-safe debug logging wrapper with Task ID */
 static void debug_printf(const char *format, ...)
 {  va_list args;
+   ULONG task_id;
+   
+   task_id = get_task_id();
    
    if(debug_log_sema_initialized)
    {  ObtainSemaphore(&debug_log_sema);
    }
    
+   printf("[TASK:0x%08lX] ", task_id);
    va_start(args, format);
    vprintf(format, args);
    va_end(args);
@@ -3505,56 +3516,82 @@ BOOL Httpcertaccept(char *hostname,char *certname)
 /* Open the tcp stack, and optionally the SSL library */
 static BOOL Openlibraries(struct Httpinfo *hi)
 {  BOOL result=FALSE;
+   
+   debug_printf("DEBUG: Openlibraries: ENTRY - flags=0x%04X, SSL=%s\n", 
+          hi->flags, (hi->flags&HTTPIF_SSL) ? "YES" : "NO");
+   
+   debug_printf("DEBUG: Openlibraries: Calling Opentcp()\n");
    Opentcp(&hi->socketbase,hi->fd,!hi->fd->validate);
    if(!hi->socketbase)
-   {  /* Show GUI error if bsdsocket.library is missing */
+   {  debug_printf("DEBUG: Openlibraries: Opentcp() failed - bsdsocket.library missing\n");
+      /* Show GUI error if bsdsocket.library is missing */
       Lowlevelreq("AWeb requires bsdsocket.library for network access.\nPlease install bsdsocket.library and try again.");
       return FALSE;
    }
+   debug_printf("DEBUG: Openlibraries: Opentcp() succeeded, socketbase=%p\n", hi->socketbase);
    result=TRUE;
    if(hi->flags&HTTPIF_SSL)
-   {  
+   {  debug_printf("DEBUG: Openlibraries: SSL flag set, initializing SSL libraries\n");
 #ifndef DEMOVERSION
       /* Each HTTPS connection must have its own dedicated Assl object */
       /* If hi->assl already exists, clean it up first to prevent reuse */
       if(hi->assl)
-      {  Assl_closessl(hi->assl);
+      {  debug_printf("DEBUG: Openlibraries: Existing Assl object found, cleaning up first\n");
+         Assl_closessl(hi->assl);
          Assl_cleanup(hi->assl);
          /* Free the struct after Assl_cleanup() has cleaned it up */
          /* Assl_cleanup() no longer frees the struct to prevent use-after-free crashes */
          FREE(hi->assl);
          hi->assl = NULL;
+         debug_printf("DEBUG: Openlibraries: Existing Assl object cleaned up\n");
       }
+      debug_printf("DEBUG: Openlibraries: Calling Tcpopenssl() to initialize SSL\n");
       if(hi->assl=Tcpopenssl(hi->socketbase))
-      {  /* ok */
+      {  struct Library *amisslmaster;  /* C89 - declare at start of block */
+         debug_printf("DEBUG: Openlibraries: Tcpopenssl() succeeded, assl=%p\n", hi->assl);
+         /* ok */
          /* Additional check for amisslmaster.library (AmiSSL 4+) */
-         struct Library *amisslmaster = OpenLibrary("amisslmaster.library", 0);
+         debug_printf("DEBUG: Openlibraries: Verifying amisslmaster.library is available\n");
+         amisslmaster = OpenLibrary("amisslmaster.library", 0);
          if(!amisslmaster)
-         {  Lowlevelreq("AWeb requires amisslmaster.library for SSL/TLS connections.\nPlease install AmiSSL 5.20 or newer and try again.");
+         {  debug_printf("DEBUG: Openlibraries: amisslmaster.library not available\n");
+            Lowlevelreq("AWeb requires amisslmaster.library for SSL/TLS connections.\nPlease install AmiSSL 5.20 or newer and try again.");
             Assl_cleanup(hi->assl);
             /* Free the struct after Assl_cleanup() has cleaned it up */
             FREE(hi->assl);
             hi->assl = NULL;
             result = FALSE;
+            debug_printf("DEBUG: Openlibraries: SSL initialization failed - amisslmaster.library missing\n");
          }
          else
-         {  CloseLibrary(amisslmaster);
+         {  debug_printf("DEBUG: Openlibraries: amisslmaster.library verified, closing test handle\n");
+            CloseLibrary(amisslmaster);
+            debug_printf("DEBUG: Openlibraries: SSL libraries initialized successfully\n");
          }
       }
       else
-      {  /* No SSL available */
+      {  debug_printf("DEBUG: Openlibraries: Tcpopenssl() failed - SSL not available\n");
+         /* No SSL available */
          Lowlevelreq("AWeb requires amissl.library (AmiSSL 5.20+) for SSL/TLS connections.\nPlease install AmiSSL and try again.");
          if(Securerequest(hi,haiku?HAIKU12:AWEBSTR(MSG_SSLWARN_SSL_NO_SSL2)))
-         {  hi->flags&=~HTTPIF_SSL;
+         {  debug_printf("DEBUG: Openlibraries: User chose to retry without SSL\n");
+            hi->flags&=~HTTPIF_SSL;
          }
          else
-         {  result=FALSE;
+         {  debug_printf("DEBUG: Openlibraries: User cancelled, SSL required\n");
+            result=FALSE;
          }
       }
 #else
+      debug_printf("DEBUG: Openlibraries: DEMOVERSION - disabling SSL\n");
       hi->flags&=~HTTPIF_SSL;
 #endif
    }
+   else
+   {  debug_printf("DEBUG: Openlibraries: No SSL flag, skipping SSL initialization\n");
+   }
+   debug_printf("DEBUG: Openlibraries: EXIT - result=%d, flags=0x%04X, assl=%p\n", 
+          result, hi->flags, hi->assl);
    return result;
 }
 
