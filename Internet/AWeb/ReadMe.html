@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>Release Notes - AWeb 3.6 Alpha 2</title>
+</head>
+<body background="Docs/awebbg.iff">
+<img src="Docs/aweb.iff" width=192 height=93 alt="AWeb Logo" align=left>
+<p>
+<table align=center>
+<tr><td align=center>
+         <h1>AWeb &nbsp; 3.6 Alpha 2</h1>
+<tr><td align=center colspan=2><font face="Helvetica, Arial, sans-serif" size=+2 color="#cc0000"><i>The Amiga Web Browser</i></font>
+</table>
+<br clear=all>
+
+<p align=center>
+<font face="Times, serif" size=+1><i>
+A web, suddenly<br>
+Forty years meditation<br>
+Minds awaken, free
+</i></font>
+</p>
+
+<font face="Helvetica, Arial, sans-serif">
+<p>
+This is AWeb 3.6, a new release of the classic AWeb for the Amiga from <a href="http://amigazen.com/">amigazen project</a>. This release is alpha 2, a preview release intended for a limited audience. The full source code of this release is available at https://github.com/amigazen/aweb3/ - this link is not clickable as AWeb will not be able to cope with the github website!
+</p>
+
+<p>
+<b>amigazen project</b> uses modern software development tools and methods to update and rerelease classic Amiga open source software. This release updates AWeb to build against NDK3.2, replacing ClassAct with ReAction, updating networking code for RoadShow and AmiSSL, and ensuring it builds against the amigazen project ToolKit standard.
+</p>
+
+<h2>Running AWeb</h2>
+
+<p>
+AWeb no longer requires an installer script. It can run from anywhere. Just run it from the folder it's in. Do note however that if the assign "AWeb:" does not already exist it will temporarily assign it to its current directory until it exits. On the other hand if you have assigned AWeb: to a different location then it won't find its plugins.
+</p>
+<p>
+This alpha build supports a DEBUG/S command line option which will output a LOT of debugging output to the console for any network operations. If you use this, redirect the output to a file on a safe disk like the RAM: disk or, if running under emulation, a mounted host folder, just in case it causes filesystem corruption.
+</p>
+<p>
+The requirements for AWeb 3.6 remain the same as the original 3.4 release, however most websites, even those that only use HTML 3 and 4 features, require significant amounts of RAM - 8MB Fast RAM is probably a sensible minimum. It will of course fail to work with any modern website requiring HTML5, CSS3, video content,heavy JavaScript, etc. This build is not optimised for any particular CPU architecture.
+</p>
+
+<h2>What's New in 3.6 Alpha 2?</h2>
+
+<h3>Major Changes</h3>
+<ul>
+<li>Migrated from ClassAct to ReAction</li>
+<li>Refactored to use P96 instead of Cybergraphics</li>
+<li>SSL rewritten to use AmiSSL v5.2</li>
+<li>Updated to build against NDK3.2 and ToolKit SDK</li>
+<li>Renamed executable from 'AWeb-II' to simply 'AWeb'</li>
+<li>HTTP module completely written to use HTTP/1.1, gzip and chunked encodings</li>
+<li>Socket connections can be arbitrarily terminated at any time and now timeout after 15 seconds of inactivity</li>
+<li>Default background color for HTML rendering changed to white</li>
+<li>Images no longer render a border when associated with an a link</li>
+<li>Default search engine changed to BoingSearch.com</li>
+<li>Cookies now accepted by default, avoiding requester overload</li>
+<li>Default fonts changed to use the Amiga's default scalable fonts</li>
+<li>Added web-safe font aliases for better font matching</li>
+<li>Added XML character entities support</li>
+<li>Added stopgap UTF-8 conversion to prevent spurious glyphs</li>
+<li>Updated default bookmarks and default search engine is now boingsearch.com</li>
+<li>INet225 support removed - use bsdsocket.library instead</li>
+<li>MiamiSSL support removed - use AmiSSL 5.20+ instead</li>
+<li>CyberGraphX support removed (for now anyway) - this build uses P96 instead which should make it more viable under emulation and on OS4</li>
+</ul>
+
+<h3>Known Issues</h3>
+<ul>
+<li>Large files are sometimes truncated, any debugging output on this issue in particular is gratefully received</li>
+<li>This version does not currently include the changes from the various incomplete 3.5 releases, for now, instead it reimplements the HTTP and AmiSSL client code to a more recent standard. Other features of the 3.5 releases will come later.</li>
+<li>Setting the disk cache to 0 or a very small size will prevent images from rendering - this is an issue carried over from the original AWeb</li>
+<li>The primary documentation has not yet been updated for release 3.6</li>
+<li>In particular this alpha release does not yet fully acknowledge the third party dependencies such as zlib</li>
+<li>The AWebPlugins are not enabled by default, you will need to enable them manually in the configuration</li>
+</ul>
+
+<h2>Contact</h2>
+<ul>
+<li>GitHub: <a href="https://github.com/amigazen/aweb3/">https://github.com/amigazen/aweb3/</a></li>
+<li>Web: <a href="http://amigazen.com/aweb/">http://amigazen.com/aweb/</a></li>
+<li>Email: <a href="mailto:aweb@amigazen.com">aweb@amigazen.com</a></li>
+</ul>
+
+</font>
+
+</body>
+</html>
