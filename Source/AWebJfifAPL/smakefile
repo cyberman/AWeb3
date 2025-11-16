@@ -43,5 +43,7 @@ clean:
 cleanall: clean
    $(RM) awebjfif.awebplugin
 
-install: 
+install: awebjfif.awebplugin
    -copy clone awebjfif.awebplugin TO //Internet/AWeb/awebplugin/awebjfif.awebplugin
+   -copy clone awebjfif.awebrx TO //Internet/AWeb/Docs/awebjfif.awebrx
+   -copy clone awebjfif.html TO //Internet/AWeb/Docs/awebjfif.html

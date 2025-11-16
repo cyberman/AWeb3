@@ -56,8 +56,8 @@
 
 (complete 50)
 
-(if (not (exists "AWeb:awebplugin/Docs"))
-   (makedir "AWeb:awebplugin/Docs"
+(if (not (exists "AWeb:Docs"))
+   (makedir "AWeb:Docs"
       (infos)
    )
 )
@@ -65,7 +65,7 @@
 (copyfiles
    (source srcdir)
    (choices "awebpng.html" "awebpng.awebrx")
-   (dest "AWeb:awebplugin/Docs")
+   (dest "AWeb:Docs")
    (infos)
 )
 
@@ -78,7 +78,7 @@
       (default 1)
    )
    (
-      (run "run AWeb:AWeb file:///AWeb:awebplugin/Docs/awebpng.html")
+      (run "run AWeb:AWeb file:///AWeb:Docs/awebpng.html")
    )
 )
 

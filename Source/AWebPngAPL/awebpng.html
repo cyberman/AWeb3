@@ -2,8 +2,8 @@
 <head>
 <title>AWeb PNG plugin</title>
 </head>
-<body background="file:///AWebPath:docs/awebbg.iff">
-<h1><img src="file:///AWebPath:docs/aweb.iff" width=192 height=93 alt="(logo)">&nbsp;
+<body background="file:///AWeb:Docs/awebbg.iff">
+<h1><img src="file:///AWeb:Docs/aweb.iff" width=192 height=93 alt="(logo)">&nbsp;
    AWeb PNG plugin</h1>
 
 <h2>General</h2>
@@ -13,7 +13,7 @@ Features include:
 <li>Optional progressive display of loading images
 <li>Support for transparent images
 <li>Support for scaling
-<li>Support for CyberGraphics
+<li>Support for P96 graphics
 </ul>
 
 <h2>Installation</h2>
@@ -21,11 +21,11 @@ Follow these steps to install the AWeb PNG plugin.
 <ol>
 <li>
 Run the supplied Installer script. It will copy the necessary files to a
-drawer <code>awebplugins</code> in the drawer where the AWeb-II program is
+drawer <code>awebplugins</code> in the drawer where the AWeb program is
 located.
 <br><br>
 <li>
-<form action="x-aweb:rexx/AWebPath:awebplugin/Docs/awebpng.awebrx">
+<form action="x-aweb:rexx/AWebPath:Docs/awebpng.awebrx">
 Run the <input type=submit value="Setup script">.
 </form>
 </ol>
@@ -37,10 +37,10 @@ can install it by hand.
 <li>
 Copy the file named <code>awebpng.awebplugin</code> to a location of your
 choice. The recommended location for plugins like this is a drawer
-<code>awebplugins</code> in the drawer where the AWeb-II program is located.
+<code>awebplugins</code> in the drawer where the AWeb program is located.
 <br><br>
 <li>
-Start AWeb-II, open the browser settings and bring up the <em>Viewers</em> page.
+Start AWeb, open the browser settings and bring up the <em>Viewers</em> page.
 Select the entry for MIME type <code>IMAGE/PNG</code> and change the following
 settings:
 <ul>
@@ -89,7 +89,7 @@ parameters by a comma or space, if you specify more than one.
 <h2>Support</h2>
 The AWeb PNG plugin was written by the author of AWeb-II. Any questions,
 comments or bug reports can be addressed to
-<a href="mailto:yrozijn@xs4all.nl">Yvon Rozijn &lt;yrozijn@xs4all.nl&gt;</a>.
+<a href="mailto:aweb@amigazen.com">amigazen project</a>.
 
 <h2>Disclaimer</h2>
 This software is provided "as is". No warranties are made, either
@@ -107,6 +107,11 @@ It also uses the ZLIB general purpose compression library that was
 written by Jean-loup Gailly and Mark Adler.
 
 <h2>History</h2>
+awebpng.awebplugin 1.10 (16-11-2025)
+<ul>
+<li>Updated to build with AWeb 3.6.
+</ul>
+
 awebpng.awebplugin 1.9 (1-12-2000)
 <ul>
 <li>Added support for scaling after completion, necessary for percentage scaling.

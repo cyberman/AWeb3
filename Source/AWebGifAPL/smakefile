@@ -43,3 +43,8 @@ clean:
 cleanall: clean
    $(RM) awebgif.awebplugin
 
+install: awebgif.awebplugin
+   - copy clone awebgif.awebplugin TO //Internet/AWeb/awebplugin/awebgif.awebplugin
+   - copy clone awebgif.awebrx TO //Internet/AWeb/Docs/awebgif.awebrx
+   - copy clone awebgif.html TO //Internet/AWeb/Docs/awebgif.html
+

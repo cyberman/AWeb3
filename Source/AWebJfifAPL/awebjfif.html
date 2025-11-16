@@ -2,8 +2,8 @@
 <head>
 <title>AWeb JFIF plugin</title>
 </head>
-<body background="file:///AWeb:docs/awebbg.iff">
-<h1><img src="file:///AWeb:docs/aweb.iff" width=192 height=93 alt="(logo)">&nbsp;
+<body background="file:///AWeb:Docs/awebbg.iff">
+<h1><img src="file:///AWeb:Docs/aweb.iff" width=192 height=93 alt="(logo)">&nbsp;
    AWeb JFIF plugin</h1>
 
 <h2>General</h2>
@@ -12,7 +12,7 @@ Features include:
 <ul>
 <li>Optional progressive display of loading images
 <li>Support for scaling
-<li>Support for CyberGraphics
+<li>Support for P96 graphics
 </ul>
 
 <h2>Installation</h2>
@@ -28,7 +28,7 @@ files during decoding of large images. You should select a drawer on your
 hard disk.
 <br><br>
 <li>
-<form action="x-aweb:rexx/AWeb:awebplugin/Docs/awebjfif.awebrx">
+<form action="x-aweb:rexx/AWeb:Docs/awebjfif.awebrx">
 Run the <input type=submit value="Setup script">.
 </form>
 </ol>
@@ -45,7 +45,7 @@ choice. The recommended location for plugins like this is a drawer
 <li>Select a drawer on your hard disk for the temporary swap files. These files
 may be needed during decoding of large images. Add the following assign to
 your <code>S:User-Startup</code> file if it isn't already there:
-<dl><dd><code>assign JPEGTMP: <var>swap_drawer</var></code>
+<dl><dd><code>assign T: <var>swap_drawer</var></code>
 </dl>
 where <var>swap_drawer</var> is the drawer you selected.
 <br><br>
@@ -132,7 +132,7 @@ parameters by a comma or space, if you specify more than one.
 <h2>Support</h2>
 The AWeb JFIF plugin was written by the author of AWeb-II. Any questions,
 comments or bug reports can be addressed to
-<a href="mailto:yrozijn@xs4all.nl">Yvon Rozijn &lt;yrozijn@xs4all.nl&gt;</a>.
+<a href="mailto:aweb@amigazen.com">amigazen project</a>.
 
 <h2>Disclaimer</h2>
 This software is provided "as is". No warranties are made, either
@@ -147,6 +147,11 @@ The AWeb JFIF plugin is copyright &copy; 1998 by Yvon Rozijn.<br>
 It uses code from the JPEG library that was written by the Independent JPEG Group (IJG).
 
 <h2>History</h2>
+awebjfif.awebplugin 1.10 (16-11-2025)
+<ul>
+<li>Updated to build with AWeb 3.6.
+</ul>
+
 awebjfif.awebplugin 1.9 (1-12-2000)
 <ul>
 <li>Added support for scaling after completion, necessary for percentage scaling.

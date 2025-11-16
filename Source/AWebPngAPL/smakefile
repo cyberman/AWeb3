@@ -155,5 +155,6 @@ cleanall: clean
 
 # Install target (if needed)
 install: awebpng.awebplugin
-   copy awebpng.awebplugin AWeb:aweblib/
-
+   - copy clone awebpng.awebplugin TO //Internet/AWeb/awebplugin/awebpng.awebplugin
+   - copy clone awebpng.awebrx TO //Internet/AWeb/Docs/awebpng.awebrx
+   - copy clone awebpng.html TO //Internet/AWeb/Docs/awebpng.html
