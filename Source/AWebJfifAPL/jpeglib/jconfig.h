@@ -19,7 +19,7 @@
 
 #undef RIGHT_SHIFT_IS_UNSIGNED
 
-#define TEMP_DIRECTORY "JPEGTMP:"	/* recommended setting for Amiga */
+#define TEMP_DIRECTORY "T:"	/* recommended setting for Amiga */
 
 #define NO_MKTEMP		/* SAS C doesn't have mktemp() */
 

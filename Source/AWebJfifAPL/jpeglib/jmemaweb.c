@@ -55,7 +55,7 @@ extern void *SysBase,*DOSBase;
  */
 
 #ifndef TEMP_DIRECTORY
-#define TEMP_DIRECTORY "JPEGTMP:"
+#define TEMP_DIRECTORY "T:"
 #endif
 
 static struct SignalSemaphore memsema;
