@@ -914,8 +914,8 @@ struct Library *Openaweblib(UBYTE *name)
 struct Library *Openjslib(void)
 {  if(!AWebJSBase)
    {  if(!(AWebJSBase=OpenLibrary("aweblib/awebjs.aweblib",0))
-      && !(AWebJSBase=OpenLibrary("AWeb:aweblib/awebjs.aweblib",0))
-      && !(AWebJSBase=OpenLibrary("PROGDIR:aweblib/awebjs.aweblib",0)))
+      && !(AWebJSBase=OpenLibrary("PROGDIR:aweblib/awebjs.aweblib",0))
+      && !(AWebJSBase=OpenLibrary("AWeb:aweblib/awebjs.aweblib",0)))
       {  Lowlevelreq(AWEBSTR(MSG_ERROR_CANTOPEN),"awebjs.aweblib");
       }
    }
@@ -944,6 +944,7 @@ BOOL Awebactive(void)
 
 void Openloadreq(struct Screen *screen)
 {  if(!StartupBase) StartupBase=OpenLibrary("aweblib/startup.aweblib",0);
+   if(!StartupBase) StartupBase=OpenLibrary("PROGDIR:aweblib/startup.aweblib",0);
    if(!StartupBase) StartupBase=OpenLibrary("AWeb:aweblib/startup.aweblib",0);
    if(StartupBase) Startupopen(screen,awebversion);
 }
@@ -1110,38 +1111,50 @@ struct ClassLibrary *Openclass(UBYTE *name,long version)
    return base;
 }
 
-static BOOL Initall(void)
+/* Create AWeb: assign early, before any code tries to access it */
+static void InitAWebAssign(void)
 {  long lock;
-   long existing;
    struct Process *process;
-   /* Must be done here before classes initialize */
-   /* Check if AWeb: assign already exists - if so, don't replace it */
-   existing=Lock("AWeb:",ACCESS_READ);
-   if(existing)
-   {  UnLock(existing);
-      /* Assign already exists, don't create or remove it */
-      awebpath=FALSE;
+   struct DosList *doslist;
+   /* Initialize to FALSE - only set TRUE if we create the assign */
+   awebpath=FALSE;
+   /* Check if AWeb: assign already exists using FindDosEntry (doesn't trigger mount prompt) */
+   /* Check both DEVICES and ASSIGNS lists */
+   doslist=LockDosList(LDF_DEVICES|LDF_ASSIGNS|LDF_READ);
+   if(doslist)
+   {  doslist=FindDosEntry(doslist,"AWeb",LDF_DEVICES|LDF_ASSIGNS);
+      if(doslist)
+      {  /* Assign already exists, don't create or remove it */
+         UnLockDosList(LDF_DEVICES|LDF_ASSIGNS|LDF_READ);
+         return;
+      }
+      UnLockDosList(LDF_DEVICES|LDF_ASSIGNS|LDF_READ);
    }
-   else
-   {  /* Assign doesn't exist, create it */
-      /* Try PROGDIR: first */
-      lock=Lock("PROGDIR:",ACCESS_READ);
-      if(!lock)
-      {  /* PROGDIR: not available, try GetProgramDir() (AmigaOS 3.1+) */
-         lock=GetProgramDir();
-      }
-      if(!lock)
-      {  /* Fall back to current working directory (CLI only) */
-         process=(struct Process *)FindTask(NULL);
-         if(process && process->pr_CLI)
-         {  lock=DupLock(0);
-         }
-      }
-      if(lock)
-      {  if(AssignLock("AWeb",lock)) awebpath=TRUE;
-         else UnLock(lock);
+   /* Assign doesn't exist, create it */
+   /* Try PROGDIR: first (safest, works on all AmigaOS versions) */
+   lock=Lock("PROGDIR:",ACCESS_READ);
+   if(!lock)
+   {  /* PROGDIR: not available, fall back to current working directory (CLI only) */
+      process=(struct Process *)FindTask(NULL);
+      if(process && process->pr_CLI)
+      {  lock=DupLock(0);
       }
    }
+   if(lock)
+   {  /* Try to create the assign */
+      if(AssignLock("AWeb",lock))
+      {  /* We successfully created it, mark for removal on exit */
+         awebpath=TRUE;
+      }
+      else
+      {  /* Failed to create assign */
+         UnLock(lock);
+      }
+   }
+}
+
+static BOOL Initall(void)
+{
    if(!(locale=OpenLocale(NULL))) return FALSE;
    if(!Initversion()) return FALSE;
    if(!Initarexx()) return FALSE;   /* must be inited before window */
@@ -1464,6 +1477,8 @@ int main(int fromcli,struct WBStartup *wbs)
    KeymapBase=Openlib("keymap.library",OSNEED(37,40));
 #endif
    Getprogramname(fromcli?NULL:wbs);
+   /* Create AWeb: assign after Getprogramname but before any code that might access it */
+   InitAWebAssign();
    if(!Initmemory())
    {  Cleanup();
       exit(10);
