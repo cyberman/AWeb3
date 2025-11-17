@@ -210,7 +210,13 @@ static void Checklink(struct Awindow *win,long x,long y,USHORT hitflags)
             win->jonmouse=amhr.jonmouse;
             SETFLAG(win->window->Flags,WFLG_RMBTRAP,
                (prefs.popupkey&IEQUALIFIER_RBUTTON) && (result&AMHR_POPUP));
-            Setawinpointer(win,amhr.ptrtype);
+            /* Set context menu pointer if popup is available and popup key is active */
+            if((result&AMHR_POPUP) && (hitflags&AMHF_POPUP) && !amhr.ptrtype)
+            {  Setawinpointer(win,APTR_CONTEXTMENU);
+            }
+            else
+            {  Setawinpointer(win,amhr.ptrtype);
+            }
             Tooltip(amhr.tooltip,x+win->window->LeftEdge,y+win->window->TopEdge);
             break;
          case AMHR_OLDHIT:

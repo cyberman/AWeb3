@@ -569,6 +569,7 @@ static long Hittestinput(struct Ainput *inp,struct Amhittest *amh)
    {  result=AMHR_NEWHIT;
       if(amh->amhr)
       {  amh->amhr->object=inp;
+         amh->amhr->ptrtype=APTR_TEXT;
       }
    }
    return result;

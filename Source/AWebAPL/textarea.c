@@ -1036,6 +1036,7 @@ static long Hittesttextarea(struct Textarea *txa,struct Amhittest *amh)
       {  result=AMHR_NEWHIT;
          if(amh->amhr)
          {  amh->amhr->object=txa;
+            amh->amhr->ptrtype=APTR_TEXT;
          }
       }
    }

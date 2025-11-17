@@ -29,6 +29,7 @@
 #include <intuition/imageclass.h>
 #include <intuition/gadgetclass.h>
 #include <intuition/icclass.h>
+#include <intuition/intuitionbase.h>
 #include <workbench/workbench.h>
 #include <reaction/reaction.h>
 #include <reaction/reaction_macros.h>
@@ -49,6 +50,7 @@
 #include <proto/graphics.h>
 #include <proto/gadtools.h>
 #include <proto/utility.h>
+#include <intuition/pointerclass.h>
 #include <proto/layers.h>
 #include <proto/wb.h>
 #include <proto/bitmap.h>
@@ -260,10 +262,40 @@ static void Setwincancel(struct Awindow *win)
 /* Set a custom pointer */
 void Setawinpointer(struct Awindow *win,USHORT ptrtype)
 {  void *ptr;
+   struct IntuitionBase *ibase;
+   ULONG version;
    /* Only set the pointer if it changes */
    if(win->window && ptrtype!=win->ptrtype)
-   {  ptr=Apppointer(Aweb(),ptrtype);
-      SetWindowPointer(win->window,WA_Pointer,ptr,TAG_END);
+   {  /* Check if we have Intuition 47+ with system pointer types */
+      ibase=IntuitionBase;
+      if(ibase && (version=ibase->lib_Version)>=47)
+      {  /* Use system pointer types for Intuition 47+ */
+         if(ptrtype==APTR_HAND)
+         {  SetWindowPointer(win->window,WA_PointerType,POINTERTYPE_LINK,TAG_END);
+         }
+         else if(ptrtype==APTR_DEFAULT)
+         {  SetWindowPointer(win->window,WA_PointerType,POINTERTYPE_NORMAL,TAG_END);
+         }
+         else if(ptrtype==APTR_TEXT)
+         {  SetWindowPointer(win->window,WA_PointerType,POINTERTYPE_TEXT,TAG_END);
+         }
+         else if(ptrtype==APTR_NOTALLOWED)
+         {  SetWindowPointer(win->window,WA_PointerType,POINTERTYPE_NOTALLOWED,TAG_END);
+         }
+         else if(ptrtype==APTR_CONTEXTMENU)
+         {  SetWindowPointer(win->window,WA_PointerType,POINTERTYPE_CONTEXTMENU,TAG_END);
+         }
+         else
+         {  /* Fall back to custom pointers for resize pointers */
+            ptr=Apppointer(Aweb(),ptrtype);
+            SetWindowPointer(win->window,WA_Pointer,ptr,TAG_END);
+         }
+      }
+      else
+      {  /* Use custom pointers for older Intuition versions */
+         ptr=Apppointer(Aweb(),ptrtype);
+         SetWindowPointer(win->window,WA_Pointer,ptr,TAG_END);
+      }
       win->ptrtype=ptrtype;
    }
 }
@@ -1404,10 +1436,15 @@ void Busypointer(BOOL busy)
 {  struct Awindow *win;
    BOOL set=FALSE;
    static short busynest=0;
+   struct IntuitionBase *ibase;
+   ULONG version;
+   void *ptr;
    if(busy && ++busynest==1) set=TRUE;
    if(!busy && --busynest==0) set=TRUE;
    if(set)
-   {  for(win=windows.first;win->next;win=win->next)
+   {  ibase=IntuitionBase;
+      version=(ibase)?ibase->lib_Version:0;
+      for(win=windows.first;win->next;win=win->next)
       {  if(win->window)
          {  if(busy)
             {  SetWindowPointer(win->window,
@@ -1416,9 +1453,32 @@ void Busypointer(BOOL busy)
                   TAG_END);
             }
             else
-            {  SetWindowPointer(win->window,
-                  WA_Pointer,Apppointer(Aweb(),win->ptrtype),
-                  TAG_END);
+            {  /* Restore pointer using system types if available */
+               if(version>=47)
+               {  if(win->ptrtype==APTR_HAND)
+                  {  SetWindowPointer(win->window,WA_PointerType,POINTERTYPE_LINK,TAG_END);
+                  }
+                  else if(win->ptrtype==APTR_DEFAULT)
+                  {  SetWindowPointer(win->window,WA_PointerType,POINTERTYPE_NORMAL,TAG_END);
+                  }
+                  else if(win->ptrtype==APTR_TEXT)
+                  {  SetWindowPointer(win->window,WA_PointerType,POINTERTYPE_TEXT,TAG_END);
+                  }
+                  else if(win->ptrtype==APTR_NOTALLOWED)
+                  {  SetWindowPointer(win->window,WA_PointerType,POINTERTYPE_NOTALLOWED,TAG_END);
+                  }
+                  else if(win->ptrtype==APTR_CONTEXTMENU)
+                  {  SetWindowPointer(win->window,WA_PointerType,POINTERTYPE_CONTEXTMENU,TAG_END);
+                  }
+                  else
+                  {  ptr=Apppointer(Aweb(),win->ptrtype);
+                     SetWindowPointer(win->window,WA_Pointer,ptr,TAG_END);
+                  }
+               }
+               else
+               {  ptr=Apppointer(Aweb(),win->ptrtype);
+                  SetWindowPointer(win->window,WA_Pointer,ptr,TAG_END);
+               }
             }
          }
       }

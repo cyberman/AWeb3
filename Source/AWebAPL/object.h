@@ -413,6 +413,9 @@ struct Aobject
 #define APTR_RESIZEHOR     1  /* Resize frame in horizontal direction (vertical edge) */
 #define APTR_RESIZEVERT    2  /* Resize frame in vertical direction (horizontal edge) */
 #define APTR_HAND          3  /* Pointing hand shape */
+#define APTR_TEXT          4  /* Text input/selection pointer */
+#define APTR_NOTALLOWED    5  /* Operation not allowed (disabled element) */
+#define APTR_CONTEXTMENU   6  /* Context menu available */
 
 
 /*---- Messages ----*/

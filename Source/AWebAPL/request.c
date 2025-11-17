@@ -596,6 +596,10 @@ BOOL Quitreq(void)
    struct Classbases *cb;
    BOOL result=FALSE;
    Asetattrs(Aweb(),AOAPP_Iconify,FALSE,TAG_END);
+   /* If there are no active transfers, quit immediately without confirmation */
+   if(!Transferring())
+   {  return FALSE;
+   }
    if(Findrequest(ARTYPE_QUIT))
    {  result=TRUE;
    }

@@ -1113,6 +1113,7 @@ struct ClassLibrary *Openclass(UBYTE *name,long version)
 static BOOL Initall(void)
 {  long lock;
    long existing;
+   struct Process *process;
    /* Must be done here before classes initialize */
    /* Check if AWeb: assign already exists - if so, don't replace it */
    existing=Lock("AWeb:",ACCESS_READ);
@@ -1123,7 +1124,20 @@ static BOOL Initall(void)
    }
    else
    {  /* Assign doesn't exist, create it */
-      if(lock=Lock("PROGDIR:",ACCESS_READ))
+      /* Try PROGDIR: first */
+      lock=Lock("PROGDIR:",ACCESS_READ);
+      if(!lock)
+      {  /* PROGDIR: not available, try GetProgramDir() (AmigaOS 3.1+) */
+         lock=GetProgramDir();
+      }
+      if(!lock)
+      {  /* Fall back to current working directory (CLI only) */
+         process=(struct Process *)FindTask(NULL);
+         if(process && process->pr_CLI)
+         {  lock=DupLock(0);
+         }
+      }
+      if(lock)
       {  if(AssignLock("AWeb",lock)) awebpath=TRUE;
          else UnLock(lock);
       }

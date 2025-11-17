@@ -1524,8 +1524,10 @@ BOOL Initdefprefs(void)
 #ifndef LOCALONLY
    if(!Adduserbutton(&defprefs.buttons,"AWeb",
       "OPEN http://amigazen.com/aweb/")) return FALSE;
-   if(!Adduserbutton(&defprefs.buttons,"Amiga Inc",
+   if(!Adduserbutton(&defprefs.buttons,"AmigaCorp",
       "OPEN https://www.amiga.com/")) return FALSE;
+   if(!Adduserbutton(&defprefs.buttons,"Aminet",
+      "OPEN http://www.aminet.net/")) return FALSE;
    if(!Adduserbutton(&defprefs.buttons,"Amiga-News",
       "OPEN http://www.amiga-news.de/en/")) return FALSE;
 #endif
