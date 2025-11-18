@@ -482,7 +482,66 @@ static BOOL Openwindow(struct Awindow *win)
       AOAPP_Processfun,Processwindow,
       TAG_END);
    if(!win->box.Width)
-   {  if(nextx<0)
+   {  short calc_width,calc_height;
+      short screen_width,screen_height;
+      short max_width,max_height;
+      struct Screen screendata;
+      
+      /* Calculate window size from preferences */
+      calc_width=prefs.winw;
+      calc_height=prefs.winh;
+      
+      /* If preferences indicate maximum size (9999), calculate sensible default */
+      if(calc_width==9999 || calc_height==9999)
+      {  /* Get screen dimensions using GetScreenData() instead of accessing private members */
+         if(GetScreenData(&screendata,sizeof(struct Screen),CUSTOMSCREEN,screen))
+         {  screen_width=screendata.Width;
+            screen_height=screendata.Height;
+         }
+         else
+         {  /* Fallback: use screen pointer if GetScreenData fails */
+            screen_width=screen->Width;
+            screen_height=screen->Height;
+         }
+         
+         /* For small screens (640x512 or smaller), use existing logic (let Intuition clamp) */
+         if(screen_width<=640 && screen_height<=512)
+         {  /* Keep 9999, Intuition will clamp to screen size */
+            if(calc_width==9999) calc_width=9999;
+            if(calc_height==9999) calc_height=9999;
+         }
+         /* For larger screens (1024x768 or above), use 75% of screen size */
+         else if(screen_width>=1024 && screen_height>=768)
+         {  if(calc_width==9999) calc_width=(screen_width*75)/100;
+            if(calc_height==9999) calc_height=(screen_height*75)/100;
+         }
+         /* For medium screens, use 90% up to 800x600 maximum */
+         else
+         {  if(calc_width==9999)
+            {  calc_width=(screen_width*90)/100;
+               max_width=800;
+               if(calc_width>max_width) calc_width=max_width;
+            }
+            if(calc_height==9999)
+            {  calc_height=(screen_height*90)/100;
+               max_height=600;
+               if(calc_height>max_height) calc_height=max_height;
+            }
+         }
+      }
+      else
+      {  /* Still need screen dimensions for position calculation */
+         if(GetScreenData(&screendata,sizeof(struct Screen),CUSTOMSCREEN,screen))
+         {  screen_width=screendata.Width;
+            screen_height=screendata.Height;
+         }
+         else
+         {  screen_width=screen->Width;
+            screen_height=screen->Height;
+         }
+      }
+      
+      if(nextx<0)
       {  nextx=prefs.winx;
          nexty=prefs.winy;
       }
@@ -490,10 +549,10 @@ static BOOL Openwindow(struct Awindow *win)
       win->box.Top=nexty;
       nextx+=20;
       nexty+=8;
-      if(nextx+prefs.winw>screen->Width) nextx=0;
-      if(nexty+prefs.winh>screen->Height) nexty=0;
-      win->box.Width=prefs.winw;
-      win->box.Height=prefs.winh;
+      if(nextx+calc_width>screen_width) nextx=0;
+      if(nexty+calc_height>screen_height) nexty=0;
+      win->box.Width=calc_width;
+      win->box.Height=calc_height;
       if(win->newwidth || win->newheight)
       {  struct Awindow *awin;
          for(awin=windows.first;awin->next;awin=awin->next)
