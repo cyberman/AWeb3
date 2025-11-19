@@ -20,12 +20,14 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/errno.h>  /* For errno and error codes */
 #include <netdb.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/utility.h>
 #include <proto/socket.h>
 #include <proto/bsdsocket.h>
+#include <libraries/bsdsocket.h>  /* For SBTC_ERRNO and SocketBaseTags() */
 #include "aweb.h"
 #include "tcperr.h"
 #include "fetchdriver.h"
@@ -430,12 +432,63 @@ static BOOL Readblock(struct Httpinfo *hi)
    
    if(n<0 || Checktaskbreak())
    {  
+      /* Check errno to provide more specific error reporting */
+      /* Use Errno() function from bsdsocket.library to get error code */
+      /* Note: Errno() is deprecated per SDK but still works. Modern way is SocketBaseTags() with SBTC_ERRNO */
+      if(n < 0 && !Checktaskbreak())
+      {  long errno_value;
+         if(hi->socketbase)
+         {  struct Library *saved_socketbase = SocketBase;
+            SocketBase = hi->socketbase;
+            errno_value = Errno(); /* Get error code from bsdsocket.library */
+            SocketBase = saved_socketbase;
+         }
+         else
+         {  errno_value = 0; /* No socketbase - can't get errno */
+         }
+         if(errno_value == ETIMEDOUT)
+         {  debug_printf("DEBUG: Readblock: Receive timeout (errno=ETIMEDOUT)\n");
+            /* Timeout during receive - report as timeout error */
+            Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+         }
+         else if(errno_value == ECONNRESET)
+         {  debug_printf("DEBUG: Readblock: Connection reset by peer (errno=ECONNRESET)\n");
+            /* Connection was reset - report as connection error */
+            Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+         }
+         else if(errno_value == ECONNREFUSED)
+         {  debug_printf("DEBUG: Readblock: Connection refused (errno=ECONNREFUSED)\n");
+            /* Connection refused - report as connection error */
+            Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+         }
+         else if(errno_value == ENETUNREACH)
+         {  debug_printf("DEBUG: Readblock: Network unreachable (errno=ENETUNREACH)\n");
+            /* Network unreachable - report as network error */
+            Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+         }
+         else if(errno_value == EHOSTUNREACH)
+         {  debug_printf("DEBUG: Readblock: Host unreachable (errno=EHOSTUNREACH)\n");
+            /* Host unreachable - report as network error */
+            Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+         }
+         else
+         {  debug_printf("DEBUG: Readblock: Network error (errno=%ld), returning FALSE\n", errno_value);
+            /* Other network error - report generic error */
+            Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+         }
+      }
+      else if(Checktaskbreak())
+      {  debug_printf("DEBUG: Readblock: Task break detected, returning FALSE\n");
+         /* Task break - don't report error, just return */
+      }
+      else
+      {  debug_printf("DEBUG: Readblock: error or task break, returning FALSE\n");
+      }
 /* Don't send error, let source driver keep its partial data if it wants to.
       Updatetaskattrs(
          AOURL_Error,TRUE,
          TAG_END);
 */
-      debug_printf("DEBUG: Readblock: error or task break, returning FALSE\n");
       return FALSE;
    }
    if(n==0) 
@@ -3974,7 +4027,46 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
    }
    else
    {  /* TCP connect failed - a_connect returns non-zero on failure */
-      debug_printf("DEBUG: TCP connect failed\n");
+      long errno_value;
+      /* Use Errno() function from bsdsocket.library to get error code */
+      /* Note: Errno() is deprecated per SDK but still works. Modern way is SocketBaseTags() with SBTC_ERRNO */
+      if(hi->socketbase)
+      {  struct Library *saved_socketbase = SocketBase;
+         SocketBase = hi->socketbase;
+         errno_value = Errno(); /* Get error code from bsdsocket.library */
+         SocketBase = saved_socketbase;
+      }
+      else
+      {  errno_value = 0; /* No socketbase - can't get errno */
+      }
+      debug_printf("DEBUG: TCP connect failed (errno=%ld)\n", errno_value);
+      
+      /* Provide more specific error reporting based on errno */
+      if(errno_value == ETIMEDOUT)
+      {  debug_printf("DEBUG: Connect: Connection timeout\n");
+         hi->status = -1; /* Use negative status to indicate timeout */
+      }
+      else if(errno_value == ECONNREFUSED)
+      {  debug_printf("DEBUG: Connect: Connection refused by server\n");
+         hi->status = -2; /* Use negative status to indicate connection refused */
+      }
+      else if(errno_value == ECONNRESET)
+      {  debug_printf("DEBUG: Connect: Connection reset by peer\n");
+         hi->status = -3; /* Use negative status to indicate connection reset */
+      }
+      else if(errno_value == ENETUNREACH)
+      {  debug_printf("DEBUG: Connect: Network unreachable\n");
+         hi->status = -4; /* Use negative status to indicate network unreachable */
+      }
+      else if(errno_value == EHOSTUNREACH)
+      {  debug_printf("DEBUG: Connect: Host unreachable\n");
+         hi->status = -5; /* Use negative status to indicate host unreachable */
+      }
+      else
+      {  debug_printf("DEBUG: Connect: Connection failed with error %ld\n", errno_value);
+         hi->status = -6; /* Use negative status to indicate other connection error */
+      }
+      
       /* TCP connect failed - cannot proceed with SSL or HTTP */
       /* Set ok=FALSE to indicate connection failure */
       ok=FALSE;
@@ -4300,7 +4392,31 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
             else
             {  debug_printf("DEBUG: Httpretrieve: Connect() failed, status=%ld\n", hi->status);
                if(!(hi->flags&HTTPIF_RETRYNOSSL) && hi->status!=407)
-               {  debug_printf("DEBUG: Httpretrieve: Reporting connection error\n");
+               {  /* Provide more specific error reporting based on connection failure type */
+                  if(hi->status < 0)
+                  {  /* Negative status indicates specific connection error type */
+                     switch(hi->status)
+                     {  case -1:  /* ETIMEDOUT */
+                           debug_printf("DEBUG: Httpretrieve: Connection timeout - server did not respond\n");
+                           break;
+                        case -2:  /* ECONNREFUSED */
+                           debug_printf("DEBUG: Httpretrieve: Connection refused - server rejected connection\n");
+                           break;
+                        case -3:  /* ECONNRESET */
+                           debug_printf("DEBUG: Httpretrieve: Connection reset - server closed connection\n");
+                           break;
+                        case -4:  /* ENETUNREACH */
+                           debug_printf("DEBUG: Httpretrieve: Network unreachable - no route to network\n");
+                           break;
+                        case -5:  /* EHOSTUNREACH */
+                           debug_printf("DEBUG: Httpretrieve: Host unreachable - no route to host\n");
+                           break;
+                        default:
+                           debug_printf("DEBUG: Httpretrieve: Connection failed with error code %ld\n", hi->status);
+                           break;
+                     }
+                  }
+                  debug_printf("DEBUG: Httpretrieve: Reporting connection error\n");
                   Tcperror(fd,TCPERR_NOCONNECT,
                   (hi->flags&HTTPIF_SSLTUNNEL)?hi->hostport:(UBYTE *)hent->h_name);
             }
