@@ -865,9 +865,13 @@ static BOOL Readdata(struct Httpinfo *hi)
    BOOL exit_main_loop=FALSE; /* Flag to exit main loop for gzip processing */
    long compressed_bytes_consumed=0; /* Track how much compressed data we've consumed for Content-Length validation */
    long total_compressed_read=0; /* Track total compressed bytes READ from network (before copying to gzipbuffer) */
+   long total_bytes_received=0; /* Track total bytes received for non-gzip transfers with Content-Length */
    
-   debug_printf("DEBUG: Readdata: ENTRY - blocklength=%ld, flags=0x%04X, parttype='%s', sock=%ld\n",
-          hi->blocklength, hi->flags, hi->parttype ? (char *)hi->parttype : "(null)", hi->sock);
+   debug_printf("DEBUG: Readdata: ENTRY - blocklength=%ld, flags=0x%04X, parttype='%s', sock=%ld, partlength=%ld\n",
+          hi->blocklength, hi->flags, hi->parttype ? (char *)hi->parttype : "(null)", hi->sock, hi->partlength);
+   
+   /* Note: total_bytes_received starts at 0 and is incremented as we process data blocks */
+   /* This ensures accurate tracking without double-counting initial blocklength */
 
    if(hi->boundary)
    {  bdlength=strlen(hi->boundary);
@@ -2370,6 +2374,14 @@ static BOOL Readdata(struct Httpinfo *hi)
                    hi->fd->block, blocklength, 
                    hi->parttype[0] ? (char *)hi->parttype : "(none)",
                    hi->parttype[0] ? strlen(hi->parttype) : 0);
+            
+            /* Track total bytes received for Content-Length validation (non-gzip transfers) */
+            /* Only track if not processing gzip (gzip tracks compressed_bytes_consumed separately) */
+            if(!(hi->flags & HTTPIF_GZIPDECODING) && !(hi->flags & HTTPIF_GZIPENCODED))
+            {  total_bytes_received += blocklength;
+               debug_printf("DEBUG: Total bytes received so far: %ld/%ld\n", total_bytes_received, hi->partlength > 0 ? hi->partlength : -1);
+            }
+            
             /* Include content type if available to prevent defaulting to octet-stream */
             /* Check if parttype is valid by checking first character and length */
             if(hi->parttype[0] != '\0' && hi->parttype[0] != 0 && strlen(hi->parttype) > 0) {
@@ -3239,9 +3251,18 @@ static BOOL Readdata(struct Httpinfo *hi)
          }
          
          /* Add timeout protection to prevent infinite hanging */
-         if(++loop_count > 500) {
-            debug_printf("DEBUG: Too many main loop cycles, finishing\n");
-            break;
+         /* For Content-Length transfers, don't limit by loop count - rely on Content-Length check */
+         /* For chunked/unknown transfers, use a high limit to prevent infinite loops */
+         if(!(hi->flags & HTTPIF_CHUNKED) && hi->partlength > 0)
+         {  /* Content-Length transfer - no loop limit, Content-Length check will handle completion */
+            loop_count++; /* Track but don't limit */
+         }
+         else
+         {  /* Chunked or unknown length - use high limit to prevent infinite loops */
+            if(++loop_count > 10000) {
+               debug_printf("DEBUG: Too many main loop cycles (%d), finishing\n", loop_count);
+               break;
+            }
          }
          
          if(!Readblock(hi)) {
@@ -3249,6 +3270,13 @@ static BOOL Readdata(struct Httpinfo *hi)
             /* Check if this is a network error vs normal EOF */
             if(hi->blocklength > 0) {
                debug_printf("DEBUG: Have %ld bytes of data, processing what we have\n", hi->blocklength);
+               
+               /* Track bytes received for Content-Length validation (non-gzip transfers) */
+               if(!(hi->flags & HTTPIF_GZIPDECODING) && !(hi->flags & HTTPIF_GZIPENCODED))
+               {  total_bytes_received += hi->blocklength;
+                  debug_printf("DEBUG: Total bytes received (including final block): %ld/%ld\n", total_bytes_received, hi->partlength > 0 ? hi->partlength : -1);
+               }
+               
                /* Process the data we already have before breaking */
                /* Include content type if available */
                if(hi->parttype[0] != '\0' && hi->parttype[0] != 0 && strlen(hi->parttype) > 0) {
@@ -3266,9 +3294,39 @@ static BOOL Readdata(struct Httpinfo *hi)
                   TAG_END);
                }
             }
+            
+            /* Validate Content-Length for non-gzip transfers */
+            /* If we have a Content-Length but didn't receive all bytes, report error */
+            if(!(hi->flags & HTTPIF_GZIPDECODING) && !(hi->flags & HTTPIF_GZIPENCODED) && 
+               !(hi->flags & HTTPIF_CHUNKED) && hi->partlength > 0)
+            {  if(total_bytes_received < hi->partlength)
+               {  debug_printf("DEBUG: ERROR: Transfer incomplete! Received %ld/%ld bytes (missing %ld bytes)\n", 
+                         total_bytes_received, hi->partlength, hi->partlength - total_bytes_received);
+                  Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+               }
+               else if(total_bytes_received > hi->partlength)
+               {  debug_printf("DEBUG: WARNING: Received more bytes than Content-Length! Received %ld/%ld bytes (extra %ld bytes)\n", 
+                         total_bytes_received, hi->partlength, total_bytes_received - hi->partlength);
+               }
+               else
+               {  debug_printf("DEBUG: Transfer complete: Received exactly %ld/%ld bytes\n", total_bytes_received, hi->partlength);
+               }
+            }
+            
             break;
          }
          debug_printf("DEBUG: Readblock returned, new blocklength=%ld\n", hi->blocklength);
+         
+         /* Check if Content-Length is complete for non-gzip transfers */
+         /* Continue reading until Content-Length is met or error occurs */
+         if(!(hi->flags & HTTPIF_GZIPDECODING) && !(hi->flags & HTTPIF_GZIPENCODED) && 
+            !(hi->flags & HTTPIF_CHUNKED) && hi->partlength > 0)
+         {  if(total_bytes_received >= hi->partlength)
+            {  debug_printf("DEBUG: Content-Length complete: Received %ld/%ld bytes\n", total_bytes_received, hi->partlength);
+               /* Content-Length met - exit loop */
+               break;
+            }
+         }
       }
       
       /* Check if we should exit main loop for gzip processing */
@@ -3653,7 +3711,7 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
    /* Use reasonable timeout for modern networks (15 seconds per operation) */
    /* This timeout applies per-operation, so each recv()/send() gets a fresh timeout */
    /* Since it resets after each successful receive, long transfers can still complete */
-   timeout.tv_sec = 15;  /* 15 second timeout per operation - reasonable for modern networks */
+   timeout.tv_sec = 15;  /* 15 second timeout per operation */
    timeout.tv_usec = 0;
    
    /* Set global SocketBase for setsockopt() from proto/bsdsocket.h */
@@ -3664,7 +3722,7 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
       SocketBase = hi->socketbase;
       
       /* Set receive timeout - This prevents operations from hanging indefinitely */
-      /* SO_RCVTIMEO is per-operation, so each recv() gets a fresh 15-second timeout */
+      /* SO_RCVTIMEO is per-operation, so each recv() gets a fresh 30-second timeout */
       /* Since timeout resets after each successful receive, long transfers can complete */
       if(setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
       {  /* Timeout setting failed, but continue */

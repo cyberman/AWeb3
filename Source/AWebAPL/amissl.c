@@ -91,7 +91,7 @@ struct Library *AmiSSLExtBase;
 /* Semaphore to protect OpenSSL object creation/destruction */
 /* SSL_CTX_new(), SSL_new(), SSL_free(), SSL_CTX_free() may access shared internal state */
 /* Per-connection I/O operations (SSL_read, SSL_write, SSL_connect) don't need protection */
-/* OPENSSL_init_ssl() is called once per task in Assl_initamissl(), not here */
+/* InitAmiSSL() handles OpenSSL initialization internally - no need to call OPENSSL_init_ssl() manually */
 static struct SignalSemaphore ssl_init_sema = {0};
 
 /* Per-task reference counting for CleanupAmiSSL() calls */
@@ -366,11 +366,10 @@ struct Assl *Assl_initamissl(struct Library *socketbase)
                {  debug_printf("DEBUG: Assl_initamissl: Global AmiSSLBase verified: %p\n", AmiSSLBase);
                }
                /* Success - libraries are now open and InitAmiSSL() was called by OpenAmiSSLTags */
-               /* According to AmiSSL examples, OPENSSL_init_ssl() should be called */
-               /* once per task/application. It's idempotent, so safe to call multiple times */
-               debug_printf("DEBUG: Assl_initamissl: Calling OPENSSL_init_ssl() for this task\n");
-               OPENSSL_init_ssl_32(OPENSSL_INIT_SSL_DEFAULT | OPENSSL_INIT_ADD_ALL_CIPHERS | OPENSSL_INIT_ADD_ALL_DIGESTS, NULL);
-               debug_printf("DEBUG: Assl_initamissl: OPENSSL_init_ssl() completed\n");
+               /* InitAmiSSL() internally handles OpenSSL initialization, so no need to call OPENSSL_init_ssl() manually */
+               /* Per SDK: "If using amisslmaster.library/OpenSSLTags() and the AmiSSL_InitAmiSSL tag to initialise AmiSSL, 
+                * you should not need to use InitAmiSSL() in simple applications" */
+               debug_printf("DEBUG: Assl_initamissl: OpenAmiSSLTags() completed initialization\n");
             }
             else
             {  debug_printf("DEBUG: Assl_initamissl: OpenAmiSSLTags() failed\n");
@@ -416,11 +415,9 @@ struct Assl *Assl_initamissl(struct Library *socketbase)
          else
          {  debug_printf("DEBUG: Assl_initamissl: Global AmiSSLBase verified: %p\n", AmiSSLBase);
          }
-         /* OPENSSL_init_ssl() must be called once per task */
-         /* It's idempotent, so safe to call even if called by another task */
-         debug_printf("DEBUG: Assl_initamissl: Calling OPENSSL_init_ssl() for this task\n");
-         OPENSSL_init_ssl_32(OPENSSL_INIT_SSL_DEFAULT | OPENSSL_INIT_ADD_ALL_CIPHERS | OPENSSL_INIT_ADD_ALL_DIGESTS, NULL);
-         debug_printf("DEBUG: Assl_initamissl: OPENSSL_init_ssl() completed\n");
+         /* InitAmiSSL() internally handles OpenSSL initialization for this task */
+         /* Per SDK: Each subprocess/task MUST call InitAmiSSL() separately before using amissl.library calls */
+         debug_printf("DEBUG: Assl_initamissl: InitAmiSSL() completed initialization for this task\n");
       }
       
       /* If libraries are open, store references in this context */
@@ -530,6 +527,9 @@ __asm void Assl_cleanup(register __a0 struct Assl *assl)
          {  /* This was the last Assl for this task - call CleanupAmiSSL() */
             /* Per AmiSSL documentation: "Each subprocess MUST call CleanupAmiSSL() before it exits" */
             /* "Failure to do so can cause AmiSSL to crash" */
+            /* Note: If using OpenAmiSSLTags() with AmiSSL_InitAmiSSL=TRUE, CleanupAmiSSL() should be called */
+            /* via CloseAmiSSL(), but since we're sharing libraries across tasks, we call CleanupAmiSSL() */
+            /* directly for each task that exits, while keeping libraries open for other tasks */
             debug_printf("DEBUG: Assl_cleanup: Last Assl for task %p, calling CleanupAmiSSL()\n", owning_task);
             
             /* Set global AmiSSLBase before calling CleanupAmiSSL() */
@@ -551,6 +551,8 @@ __asm void Assl_cleanup(register __a0 struct Assl *assl)
       /* Do NOT close global libraries here - they may be in use by other instances */
       /* The global AmiSSLMasterBase and AmiSSLBase are shared across all SSL connections */
       /* Only clear the local references, but don't close the libraries */
+      /* Per SDK: CloseAmiSSL() should be called when finished with AmiSSL, but since we're sharing */
+      /* libraries across tasks, we only call CleanupAmiSSL() per-task and keep libraries open */
       /* Libraries will be cleaned up at program exit by the OS if still open */
       /* Assl_closessl() already nulled ssl and sslctx */
       /* We just need to null the library bases to signal this object is truly dead */
@@ -608,8 +610,8 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl)
       {  debug_printf("DEBUG: Assl_openssl: Global AmiSSLBase verified: %p matches assl->amisslbase\n", AmiSSLBase);
       }
       
-      /* OPENSSL_init_ssl() is now called once per task in Assl_initamissl() */
-      /* It should NOT be called here per connection - that's the bug! */
+      /* InitAmiSSL() handles OpenSSL initialization - no need to call OPENSSL_init_ssl() manually */
+      /* InitAmiSSL() is called once per task in Assl_initamissl() */
       
       /* SSL context must be created fresh for each connection */
       /* Do NOT reuse SSL contexts - they are NOT thread-safe for concurrent use */
