@@ -1549,23 +1549,82 @@ static BOOL Readdata(struct Httpinfo *hi)
                            if(gziplength >= total_chunk_data)
                            {  debug_printf("DEBUG: Chunked+gzip: Buffer full (gziplength=%ld >= total=%ld), stopping extraction\n", 
                                      gziplength, total_chunk_data);
+                              /* Buffer full - stop extraction, but still need to advance past chunk */
+                              /* Check if we copied the full chunk or just part */
+                              if(chunk_size > max_copy)
+                              {  /* Chunk larger than buffer - we copied actual_copy, buffer is full */
+                                 /* Advance by what we copied, keep remaining for next block read */
+                                 chunk_pos += actual_copy;
+                                 /* Don't skip CRLF - chunk continues in next block */
+                              }
+                              else
+                              {  /* Chunk fits in buffer - check if we copied all of it */
+                                 if(actual_copy >= chunk_size)
+                                 {  /* Full chunk copied - advance past chunk and CRLF */
+                                    chunk_pos += chunk_size;
+                                    
+                                    /* Skip CRLF after chunk data */
+                                    if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\r')
+                                    {  chunk_pos++;
+                                    }
+                                    if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\n')
+                                    {  chunk_pos++;
+                                    }
+                                 }
+                                 else
+                                 {  /* Partial chunk copied (extends beyond block) - advance by what we copied */
+                                    /* Keep remaining chunk data in block for next iteration */
+                                    chunk_pos += actual_copy;
+                                    /* Don't skip CRLF yet - we haven't reached end of chunk */
+                                 }
+                              }
                               break;
+                           }
+                           
+                           /* Move past chunk data - CRITICAL: Only advance by what we actually copied */
+                           /* If we copied less than chunk_size (chunk extends beyond block), keep remaining data */
+                           if(chunk_size > max_copy)
+                           {  /* Chunk larger than remaining buffer space - we copied actual_copy */
+                              /* Advance by what we copied, but buffer is not full yet so continue */
+                              chunk_pos += actual_copy;
+                              /* Don't skip CRLF - chunk continues, will be handled in next iteration */
+                              /* Note: This case should be rare since we check max_copy above */
+                           }
+                           else
+                           {  /* Chunk fits in remaining buffer - check if we copied all of it */
+                              if(actual_copy >= chunk_size)
+                              {  /* Full chunk copied - advance past chunk and CRLF */
+                                 chunk_pos += chunk_size;
+                                 
+                                 /* Skip CRLF after chunk data */
+                                 if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\r')
+                                 {  chunk_pos++;
+                                 }
+                                 if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\n')
+                                 {  chunk_pos++;
+                                 }
+                              }
+                              else
+                              {  /* Partial chunk copied (extends beyond block) - advance by what we copied */
+                                 /* Keep remaining chunk data in block for next iteration */
+                                 chunk_pos += actual_copy;
+                                 /* Don't skip CRLF yet - we haven't reached end of chunk */
+                              }
                            }
                         }
                         else if(chunk_size > 0)
                         {  debug_printf("DEBUG: Chunked+gzip: WARNING - Skipping chunk copy: chunk_size=%ld, gziplength=%ld, total=%ld, gzipbuffer=%p\n",
                                   chunk_size, gziplength, total_chunk_data, gzipbuffer);
-                        }
-                        
-                        /* Move past chunk data */
-                        chunk_pos += chunk_size;
-                        
-                        /* Skip CRLF after chunk data */
-                        if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\r')
-                        {  chunk_pos++;
-                        }
-                        if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\n')
-                        {  chunk_pos++;
+                           /* Skip this chunk since we can't copy it */
+                           chunk_pos += chunk_size;
+                           
+                           /* Skip CRLF after chunk data */
+                           if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\r')
+                           {  chunk_pos++;
+                           }
+                           if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\n')
+                           {  chunk_pos++;
+                           }
                         }
                      }
                      
@@ -1964,6 +2023,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                            }
                            
                            /* Move unprocessed data to start if needed */
+                           /* gziplength tracks where to append new data (after any unprocessed data) */
                            if(remaining_unprocessed > 0 && d_stream.next_in != gzipbuffer)
                            {  bytes_to_move = remaining_unprocessed;
                               /* Validate all pointers and sizes before memmove */
@@ -1978,7 +2038,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                                       (d_stream.next_in + bytes_to_move) <= gzipbuffer + gzip_buffer_size &&
                                       bytes_to_move <= remaining_unprocessed)
                               {  memmove(gzipbuffer, d_stream.next_in, bytes_to_move);
-                                 gziplength = bytes_to_move;
+                                 gziplength = bytes_to_move; /* Position after unprocessed data */
                               }
                               else
                               {  debug_printf("DEBUG: Invalid pointer state for memmove in continuation (next_in=%p, gzipbuffer=%p, bytes=%ld, buffer_size=%ld), resetting\n",
@@ -1988,7 +2048,12 @@ static BOOL Readdata(struct Httpinfo *hi)
                               }
                            }
                            else if(remaining_unprocessed == 0)
-                           {  gziplength = 0;
+                           {  /* All data was consumed - start fresh at beginning */
+                              gziplength = 0;
+                           }
+                           else
+                           {  /* remaining_unprocessed > 0 but next_in == gzipbuffer - data already at start */
+                              gziplength = remaining_unprocessed; /* Position after unprocessed data */
                            }
                            
                            /* Copy continuation data to buffer */
@@ -2000,7 +2065,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                                  available_space > 0 && available_space <= (gzip_buffer_size - gziplength) &&
                                  hi->blocklength > 0 && available_space <= hi->blocklength)
                               {  memcpy(gzipbuffer + gziplength, hi->fd->block, available_space);
-                                 gziplength += available_space;
+                                 gziplength += available_space; /* Total data in buffer now */
                                  compressed_bytes_consumed += available_space; /* Track compressed data consumed */
                               }
                               else
@@ -2010,11 +2075,21 @@ static BOOL Readdata(struct Httpinfo *hi)
                                  break;
                               }
                               
-                              d_stream.next_in = gzipbuffer;
-                              d_stream.avail_in = gziplength;
+                              /* CRITICAL FIX: Set next_in to start of unprocessed data, not start of buffer */
+                              /* If we had unprocessed data, it's at the start; new data is after it */
+                              if(remaining_unprocessed > 0)
+                              {  /* Unprocessed data is at start, new data is after it */
+                                 d_stream.next_in = gzipbuffer; /* Start of unprocessed data */
+                                 d_stream.avail_in = remaining_unprocessed + available_space; /* Total unprocessed */
+                              }
+                              else
+                              {  /* No unprocessed data - all new data is unprocessed */
+                                 d_stream.next_in = gzipbuffer; /* Start of buffer */
+                                 d_stream.avail_in = available_space; /* Only new data is unprocessed */
+                              }
                               
-                              debug_printf("DEBUG: Chunked+gzip: Added %ld bytes of chunk continuation (total=%ld, avail_in=%lu)\n",
-                                     available_space, gziplength, d_stream.avail_in);
+                              debug_printf("DEBUG: Chunked+gzip: Added %ld bytes of chunk continuation (gziplength=%ld, remaining_unprocessed was=%ld, avail_in=%lu)\n",
+                                     available_space, gziplength, remaining_unprocessed, d_stream.avail_in);
                               
                               /* Clear block - we've used all continuation data */
                               hi->blocklength = 0;
@@ -2192,23 +2267,45 @@ static BOOL Readdata(struct Httpinfo *hi)
                                         available_space, remaining_unprocessed, gziplength, d_stream.avail_in);
                                  
                                  /* Move past chunk data and CRLF */
-                                 chunk_pos += chunk_size;
-                                 if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\r')
-                                 {  chunk_pos++;
-                                 }
-                                 if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\n')
-                                 {  chunk_pos++;
-                                 }
+                                 /* CRITICAL: Advance by available_space (what we copied), not chunk_size (total chunk size) */
+                                 /* If we only copied part of the chunk due to buffer space, we need to advance by that amount */
+                                 chunk_pos += available_space;
                                  
-                                 /* Remove processed chunk from block */
-                                 if(chunk_pos < hi->blocklength)
-                                 {  long remaining;
-                                    remaining = hi->blocklength - chunk_pos;
-                                    memmove(hi->fd->block, hi->fd->block + chunk_pos, remaining);
-                                    hi->blocklength = remaining;
+                                 /* Check if we've processed the entire chunk */
+                                 if(available_space >= chunk_size)
+                                 {  /* Full chunk processed - skip CRLF */
+                                    if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\r')
+                                    {  chunk_pos++;
+                                    }
+                                    if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\n')
+                                    {  chunk_pos++;
+                                    }
+                                    
+                                    /* Remove processed chunk from block */
+                                    if(chunk_pos < hi->blocklength)
+                                    {  long remaining;
+                                       remaining = hi->blocklength - chunk_pos;
+                                       memmove(hi->fd->block, hi->fd->block + chunk_pos, remaining);
+                                       hi->blocklength = remaining;
+                                    }
+                                    else
+                                    {  hi->blocklength = 0;
+                                    }
                                  }
                                  else
-                                 {  hi->blocklength = 0;
+                                 {  /* Partial chunk copied - keep remaining chunk data in block for next iteration */
+                                    /* Don't remove data - we'll continue this chunk in next loop iteration */
+                                    /* Just update blocklength to reflect what we've consumed */
+                                    if(chunk_pos < hi->blocklength)
+                                    {  /* Move unprocessed chunk data to start of block */
+                                       long remaining;
+                                       remaining = hi->blocklength - chunk_pos;
+                                       memmove(hi->fd->block, hi->fd->block + chunk_pos, remaining);
+                                       hi->blocklength = remaining;
+                                    }
+                                    else
+                                    {  hi->blocklength = 0;
+                                    }
                                  }
                                  
                                  /* Continue decompression */
