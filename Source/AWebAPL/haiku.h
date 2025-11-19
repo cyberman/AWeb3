@@ -34,6 +34,21 @@
 //5: EPART_NOCONNECT
 #define HAIKU5 (UBYTE *)"The Internet links<br>Countless computers but one:<br>This connection failed."
 
+//25: EPART_NOCONNECT_TIMEOUT
+#define HAIKU25 (UBYTE *)"Time passed slowly by,<br>Waiting for a connection,<br>But it never came."
+
+//26: EPART_NOCONNECT_REFUSED
+#define HAIKU26 (UBYTE *)"The server said no,<br>Refusing to let you in,<br>Connection denied."
+
+//27: EPART_NOCONNECT_RESET
+#define HAIKU27 (UBYTE *)"Connection was cut,<br>Reset by the other side,<br>Try again later."
+
+//28: EPART_NOCONNECT_UNREACH
+#define HAIKU28 (UBYTE *)"The network is far,<br>Unreachable from here now,<br>Check your connection."
+
+//29: EPART_NOCONNECT_HOSTUNREACH
+#define HAIKU29 (UBYTE *)"The host is distant,<br>No route can reach it from here,<br>Try another way."
+
 //6: EPART_NOFILE
 #define HAIKU6 (UBYTE *)"So big a hard disk,<br>But yet a file with this name<br>Is nowhere on it."
 
@@ -117,6 +132,10 @@
 #define HAIKU23 (UBYTE *)"??"
 #define HAIKU24 (UBYTE *)"??"
 #define HAIKU25 (UBYTE *)"??"
+#define HAIKU26 (UBYTE *)"??"
+#define HAIKU27 (UBYTE *)"??"
+#define HAIKU28 (UBYTE *)"??"
+#define HAIKU29 (UBYTE *)"??"
 #define HAIKU26 (UBYTE *)"??"
 #define HAIKU27 (UBYTE *)"??"
 #define HAIKU28 (UBYTE *)"??"

@@ -22,6 +22,11 @@ enum TCP_ERRORS
 {  TCPERR_NOLIB=1,   /* no tcp stack */
    TCPERR_NOHOST,    /* host ... not found */
    TCPERR_NOCONNECT, /* connection failed ... */
+   TCPERR_NOCONNECT_TIMEOUT, /* connection timeout ... */
+   TCPERR_NOCONNECT_REFUSED, /* connection refused ... */
+   TCPERR_NOCONNECT_RESET,   /* connection reset ... */
+   TCPERR_NOCONNECT_UNREACH, /* network unreachable ... */
+   TCPERR_NOCONNECT_HOSTUNREACH, /* host unreachable ... */
    TCPERR_NOFILE,    /* local file not found ... */
    TCPERR_XAWEB,     /* invalid x-aweb name ... */
    TCPERR_NOLOGIN,   /* cannot login at ... as ... */

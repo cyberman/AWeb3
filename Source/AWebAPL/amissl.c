@@ -336,6 +336,13 @@ struct Assl *Assl_initamissl(struct Library *socketbase)
       /* This must be done even if library initialization fails, to prevent bus errors */
       InitSemaphore(&assl->use_sema);
       assl->closed = FALSE;
+      /* CRITICAL: Explicitly initialize SSL pointers to NULL to prevent wild free defects */
+      /* Even though MEMF_CLEAR should zero memory, explicit initialization prevents */
+      /* use-after-free crashes if memory is reused or corrupted */
+      assl->sslctx = NULL;
+      assl->ssl = NULL;
+      assl->hostname = NULL;
+      assl->denied = FALSE;
       debug_printf("DEBUG: Assl_initamissl: Initialized per-object semaphore and set closed=FALSE\n");
       
       /* Check if AmiSSLMaster library is already open - reuse if so */
@@ -553,7 +560,7 @@ __asm void Assl_cleanup(register __a0 struct Assl *assl)
       /* Only clear the local references, but don't close the libraries */
       /* Per SDK: CloseAmiSSL() should be called when finished with AmiSSL, but since we're sharing */
       /* libraries across tasks, we only call CleanupAmiSSL() per-task and keep libraries open */
-      /* Libraries will be cleaned up at program exit by the OS if still open */
+      /* Libraries will be cleaned up at program exit if still open */
       /* Assl_closessl() already nulled ssl and sslctx */
       /* We just need to null the library bases to signal this object is truly dead */
       assl->amisslbase = NULL;
@@ -617,51 +624,73 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl)
       /* Do NOT reuse SSL contexts - they are NOT thread-safe for concurrent use */
       /* ALWAYS free any existing SSL objects before creating new ones */
       /* This ensures we never reuse SSL objects - each transaction gets a fresh SSL object */
+      /* CRITICAL: Validate SSL pointers are not stale/wild pointers before attempting to free */
+      /* This prevents wild free defects when memory is reused or corrupted */
       if(assl->sslctx || assl->ssl)
-      {  debug_printf("DEBUG: Assl_openssl: WARNING - Assl already has SSL objects (sslctx=%p, ssl=%p), freeing them first\n",
-                assl->sslctx, assl->ssl);
+      {  /* Validate pointers are reasonable before attempting to free */
+         BOOL has_valid_ssl = FALSE;
+         BOOL has_valid_sslctx = FALSE;
          
-         /* CRITICAL: Set global AmiSSLBase before freeing SSL objects */
-         /* SSL_free() and SSL_CTX_free() use the global AmiSSLBase internally */
-         {  struct Library *saved_global_amisslbase = AmiSSLBase;
-            AmiSSLBase = assl->amisslbase;
-            if(saved_global_amisslbase != AmiSSLBase)
-            {  debug_printf("DEBUG: Assl_openssl: Setting global AmiSSLBase to %p before freeing SSL objects (was %p)\n", AmiSSLBase, saved_global_amisslbase);
+         if(assl->ssl)
+         {  if((ULONG)assl->ssl >= 0x1000 && (ULONG)assl->ssl < 0xFFFFFFF0)
+            {  has_valid_ssl = TRUE;
+            }
+            else
+            {  debug_printf("DEBUG: Assl_openssl: WARNING - Invalid SSL object pointer (%p), clearing without freeing\n", assl->ssl);
+               assl->ssl = NULL;
             }
          }
          
-         /* Free existing SSL objects before creating new ones */
-         /* This ensures we never reuse SSL objects - always create fresh ones */
-         if(assl->ssl)
-         {  /* Validate pointer before freeing */
-            if((ULONG)assl->ssl >= 0x1000 && (ULONG)assl->ssl < 0xFFFFFFF0)
+         if(assl->sslctx)
+         {  if((ULONG)assl->sslctx >= 0x1000 && (ULONG)assl->sslctx < 0xFFFFFFF0)
+            {  has_valid_sslctx = TRUE;
+            }
+            else
+            {  debug_printf("DEBUG: Assl_openssl: WARNING - Invalid SSL context pointer (%p), clearing without freeing\n", assl->sslctx);
+               assl->sslctx = NULL;
+            }
+         }
+         
+         if(has_valid_ssl || has_valid_sslctx)
+         {  debug_printf("DEBUG: Assl_openssl: WARNING - Assl already has SSL objects (sslctx=%p, ssl=%p), freeing them first\n",
+                   assl->sslctx, assl->ssl);
+            
+            /* CRITICAL: Set global AmiSSLBase before freeing SSL objects */
+            /* SSL_free() and SSL_CTX_free() use the global AmiSSLBase internally */
+            {  struct Library *saved_global_amisslbase = AmiSSLBase;
+               AmiSSLBase = assl->amisslbase;
+               if(saved_global_amisslbase != AmiSSLBase)
+               {  debug_printf("DEBUG: Assl_openssl: Setting global AmiSSLBase to %p before freeing SSL objects (was %p)\n", AmiSSLBase, saved_global_amisslbase);
+               }
+            }
+            
+            /* Free existing SSL objects before creating new ones */
+            /* This ensures we never reuse SSL objects - always create fresh ones */
+            if(has_valid_ssl && assl->ssl)
             {  debug_printf("DEBUG: Assl_openssl: Freeing existing SSL object at %p\n", assl->ssl);
                SSL_free(assl->ssl);
                check_ssl_error("SSL_free (existing)", AmiSSLBase);
                assl->ssl = NULL;
             }
-            else
-            {  debug_printf("DEBUG: Assl_openssl: Invalid SSL object pointer (%p), clearing reference\n", assl->ssl);
-               assl->ssl = NULL;
-            }
-         }
-         if(assl->sslctx)
-         {  /* Validate pointer before freeing */
-            if((ULONG)assl->sslctx >= 0x1000 && (ULONG)assl->sslctx < 0xFFFFFFF0)
+            if(has_valid_sslctx && assl->sslctx)
             {  debug_printf("DEBUG: Assl_openssl: Freeing existing SSL context at %p\n", assl->sslctx);
                SSL_CTX_free(assl->sslctx);
                check_ssl_error("SSL_CTX_free (existing)", AmiSSLBase);
                assl->sslctx = NULL;
             }
-            else
-            {  debug_printf("DEBUG: Assl_openssl: Invalid SSL context pointer (%p), clearing reference\n", assl->sslctx);
-               assl->sslctx = NULL;
-            }
+            /* Reset flags after freeing */
+            assl->closed = FALSE;
+            assl->denied = FALSE;
+            debug_printf("DEBUG: Assl_openssl: Existing SSL objects freed, ready to create new ones\n");
          }
-         /* Reset flags after freeing */
-         assl->closed = FALSE;
-         assl->denied = FALSE;
-         debug_printf("DEBUG: Assl_openssl: Existing SSL objects freed, ready to create new ones\n");
+         else
+         {  /* No valid SSL pointers - just clear them and continue */
+            debug_printf("DEBUG: Assl_openssl: No valid SSL objects to free, clearing pointers\n");
+            assl->ssl = NULL;
+            assl->sslctx = NULL;
+            assl->closed = FALSE;
+            assl->denied = FALSE;
+         }
       }
       
       /* Create new SSL context for this connection */

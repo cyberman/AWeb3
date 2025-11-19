@@ -437,6 +437,7 @@ static BOOL Readblock(struct Httpinfo *hi)
       /* Note: Errno() is deprecated per SDK but still works. Modern way is SocketBaseTags() with SBTC_ERRNO */
       if(n < 0 && !Checktaskbreak())
       {  long errno_value;
+         UBYTE *hostname_str;  /* Declare at start of block for older C standards */
          if(hi->socketbase)
          {  struct Library *saved_socketbase = SocketBase;
             SocketBase = hi->socketbase;
@@ -446,35 +447,47 @@ static BOOL Readblock(struct Httpinfo *hi)
          else
          {  errno_value = 0; /* No socketbase - can't get errno */
          }
+         
+         /* EAGAIN (errno=35) means "Resource temporarily unavailable" - in SSL context this often
+          * means "no more data available" (EOF), not an actual error. Treat it as EOF, not error. */
+         if(errno_value == EAGAIN)
+         {  debug_printf("DEBUG: Readblock: EAGAIN (no more data available) - treating as EOF\n");
+            /* EAGAIN is not an error - it just means no more data available (EOF) */
+            /* Return FALSE to indicate EOF, but don't call Tcperror() */
+            return FALSE;
+         }
+         
+         /* Report specific error type via Tcperror() for actual errors */
+         hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"unknown";
          if(errno_value == ETIMEDOUT)
          {  debug_printf("DEBUG: Readblock: Receive timeout (errno=ETIMEDOUT)\n");
             /* Timeout during receive - report as timeout error */
-            Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+            Tcperror(hi->fd, TCPERR_NOCONNECT_TIMEOUT, hostname_str);
          }
          else if(errno_value == ECONNRESET)
          {  debug_printf("DEBUG: Readblock: Connection reset by peer (errno=ECONNRESET)\n");
             /* Connection was reset - report as connection error */
-            Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+            Tcperror(hi->fd, TCPERR_NOCONNECT_RESET, hostname_str);
          }
          else if(errno_value == ECONNREFUSED)
          {  debug_printf("DEBUG: Readblock: Connection refused (errno=ECONNREFUSED)\n");
             /* Connection refused - report as connection error */
-            Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+            Tcperror(hi->fd, TCPERR_NOCONNECT_REFUSED, hostname_str);
          }
          else if(errno_value == ENETUNREACH)
          {  debug_printf("DEBUG: Readblock: Network unreachable (errno=ENETUNREACH)\n");
             /* Network unreachable - report as network error */
-            Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+            Tcperror(hi->fd, TCPERR_NOCONNECT_UNREACH, hostname_str);
          }
          else if(errno_value == EHOSTUNREACH)
          {  debug_printf("DEBUG: Readblock: Host unreachable (errno=EHOSTUNREACH)\n");
             /* Host unreachable - report as network error */
-            Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+            Tcperror(hi->fd, TCPERR_NOCONNECT_HOSTUNREACH, hostname_str);
          }
          else
          {  debug_printf("DEBUG: Readblock: Network error (errno=%ld), returning FALSE\n", errno_value);
             /* Other network error - report generic error */
-            Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+            Tcperror(hi->fd, TCPERR_NOCONNECT, hostname_str);
          }
       }
       else if(Checktaskbreak())
@@ -496,7 +509,36 @@ static BOOL Readblock(struct Httpinfo *hi)
       return FALSE;
    }
    
-   debug_printf("DEBUG: Readblock: adding %ld bytes to block, new total=%ld\n", n, hi->blocklength + n);
+   /* CRITICAL: Prevent buffer overflow from extremely long headers (e.g., GitHub's 3700+ byte Content-Security-Policy) */
+   /* Clamp received bytes to available buffer space */
+   {  long available_space = hi->fd->blocksize - hi->blocklength;
+      if(n > available_space)
+      {  debug_printf("DEBUG: Readblock: WARNING - Received %ld bytes but only %ld bytes available, clamping to prevent overflow\n", n, available_space);
+         n = available_space;
+         if(n <= 0)
+         {  debug_printf("DEBUG: Readblock: Buffer full (%ld/%ld), cannot read more data\n", hi->blocklength, hi->fd->blocksize);
+            /* Buffer is full - this is an error condition for headers */
+            /* Headers should not exceed blocksize (16384 bytes) */
+            Updatetaskattrs(
+               AOURL_Error,TRUE,
+               TAG_END);
+            return FALSE;
+         }
+      }
+   }
+   
+   /* Validate blocklength before incrementing to prevent integer overflow */
+   if(hi->blocklength + n > hi->fd->blocksize)
+   {  debug_printf("DEBUG: Readblock: ERROR - blocklength (%ld) + n (%ld) exceeds blocksize (%ld), preventing overflow\n", 
+          hi->blocklength, n, hi->fd->blocksize);
+      Updatetaskattrs(
+         AOURL_Error,TRUE,
+         TAG_END);
+      return FALSE;
+   }
+   
+   debug_printf("DEBUG: Readblock: adding %ld bytes to block, new total=%ld (blocksize=%ld)\n", 
+          n, hi->blocklength + n, hi->fd->blocksize);
    
    hi->blocklength+=n;
    
@@ -1771,7 +1813,9 @@ static BOOL Readdata(struct Httpinfo *hi)
                   decompressed_len=hi->fd->blocksize-d_stream.avail_out;
                   if(decompressed_len > 0 && decompressed_len <= hi->fd->blocksize)
                   {  debug_printf("DEBUG: Processing %ld bytes of decompressed data\n", decompressed_len);
-                     if(hi->parttype[0] && strlen(hi->parttype) > 0) {
+                     /* Ensure parttype is null-terminated before calling strlen() to prevent bounds check errors */
+                     hi->parttype[sizeof(hi->parttype) - 1] = '\0';
+                     if(hi->parttype[0] != '\0' && hi->parttype[0] != 0) {
                         Updatetaskattrs(
                            AOURL_Data,hi->fd->block,
                            AOURL_Datalength,decompressed_len,
@@ -2197,7 +2241,9 @@ static BOOL Readdata(struct Httpinfo *hi)
                   decompressed_len=hi->fd->blocksize-d_stream.avail_out;
                   if(decompressed_len > 0 && decompressed_len <= hi->fd->blocksize)
                   {  debug_printf("DEBUG: Processing final %ld bytes of decompressed data\n", decompressed_len);
-                     if(hi->parttype[0] && strlen(hi->parttype) > 0) {
+                     /* Ensure parttype is null-terminated before using it to prevent bounds check errors */
+                     hi->parttype[sizeof(hi->parttype) - 1] = '\0';
+                     if(hi->parttype[0] != '\0' && hi->parttype[0] != 0) {
                         Updatetaskattrs(
                            AOURL_Data,hi->fd->block,
                            AOURL_Datalength,decompressed_len,
@@ -2212,12 +2258,13 @@ static BOOL Readdata(struct Httpinfo *hi)
                   }
                   
                   /* For chunked encoding, zlib may finish before all chunks are processed */
-                  /* If there's still data in blocklength, it might be more chunks or chunk continuation */
-                  /* We need to continue processing chunks until we get the final "0\r\n\r\n" chunk */
-                  if(hi->flags & HTTPIF_CHUNKED && hi->blocklength > 0)
-                  {  debug_printf("DEBUG: Z_STREAM_END but %ld bytes remain in block for chunked encoding, continuing chunk processing\n", hi->blocklength);
-                     /* Don't exit yet - continue processing chunks */
-                     /* The remaining data will be processed in the next iteration */
+                  /* After Z_STREAM_END, we must NOT try to decompress more data - just discard remaining chunks */
+                  /* Exit decompression loop immediately and let chunk-discarding code handle remaining chunks */
+                  if(hi->flags & HTTPIF_CHUNKED)
+                  {  debug_printf("DEBUG: Z_STREAM_END - gzip stream complete, will discard remaining chunks\n");
+                     /* Exit decompression loop - remaining chunks will be discarded below */
+                     gzip_end=1;
+                     break;
                   }
                   else
                   {  /* Non-chunked or no remaining data - gzip is complete */
@@ -4417,8 +4464,29 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                      }
                   }
                   debug_printf("DEBUG: Httpretrieve: Reporting connection error\n");
-                  Tcperror(fd,TCPERR_NOCONNECT,
-                  (hi->flags&HTTPIF_SSLTUNNEL)?hi->hostport:(UBYTE *)hent->h_name);
+                  /* Report specific error type based on hi->status */
+                  {  UBYTE *hostname_str;
+                     hostname_str = (hi->flags&HTTPIF_SSLTUNNEL)?hi->hostport:(UBYTE *)hent->h_name;
+                     if(hi->status == -1)  /* ETIMEDOUT */
+                     {  Tcperror(fd,TCPERR_NOCONNECT_TIMEOUT, hostname_str);
+                     }
+                     else if(hi->status == -2)  /* ECONNREFUSED */
+                     {  Tcperror(fd,TCPERR_NOCONNECT_REFUSED, hostname_str);
+                     }
+                     else if(hi->status == -3)  /* ECONNRESET */
+                     {  Tcperror(fd,TCPERR_NOCONNECT_RESET, hostname_str);
+                     }
+                     else if(hi->status == -4)  /* ENETUNREACH */
+                     {  Tcperror(fd,TCPERR_NOCONNECT_UNREACH, hostname_str);
+                     }
+                     else if(hi->status == -5)  /* EHOSTUNREACH */
+                     {  Tcperror(fd,TCPERR_NOCONNECT_HOSTUNREACH, hostname_str);
+                     }
+                     else
+                     {  /* Generic connection error */
+                        Tcperror(fd,TCPERR_NOCONNECT, hostname_str);
+                     }
+                  }
             }
             }
             
@@ -4542,6 +4610,18 @@ void Httptask(struct Fetchdriver *fd)
          }
          
          hi.status=0;
+         /* CRITICAL: Clean up any existing Assl before next iteration to prevent SSL context reuse */
+         /* This prevents wild free defects when redirects cause multiple connections */
+         if(hi.assl)
+         {  debug_printf("DEBUG: Httptask: Cleaning up existing Assl before redirect iteration\n");
+            Assl_closessl(hi.assl);
+            Assl_cleanup(hi.assl);
+            FREE(hi.assl);
+            hi.assl = NULL;
+         }
+         /* CRITICAL: Reset socket and socketbase to prevent reuse */
+         hi.sock = -1;
+         hi.socketbase = NULL;
          debug_printf("DEBUG: Httptask: Calling Httpretrieve() - status reset to 0\n");
          Httpretrieve(&hi,fd);
          debug_printf("DEBUG: Httptask: Httpretrieve() returned - status=%ld, flags=0x%04X\n",

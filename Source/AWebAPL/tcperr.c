@@ -32,6 +32,11 @@ static ULONG error[]=
    MSG_EPART_NOLIB,        /* TCPERR_NOLIB */
    MSG_EPART_NOHOST,       /* TCPERR_NOHOST */
    MSG_EPART_NOCONNECT,    /* TCPERR_NOCONNECT */
+   MSG_EPART_NOCONNECT_TIMEOUT,    /* TCPERR_NOCONNECT_TIMEOUT */
+   MSG_EPART_NOCONNECT_REFUSED,    /* TCPERR_NOCONNECT_REFUSED */
+   MSG_EPART_NOCONNECT_RESET,      /* TCPERR_NOCONNECT_RESET */
+   MSG_EPART_NOCONNECT_UNREACH,    /* TCPERR_NOCONNECT_UNREACH */
+   MSG_EPART_NOCONNECT_HOSTUNREACH, /* TCPERR_NOCONNECT_HOSTUNREACH */
    MSG_EPART_NOFILE,       /* TCPERR_NOFILE */
    MSG_EPART_XAWEB,        /* TCPERR_XAWEB */
    MSG_EPART_NOLOGIN,      /* TCPERR_NOLOGIN */
@@ -59,6 +64,11 @@ static ULONG message[]=
 void TcperrorA(struct Fetchdriver *fd,ULONG err,ULONG *args)
 {  void *url=(void *)Agetattr(fd->fetch,AOFCH_Url);
    long length;
+   UBYTE statusbuf[256];
+   
+   /* Build status message for status control */
+   vsprintf(statusbuf,AWEBSTR(error[err]),(va_list)args);
+   
    if(haiku)
    {  UBYTE *p="";
       strcpy(fd->block,"<html>");
@@ -66,6 +76,11 @@ void TcperrorA(struct Fetchdriver *fd,ULONG err,ULONG *args)
       {  case TCPERR_NOLIB:p=HAIKU3;break;
          case TCPERR_NOHOST:p=HAIKU4;break;
          case TCPERR_NOCONNECT:p=HAIKU5;break;
+         case TCPERR_NOCONNECT_TIMEOUT:p=HAIKU25;break;
+         case TCPERR_NOCONNECT_REFUSED:p=HAIKU26;break;
+         case TCPERR_NOCONNECT_RESET:p=HAIKU27;break;
+         case TCPERR_NOCONNECT_UNREACH:p=HAIKU28;break;
+         case TCPERR_NOCONNECT_HOSTUNREACH:p=HAIKU29;break;
          case TCPERR_NOFILE:p=HAIKU6;break;
          case TCPERR_XAWEB:p=HAIKU7;break;
          case TCPERR_NOLOGIN:p=HAIKU8;break;
@@ -82,6 +97,7 @@ void TcperrorA(struct Fetchdriver *fd,ULONG err,ULONG *args)
    Updatetaskattrs(
       AOURL_Contenttype,"TEXT/HTML",
       AOURL_Error,TRUE,
+      AOURL_Status,statusbuf,  /* Also show error in status control */
       AOURL_Data,fd->block,
       AOURL_Datalength,length,
       TAG_END);

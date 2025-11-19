@@ -1355,6 +1355,21 @@ Cannot resolve host name &quot;%s&quot;
 MSG_EPART_NOCONNECT (//)
 Cannot connect to &quot;%s&quot;
 ;
+MSG_EPART_NOCONNECT_TIMEOUT (//)
+Connection to &quot;%s&quot; timed out
+;
+MSG_EPART_NOCONNECT_REFUSED (//)
+Connection to &quot;%s&quot; was refused by the server
+;
+MSG_EPART_NOCONNECT_RESET (//)
+Connection to &quot;%s&quot; was reset by the server
+;
+MSG_EPART_NOCONNECT_UNREACH (//)
+Network unreachable - cannot connect to &quot;%s&quot;
+;
+MSG_EPART_NOCONNECT_HOSTUNREACH (//)
+Host unreachable - cannot connect to &quot;%s&quot;
+;
 MSG_EPART_NOFILE (//)
 Cannot open file &quot;%s&quot;
 ;

@@ -56,7 +56,7 @@
 #include "keyfile.h"
 
 #define FILEBLOCKSIZE   8192  /* blocksize on local file reads */
-#define INPUTBLOCKSIZE  8192  /* blocksize in protocol interface (Input) */
+#define INPUTBLOCKSIZE  16384 /* blocksize in protocol interface (Input) - increased to handle long headers more common in 2025 */
 #define TEXTBLOCKSIZE   4096  /* blocksize on document text buffer */
 
 /* zlib constants if not defined by zlib.h TODO: double check if this is needed */
