@@ -148,6 +148,9 @@ struct Certaccept
 
 static LIST(Certaccept) certaccepts;
 static struct SignalSemaphore certsema;
+
+/* Redirect loop protection - track redirects across HTTP requests */
+static int redirect_count=0;
 /* debug_log_sema is now defined above as a shared global */
 
 /*-----------------------------------------------------------------------*/
@@ -974,25 +977,76 @@ static BOOL Readdata(struct Httpinfo *hi)
                      
                      /* Parse chunk size (hex number) */
                      chunk_size = 0;
-                     while(chunk_pos < hi->blocklength)
-                     {  UBYTE c;
-                        long digit;
+                     {  long max_chunk_size = 0x7FFFFFFF; /* Maximum reasonable chunk size (2GB) */
+                        long hex_digits = 0;
+                        while(chunk_pos < hi->blocklength)
+                        {  UBYTE c;
+                           long digit;
+                           
+                           c = hi->fd->block[chunk_pos];
+                           if(c >= '0' && c <= '9')
+                           {  digit = c - '0';
+                           }
+                           else if(c >= 'A' && c <= 'F')
+                           {  digit = c - 'A' + 10;
+                           }
+                           else if(c >= 'a' && c <= 'f')
+                           {  digit = c - 'a' + 10;
+                           }
+                           else
+                           {  break;
+                           }
+                           
+                           /* Check for overflow before multiplying */
+                           if(chunk_size > max_chunk_size / 16)
+                           {  debug_printf("DEBUG: Chunk size overflow detected at position %ld, invalid chunk header\n", chunk_pos);
+                              /* Invalid chunk header - treat as error */
+                              chunk_size = -1;
+                              break;
+                           }
+                           
+                           chunk_size = chunk_size * 16 + digit;
+                           hex_digits++;
+                           chunk_pos++;
+                           
+                           /* Limit hex digits to prevent excessive parsing */
+                           if(hex_digits > 16)
+                           {  debug_printf("DEBUG: Chunk size hex number too long (%ld digits), invalid chunk header\n", hex_digits);
+                              chunk_size = -1;
+                              break;
+                           }
+                        }
                         
-                        c = hi->fd->block[chunk_pos];
-                        if(c >= '0' && c <= '9')
-                        {  digit = c - '0';
+                        /* Validate chunk size */
+                        if(chunk_size < 0)
+                        {  debug_printf("DEBUG: Invalid chunk size (%ld), aborting chunked transfer\n", chunk_size);
+                           /* Error in chunk parsing - abort */
+                           if(bdcopy) { FREE(bdcopy); bdcopy = NULL; }
+                           if(gzipbuffer) { FREE(gzipbuffer); gzipbuffer = NULL; }
+                           if(d_stream_initialized) { inflateEnd(&d_stream); d_stream_initialized = FALSE; }
+                           Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+                           return FALSE;
                         }
-                        else if(c >= 'A' && c <= 'F')
-                        {  digit = c - 'A' + 10;
+                        
+                        if(chunk_size > max_chunk_size)
+                        {  debug_printf("DEBUG: Chunk size too large (%ld > %ld), invalid chunk header\n", chunk_size, max_chunk_size);
+                           /* Chunk size unreasonably large - treat as error */
+                           if(bdcopy) { FREE(bdcopy); bdcopy = NULL; }
+                           if(gzipbuffer) { FREE(gzipbuffer); gzipbuffer = NULL; }
+                           if(d_stream_initialized) { inflateEnd(&d_stream); d_stream_initialized = FALSE; }
+                           Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+                           return FALSE;
                         }
-                        else if(c >= 'a' && c <= 'f')
-                        {  digit = c - 'a' + 10;
+                        
+                        if(hex_digits == 0)
+                        {  debug_printf("DEBUG: No hex digits found in chunk size, invalid chunk header\n");
+                           /* No valid hex digits - invalid chunk header */
+                           if(bdcopy) { FREE(bdcopy); bdcopy = NULL; }
+                           if(gzipbuffer) { FREE(gzipbuffer); gzipbuffer = NULL; }
+                           if(d_stream_initialized) { inflateEnd(&d_stream); d_stream_initialized = FALSE; }
+                           Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+                           return FALSE;
                         }
-                        else
-                        {  break;
-                        }
-                        chunk_size = chunk_size * 16 + digit;
-                        chunk_pos++;
                      }
                      
                      if(chunk_size == 0)
@@ -1006,12 +1060,39 @@ static BOOL Readdata(struct Httpinfo *hi)
                      {  chunk_pos++;
                      }
                      
+                     /* Validate CRLF after chunk header */
+                     if(chunk_pos >= hi->blocklength)
+                     {  debug_printf("DEBUG: Chunk header missing CRLF terminator, waiting for more data\n");
+                        /* Not enough data for CRLF - wait for more */
+                        continue;
+                     }
+                     
                      /* Skip CRLF after chunk header */
-                     if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\r')
+                     if(hi->fd->block[chunk_pos] == '\r')
+                     {  chunk_pos++;
+                        if(chunk_pos >= hi->blocklength || hi->fd->block[chunk_pos] != '\n')
+                        {  debug_printf("DEBUG: Chunk header has CR but missing LF, invalid chunk header\n");
+                           /* Invalid chunk header format */
+                           if(bdcopy) { FREE(bdcopy); bdcopy = NULL; }
+                           if(gzipbuffer) { FREE(gzipbuffer); gzipbuffer = NULL; }
+                           if(d_stream_initialized) { inflateEnd(&d_stream); d_stream_initialized = FALSE; }
+                           Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+                           return FALSE;
+                        }
+                        chunk_pos++;
+                     }
+                     else if(hi->fd->block[chunk_pos] == '\n')
                      {  chunk_pos++;
                      }
-                     if(chunk_pos < hi->blocklength && hi->fd->block[chunk_pos] == '\n')
-                     {  chunk_pos++;
+                     else
+                     {  debug_printf("DEBUG: Chunk header missing CRLF terminator (found 0x%02X), invalid chunk header\n", 
+                               (unsigned char)hi->fd->block[chunk_pos]);
+                        /* Invalid chunk header format - expected CRLF */
+                        if(bdcopy) { FREE(bdcopy); bdcopy = NULL; }
+                        if(gzipbuffer) { FREE(gzipbuffer); gzipbuffer = NULL; }
+                        if(d_stream_initialized) { inflateEnd(&d_stream); d_stream_initialized = FALSE; }
+                        Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+                        return FALSE;
                      }
                      
                      /* Store where chunk data starts */
@@ -2574,10 +2655,19 @@ static BOOL Readdata(struct Httpinfo *hi)
             d_stream.avail_out=hi->fd->blocksize;
             
             /* Continue decompression - but add safety check to prevent infinite loops */
-            if(++loop_count > 100) {
-               debug_printf("DEBUG: Too many buffer full cycles, finishing gzip\n");
-               gzip_end=1;
-               break;
+            /* For Content-Length gzip transfers, rely on Content-Length validation instead of loop limit */
+            /* For chunked gzip, use a high limit to prevent infinite loops while allowing large transfers */
+            if(!(hi->flags & HTTPIF_CHUNKED) && hi->partlength > 0)
+            {  /* Content-Length gzip transfer - track count but don't limit */
+               loop_count++; /* Track but don't limit - Content-Length check will handle completion */
+            }
+            else
+            {  /* Chunked or unknown length gzip - use high limit to prevent infinite loops */
+               if(++loop_count > 10000) {
+                  debug_printf("DEBUG: Too many buffer full cycles (%d), finishing gzip\n", loop_count);
+                  gzip_end=1;
+                  break;
+               }
             }
             continue;
          }
@@ -2752,21 +2842,30 @@ static BOOL Readdata(struct Httpinfo *hi)
             /* For chunked encoding, we need to extract chunks - this is handled in the chunked+gzip section above */
             
             /* Add timeout protection to prevent infinite hanging */
-            if(++loop_count > 200) {
-               debug_printf("DEBUG: Too many gzip input cycles, finishing\n");
-               /* Clean up when loop limit reached */
-               if(d_stream_initialized) {
-                  inflateEnd(&d_stream);
-                  d_stream_initialized = FALSE;
+            /* For Content-Length gzip transfers, rely on Content-Length validation instead of loop limit */
+            /* For chunked gzip, use a high limit to prevent infinite loops while allowing large transfers */
+            if(!(hi->flags & HTTPIF_CHUNKED) && hi->partlength > 0)
+            {  /* Content-Length gzip transfer - track count but don't limit */
+               loop_count++; /* Track but don't limit - Content-Length check will handle completion */
+            }
+            else
+            {  /* Chunked or unknown length gzip - use high limit to prevent infinite loops */
+               if(++loop_count > 10000) {
+                  debug_printf("DEBUG: Too many gzip input cycles (%d), finishing\n", loop_count);
+                  /* Clean up when loop limit reached */
+                  if(d_stream_initialized) {
+                     inflateEnd(&d_stream);
+                     d_stream_initialized = FALSE;
+                  }
+                  if(gzipbuffer) {
+                     FREE(gzipbuffer);
+                     gzipbuffer = NULL;
+                  }
+                  hi->flags &= ~HTTPIF_GZIPENCODED;
+                  hi->flags &= ~HTTPIF_GZIPDECODING;
+                  gzip_end=1;
+                  break;
                }
-               if(gzipbuffer) {
-                  FREE(gzipbuffer);
-                  gzipbuffer = NULL;
-               }
-               hi->flags &= ~HTTPIF_GZIPENCODED;
-               hi->flags &= ~HTTPIF_GZIPDECODING;
-               gzip_end=1;
-               break;
             }
             
             /* For chunked encoding, read into block first, then extract chunk data */
@@ -2803,18 +2902,92 @@ static BOOL Readdata(struct Httpinfo *hi)
                p = hi->fd->block;
                
                /* Find end of chunk size line */
-               while(chunk_data_start < hi->blocklength - 1)
-               {  if(p[chunk_data_start] == '\r' && chunk_data_start + 1 < hi->blocklength && p[chunk_data_start + 1] == '\n')
-                  {  chunk_data_start += 2; /* Skip CRLF */
-                     break;
+               {  long chunk_size_start = chunk_data_start;
+                  long chunk_size_value = 0;
+                  BOOL found_crlf = FALSE;
+                  
+                  /* Parse chunk size hex number */
+                  while(chunk_data_start < hi->blocklength)
+                  {  UBYTE c;
+                     long digit;
+                     
+                     c = p[chunk_data_start];
+                     if(c >= '0' && c <= '9')
+                     {  digit = c - '0';
+                     }
+                     else if(c >= 'A' && c <= 'F')
+                     {  digit = c - 'A' + 10;
+                     }
+                     else if(c >= 'a' && c <= 'f')
+                     {  digit = c - 'a' + 10;
+                     }
+                     else if(c == '\r' || c == '\n')
+                     {  /* Found CRLF - end of chunk header */
+                        found_crlf = TRUE;
+                        break;
+                     }
+                     else
+                     {  /* Invalid character in chunk size */
+                        debug_printf("DEBUG: Invalid character in chunk size header (0x%02X at pos %ld)\n", 
+                              (unsigned char)c, chunk_data_start);
+                        /* Try to find CRLF anyway */
+                        break;
+                     }
+                     
+                     /* Check for overflow */
+                     if(chunk_size_value > 0x7FFFFFFF / 16)
+                     {  debug_printf("DEBUG: Chunk size overflow in chunked gzip parsing\n");
+                        chunk_size_value = -1;
+                        break;
+                     }
+                     
+                     chunk_size_value = chunk_size_value * 16 + digit;
+                     chunk_data_start++;
+                     
+                     /* Limit hex digits */
+                     if(chunk_data_start - chunk_size_start > 16)
+                     {  debug_printf("DEBUG: Chunk size hex number too long in chunked gzip\n");
+                        chunk_size_value = -1;
+                        break;
+                     }
                   }
-                  chunk_data_start++;
-               }
-               
-               if(chunk_data_start >= hi->blocklength)
-               {  debug_printf("DEBUG: No chunk data found, waiting for more\n");
-                  /* Not enough data yet - wait */
-                  continue;
+                  
+                  /* Validate chunk size */
+                  if(chunk_size_value < 0)
+                  {  debug_printf("DEBUG: Invalid chunk size in chunked gzip, aborting\n");
+                     if(bdcopy) { FREE(bdcopy); bdcopy = NULL; }
+                     if(gzipbuffer) { FREE(gzipbuffer); gzipbuffer = NULL; }
+                     if(d_stream_initialized) { inflateEnd(&d_stream); d_stream_initialized = FALSE; }
+                     Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+                     return FALSE;
+                  }
+                  
+                  /* Find CRLF after chunk size */
+                  if(!found_crlf)
+                  {  while(chunk_data_start < hi->blocklength - 1)
+                     {  if(p[chunk_data_start] == '\r' && chunk_data_start + 1 < hi->blocklength && p[chunk_data_start + 1] == '\n')
+                        {  chunk_data_start += 2; /* Skip CRLF */
+                           found_crlf = TRUE;
+                           break;
+                        }
+                        chunk_data_start++;
+                     }
+                  }
+                  else
+                  {  /* Skip CRLF */
+                     if(chunk_data_start < hi->blocklength && p[chunk_data_start] == '\r')
+                     {  chunk_data_start++;
+                     }
+                     if(chunk_data_start < hi->blocklength && p[chunk_data_start] == '\n')
+                     {  chunk_data_start++;
+                     }
+                  }
+                  
+                  if(!found_crlf)
+                  {  debug_printf("DEBUG: No chunk data found, waiting for more\n");
+                     /* Not enough data yet - wait */
+                     continue;
+                  }
                }
                
                /* Find actual gzip data start (should be immediately after chunk header) */
@@ -3430,7 +3603,8 @@ static void Httpresponse(struct Httpinfo *hi,BOOL readfirst)
       {  debug_printf("DEBUG: Readheaders returned TRUE, processing response\n");
          debug_printf("DEBUG: movedto=%lu, movedtourl=%p\n", hi->movedto, hi->movedtourl);
          if(hi->movedto && hi->movedtourl)
-         {  debug_printf("DEBUG: Processing redirect to: %s\n", hi->movedtourl);
+         {  redirect_count++; /* Increment redirect counter for loop protection */
+            debug_printf("DEBUG: Processing redirect to: %s (redirect_count=%d)\n", hi->movedtourl, redirect_count);
             /* For redirects, consume any remaining body data before processing redirect */
             Nextline(hi);
             debug_printf("DEBUG: Nextline called for redirect body consumption, blocklength=%ld\n", hi->blocklength);
@@ -4227,7 +4401,15 @@ void Httptask(struct Fetchdriver *fd)
       
       for(;;)
       {  loop_count++;
-         debug_printf("DEBUG: Httptask: Loop iteration %d\n", loop_count);
+         debug_printf("DEBUG: Httptask: Loop iteration %d (redirect_count=%d)\n", loop_count, redirect_count);
+         
+         /* Protect against redirect loops - limit to 10 redirects */
+         if(redirect_count >= 10)
+         {  debug_printf("DEBUG: Httptask: Redirect loop detected (%d redirects), breaking to prevent infinite loop\n", redirect_count);
+            Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+            redirect_count=0; /* Reset counter after error */
+            break;
+         }
          
          if(fd->proxy && hi.auth && prefs.limitproxy)
          {  debug_printf("DEBUG: Httptask: Handling proxy auth limitproxy case\n");
@@ -4291,6 +4473,12 @@ void Httptask(struct Fetchdriver *fd)
             }
             debug_printf("DEBUG: Httptask: Proxy auth failed, setting error\n");
             Updatetaskattrs(AOURL_Error,TRUE,TAG_END);
+         }
+         
+         /* Successful non-redirect response - reset redirect counter */
+         if(hi.status >= 200 && hi.status < 300 && !hi.movedto)
+         {  redirect_count=0; /* Reset redirect counter on successful completion */
+            debug_printf("DEBUG: Httptask: Successful response (status=%ld), resetting redirect_count\n", hi.status);
          }
          
          debug_printf("DEBUG: Httptask: Breaking loop normally (status=%ld)\n", hi.status);
