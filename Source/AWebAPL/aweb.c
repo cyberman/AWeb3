@@ -1285,7 +1285,7 @@ static void Getarguments(struct WBStartup *wbs)
 {  long args[16]={0};
    UBYTE *argtemplate="URL/M,LOCAL/S,CONFIG/K,HOTLIST/K"
 #ifndef DEMOVERSION
-      ",VVIIV/S"
+      ",HAIKU=VVIIV/S"
 #endif
       ",HTTPDEBUG/S"
 #ifdef BETAKEYFILE

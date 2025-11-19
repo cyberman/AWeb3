@@ -20,7 +20,7 @@
 #ifndef DEMOVERSION
 
 //1: about req
-#define HAIKU1 (UBYTE *)" \n \nRegistered version,\nProtected by copyright:\nAWeb three point four"
+#define HAIKU1 (UBYTE *)" \n \nA web suddenly,\nForty years meditation\nMinds awaken, free"
 
 //2: quit warning
 #define HAIKU2 (UBYTE *)"Last window was closed.\nDo you want to quit AWeb?\nMake up your mind now."
