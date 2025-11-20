@@ -1271,6 +1271,7 @@ static BOOL Hasprotocol(UBYTE *url)
    if(STRNIEQUAL(url,"HTTPS://",8)) return TRUE;
    if(STRNIEQUAL(url,"FTP://",6)) return TRUE;
    if(STRNIEQUAL(url,"GOPHER://",9)) return TRUE;
+   if(STRNIEQUAL(url,"GEMINI://",9)) return TRUE;
    if(STRNIEQUAL(url,"FILE://",7)) return TRUE;
    if(STRNIEQUAL(url,"NNTP://",7)) return TRUE;
    if(STRNIEQUAL(url,"TELNET://",9)) return TRUE;
@@ -1278,6 +1279,7 @@ static BOOL Hasprotocol(UBYTE *url)
    if(STRNIEQUAL(url,"MAILTO:",7)) return TRUE;
    if(STRNIEQUAL(url,"NEWS:",5)) return TRUE;
    if(STRNIEQUAL(url,"X-AWEB:",7)) return TRUE;
+   if(STRNIEQUAL(url,"ABOUT:",6)) return TRUE;
    return FALSE;
 }
 

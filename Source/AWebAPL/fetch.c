@@ -541,6 +541,19 @@ static void Driverfunction(struct Fetch *fch)
          fch->fd->validate=MSG_EPART_NOAWEBLIB;
       }
    }
+   else if(STRNIEQUAL(fch->name,"GEMINI://",9))
+   {  if(fch->fdbase=Openaweblib("AWeb:aweblib/gemini.aweblib"))
+      {  fch->driverfun=AWEBLIBENTRY(fch->fdbase,0);
+         fch->fd->name=Unescape(fch->name+9);
+         fch->fd->flags|=FDVF_SSL;
+         fch->flags|=FCHF_NETSLOT;
+      }
+      else
+      {  fch->driverfun=Errorschemetask;
+         fch->fd->name=fch->name;
+         fch->fd->validate=MSG_EPART_NOAWEBLIB;
+      }
+   }
    /* Legacy protocols removed - Telnet support discontinued */
    else if(STRNIEQUAL(fch->name,"TELNET:",7))
    {  fch->driverfun=Errorschemetask;
@@ -573,6 +586,18 @@ static void Driverfunction(struct Fetch *fch)
       {  fch->driverfun=AWEBLIBENTRY(fch->fdbase,0);
          fch->fd->name=fch->name;
          fch->flags|=FCHF_NETSLOT;
+      }
+      else
+      {  fch->driverfun=Errorschemetask;
+         fch->fd->name=fch->name;
+         fch->fd->validate=MSG_EPART_NOAWEBLIB;
+      }
+   }
+   else if(STRNIEQUAL(fch->name,"ABOUT:",6))
+   {  if(fch->fdbase=Openaweblib("AWeb:aweblib/about.aweblib"))
+      {  fch->driverfun=AWEBLIBENTRY(fch->fdbase,0);
+         fch->fd->name=fch->name;
+         Asetattrs(fch->url,AOURL_Cacheable,FALSE,TAG_END);
       }
       else
       {  fch->driverfun=Errorschemetask;

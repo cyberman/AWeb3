@@ -1,0 +1,9 @@
+FROM     about.o
+TO       aweblib/about.aweblib
+NODEBUG
+LIB      lib:scnb.lib
+MAP      about.map
+NOICONS
+
+DEFINE   @__chkabort=@__dummy
+
