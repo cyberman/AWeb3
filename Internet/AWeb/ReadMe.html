@@ -1,14 +1,14 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
-<title>Release Notes - AWeb 3.6 Alpha 2</title>
+<title>Release Notes - AWeb 3.6 &nbsp; Alpha 3</title>
 </head>
 <body background="Docs/awebbg.iff">
 <img src="Docs/aweb.iff" width=192 height=93 alt="AWeb Logo" align=left>
 <p>
 <table align=center>
 <tr><td align=center>
-         <h1>AWeb &nbsp; 3.6 Alpha 2</h1>
+         <h1>AWeb 3.6 &nbsp; Alpha 3</h1>
 <tr><td align=center colspan=2><font face="Helvetica, Arial, sans-serif" size=+2 color="#cc0000"><i>The Amiga Web Browser</i></font>
 </table>
 <br clear=all>
@@ -23,7 +23,7 @@ Minds awaken, free
 
 <font face="Helvetica, Arial, sans-serif">
 <p>
-This is AWeb 3.6, a new release of the classic AWeb for the Amiga from <a href="http://amigazen.com/">amigazen project</a>. This release is alpha 2, a preview release intended for a limited audience. The full source code of this release is available at https://github.com/amigazen/aweb3/ - this link is not clickable as AWeb will not be able to cope with the github website!
+This is AWeb 3.6, a new release of the classic AWeb for the Amiga from <a href="http://amigazen.com/">amigazen project</a>. This release is alpha 3, a preview release intended for a limited audience. The full source code of this release is available at https://github.com/amigazen/aweb3/ - this link is not clickable as AWeb will not be able to cope with the github website!
 </p>
 
 <p>
@@ -36,15 +36,29 @@ This is AWeb 3.6, a new release of the classic AWeb for the Amiga from <a href="
 AWeb no longer requires an installer script. It can run from anywhere. Just run it from the folder it's in. Do note however that if the assign "AWeb:" does not already exist it will temporarily assign it to its current directory until it exits. On the other hand if you have assigned AWeb: to a different location then it won't find its plugins.
 </p>
 <p>
-This alpha build supports a DEBUG/S command line option which will output a LOT of debugging output to the console for any network operations. If you use this, redirect the output to a file on a safe disk like the RAM: disk or, if running under emulation, a mounted host folder, just in case it causes filesystem corruption.
+When launched from Workbench, the default CONFIG is set to AWeb36a3 in the ToolTypes, which means it will not conflict with any existing AWeb prefs in your ENV:AWeb3 directory. When running from the command line you must specify CONFIG=AWeb36a3 to achieve the same effect as it will otherwise use the existing AWeb prefs. If you have an earlier version of AWeb installed with saved settings, this will prevent AWeb 3.6 Alpha 3 from using those settings which may include deprecated default paths such as AWebPath:
+</p>
+<p>
+This alpha build supports a HTTPDEBUG/S command line option which will output a LOT of debugging output to the console for any network operations. If you use this, redirect the output to a file on a safe disk like the RAM: disk or, if running under emulation, a mounted host folder, just in case it causes filesystem corruption.
 </p>
 <p>
 The requirements for AWeb 3.6 remain the same as the original 3.4 release, however most websites, even those that only use HTML 3 and 4 features, require significant amounts of RAM - 8MB Fast RAM is probably a sensible minimum. Some of the new default settings assume a more powerful Amiga than would have been common in the 1990s. It will of course fail to work with any modern website requiring HTML5, CSS3, video content,heavy JavaScript, etc. This build is not optimised for any particular CPU architecture.
 </p>
 
-<h2>What's New in 3.6 Alpha 2?</h2>
+<h2>What's New in 3.6 Alpha 3?</h2>
+<ul>
+<li>On larger screen resolutions (above 640x512) new browser windows will default to a more sensible size rather than full screen</li>
+<li>Closing the last browser window from the close gadget will no longer prompt with an 'Are you sure you want to quit?' requester unless there are transfers still in progress</li>
+<li>AWeb will now use system provided contextual mouse pointers if intuition.library v47 or greater is available, instead of its own custom pointers, for links, text cursors, popup menus and resize handles</li>
+<li>Implemented better content type detection for text formats and image formats from web servers that send unknown or octet-stream content type headers, which should reduce the likelihood of being forced to save a file the browser should be able to render</li>
+<li>HAIKU/S is now a valid alternative to the VVIIV/S (5-7-5.. get it?) command line option "easter egg"</li>
+<li>Added a default custom config name to the AWeb icon when launching from Workbench in order to avoid conflict with any preexisting AWeb settings in your ENV:AWeb3 directory</li>
+<li>FIXED: Removed an unnecessary additional init SSL function call which may have caused some instability with HTTPS connections</li>
+<li>FIXED: AWeb really will automatically create the AWeb: assign now if it doesn't already exist, and remove it on exit if it created it. This was broken in 3.6 Alpha 2</li>
+<li>FIXED: Large files are sometimes truncated, any debugging output on this issue in particular is gratefully received</li>
+</ul>
 
-<h3>Major Changes</h3>
+<h3>What's New in 3.6 Alpha 2?</h2>
 <ul>
 <li>Migrated from ClassAct to ReAction</li>
 <li>Refactored to use P96 instead of Cybergraphics</li>
@@ -68,15 +82,24 @@ The requirements for AWeb 3.6 remain the same as the original 3.4 release, howev
 <li>CyberGraphX support removed (for now anyway) - this build uses P96 instead which should make it more viable under emulation and on OS4</li>
 </ul>
 
-<h3>Known Issues</h3>
+<h3>Known Issues in 3.6 Alpha 3</h3>
 <ul>
-<li>Large files are sometimes truncated, any debugging output on this issue in particular is gratefully received</li>
 <li>This version does not currently include the changes from the various incomplete 3.5 releases, for now, instead it reimplements the HTTP and AmiSSL client code to a more recent standard. Other features of the 3.5 releases will come later.</li>
 <li>Setting the disk cache to 0 or a very small size will prevent images from rendering - this is an issue carried over from the original AWeb</li>
 <li>The primary documentation has not yet been updated for release 3.6</li>
 <li>In particular this alpha release does not yet fully acknowledge the third party dependencies such as zlib</li>
 <li>The AWebPlugins are not enabled by default, you will need to enable them manually in the configuration</li>
 <li>Feedback is also particularly welcome on default settings and default programs</li>
+</ul>
+
+<h3>Known Issues with OS4</h3>
+<p>
+The following issues are specific to running this 68K build on OS4: 
+</p>
+<ul>
+<li>Pages with a background image experience graphics corruption when using the window scroll bars to scroll the page</li>
+<li>Attempts to access HTTPS connections will trigger a GDI fault in the OS4 version of AmiSSL</li>
+<li>Mousewheel does not scroll</li>
 </ul>
 
 <h2>Contact</h2>
