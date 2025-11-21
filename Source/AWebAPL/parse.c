@@ -305,6 +305,7 @@ static struct Chardes chars[]=
    "ensp",  8194,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "eth",   240,
    "euml",  235,
+   "euro",  164,  /* Approximated as currency symbol (¤) in Latin-1 */
    "fnof",  402,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "frac12",189,
    "frac14",188,
@@ -373,7 +374,7 @@ static struct Chardes chars[]=
    "thorn", 254,
    "tilde", 152,  /* Latin-1 small tilde (Windows-1252 extension) */
    "times", 215,
-   "trade", 8482,  /* No Latin-1 equivalent, kept as Unicode for translation */
+   "trade", 153,  /* Approximated as trademark symbol in Windows-1252 extension (Latin-1 compatible) */
    "uacute",250,
    "ucirc", 251,
    "ugrave",249,
