@@ -286,6 +286,7 @@ static struct Chardes chars[]=
    "atilde",227,
    "auml",  228,
    "bdquo", 132,  /* Latin-1 double low-9 quotation mark (Windows-1252 extension) */
+   "brkbar",166,  /* Latin-1 broken vertical bar (alternate name for brvbar) */
    "brvbar",166,
    "bull",  183,  /* Latin-1 MIDDLE DOT (·) for bullet - U+00B7 */
    "ccedil",231,
@@ -296,6 +297,7 @@ static struct Chardes chars[]=
    "curren",164,
    "dagger",134,  /* Latin-1 dagger (Windows-1252 extension) */
    "deg",   176,
+   "die",   168,  /* Latin-1 spacing dieresis or umlaut (alternate name for uml) */
    "divide",247,
    "eacute",233,
    "ecirc", 234,
@@ -311,9 +313,11 @@ static struct Chardes chars[]=
    "frac14",188,
    "frac34",190,
    "frasl", 8260,  /* No Latin-1 equivalent, kept as Unicode for translation */
+   "half",  189,  /* Latin-1 fraction 1/2 (alternate name for frac12) */
    "ge",    8805,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "gt",    62,
    "hellip",133,  /* Latin-1 horizontal ellipsis (Windows-1252 extension) */
+   "hibar", 175,  /* Latin-1 spacing macron (alternate name for macr) */
    "iacute",237,
    "icirc", 238,
    "iexcl", 161,
@@ -356,7 +360,7 @@ static struct Chardes chars[]=
    "quot",  34,
    "rang",  9002,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "raquo", 187,
-   "reg",   174,
+   "reg",   174,  /* Latin-1 Registered trademark symbol */
    "rdquo", 148,  /* Latin-1 right double quotation mark (Windows-1252 extension) */
    "rsaquo",155,  /* Latin-1 single right-pointing angle quotation mark (Windows-1252 extension) */
    "rsquo", 146,  /* Latin-1 right single quotation mark (Windows-1252/ISO 8859-1 extension) */
