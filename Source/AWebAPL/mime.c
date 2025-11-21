@@ -77,6 +77,14 @@ static void Defaultmimes(void)
    Addmimetype("APPLICATION/RSS+XML",exts,MDRIVER_INTERNAL,NULL,NULL);
    strcpy(exts,"atom");
    Addmimetype("APPLICATION/ATOM+XML",exts,MDRIVER_INTERNAL,NULL,NULL);
+   strcpy(exts,"md markdown");
+   Addmimetype("TEXT/MARKDOWN",exts,MDRIVER_INTERNAL,NULL,NULL);
+   strcpy(exts,"csv");
+   Addmimetype("TEXT/CSV",exts,MDRIVER_INTERNAL,NULL,NULL);
+   strcpy(exts,"css");
+   Addmimetype("TEXT/CSS",exts,MDRIVER_INTERNAL,NULL,NULL);
+   strcpy(exts,"log text readme me man");
+   Addmimetype("TEXT/PLAIN",exts,MDRIVER_INTERNAL,NULL,NULL);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -192,7 +200,7 @@ UBYTE *Mimetypefromdata(UBYTE *data,long length,UBYTE *deftype)
 {  UBYTE *p,*end;
    UBYTE *type=deftype?deftype:(UBYTE *)"X-UNKNOWN/X-UNKNOWN";
    if(data && length)
-   {  /* Handle XML-based formats (RSS, Atom, generic XML) */
+   {        /* Handle XML-based formats (RSS, Atom, generic XML) */
       if(STRNIEQUAL(deftype,"APPLICATION/RSS",15) ||
          STRNIEQUAL(deftype,"APPLICATION/ATOM",16) ||
          STRNIEQUAL(deftype,"APPLICATION/XML",15) ||
@@ -250,21 +258,29 @@ UBYTE *Mimetypefromdata(UBYTE *data,long length,UBYTE *deftype)
          }
       }
       else if(STRNIEQUAL(deftype,"TEXT/",5))
-      {  p=data;
+      {  /* Handle all text/* MIME types - most should be rendered as plain text */
+         p=data;
          end=data+length;
          while(p<end && !*p) p++;
          while(p<end-3 && isspace(*p)) p++;
          if(p<=end-4 && STRNIEQUAL(p,"<!--",4))
-         {  type="TEXT/HTML";
+         {  /* HTML comment - treat as HTML */
+            type="TEXT/HTML";
          }
          else if(p<=end-6 && STRNIEQUAL(p,"<HTML>",6))
-         {  type="TEXT/HTML";
+         {  /* HTML tag - treat as HTML */
+            type="TEXT/HTML";
          }
          else if(p<=end-10 && STRNIEQUAL(p,"<!DOCTYPE",9) && isspace(p[9]))
-         {  p+=10;
+         {  /* HTML DOCTYPE - treat as HTML */
+            p+=10;
             while(p<end && isspace(*p)) p++;
             if(p<=end-5 && STRNIEQUAL(p,"HTML ",5))
             {  type="TEXT/HTML";
+            }
+            else
+            {  /* Not HTML DOCTYPE - keep original text/* type */
+               type=deftype;
             }
          }
          else if(p<=end-5 && STRNIEQUAL(p,"<?xml",5))
@@ -281,15 +297,26 @@ UBYTE *Mimetypefromdata(UBYTE *data,long length,UBYTE *deftype)
             {  type="APPLICATION/ATOM+XML";
             }
             else
-            {  /* Generic XML - treat as plain text */
-               type="TEXT/XML";
+            {  /* Generic XML - keep as TEXT/XML or original text/* type */
+               if(STRNIEQUAL(deftype,"TEXT/XML",8))
+               {  type="TEXT/XML";
+               }
+               else
+               {  type=deftype;  /* Keep original text/* type (e.g., text/sgml) */
+               }
             }
          }
          else if(Checkmimetype(data,length,"TEXT/PLAIN"))
-         {  type="TEXT/PLAIN";
+         {  /* Valid text content - keep original text/* MIME type */
+            /* Common text/* types that should render as plain text:
+             * text/plain, text/css, text/javascript, text/csv, text/markdown,
+             * text/richtext, text/enriched, text/sgml, text/tab-separated-values,
+             * text/vnd.* (vendor-specific), etc. */
+            type=deftype;  /* Preserve the specific text/* subtype */
          }
          else
-         {  type="APPLICATION/OCTET-STREAM";
+         {  /* Not valid text - fall back to octet-stream */
+            type="APPLICATION/OCTET-STREAM";
          }
       }
       else if(!deftype || STRIEQUAL(deftype,"APPLICATION/OCTET-STREAM") 
@@ -420,6 +447,9 @@ ULONG Getmimedriver(UBYTE *mimetype,UBYTE **name,UBYTE **args)
       }
       else if(mvw && mvw->driver==MDRIVER_INTERNAL)
       {  if(STRNIEQUAL("TEXT/",mimetype,5)) mime=MIMEDRV_DOCUMENT;
+         else if(STRNIEQUAL("APPLICATION/RSS",mimetype,16)) mime=MIMEDRV_DOCUMENT;
+         else if(STRNIEQUAL("APPLICATION/ATOM",mimetype,16)) mime=MIMEDRV_DOCUMENT;
+         else if(STRNIEQUAL("APPLICATION/XML",mimetype,15)) mime=MIMEDRV_DOCUMENT;
          else if(STRNIEQUAL("IMAGE/",mimetype,6)) mime=MIMEDRV_IMAGE;
          else if(STRNIEQUAL("AUDIO/",mimetype,6)) mime=MIMEDRV_SOUND;
       }
