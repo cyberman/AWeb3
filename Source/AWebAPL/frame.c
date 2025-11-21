@@ -1220,14 +1220,11 @@ amr->minx,amr->miny,amr->maxx,amr->maxy,coo->dx,coo->dy,coo->minx,coo->miny,coo-
                MIN(fr->top+fr->h,amr->maxy+coo->dy-co2.dy),
                AMRF_CLEAR);   /***..... is CLEAR reallyy needed? (embedded) ....***/
          }
-         /* Only draw border and scrollbars if frame has valid dimensions */
          if(fr->vscroll || fr->hscroll || (fr->border))
          {  if(clip) clipkey=Clipto(rp,coo->minx,coo->miny,coo->maxx,coo->maxy);
             x=fr->aox+coo->dx;
             y=fr->aoy+coo->dy;
-            /* Only draw border if content is ready (has been laid out) */
-            if(fr->border > 0 && fr->aow > 0 && fr->aoh > 0 && fr->w > 0 && fr->h > 0 && fr->copy)
-            {  for(i=0;i<fr->border;i++)
+            for(i=0;i<fr->border;i++)
             {  SetAPen(rp,coo->dri->dri_Pens[SHADOWPEN]);
                Move(rp,x+i,y+fr->aoh-i-1);
                Draw(rp,x+i,y+i);
@@ -1235,7 +1232,6 @@ amr->minx,amr->miny,amr->maxx,amr->maxy,coo->dx,coo->dy,coo->minx,coo->miny,coo-
                SetAPen(rp,coo->dri->dri_Pens[SHINEPEN]);
                Draw(rp,x+fr->aow-i-1,y+fr->aoh-i-1);
                Draw(rp,x+i,y+fr->aoh-i-1);
-            }
             }
             scrh=Agetattr(fr->hscroll,AOBJ_Height);
             scrw=Agetattr(fr->vscroll,AOBJ_Width);

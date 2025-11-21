@@ -17,9 +17,11 @@
 all:        aweb
 all:        awebcfg
 all:        aweblib/arexx.aweblib
+all:        aweblib/about.aweblib
 all:        aweblib/authorize.aweblib
 all:        aweblib/cachebrowser.aweblib
 all:        aweblib/ftp.aweblib
+all:        aweblib/gemini.aweblib
 all:        aweblib/gopher.aweblib
 all:        aweblib/history.aweblib
 all:        aweblib/hotlist.aweblib
@@ -58,7 +60,7 @@ aweb:       soundsource.o docext.o
 #  Copy drivers
 aweb:       copydriver.o document.o imgcopy.o soundcopy.o docjs.o
 #  Document objects
-aweb:       parse.o html.o frameset.o body.o link.o map.o area.o form.o
+aweb:       parse.o markdown.o html.o frameset.o body.o link.o map.o area.o form.o
 aweb:       element.o break.o text.o ruler.o bullet.o table.o name.o
 aweb:       field.o input.o checkbox.o radio.o select.o textarea.o button.o
 aweb:       hidden.o filefield.o
@@ -199,6 +201,16 @@ ftp.o:      ftp.c aweblib.h tcperr.h fetchdriver.h task.h application.h awebtcp.
    @echo "        Compiling $*..."
    @sc idir=netinclude: $*
 
+#- about --------
+
+aweblib/about.aweblib: about.o about.lnk
+   c/remlib >nil: about.aweblib
+   slink with about.lnk
+
+about.o:   about.c aweblib.h fetchdriver.h task.h
+   @echo "        Compiling $*..."
+   @sc $*
+
 #- gopher --------
 
 aweblib/gopher.aweblib: gopher.o gopher.lnk
@@ -206,6 +218,16 @@ aweblib/gopher.aweblib: gopher.o gopher.lnk
    slink with gopher.lnk
 
 gopher.o:   gopher.c aweblib.h tcperr.h fetchdriver.h task.h awebtcp.h
+   @echo "        Compiling $*..."
+   @sc idir=netinclude: $*
+
+#- gemini --------
+
+aweblib/gemini.aweblib: gemini.o gemini.lnk
+   c/remlib >nil: gemini.aweblib
+   slink with gemini.lnk
+
+gemini.o:   gemini.c aweblib.h tcperr.h fetchdriver.h task.h awebtcp.h awebssl.h
    @echo "        Compiling $*..."
    @sc idir=netinclude: $*
 
@@ -350,6 +372,10 @@ jparse.o:   jparse.c awebjs.h
    @echo "        Compiling $*..."
    @sc $(DEBUG) $*.c
 
+markdown.o: markdown.c aweb.h html.h application.h docprivate.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
 jslib.o:    jslib.c awebjs.h keyfile.h
    @echo "        Compiling $*..."
    @sc $(DEBUG) $*.c
@@ -367,6 +393,7 @@ install:
    -copy clone aweblib/authorize.aweblib TO //Internet/AWeb/aweblib/authorize.aweblib
    -copy clone aweblib/cachebrowser.aweblib TO //Internet/AWeb/aweblib/cachebrowser.aweblib
    -copy clone aweblib/ftp.aweblib TO //Internet/AWeb/aweblib/ftp.aweblib
+   -copy clone aweblib/gemini.aweblib TO //Internet/AWeb/aweblib/gemini.aweblib
    -copy clone aweblib/gopher.aweblib TO //Internet/AWeb/aweblib/gopher.aweblib
    -copy clone aweblib/history.aweblib TO //Internet/AWeb/aweblib/history.aweblib
    -copy clone aweblib/hotlist.aweblib TO //Internet/AWeb/aweblib/hotlist.aweblib

@@ -1,0 +1,93 @@
+<!--
+/**********************************************************************
+ * 
+ * This file is part of the AWeb distribution
+ *
+ * Copyright (C) 2025 amigazen project
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the AWeb Public License as included in this
+ * distribution.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * AWeb Public License for more details.
+ *
+ **********************************************************************/
+-->
+<html>
+<head>
+<title>
+About Pages
+</title>
+</head>
+<body background=awebbg.iff>
+<h1><img src=aweb.iff alt=(logo) width=192 height=93>&nbsp; About Pages</h1>
+
+AWeb supports special internal URLs using the "<code><b>about:</b></code>" protocol
+scheme. These pages provide browser information, utilities, and special pages
+similar to those found in other web browsers. You can use these URLs in your
+hotlist, bookmarks, or as links in web pages.
+<p>
+Note that these URLs are specific to AWeb and may not be recognized by other
+browsers.
+
+<h2>Browser Information</h2>
+<dl>
+<dt><code><b>about:</b></code> or <code><b>about:version</b></code>
+<dd>Displays information about AWeb, including version details, supported web
+   standards, license information, and third-party component acknowledgements.
+   This page provides comprehensive information about the browser and its
+   capabilities.
+<p>
+<dt><code><b>about:blank</b></code>
+<dd>Displays a blank page. This is useful for creating empty pages or as a
+   default target for links. The page contains minimal HTML structure but
+   no visible content.
+</dl>
+
+<h2>Utility Pages</h2>
+<dl>
+<dt><code><b>about:home</b></code>
+<dd>AWeb's default home page featuring a search interface powered by BoingSearch
+   and quick links to commonly used resources. This page can be set as your
+   browser's home page in the preferences, or accessed directly via this URL.
+   The page includes links to AWeb documentation and Amiga resources.
+<p>
+<dt><code><b>about:fonts</b></code>
+<dd>A comprehensive font test page that displays how different font families,
+   sizes, and styles render in AWeb. This page is useful for:
+   <ul>
+   <li>Testing how fonts appear with your installed font set
+   <li>Viewing font rendering for serif, sans-serif, and monospace families
+   <li>Comparing different font sizes and styles
+   <li>Checking special character rendering
+   </ul>
+   The page includes sample text using classical Japanese haiku to demonstrate
+   text flow and readability.
+</dl>
+
+<h2>Usage Examples</h2>
+You can use these URLs in various ways:
+<ul>
+<li>Set <code>about:home</code> as your browser's home page in the
+    <a href=settings/nwoptions.html#home>network options</a>.
+<li>Add <code>about:</code> to your hotlist to quickly access browser
+    information.
+<li>Use <code>about:blank</code> as a target for links that should open
+    in a new window without loading content.
+<li>Bookmark <code>about:fonts</code> for quick access to the font test page.
+</ul>
+
+<h2>Technical Details</h2>
+The <code>about:</code> protocol is implemented as a plugin (<code>about.aweblib</code>). If you do not need the about: URLs you can remove the about.aweblib plugin.
+
+<p>
+<hr>
+<a href=aweb.html><img src=back.gif width=32 height=16 alt="<-" border=0></a> Back to
+<a href=aweb.html>index</a>.
+
+</body>
+</html>
+

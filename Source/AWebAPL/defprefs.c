@@ -179,7 +179,7 @@ struct Prefs defprefs=
 #ifdef NETDEMO
       "file:///AWeb:docs/full.html#full",
 #else
-      "file:///AWeb:docs/AWeb.html",     /* home url */
+      "about:home",     /* home url */
 #endif
       "index.html",                          /* local index */
       "http://www.boingsearch.com/?q=%s",   /* search url */
@@ -1514,7 +1514,7 @@ BOOL Initdefprefs(void)
    Adddefmenu(AMENU_MENU,MSG_HELP_MENU,NULL);
    Adddefmenu(AMENU_ITEM,MSG_HELP_HELP,"OPEN file:///AWeb:docs/aweb.html");
    Adddefmenu(AMENU_SEPARATOR,NULL,NULL);
-   Adddefmenu(AMENU_ITEM,MSG_HELP_AWEBHOME,"OPEN http://www.amigazen.com/aweb/");
+   Adddefmenu(AMENU_ITEM,MSG_HELP_AWEBHOME,"OPEN about:home");
 
    Adddefmenu(AMENU_MENU,MSG_AREXX_MENU,NULL);
    Adddefmenu(AMENU_ITEM,MSG_AREXX_AREXX,"@AREXX");
@@ -1524,7 +1524,7 @@ BOOL Initdefprefs(void)
 #ifndef LOCALONLY
    if(!Adduserbutton(&defprefs.buttons,"AWeb",
       "OPEN http://amigazen.com/aweb/")) return FALSE;
-   if(!Adduserbutton(&defprefs.buttons,"AmigaCorp",
+   if(!Adduserbutton(&defprefs.buttons,"Amiga.com",
       "OPEN https://www.amiga.com/")) return FALSE;
    if(!Adduserbutton(&defprefs.buttons,"Aminet",
       "OPEN http://www.aminet.net/")) return FALSE;

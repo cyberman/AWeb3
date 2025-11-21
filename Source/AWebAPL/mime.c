@@ -77,6 +77,8 @@ static void Defaultmimes(void)
    Addmimetype("APPLICATION/RSS+XML",exts,MDRIVER_INTERNAL,NULL,NULL);
    strcpy(exts,"atom");
    Addmimetype("APPLICATION/ATOM+XML",exts,MDRIVER_INTERNAL,NULL,NULL);
+   strcpy(exts,"md markdown");
+   Addmimetype("TEXT/MARKDOWN",exts,MDRIVER_INTERNAL,NULL,NULL);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -284,6 +286,10 @@ UBYTE *Mimetypefromdata(UBYTE *data,long length,UBYTE *deftype)
             {  /* Generic XML - treat as plain text */
                type="TEXT/XML";
             }
+         }
+         else if(STRIEQUAL(deftype,"TEXT/MARKDOWN"))
+         {  /* Preserve markdown type - markdown files are valid text */
+            type="TEXT/MARKDOWN";
          }
          else if(Checkmimetype(data,length,"TEXT/PLAIN"))
          {  type="TEXT/PLAIN";

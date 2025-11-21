@@ -36,6 +36,7 @@ struct Docsource
 #define DOSF_INREL      0x0004   /* Child in APP_USE_BROWSER relationship */
 #define DOSF_JSOPEN     0x0008   /* This is a nonclosed JS generated document */
 #define DOSF_SCRIPTJS   0x0010   /* Default script type is javascript */
+#define DOSF_MD         0x0020   /* text/markdown type */
 
 /*--- Private tags ---*/
 
@@ -239,6 +240,7 @@ struct Infotext
 
 extern BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos);
 extern BOOL Parseplain(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos);
+extern BOOL Parsemarkdown(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos);
 
 /* from html.c: */
 

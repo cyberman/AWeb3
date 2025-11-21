@@ -271,6 +271,9 @@ static long Parsedocument(struct Document *doc)
    {  if(doc->source->flags&DOSF_HTML)
       {  Parsehtml(doc,src,eof,&doc->srcpos);
       }
+      else if(doc->source->flags&DOSF_MD)
+      {  Parsemarkdown(doc,src,eof,&doc->srcpos);
+      }
       else
       {  Parseplain(doc,src,eof,&doc->srcpos);
       }

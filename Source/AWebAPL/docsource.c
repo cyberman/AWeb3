@@ -35,10 +35,19 @@
 
 /*------------------------------------------------------------------------*/
 
-/* Set HTML or plain according to content type */
+/* Set HTML, markdown, or plain according to content type */
 static void Sethtmlflag(struct Docsource *dos,UBYTE *type)
-{  if(STRIEQUAL(type,"TEXT/HTML")) dos->flags|=DOSF_HTML;
-   else dos->flags&=~DOSF_HTML;
+{  if(STRIEQUAL(type,"TEXT/HTML"))
+   {  dos->flags|=DOSF_HTML;
+      dos->flags&=~DOSF_MD;
+   }
+   else if(STRIEQUAL(type,"TEXT/MARKDOWN"))
+   {  dos->flags|=DOSF_MD;
+      dos->flags&=~DOSF_HTML;
+   }
+   else
+   {  dos->flags&=~(DOSF_HTML|DOSF_MD);
+   }
 }
 
 /* Save this document's source, but replace all \r by \n */

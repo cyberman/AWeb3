@@ -2,8 +2,8 @@
  * 
  * This file is part of the AWeb APL distribution
  *
- * Copyright (C) 2002 Yvon Rozijn
- * Changes Copyright (C) 2025 amigazen project
+ * Original aweblib template Copyright (C) 2002 Yvon Rozijn
+ * about: page aweblib Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -185,75 +185,272 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
    
    /* Check for about:blank - must match exactly "blank" or be empty after "blank" */
    if(STRNIEQUAL(page,"blank",5) && (page[5]=='\0' || page[5]==' ' || page[5]=='\t'))
-   {  /* about:blank - empty page */
-      len = 100;
+   {  /* about:blank - blank page */
+      len = 256;
       html = ALLOCTYPE(UBYTE,len,MEMF_PUBLIC);
       if(html)
-      {  strcpy(html,"<html><head><title>about:blank</title></head><body></body></html>");
+      {  html_len = sprintf(html,
+               "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">"
+               "<html><head>"
+               "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">"
+               "<title>about:blank</title>"
+               "</head>"
+               "<body></body>"
+               "</html>");
+         if(html_len >= len) html[len-1] = '\0';
       }
       return html;
    }
    
-   /* Default about page with version info and license acknowledgements */
+   /* Check for about:fonts */
+   if(STRNIEQUAL(page,"fonts",5) && (page[5]=='\0' || page[5]==' ' || page[5]=='\t'))
+   {  /* about:fonts - font test page */
+      len = 6000;  /* Increased for haiku acknowledgments */
+      html = ALLOCTYPE(UBYTE,len,MEMF_PUBLIC);
+      if(html)
+      {  html_len = sprintf(html,
+               "<html><head><title>AWeb Fonts</title></head>"
+               "<body bgcolor=\"#FFFFFF\" text=\"#000000\">"
+               "<table align=\"center\" width=\"90%%\">"
+               "<tr><td align=\"center\">"
+               "<h1>AWeb Fonts</h1>"
+               "</td></tr>"
+               "</table>"
+               "<br clear=\"all\">"
+               "<hr>"
+               "<h2>Serif Fonts</h2>"
+               "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
+               "<tr bgcolor=\"#F5F5F5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
+               "<tr><td><code>serif</code></td><td><font face=\"serif\">An old silent pond<br>A frog jumps into the pond&mdash;<br>Splash! Silence again.</font></td></tr>"
+               "<tr><td><code>Times, Times New Roman</code></td><td><font face=\"Times, Times New Roman\">A summer river being crossed<br>how pleasing<br>with sandals in my hands!</font></td></tr>"
+               "</table>"
+               "<h2>Sans-Serif Fonts</h2>"
+               "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
+               "<tr bgcolor=\"#F5F5F5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
+               "<tr><td><code>sans-serif</code></td><td><font face=\"sans-serif\">Morning glory!<br>the well bucket-entangled,<br>I ask for water.</font></td></tr>"
+               "<tr><td><code>Helvetica, Arial</code></td><td><font face=\"Helvetica, Arial\">After the storm<br>the moon's brightness<br>on the green pines.</font></td></tr>"
+               "<tr><td><code>Geneva</code></td><td><font face=\"Geneva\">O snail<br>climb Mount Fuji,<br>but slowly, slowly!</font></td></tr>"
+               "</table>"
+               "<h2>Monospace Fonts</h2>"
+               "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
+               "<tr bgcolor=\"#F5F5F5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
+               "<tr><td><code>monospace</code></td><td><font face=\"monospace\">An old silent pond<br>A frog jumps into the pond&mdash;<br>Splash! Silence again.</font></td></tr>"
+               "<tr><td><code>Courier, Courier New</code></td><td><font face=\"Courier, Courier New\">A summer river being crossed<br>how pleasing<br>with sandals in my hands!</font></td></tr>"
+               "<tr><td><code>&lt;code&gt;</code></td><td><code>O snail<br>climb Mount Fuji,<br>but slowly, slowly!</code></td></tr>"
+               "<tr><td><code>&lt;pre&gt;</code></td><td><pre>Morning glory!<br>the well bucket-entangled,<br>I ask for water.</pre></td></tr>"
+               "</table>"
+               "<h2>Font Sizes</h2>"
+               "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
+               "<tr bgcolor=\"#F5F5F5\"><td><strong>Size</strong></td><td><strong>Sample Text</strong></td></tr>"
+               "<tr><td><code>size=\"-2\"</code></td><td><font size=\"-2\">After the storm</font></td></tr>"
+               "<tr><td><code>size=\"-1\"</code></td><td><font size=\"-1\">the moon's brightness</font></td></tr>"
+               "<tr><td><code>size=\"1\" (default)</code></td><td><font size=\"1\">on the green pines.</font></td></tr>"
+               "<tr><td><code>size=\"+1\"</code></td><td><font size=\"+1\">An old silent pond</font></td></tr>"
+               "<tr><td><code>size=\"+2\"</code></td><td><font size=\"+2\">A frog jumps</font></td></tr>"
+               "<tr><td><code>size=\"+3\"</code></td><td><font size=\"+3\">Splash! Silence again.</font></td></tr>"
+               "<tr><td><code>size=\"+4\"</code></td><td><font size=\"+4\">O snail</font></td></tr>"
+               "</table>"
+               "<h2>Font Styles</h2>"
+               "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
+               "<tr bgcolor=\"#F5F5F5\"><td><strong>Style</strong></td><td><strong>Sample Text</strong></td></tr>"
+               "<tr><td><code>&lt;b&gt;</code></td><td><b>Morning glory!</b></td></tr>"
+               "<tr><td><code>&lt;i&gt;</code></td><td><i>the well bucket-entangled,</i></td></tr>"
+               "<tr><td><code>&lt;u&gt;</code></td><td><u>I ask for water.</u></td></tr>"
+               "<tr><td><code>&lt;strike&gt;</code></td><td><strike>An old silent pond</strike></td></tr>"
+               "<tr><td><code>&lt;b&gt;&lt;i&gt;</code></td><td><b><i>A summer river</i></b></td></tr>"
+               "<tr><td><code>&lt;tt&gt;</code></td><td><tt>being crossed</tt></td></tr>"
+               "<tr><td><code>&lt;small&gt;</code></td><td><small>how pleasing</small></td></tr>"
+               "<tr><td><code>&lt;big&gt;</code></td><td><big>with sandals in my hands!</big></td></tr>"
+               "</table>"
+               "<h2>Special Characters</h2>"
+               "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
+               "<tr bgcolor=\"#F5F5F5\"><td><strong>Category</strong></td><td><strong>Sample</strong></td></tr>"
+               "<tr><td>Numbers</td><td>0123456789</td></tr>"
+               "<tr><td>Uppercase</td><td>ABCDEFGHIJKLMNOPQRSTUVWXYZ</td></tr>"
+               "<tr><td>Lowercase</td><td>abcdefghijklmnopqrstuvwxyz</td></tr>"
+               "<tr><td>Punctuation</td><td>! @ # $ %% ^ & * ( ) _ + - = [ ] { } | ; ' : \" , . / &lt; &gt; ?</td></tr>"
+               "<tr><td>Special</td><td>&copy; &reg; &trade; &deg; &frac12; &frac14; &frac34; &euro; &pound; &yen;</td></tr>"
+               "</table>"
+               "<hr>"
+               "<h2>Haiku Acknowledgments</h2>"
+               "<p><small>Sample texts on this page include haiku from classical Japanese poets:</small></p>"
+               "<ul><small>"
+               "<li><strong>Matsuo Bash&otilde;</strong> (1644&ndash;1694): &ldquo;An old silent pond... A frog jumps into the pond, splash! Silence again.\"</li>"
+               "<li><strong>Yosa Buson</strong> (1716&ndash;1784): &ldquo;A summer river being crossed how pleasing with sandals in my hands!\"</li>"
+               "<li><strong>Kobayashi Issa</strong> (1763&ndash;1828): &ldquo;O snail climb Mount Fuji, but slowly, slowly!\"</li>"
+               "<li><strong>Chiyo-ni</strong> (1703&ndash;1775): &ldquo;Morning glory! the well bucket-entangled, I ask for water.\"</li>"
+               "<li><strong>Masaoka Shiki</strong> (1867&ndash;1902): &ldquo;After the storm the moon's brightness on the green pines.\"</li>"
+               "</small></ul>"
+               "<hr>"
+               "</body></html>");
+         if(html_len >= len) html[len-1] = '\0';
+      }
+      return html;
+   }
+   
+   /* Check for about:version - alias for about: */
+   if(STRNIEQUAL(page,"version",7) && (page[7]=='\0' || page[7]==' ' || page[7]=='\t'))
+   {  /* about:version - same as about: */
+      page = (UBYTE *)"about";
+   }
+   
+   /* Check for about:home */
+   if(STRNIEQUAL(page,"home",4) && (page[4]=='\0' || page[4]==' ' || page[4]=='\t'))
+   {  /* about:home - default home page */
+      len = 3072;
+      html = ALLOCTYPE(UBYTE,len,MEMF_PUBLIC);
+      if(html)
+      {  html_len = sprintf(html,
+               "<html><head><title>AWeb Home</title></head>"
+               "<body bgcolor=\"#FFFFFF\" text=\"#000000\" link=\"#0000FF\" vlink=\"#551A8B\" topmargin=\"0\" leftmargin=\"0\">"
+               "<table width=\"100%%\" cellpadding=\"5\" cellspacing=\"0\" border=\"0\">"
+               "<tr><td align=\"center\">"
+               "<img src=\"file:///AWeb:Docs/aweb.iff\" alt=\"AWeb\" align=\"center\">"
+               "<br>"
+               "<font size=\"+1\" color=\"#cc0000\"><i>The Amiga Web Browser</i></font>"
+               "</td></tr>"
+               "</table>"
+               "<hr>"
+               "<table width=\"100%%\" cellpadding=\"5\" cellspacing=\"10\" border=\"0\">"
+               "<tr valign=\"top\">"
+               "<td width=\"33%%\" align=\"left\">"
+               "<font face=\"sans-serif\" size=\"-1\">"
+               "<strong>AWeb Links</strong><br>"
+               "&bull; <a href=\"file:///AWeb:Docs/aweb.html\">Documentation</a><br>"
+               "&bull; <a href=\"x-aweb:hotlist\">Hotlist</a><br>"
+               "&bull; <a href=\"about:version\">Version</a><br>"
+               "&bull; <a href=\"about:fonts\">Web Fonts</a>"
+               "</font>"
+               "</td>"
+               "<td width=\"34%%\" align=\"center\">"
+               "<font size=\"-1\" face=\"sans-serif\" color=\"#666666\"><strong>Search</strong></font><br>"
+               "<font size=\"-2\" face=\"sans-serif\" color=\"#999999\">powered by BoingSearch.com</font><br>"
+               "<form method=\"get\" action=\"http://www.boingsearch.com/\">"
+               "<br>"
+               "<input type=\"text\" name=\"q\" size=\"25\"><br>"
+               "<input type=\"submit\" value=\"Search\">"
+               "</form>"
+               "</td>"
+               "<td width=\"33%%\" align=\"right\">"
+               "<font face=\"sans-serif\" size=\"-1\">"
+               "<strong>WWW Links</strong><br>"
+               "&bull; <a href=\"https://www.amiga.com/\">Amiga.com</a><br>"
+               "&bull; <a href=\"http://www.aminet.net/\">Aminet</a><br>"
+               "&bull; <a href=\"http://www.amigazen.com/aweb/\">AWeb Home</a>"
+               "</font>"
+               "</td>"
+               "</tr>"
+               "</table>"
+               "</body></html>");
+         if(html_len >= len) html[len-1] = '\0';
+      }
+      return html;
+   }
+   
+   /* Default about page with technical information */
    /* Calculate required buffer size */
-   len = 8192;  /* Large buffer for license text */
+   len = 8192;  /* Buffer for technical info, standards, licenses, and plugin acknowledgements */
    html = ALLOCTYPE(UBYTE,len,MEMF_PUBLIC);
    if(html)
-   {  html_len = sprintf(html,
+      {  html_len = sprintf(html,
             "<html><head><title>About AWeb</title></head>"
-            "<body>"
-            "<h1>About AWeb</h1>"
-            "<p><strong>%s</strong></p>"
-            "<p>Version: %s</p>"
+            "<body bgcolor=\"#FFFFFF\" text=\"#000000\">"
+            "<table align=\"center\" width=\"90%%\">"
+            "<tr><td align=\"center\">"
+            "<img src=\"file:///AWeb:Docs/aweb.iff\" alt=\"AWeb\" align=\"center\">"
+            "<br>"
+            "<font size=\"+2\" color=\"#cc0000\"><i>The Amiga Web Browser</i></font>"
+            "</td></tr>"
+            "</table>"
+            "<br clear=\"all\">"
             "<hr>"
-            "<h2>About Pages</h2>"
+            "<p align=\"center\"><strong>%s</strong> %s<br>"
+            "3.6 Alpha 3 " __AMIGADATE__ "</p>"
+            "<hr>"
+            "<h2>Web Standards</h2>"
             "<ul>"
-            "<li><a href=\"about:blank\">about:blank</a> - Blank page</li>"
-            "<li><a href=\"about:\">about:</a> - This page</li>"
+            "<li><a href=\"http://www.w3.org/TR/REC-html32\">HTML 3.2</a> - www.w3.org/TR/REC-html32</li>"
+            "<li><a href=\"http://www.w3.org/TR/html4/\">HTML 4.0</a> - www.w3.org/TR/html4/</li>"
+            "<li><a href=\"http://tools.ietf.org/html/rfc1945\">HTTP/1.0</a> - tools.ietf.org/html/rfc1945</li>"
+            "<li><a href=\"http://tools.ietf.org/html/rfc2616\">HTTP/1.1</a> - tools.ietf.org/html/rfc2616</li>"
+            "<li><a href=\"http://tools.ietf.org/html/rfc2818\">HTTPS (TLS/SSL)</a> - tools.ietf.org/html/rfc2818</li>"
+            "<li><a href=\"http://tools.ietf.org/html/rfc959\">FTP</a> - tools.ietf.org/html/rfc959</li>"
+            "<li><a href=\"http://tools.ietf.org/html/rfc1436\">Gopher</a> - tools.ietf.org/html/rfc1436</li>"
+            "<li><a href=\"http://tools.ietf.org/html/rfc2368\">Mailto (RFC 2368)</a> - tools.ietf.org/html/rfc2368</li>"
+            "<li><a href=\"http://tools.ietf.org/html/rfc977\">NNTP</a> - tools.ietf.org/html/rfc977</li>"
+            "<li><a href=\"http://daringfireball.net/projects/markdown/\">Markdown</a> - daringfireball.net/projects/markdown/</li>"
+            "<li><a href=\"http://www.ecma-international.org/publications/standards/Ecma-262.htm\">JavaScript 1.1</a> - www.ecma-international.org/publications/standards/Ecma-262.htm</li>"
+            "<li><a href=\"http://tools.ietf.org/html/rfc2109\">Cookies (RFC 2109)</a> - tools.ietf.org/html/rfc2109</li>"
             "</ul>"
             "<hr>"
             "<h2>License</h2>"
             "<p>AWeb is distributed under the <strong>AWeb Public License Version 1.0</strong>.</p>"
-            "<p>Copyright (C) 2002 YPR Software<br>"
-            "Changes Copyright (C) 2025 amigazen project</p>"
+            "<p>Copyright &copy; 2002 Yvon Rozijn. All rights reserved.<br>"
+            "AWeb 3.6 Changes Copyright &copy; 2025 amigazen project</p>"
             "<p>This program is free software; you can redistribute it and/or modify "
             "it under the terms of the AWeb Public License as included in this distribution.</p>"
-            "<p>This program is distributed in the hope that it will be useful, "
-            "but WITHOUT ANY WARRANTY; without even the implied warranty of "
-            "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</p>"
+            "<p>This software is provided \"as is\". No warranties are made, either "
+            "expressed or implied, with respect to reliability, quality, performance, "
+            "or operation of this software.</p>"
             "<hr>"
             "<h2>Third-Party Components</h2>"
+            "<h3>AWeb Image Plugins</h3>"
+            "<p>The following image format plugins are included:</p>"
+            "<ul>"
+            "<li><strong>GIF Plugin:</strong> Copyright &copy; 2002 Yvon Rozijn. "
+            "Changes Copyright &copy; 2025 amigazen project. "
+            "Distributed under the AWeb Public License.</li>"
+            "<li><strong>JPEG/JFIF Plugin:</strong> Copyright &copy; 2002 Yvon Rozijn. "
+            "Distributed under the AWeb Public License. "
+            "Uses Independent JPEG Group's software (libjpeg).</li>"
+            "<li><strong>PNG Plugin:</strong> Copyright &copy; 2002 Yvon Rozijn. "
+            "Distributed under the AWeb Public License. "
+            "Uses libpng reference library.</li>"
+            "</ul>"
+            "<h3>Independent JPEG Group (libjpeg)</h3>"
+            "<p>JPEG compression/decompression library used by the JFIF plugin.</p>"
+            "<p>Copyright &copy; 1991-1996, Thomas G. Lane</p>"
+            "<p>This software is provided 'as-is', without any express or implied warranty. "
+            "Permission is granted to anyone to use this software for any purpose, "
+            "including commercial applications, and to alter it and redistribute it freely, "
+            "subject to the following restrictions:</p>"
+            "<ol>"
+            "<li>The origin of this software must not be misrepresented.</li>"
+            "<li>Altered source versions must be plainly marked as such and must not be "
+            "misrepresented as being the original software.</li>"
+            "<li>This notice may not be removed or altered from any source distribution.</li>"
+            "</ol>"
+            "<h3>libpng</h3>"
+            "<p>PNG reference library used by the PNG plugin.</p>"
+            "<p>Copyright &copy; 1995, 1996 Guy Eric Schalnat, Group 42, Inc.<br>"
+            "Copyright &copy; 1996, 1997 Andreas Dilger<br>"
+            "Copyright &copy; 1998 Glenn Randers-Pehrson</p>"
+            "<p>The PNG Reference Library is supplied \"AS IS\". Permission is granted "
+            "to use, copy, modify, and distribute this source code, or portions hereof, "
+            "for any purpose, without fee, subject to the following restrictions:</p>"
+            "<ol>"
+            "<li>The origin of this source code must not be misrepresented.</li>"
+            "<li>Altered versions must be plainly marked as such and must not be "
+            "misrepresented as being the original source.</li>"
+            "<li>This Copyright notice may not be removed or altered from any source or "
+            "altered source distribution.</li>"
+            "</ol>"
             "<h3>zlib</h3>"
             "<p>zlib compression library is used for HTTP content compression.</p>"
-            "<p>Copyright (C) 1995-2023 Jean-loup Gailly and Mark Adler</p>"
+            "<p>Copyright &copy; 1995-2023 Jean-loup Gailly and Mark Adler</p>"
             "<p>This software is provided 'as-is', without any express or implied warranty. "
-            "In no event will the authors be held liable for any damages arising from "
-            "the use of this software.</p>"
-            "<p>Permission is granted to anyone to use this software for any purpose, "
+            "Permission is granted to anyone to use this software for any purpose, "
             "including commercial applications, and to alter it and redistribute it freely, "
             "subject to the following restrictions:</p>"
             "<ol>"
             "<li>The origin of this software must not be misrepresented; you must not "
-            "claim that you wrote the original software. If you use this software in "
-            "a product, an acknowledgment in the product documentation would be "
-            "appreciated but is not required.</li>"
+            "claim that you wrote the original software.</li>"
             "<li>Altered source versions must be plainly marked as such, and must not be "
             "misrepresented as being the original software.</li>"
             "<li>This notice may not be removed or altered from any source distribution.</li>"
             "</ol>"
             "<hr>"
-            "<h2>Acknowledgments</h2>"
-            "<p>AWeb was originally developed by Yvon Rozijn.</p>"
-            "<p>This version is maintained by the amigazen project.</p>"
-            "<p>AWeb uses the following AmigaOS components:</p>"
-            "<ul>"
-            "<li>AmigaOS Exec and Intuition libraries</li>"
-            "<li>AmigaOS networking (bsdsocket.library)</li>"
-            "<li>AmigaOS graphics and rendering libraries</li>"
-            "<li>AmigaOS locale and internationalization support</li>"
-            "</ul>"
-            "<hr>"
-            "<p><small>AWeb is the Amiga web browser.</small></p>"
+            "<p><small>Copyright &copy; 2002 Yvon Rozijn. &nbsp; Changes Copyright &copy; 2025 amigazen project &nbsp; Amiga is a trademark of Amiga Corporation</small></p>"
             "</body></html>",
             about_str,version_str);
       

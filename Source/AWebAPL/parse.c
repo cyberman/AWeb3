@@ -486,7 +486,7 @@ static struct Chardes *Findchar(UBYTE *name)
    long c;
    while(a<=b)
    {  m=(a+b)/2;
-      c=strncmp(chars[m].name,name,strlen(chars[m].name));
+      c=strcmp(chars[m].name,name);
       if(c==0) return &chars[m];
       if(c<0) a=m+1;
       else b=m-1;
@@ -650,8 +650,9 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
             {  /* Allow unterminated names when tolerant; when strict name
                 * must be terminated by tag or non-alphanumeric and match entirely.
                 * Allow unicode characters (>255) only when strict. */
-               if((!strict || ((q>=end || !isalnum(*q)) && STREQUAL(cd->name,name)))
-               && (strict || cd->ch<=255))
+               if(STREQUAL(cd->name,name)
+               && (strict || cd->ch<=255)
+               && (!strict || (q>=end || !isalnum(*q))))
                {  q=p+1+strlen(cd->name); /* +1 because of & */
                   if(q<end)
                   {  if(*q!=';') q--;
