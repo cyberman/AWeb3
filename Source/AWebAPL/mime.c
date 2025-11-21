@@ -71,6 +71,12 @@ static void Defaultmimes(void)
    Addmimetype("TEXT/HTML",exts,MDRIVER_INTERNAL,NULL,NULL);
    strcpy(exts,"txt");
    Addmimetype("TEXT/PLAIN",exts,MDRIVER_INTERNAL,NULL,NULL);
+   strcpy(exts,"xml");
+   Addmimetype("TEXT/XML",exts,MDRIVER_INTERNAL,NULL,NULL);
+   strcpy(exts,"rss");
+   Addmimetype("APPLICATION/RSS+XML",exts,MDRIVER_INTERNAL,NULL,NULL);
+   strcpy(exts,"atom");
+   Addmimetype("APPLICATION/ATOM+XML",exts,MDRIVER_INTERNAL,NULL,NULL);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -186,7 +192,64 @@ UBYTE *Mimetypefromdata(UBYTE *data,long length,UBYTE *deftype)
 {  UBYTE *p,*end;
    UBYTE *type=deftype?deftype:(UBYTE *)"X-UNKNOWN/X-UNKNOWN";
    if(data && length)
-   {  if(STRNIEQUAL(deftype,"TEXT/",5))
+   {  /* Handle XML-based formats (RSS, Atom, generic XML) */
+      if(STRNIEQUAL(deftype,"APPLICATION/RSS",15) ||
+         STRNIEQUAL(deftype,"APPLICATION/ATOM",16) ||
+         STRNIEQUAL(deftype,"APPLICATION/XML",15) ||
+         STRNIEQUAL(deftype,"TEXT/XML",8))
+      {  /* XML formats should be treated as text - verify content is XML-like */
+         p=data;
+         end=data+length;
+         while(p<end && !*p) p++;
+         while(p<end-3 && isspace(*p)) p++;
+         if(p<=end-5 && STRNIEQUAL(p,"<?xml",5))
+         {  /* XML declaration found - keep original type or detect RSS/Atom */
+            UBYTE *q;
+            q=p+5;
+            while(q<end && *q!='>' && *q!='\n' && *q!='\r') q++;
+            while(q<end && (*q==' ' || *q=='\t' || *q=='\n' || *q=='\r' || *q=='>')) q++;
+            if(q<=end-4 && STRNIEQUAL(q,"<rss",4))
+            {  type="APPLICATION/RSS+XML";
+            }
+            else if(q<=end-5 && STRNIEQUAL(q,"<feed",5))
+            {  type="APPLICATION/ATOM+XML";
+            }
+            else if(STRNIEQUAL(deftype,"APPLICATION/RSS",15))
+            {  type="APPLICATION/RSS+XML";
+            }
+            else if(STRNIEQUAL(deftype,"APPLICATION/ATOM",16))
+            {  type="APPLICATION/ATOM+XML";
+            }
+            else
+            {  type="TEXT/XML";
+            }
+         }
+         else if(p<=end-4 && STRNIEQUAL(p,"<rss",4))
+         {  /* RSS without XML declaration */
+            type="APPLICATION/RSS+XML";
+         }
+         else if(p<=end-5 && STRNIEQUAL(p,"<feed",5))
+         {  /* Atom without XML declaration */
+            type="APPLICATION/ATOM+XML";
+         }
+         else if(Checkmimetype(data,length,"TEXT/PLAIN"))
+         {  /* Valid text content - keep as XML type */
+            if(STRNIEQUAL(deftype,"APPLICATION/RSS",15))
+            {  type="APPLICATION/RSS+XML";
+            }
+            else if(STRNIEQUAL(deftype,"APPLICATION/ATOM",16))
+            {  type="APPLICATION/ATOM+XML";
+            }
+            else
+            {  type="TEXT/XML";
+            }
+         }
+         else
+         {  /* Not valid text - fall back to octet-stream */
+            type="APPLICATION/OCTET-STREAM";
+         }
+      }
+      else if(STRNIEQUAL(deftype,"TEXT/",5))
       {  p=data;
          end=data+length;
          while(p<end && !*p) p++;
@@ -204,11 +267,115 @@ UBYTE *Mimetypefromdata(UBYTE *data,long length,UBYTE *deftype)
             {  type="TEXT/HTML";
             }
          }
+         else if(p<=end-5 && STRNIEQUAL(p,"<?xml",5))
+         {  /* XML declaration found - check for RSS or Atom */
+            UBYTE *q;
+            q=p+5;
+            while(q<end && *q!='>' && *q!='\n' && *q!='\r') q++;
+            /* Look for RSS or Atom root element after XML declaration */
+            while(q<end && (*q==' ' || *q=='\t' || *q=='\n' || *q=='\r' || *q=='>')) q++;
+            if(q<=end-4 && STRNIEQUAL(q,"<rss",4))
+            {  type="APPLICATION/RSS+XML";
+            }
+            else if(q<=end-5 && STRNIEQUAL(q,"<feed",5))
+            {  type="APPLICATION/ATOM+XML";
+            }
+            else
+            {  /* Generic XML - treat as plain text */
+               type="TEXT/XML";
+            }
+         }
          else if(Checkmimetype(data,length,"TEXT/PLAIN"))
          {  type="TEXT/PLAIN";
          }
          else
          {  type="APPLICATION/OCTET-STREAM";
+         }
+      }
+      else if(!deftype || STRIEQUAL(deftype,"APPLICATION/OCTET-STREAM") 
+               || STRIEQUAL(deftype,"X-UNKNOWN/X-UNKNOWN"))
+      {  /* Try to detect content type from data when default is unknown/octet-stream */
+         p=data;
+         end=data+length;
+         /* Check for images first (binary signatures) */
+         if(length >= 2)
+         {  static UBYTE gif87asig[]={ 'G','I','F','8','7','a' };
+            static UBYTE gif89asig[]={ 'G','I','F','8','9','a' };
+            static UBYTE pngsig[]={ 0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a };
+            static UBYTE jpegsig[]={ 0xff,0xd8 };
+            BOOL found_image=FALSE;
+            long i;
+            if(length >= sizeof(gif87asig) 
+               && (!memcmp(data,gif87asig,sizeof(gif87asig)) 
+                   || !memcmp(data,gif89asig,sizeof(gif89asig))))
+            {  type="IMAGE/GIF";
+               found_image=TRUE;
+            }
+            else if(length >= sizeof(jpegsig) && !memcmp(data,jpegsig,sizeof(jpegsig)))
+            {  type="IMAGE/JPEG";
+               found_image=TRUE;
+            }
+            else if(length >= sizeof(pngsig) && !memcmp(data,pngsig,sizeof(pngsig)))
+            {  type="IMAGE/PNG";
+               found_image=TRUE;
+            }
+            else
+            {  /* Scan for JPEG markers (ff d8, ff e0-ff ef are JPEG APP markers) */
+               for(i=0;i<length-1 && i<1024;i++)
+               {  if(data[i]==0xff && (data[i+1]==0xd8 || (data[i+1]>=0xe0 && data[i+1]<=0xef)))
+                  {  type="IMAGE/JPEG";
+                     found_image=TRUE;
+                     break;
+                  }
+               }
+            }
+            if(!found_image)
+            {  /* Check for text/HTML/XML content */
+               while(p<end && !*p) p++;
+               while(p<end-3 && isspace(*p)) p++;
+               if(p<=end-4 && STRNIEQUAL(p,"<!--",4))
+               {  type="TEXT/HTML";
+               }
+               else if(p<=end-6 && STRNIEQUAL(p,"<HTML>",6))
+               {  type="TEXT/HTML";
+               }
+               else if(p<=end-10 && STRNIEQUAL(p,"<!DOCTYPE",9) && isspace(p[9]))
+               {  p+=10;
+                  while(p<end && isspace(*p)) p++;
+                  if(p<=end-5 && STRNIEQUAL(p,"HTML ",5))
+                  {  type="TEXT/HTML";
+                  }
+               }
+               else if(p<=end-5 && STRNIEQUAL(p,"<?xml",5))
+               {  /* XML declaration found - check for RSS or Atom */
+                  UBYTE *q;
+                  q=p+5;
+                  while(q<end && *q!='>' && *q!='\n' && *q!='\r') q++;
+                  /* Look for RSS or Atom root element after XML declaration */
+                  while(q<end && (*q==' ' || *q=='\t' || *q=='\n' || *q=='\r' || *q=='>')) q++;
+                  if(q<=end-4 && STRNIEQUAL(q,"<rss",4))
+                  {  type="APPLICATION/RSS+XML";
+                  }
+                  else if(q<=end-5 && STRNIEQUAL(q,"<feed",5))
+                  {  type="APPLICATION/ATOM+XML";
+                  }
+                  else
+                  {  /* Generic XML - treat as plain text */
+                     type="TEXT/XML";
+                  }
+               }
+               else if(p<=end-4 && STRNIEQUAL(p,"<rss",4))
+               {  /* RSS without XML declaration */
+                  type="APPLICATION/RSS+XML";
+               }
+               else if(p<=end-5 && STRNIEQUAL(p,"<feed",5))
+               {  /* Atom without XML declaration */
+                  type="APPLICATION/ATOM+XML";
+               }
+               else if(Checkmimetype(data,length,"TEXT/PLAIN"))
+               {  type="TEXT/PLAIN";
+               }
+            }
          }
       }
    }
