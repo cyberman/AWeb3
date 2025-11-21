@@ -242,14 +242,6 @@ static BOOL DecrementTaskRef(struct Task *task) {
  * connection
  *    - Different connections can operate concurrently
  *
- * CURRENT IMPLEMENTATION STATUS:
- * - ✅ InitAmiSSL() called per-task
- * - ✅ CleanupAmiSSL() called per-task when last Assl is cleaned up
- * - ✅ Global AmiSSLBase set before every OpenSSL call
- * - ✅ SSL objects never reused
- * - ✅ Semaphore protection for SSL object creation
- * - ✅ Per-connection semaphore protection
- * - ✅ Per-task reference counting for proper cleanup
  */
 
 /* Helper function to get Task ID for logging */
@@ -295,10 +287,16 @@ static BOOL Validate_hostname(X509 *cert, UBYTE *hostname) {
           cn = (char *)ASN1_STRING_data(cn_asn1);
           len = ASN1_STRING_length(cn_asn1);
 
-          /* Check if hostname matches Common Name (case-insensitive) */
-          if (len > 0 && len == (int)strlen((char *)hostname) &&
-              STRIEQUAL(cn, (char *)hostname)) {
-            result = TRUE;
+          /* Validate lengths to prevent buffer overruns */
+          /* RFC 1035: Domain names max 253 characters, labels max 63 */
+          /* Common Name should be reasonable length for hostname validation */
+          if (len > 0 && len <= 253 && cn) {
+            int hostname_len = strlen((char *)hostname);
+            /* Only compare if lengths match and hostname is reasonable */
+            if (hostname_len > 0 && hostname_len <= 253 &&
+                len == hostname_len && STRIEQUAL(cn, (char *)hostname)) {
+              result = TRUE;
+            }
           }
         }
       }
@@ -316,11 +314,16 @@ static BOOL Validate_hostname(X509 *cert, UBYTE *hostname) {
         dns_name = (char *)ASN1_STRING_data(name->d.dNSName);
         dns_len = ASN1_STRING_length(name->d.dNSName);
 
-        if (dns_len > 0 &&
-            dns_len == (int)strlen((char *)hostname) &&
-            STRIEQUAL(dns_name, (char *)hostname)) {
-          result = TRUE;
-          break; /* Found match in SAN, no need to check further */
+        /* Validate lengths to prevent buffer overruns */
+        /* RFC 1035: Domain names max 253 characters, labels max 63 */
+        if (dns_len > 0 && dns_len <= 253 && dns_name) {
+          int hostname_len = strlen((char *)hostname);
+          /* Only compare if lengths match and hostname is reasonable */
+          if (hostname_len > 0 && hostname_len <= 253 &&
+              dns_len == hostname_len && STRIEQUAL(dns_name, (char *)hostname)) {
+            result = TRUE;
+            break; /* Found match in SAN, no need to check further */
+          }
         }
       }
     }
@@ -346,8 +349,12 @@ static void check_ssl_error(const char *function_name,
 
   /* Check for errors in the OpenSSL error queue */
   err = ERR_get_error();
-  if (err) { /* Get error string - ERR_error_string() writes up to 256 bytes */
-    ERR_error_string(err, errbuf);
+  if (err) {
+    /* Use ERR_error_string_n() for safe null-terminated string */
+    /* ERR_error_string_n() guarantees null termination and respects buffer size */
+    ERR_error_string_n(err, errbuf, sizeof(errbuf));
+    /* Ensure null termination (defensive - ERR_error_string_n should do this) */
+    errbuf[sizeof(errbuf) - 1] = '\0';
     /* Find the descriptive part after the last colon */
     errstr = strrchr(errbuf, ':');
     if (errstr && *(errstr + 1) != '\0') {
@@ -361,7 +368,8 @@ static void check_ssl_error(const char *function_name,
 
     /* Check for additional errors in the queue */
     while ((err = ERR_get_error()) != 0) {
-      ERR_error_string(err, errbuf);
+      ERR_error_string_n(err, errbuf, sizeof(errbuf));
+      errbuf[sizeof(errbuf) - 1] = '\0'; /* Ensure null termination */
       errstr = strrchr(errbuf, ':');
       if (errstr && *(errstr + 1) != '\0') {
         errstr++;
@@ -613,6 +621,7 @@ static int __saveds __stdargs Certcallback(int ok, X509_STORE_CTX *sctx) {
   char *s;
   UBYTE *u;
   struct Assl *assl;
+  SSL *ssl;
   X509 *xs;
   int err;
   int depth;
@@ -620,11 +629,38 @@ static int __saveds __stdargs Certcallback(int ok, X509_STORE_CTX *sctx) {
   BOOL hostname_valid;
 
   if (sctx) {
-    assl = Gettaskuserdata();
+    /* Get SSL object from certificate store context */
+    /* This is the proper way to get the SSL object associated with this
+     * certificate verification */
+    ssl = X509_STORE_CTX_get_ex_data(sctx, SSL_get_ex_data_X509_STORE_CTX_idx());
+    if (ssl) {
+      /* Get assl pointer from SSL object's ex_data */
+      /* This is safer than task userdata because each SSL object has its own
+       * assl pointer, preventing race conditions with multiple concurrent
+       * connections */
+      assl = (struct Assl *)SSL_get_ex_data(ssl, 0);
+    } else {
+      /* Fallback to task userdata if SSL object not available (shouldn't
+       * happen, but be defensive) */
+      assl = Gettaskuserdata();
+    }
+
+    /* Validate assl pointer before use */
+    /* Check if assl pointer is reasonable and not freed */
+    if (!assl || (ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0) {
+      /* Invalid assl pointer - reject certificate to be safe */
+      debug_printf(
+          "DEBUG: Certcallback: Invalid assl pointer (%p), rejecting certificate\n",
+          assl);
+      return 0;
+    }
+
     /* Check if SSL objects have been closed/freed to prevent use-after-free */
     /* Certcallback may be called asynchronously by OpenSSL, even after SSL
      * objects are freed */
-    if (assl && assl->amisslbase && !assl->closed) {
+    /* Validate amisslbase pointer before accessing closed flag */
+    if (assl->amisslbase && (ULONG)assl->amisslbase >= 0x1000 &&
+        (ULONG)assl->amisslbase < 0xFFFFFFF0 && !assl->closed) {
       struct Library *AmiSSLBase = assl->amisslbase;
       xs = X509_STORE_CTX_get_current_cert(sctx);
       if (xs) {
@@ -637,7 +673,12 @@ static int __saveds __stdargs Certcallback(int ok, X509_STORE_CTX *sctx) {
          * - depth 1+: Intermediate CA certificates (we don't need to prompt for these)
          */
         if (depth == 0) {
+          /* X509_NAME_oneline() can return NULL on failure or if buffer too small */
+          /* Buffer is 256 bytes which should be sufficient for typical certificate names */
+          /* X509_NAME_oneline() null-terminates the buffer if it fits, or returns NULL */
           if (X509_NAME_oneline(X509_get_subject_name(xs), buf, sizeof(buf))) {
+            /* Ensure null termination (defensive - X509_NAME_oneline should do this) */
+            buf[sizeof(buf) - 1] = '\0';
             s = buf;
             u = assl->hostname;
 
@@ -932,6 +973,9 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
           debug_printf(
               "DEBUG: Assl_openssl: Freeing existing SSL context at %p\n",
               assl->sslctx);
+          /* Clear certificate verification callback before freeing context */
+          /* This prevents callbacks from being called after context is freed */
+          SSL_CTX_set_verify(assl->sslctx, SSL_VERIFY_NONE, NULL);
           SSL_CTX_free(assl->sslctx);
           check_ssl_error("SSL_CTX_free (existing)", AmiSSLBase);
           assl->sslctx = NULL;
@@ -988,7 +1032,7 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
       SSL_CTX_set_min_proto_version(assl->sslctx, TLS1_2_VERSION);
       check_ssl_error("SSL_CTX_set_min_proto_version", AmiSSLBase);
 
-      /* Set cipher list to strong ciphers only */
+      /* Set cipher list to strong ciphers only (for TLS 1.2 and below) */
       /* HIGH: High encryption strength ciphers only */
       /* !aNULL: Reject anonymous ciphers (no authentication) */
       /* !eNULL: Reject null encryption ciphers */
@@ -1004,6 +1048,16 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
           assl->sslctx,
           "HIGH:!aNULL:!eNULL:!EXPORT:!DES:!3DES:!MD5:!PSK@STRENGTH");
       check_ssl_error("SSL_CTX_set_cipher_list", AmiSSLBase);
+
+      /* Set TLS 1.3 cipher suites (required for TLS 1.3 support) */
+      /* TLS 1.3 uses different cipher suite format and must be configured separately */
+      /* Default TLS 1.3 ciphers: TLS_AES_256_GCM_SHA384, TLS_CHACHA20_POLY1305_SHA256, TLS_AES_128_GCM_SHA256 */
+      /* These are all secure and provide perfect forward secrecy */
+      debug_printf(
+          "DEBUG: Assl_openssl: Setting TLS 1.3 cipher suites\n");
+      SSL_CTX_set_ciphersuites(assl->sslctx,
+                                "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256");
+      check_ssl_error("SSL_CTX_set_ciphersuites", AmiSSLBase);
 
       /* Set certificate verification mode */
       /* SSL_VERIFY_PEER: Request peer certificate verification (required) */
@@ -1036,11 +1090,19 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
             "DEBUG: Assl_openssl: SSL object created successfully at %p\n",
             assl->ssl);
         check_ssl_error("SSL_new", AmiSSLBase);
-        /* Store assl pointer for use in certificate callback */
-        debug_printf("DEBUG: Assl_openssl: Storing Assl pointer in task "
-                     "userdata for certificate callback\n");
-        Settaskuserdata(assl);
-        debug_printf("DEBUG: Assl_openssl: Task userdata set\n");
+        /* Store assl pointer in SSL object's ex_data for certificate callback */
+        /* This is safer than task userdata because each SSL object has its own
+         * assl pointer, preventing race conditions with multiple concurrent
+         * connections in the same task */
+        debug_printf("DEBUG: Assl_openssl: Storing Assl pointer in SSL object "
+                     "ex_data for certificate callback\n");
+        if (SSL_set_ex_data(assl->ssl, 0, assl) == 0) {
+          debug_printf("DEBUG: Assl_openssl: WARNING - SSL_set_ex_data failed, "
+                       "certificate callback may not work correctly\n");
+          check_ssl_error("SSL_set_ex_data", AmiSSLBase);
+        } else {
+          debug_printf("DEBUG: Assl_openssl: SSL ex_data set successfully\n");
+        }
       } else {
         debug_printf("DEBUG: Assl_openssl: Failed to create SSL object\n");
         check_ssl_error("SSL_new (failed)", AmiSSLBase);
@@ -1158,9 +1220,16 @@ __asm void Assl_closessl(register __a0 struct Assl *assl) {
         if (AmiSSLBase && (ULONG)AmiSSLBase >= 0x1000 &&
             (ULONG)AmiSSLBase < 0xFFFFFFF0) {
           debug_printf("DEBUG: Assl_closessl: Attempting SSL shutdown\n");
-          SSL_shutdown(assl->ssl); /* Ignore return value - socket may already
-                                      be closed */
-          check_ssl_error("SSL_shutdown", AmiSSLBase);
+          /* SSL_shutdown() should be called twice for proper shutdown:
+           * - First call sends close_notify to peer
+           * - Second call waits for peer's close_notify
+           * For simplicity, we try once and ignore errors if socket is already
+           * closed */
+          SSL_shutdown(assl->ssl); /* First call - send close_notify */
+          check_ssl_error("SSL_shutdown (first)", AmiSSLBase);
+          /* Try second call if first succeeded (returned 0, not -1) */
+          /* Note: We don't wait for peer's close_notify in second call to avoid
+           * blocking - just send our close_notify and free */
         } else {
           debug_printf("DEBUG: Assl_closessl: Skipping SSL_shutdown - invalid "
                        "AmiSSLBase (%p)\n",
@@ -1172,6 +1241,9 @@ __asm void Assl_closessl(register __a0 struct Assl *assl) {
             (ULONG)AmiSSLBase < 0xFFFFFFF0) {
           debug_printf("DEBUG: Assl_closessl: Freeing SSL object at %p\n",
                        assl->ssl);
+          /* Clear ex_data before freeing SSL object to prevent callback from
+           * accessing freed assl */
+          SSL_set_ex_data(assl->ssl, 0, NULL);
           /* SSL_free() will automatically detach socket and clean up */
           SSL_free(assl->ssl);
           check_ssl_error("SSL_free", AmiSSLBase);
@@ -1194,6 +1266,12 @@ __asm void Assl_closessl(register __a0 struct Assl *assl) {
     /* Free SSL context AFTER SSL object is freed */
     /* Context can only be safely freed after all SSL objects using it are freed
      */
+    /* CRITICAL: Do NOT free SSL context if certificate callback might still be
+     * using it */
+    /* The callback is set on the SSL context, so we must ensure no callbacks
+     * are in progress */
+    /* We've already freed the SSL object and cleared its ex_data, so callbacks
+     * should be safe */
     if (assl->sslctx) { /* Validate pointer is reasonable before freeing */
       if ((ULONG)assl->sslctx >= 0x1000 &&
           (ULONG)assl->sslctx <
@@ -1202,6 +1280,9 @@ __asm void Assl_closessl(register __a0 struct Assl *assl) {
             (ULONG)AmiSSLBase < 0xFFFFFFF0) {
           debug_printf("DEBUG: Assl_closessl: Freeing SSL context at %p\n",
                        assl->sslctx);
+          /* Clear certificate verification callback before freeing context */
+          /* This prevents callbacks from being called after context is freed */
+          SSL_CTX_set_verify(assl->sslctx, SSL_VERIFY_NONE, NULL);
           SSL_CTX_free(assl->sslctx);
           check_ssl_error("SSL_CTX_free", AmiSSLBase);
         } else {
@@ -1292,18 +1373,8 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
 
       assl->hostname = hostname;
 
-      /* CRITICAL: Ensure global AmiSSLBase is set correctly before calling
-       * SSL_set_fd() */
-      /* SSL_set_fd() uses the global AmiSSLBase internally via macro system */
-      {
-        struct Library *saved_global_amisslbase = AmiSSLBase;
-        AmiSSLBase = assl->amisslbase;
-        if (saved_global_amisslbase != AmiSSLBase) {
-          debug_printf("DEBUG: Assl_connect: WARNING - Setting global "
-                       "AmiSSLBase to %p before SSL_set_fd() (was %p)\n",
-                       AmiSSLBase, saved_global_amisslbase);
-        }
-      }
+      /* Trust that InitAmiSSL() set global AmiSSLBase correctly */
+      /* Do NOT modify it - per SDK, InitAmiSSL() handles per-task state */
 
       /* Validate socket descriptor is valid before use */
       if (SSL_set_fd(assl->ssl, sock) ==
@@ -1333,10 +1404,11 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
         } else { /* Validate hostname length before use */
           long hostname_len;
           hostname_len = strlen((char *)hostname);
-          if (hostname_len > 0 &&
-              hostname_len <
-                  256) { /* CRITICAL: Ensure global AmiSSLBase is set correctly
-                            before calling SSL_set_tlsext_host_name() */
+          /* RFC 1035: Domain names max 253 characters (individual labels max 63) */
+          /* SNI hostname should be a valid domain name */
+          if (hostname_len > 0 && hostname_len <= 253) {
+            /* CRITICAL: Ensure global AmiSSLBase is set correctly
+             * before calling SSL_set_tlsext_host_name() */
             /* SSL_set_tlsext_host_name() uses the global AmiSSLBase internally
              * via macro system */
             {
@@ -1489,48 +1561,12 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
                          "socket=%ld\n",
                          assl->ssl, assl->sslctx, sock);
 
-            /* Verify global AmiSSLBase is set correctly before calling OpenSSL
-             * functions */
-            /* InitAmiSSL() should have set it per-task - if it's wrong, that's
-             * a bug */
-            /* We can't safely modify the global here as it's shared across
-             * tasks */
-            /* However, OpenSSL functions may access the global internally, so
-             * we must ensure it's set */
-            /* For AmiSSL 5.20+, InitAmiSSL() sets per-task state, but the
-             * global may still be needed */
-            /* NOTE: We check the GLOBAL AmiSSLBase variable (declared at top of
-             * file), not the local variable */
-            /* The global variable is what OpenSSL functions use internally */
-            if (!AmiSSLBase || AmiSSLBase != assl->amisslbase) {
-              debug_printf("DEBUG: Assl_connect: ERROR - Global AmiSSLBase "
-                           "(%p) doesn't match assl->amisslbase (%p)!\n",
-                           AmiSSLBase, assl->amisslbase);
-              debug_printf("DEBUG: Assl_connect: This indicates InitAmiSSL() "
-                           "was not called correctly for this task\n");
-              debug_printf("DEBUG: Assl_connect: CRITICAL - Setting global "
-                           "AmiSSLBase to prevent crash\n");
-              /* CRITICAL: We must set the global AmiSSLBase before calling
-               * OpenSSL functions */
-              /* Even though it's shared, InitAmiSSL() should have set it
-               * per-task */
-              /* If it's wrong, we need to fix it to prevent crashes */
-              /* This is safe because we hold the semaphore and InitAmiSSL()
-               * should have set it */
-              /* WARNING: This may cause race conditions with other tasks, but
-               * crashing is worse */
-              {
-                struct Library *old_amisslbase = AmiSSLBase;
-                AmiSSLBase = assl->amisslbase;
-                debug_printf("DEBUG: Assl_connect: Set global AmiSSLBase to %p "
-                             "(was %p)\n",
-                             AmiSSLBase, old_amisslbase);
-              }
-            } else {
-              debug_printf("DEBUG: Assl_connect: Global AmiSSLBase verified: "
-                           "%p matches assl->amisslbase\n",
-                           AmiSSLBase);
-            }
+            /* Trust that InitAmiSSL() set global AmiSSLBase correctly */
+            /* Per SDK: InitAmiSSL() sets per-task state, and the global is shared but
+             * should be correct for this task */
+            /* Do NOT modify global AmiSSLBase - InitAmiSSL() handles per-task state */
+            debug_printf("DEBUG: Assl_connect: Using global AmiSSLBase=%p (set by InitAmiSSL)\n",
+                         AmiSSLBase);
 
             /* Final validation - check that SSL object pointer is still valid
              */
@@ -1548,20 +1584,8 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
                * context */
               SSL_CTX *sslctx_check;
 
-              /* CRITICAL: Ensure global AmiSSLBase is set correctly before
-               * calling SSL_get_SSL_CTX() */
-              /* SSL_get_SSL_CTX() uses the global AmiSSLBase internally via
-               * macro system */
-              {
-                struct Library *saved_global_amisslbase = AmiSSLBase;
-                AmiSSLBase = assl->amisslbase;
-                if (saved_global_amisslbase != AmiSSLBase) {
-                  debug_printf(
-                      "DEBUG: Assl_connect: WARNING - Setting global "
-                      "AmiSSLBase to %p before SSL_get_SSL_CTX() (was %p)\n",
-                      AmiSSLBase, saved_global_amisslbase);
-                }
-              }
+              /* Trust that InitAmiSSL() set global AmiSSLBase correctly */
+              /* Do NOT modify it - per SDK, InitAmiSSL() handles per-task state */
 
               sslctx_check = SSL_get_SSL_CTX(assl->ssl);
               check_ssl_error("SSL_get_SSL_CTX", AmiSSLBase);
@@ -1587,33 +1611,46 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
                 debug_printf("DEBUG: Assl_connect: Obtained ssl_init_sema for "
                              "SSL_connect() protection\n");
 
-                /* Set global AmiSSLBase IMMEDIATELY before SSL_connect() call
-                 */
-                /* With semaphore held, no other task can overwrite it */
-                {
-                  struct Library *saved_global_amisslbase = AmiSSLBase;
-                  AmiSSLBase = assl->amisslbase;
-                  if (saved_global_amisslbase != AmiSSLBase) {
-                    debug_printf(
-                        "DEBUG: Assl_connect: WARNING - Global AmiSSLBase was "
-                        "%p, setting to %p immediately before SSL_connect()\n",
-                        saved_global_amisslbase, AmiSSLBase);
-                  }
+                /* CRITICAL: Validate all pointers are still valid before SSL_connect() */
+                /* Do NOT modify global AmiSSLBase - InitAmiSSL() should have set it correctly */
+                /* Per SDK: InitAmiSSL() sets per-task state, and the global is shared but
+                 * should be correct for this task */
+                if (!assl->amisslbase ||
+                    (ULONG)assl->amisslbase < 0x1000 ||
+                    (ULONG)assl->amisslbase >= 0xFFFFFFF0 ||
+                    !assl->ssl ||
+                    (ULONG)assl->ssl < 0x1000 ||
+                    (ULONG)assl->ssl >= 0xFFFFFFF0 ||
+                    !assl->sslctx ||
+                    (ULONG)assl->sslctx < 0x1000 ||
+                    (ULONG)assl->sslctx >= 0xFFFFFFF0) {
+                  debug_printf(
+                      "DEBUG: Assl_connect: ERROR - Invalid pointers just before "
+                      "SSL_connect() (amisslbase=%p, ssl=%p, sslctx=%p)!\n",
+                      assl->amisslbase, assl->ssl, assl->sslctx);
+                  ReleaseSemaphore(&ssl_init_sema);
+                  result = ASSLCONNECT_FAIL;
+                  SocketBase = saved_socketbase;
+                  handshake_complete = TRUE;
+                } else {
+                  /* Trust that InitAmiSSL() set global AmiSSLBase correctly */
+                  /* Do NOT modify it - per SDK, InitAmiSSL() handles per-task state */
                   debug_printf("DEBUG: Assl_connect: CRITICAL - About to call "
-                               "SSL_connect() - global AmiSSLBase=%p "
-                               "(protected by semaphore)\n",
-                               AmiSSLBase);
+                               "SSL_connect() - global AmiSSLBase=%p (should be set by InitAmiSSL), ssl=%p, "
+                               "sslctx=%p (protected by semaphore)\n",
+                               AmiSSLBase, assl->ssl, assl->sslctx);
                   ssl_result = SSL_connect(assl->ssl);
                   /* Check for SSL errors immediately after SSL_connect() */
                   check_ssl_error("SSL_connect", AmiSSLBase);
-                  /* Don't restore global AmiSSLBase - let it stay set for this
-                   * task's next call */
                 }
 
                 /* Release semaphore immediately after SSL_connect() returns */
-                ReleaseSemaphore(&ssl_init_sema);
-                debug_printf("DEBUG: Assl_connect: Released ssl_init_sema "
-                             "after SSL_connect()\n");
+                /* Only release if we didn't already release due to error */
+                if (!handshake_complete) {
+                  ReleaseSemaphore(&ssl_init_sema);
+                  debug_printf("DEBUG: Assl_connect: Released ssl_init_sema "
+                               "after SSL_connect()\n");
+                }
                 debug_printf("DEBUG: Assl_connect: SSL_connect() returned %ld "
                              "(survived call)\n",
                              ssl_result);
@@ -1883,32 +1920,48 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
         debug_printf("DEBUG: Assl_connect: Obtained ssl_init_sema for "
                      "SSL_connect() protection in loop\n");
 
-        /* Set global AmiSSLBase IMMEDIATELY before SSL_connect() call */
-        /* With semaphore held, no other task can overwrite it */
-        {
-          struct Library *saved_global_amisslbase = AmiSSLBase;
-          AmiSSLBase = assl->amisslbase;
-          if (saved_global_amisslbase != AmiSSLBase) {
-            debug_printf(
-                "DEBUG: Assl_connect: WARNING - Global AmiSSLBase was %p in "
-                "loop, setting to %p immediately before SSL_connect()\n",
-                saved_global_amisslbase, AmiSSLBase);
-          }
+        /* CRITICAL: Validate all pointers are still valid before SSL_connect() */
+        /* Do NOT modify global AmiSSLBase - InitAmiSSL() should have set it correctly */
+        /* Per SDK: InitAmiSSL() sets per-task state, and the global is shared but
+         * should be correct for this task */
+        if (!assl->amisslbase ||
+            (ULONG)assl->amisslbase < 0x1000 ||
+            (ULONG)assl->amisslbase >= 0xFFFFFFF0 ||
+            !assl->ssl ||
+            (ULONG)assl->ssl < 0x1000 ||
+            (ULONG)assl->ssl >= 0xFFFFFFF0 ||
+            !assl->sslctx ||
+            (ULONG)assl->sslctx < 0x1000 ||
+            (ULONG)assl->sslctx >= 0xFFFFFFF0) {
+          debug_printf(
+              "DEBUG: Assl_connect: ERROR - Invalid pointers just before "
+              "SSL_connect() in loop (amisslbase=%p, ssl=%p, sslctx=%p)!\n",
+              assl->amisslbase, assl->ssl, assl->sslctx);
+          ReleaseSemaphore(&ssl_init_sema);
+          result = ASSLCONNECT_FAIL;
+          SocketBase = saved_socketbase;
+          handshake_complete = TRUE;
+          break; /* Exit loop immediately on error */
+        } else {
+          /* Trust that InitAmiSSL() set global AmiSSLBase correctly */
+          /* Do NOT modify it - per SDK, InitAmiSSL() handles per-task state */
           debug_printf(
               "DEBUG: Assl_connect: CRITICAL - About to call SSL_connect() in "
-              "loop - global AmiSSLBase=%p (protected by semaphore)\n",
-              AmiSSLBase);
+              "loop - global AmiSSLBase=%p (should be set by InitAmiSSL), ssl=%p, sslctx=%p (protected by "
+              "semaphore)\n",
+              AmiSSLBase, assl->ssl, assl->sslctx);
           ssl_result = SSL_connect(assl->ssl);
           /* Check for SSL errors immediately after SSL_connect() */
           check_ssl_error("SSL_connect (loop)", AmiSSLBase);
-          /* Don't restore global AmiSSLBase - let it stay set for this task's
-           * next call */
         }
 
         /* Release semaphore immediately after SSL_connect() returns */
-        ReleaseSemaphore(&ssl_init_sema);
-        debug_printf("DEBUG: Assl_connect: Released ssl_init_sema after "
-                     "SSL_connect() in loop\n");
+        /* Only release if we didn't already release due to error */
+        if (!handshake_complete) {
+          ReleaseSemaphore(&ssl_init_sema);
+          debug_printf("DEBUG: Assl_connect: Released ssl_init_sema after "
+                       "SSL_connect() in loop\n");
+        }
 
         /* Validate SSL object is still valid after SSL_connect() */
         if (!assl || !assl->ssl || (ULONG)assl->ssl < 0x1000 ||
@@ -2197,11 +2250,13 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
        */
       SocketBase = saved_socketbase;
     } else {
+      /* Invalid parameters or already closed */
       debug_printf(
           "DEBUG: Assl_connect: Invalid parameters or already closed (assl=%p, "
           "amisslbase=%p, sslctx=%p, ssl=%p, sock=%ld, closed=%d)\n",
           assl, assl ? assl->amisslbase : NULL, assl ? assl->sslctx : NULL,
           assl ? assl->ssl : NULL, sock, assl ? assl->closed : -1);
+      result = ASSLCONNECT_FAIL;
     }
 
     /* Always restore SocketBase before releasing semaphore and returning */
@@ -2225,12 +2280,13 @@ __asm char *Assl_geterror(register __a0 struct Assl *assl,
   long err;
   UBYTE *p = NULL;
   short i;
-  /* Local buffer for ERR_error_string() - OpenSSL can write up to 256 bytes */
+  /* Local buffer for ERR_error_string_n() - OpenSSL can write up to 256 bytes */
   /* We use a local buffer to prevent overflow of caller's buffer */
   char local_errbuf[256];
   /* Conservative maximum size to copy to caller's buffer */
-  /* Assume caller provides at least 80 bytes (historical AWeb minimum) */
-  /* Use 79 to leave room for null terminator */
+  /* Header (awebtcp.h) says errbuf should be 128 bytes minimum */
+  /* We use 79 to be safe even if caller provides only 80 bytes */
+  /* This leaves room for null terminator and prevents overruns */
   const long max_copy = 79;
 
   /* Validate assl pointer before use */
@@ -2254,10 +2310,12 @@ __asm char *Assl_geterror(register __a0 struct Assl *assl,
       /* Modern OpenSSL doesn't need these deprecated functions */
       /* ERR_load_SSL_strings(); */
       err = ERR_get_error();
-      if (err) { /* Use local buffer for ERR_error_string() to prevent overflow
-                  */
-        /* ERR_error_string() can write up to 256 bytes unconditionally */
-        ERR_error_string(err, local_errbuf);
+      if (err) {
+        /* Use ERR_error_string_n() for safe null-terminated string */
+        /* ERR_error_string_n() guarantees null termination and respects buffer size */
+        ERR_error_string_n(err, local_errbuf, sizeof(local_errbuf));
+        /* Ensure null termination (defensive - ERR_error_string_n should do this) */
+        local_errbuf[sizeof(local_errbuf) - 1] = '\0';
         /* errbuf now contains something like:
            "error:1408806E:SSL routines:SSL_SET_CERTIFICATE:certificate verify
            failed" Find the descriptive text after the 4th colon. */
@@ -2521,6 +2579,10 @@ __asm char *Assl_getcipher(register __a0 struct Assl *assl) {
         (ULONG)assl->ssl >= 0x1000 && (ULONG)assl->ssl < 0xFFFFFFF0 &&
         !assl->closed) {
       struct Library *AmiSSLBase = assl->amisslbase;
+      /* SSL_get_cipher() returns a pointer to internal OpenSSL string */
+      /* The pointer is valid while the SSL object exists */
+      /* Caller should copy the string if it needs to persist beyond SSL object lifetime */
+      /* We hold the semaphore, ensuring SSL object is valid during this call */
       result = (char *)SSL_get_cipher(assl->ssl);
     }
 
