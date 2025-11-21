@@ -258,7 +258,7 @@ UBYTE *Mimetypefromdata(UBYTE *data,long length,UBYTE *deftype)
          }
       }
       else if(STRNIEQUAL(deftype,"TEXT/",5))
-      {  /* Handle all text/* MIME types - most should be rendered as plain text */
+      {  /* Handle all text/ MIME types - most should be rendered as plain text */
          p=data;
          end=data+length;
          while(p<end && !*p) p++;
@@ -279,7 +279,7 @@ UBYTE *Mimetypefromdata(UBYTE *data,long length,UBYTE *deftype)
             {  type="TEXT/HTML";
             }
             else
-            {  /* Not HTML DOCTYPE - keep original text/* type */
+            {  /* Not HTML DOCTYPE - keep original text/ type */
                type=deftype;
             }
          }
@@ -297,22 +297,22 @@ UBYTE *Mimetypefromdata(UBYTE *data,long length,UBYTE *deftype)
             {  type="APPLICATION/ATOM+XML";
             }
             else
-            {  /* Generic XML - keep as TEXT/XML or original text/* type */
+            {  /* Generic XML - keep as TEXT/XML or original text/ type */
                if(STRNIEQUAL(deftype,"TEXT/XML",8))
                {  type="TEXT/XML";
                }
                else
-               {  type=deftype;  /* Keep original text/* type (e.g., text/sgml) */
+               {  type=deftype;  /* Keep original text/ type (e.g., text/sgml) */
                }
             }
          }
          else if(Checkmimetype(data,length,"TEXT/PLAIN"))
-         {  /* Valid text content - keep original text/* MIME type */
-            /* Common text/* types that should render as plain text:
+         {  /* Valid text content - keep original text/ MIME type */
+            /* Common text/ types that should render as plain text:
              * text/plain, text/css, text/javascript, text/csv, text/markdown,
              * text/richtext, text/enriched, text/sgml, text/tab-separated-values,
              * text/vnd.* (vendor-specific), etc. */
-            type=deftype;  /* Preserve the specific text/* subtype */
+            type=deftype;  /* Preserve the specific text/ subtype */
          }
          else
          {  /* Not valid text - fall back to octet-stream */
