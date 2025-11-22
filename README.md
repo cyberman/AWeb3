@@ -277,6 +277,17 @@ The main changes in version 3.6 compared to version 3.4 are:
 - Added support for some additional XML entities that have equivalents in Latin-1
 - Fixed a bug where utf-8 encoded characters would be interpreted as single byte characters
 
+**What's New in 3.6 Alpha 3:**
+- **about: Protocol Support:** Added about.aweblib plugin providing special internal URLs (about:home, about:blank, about:fonts, about:version)
+- **Markdown Rendering:** Markdown documents loaded from files or http(s) URLs are now rendered as HTML on the fly
+- **Enhanced SSL/TLS Security:** Fixed hostname verification according to RFC 6125, added TLS 1.3 support, fixed critical race conditions and memory safety issues
+- **Improved HTTP Handling:** Better error reporting, redirect loop protection, increased buffer size for modern headers, fixed large file transfer truncation issues
+- **User Interface Improvements:** Smarter window sizing, system contextual mouse pointers, improved quit behavior
+- **Additional XML Entities:** Added support for remaining Latin-1 XML entities
+- **MIME Type Handling:** Enhanced content-type detection and support for recognising RSS/Atom feeds (rendered as plain text)
+
+See [CHANGELOG.md](CHANGELOG.md) for complete details of all changes.
+
 ### AWeb 3.7
 
 The plan for the next release 3.7 is currently to:
@@ -319,6 +330,8 @@ In this context, finishing the job means both completing support for the final v
 
 The first release 3.6 is designed to be a stable rebuild of version 3.4 updated to build with the latest NDK and relevant third party SDKs such as AmiSSL 5 and RoadShow, still also using SAS/C like the original release. The most important changes from the various beta releases of 3.5 will also be cherry picked for inclusion where they don't break compatibility with classic Amiga.
 
+**AWeb 3.6 Alpha 3** has been released (2025-11-22), featuring enhanced SSL/TLS security, about: protocol support, Markdown rendering, and numerous bug fixes and improvements. See [CHANGELOG.md](CHANGELOG.md) for details.
+
 Later releases will then add new features missing from AWeb's standards support incrementally.
 
 The intention will be to eventually reach a version of AWeb that implements at least some of CSS including CSS2, HTML standards up to XHTML and XMLHttpRequest() in JavaScript, with a DOM, which should give AWeb compatibility up to the equivalent of about 2008 to 2010 era web content, though this may mean by the time the work is finished it is almost an entirely new web browser...
@@ -339,7 +352,7 @@ Ports of AWeb - version 3.5 - already exist, so at some point it should be possi
 
 The first priority however is to get a good, stable build of AWeb in the form Yvon left it in when he gave it to the community.
 
-The current AWeb 3.6 runs well on OS4 as a 68k binary at least in standalone mode, without it's plugins, which reportedly conflict with the way OS4 manages classic shared libraries.
+The current AWeb 3.6 Alpha 3 runs well on OS4 as a 68k binary at least in standalone mode, without it's plugins, which reportedly conflict with the way OS4 manages classic shared libraries. Note that there are some known OS4-specific issues documented in the release notes.
 
 ### Can I contribute to the new AWeb?
 

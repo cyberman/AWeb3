@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6alpha3] - 25-11-22
+
+### Added
+- **about: Protocol Support:** Added about.aweblib plugin providing special internal URLs:
+  - `about:home` - Default home page with search interface and quick links
+  - `about:blank` - Blank page for empty targets
+  - `about:fonts` - Comprehensive font test page
+  - `about:version` - Version information and open source credits
+- **Markdown Rendering:** Markdown documents loaded from files or http(s) URLs are now rendered as HTML on the fly
+- **XML Entity Support:** Added support for remaining Latin-1 XML entities:
+  - `&euro;` and `&trade;` - Euro and trademark symbols
+  - `&brkbar;` (166) - Alternate for `&brvbar;` (broken vertical bar)
+  - `&die;` (168) - Alternate for `&uml;` (spacing dieresis or umlaut)
+  - `&hibar;` (175) - Alternate for `&macr;` (spacing macron)
+  - `&half;` (189) - Alternate for `&frac12;` (fraction 1/2)
+- **MIME Type Handling:** Added default mimetypes for common plain text formats (RSS, Atom, Markdown) while still rendering them as plain text
+- **Basic RSS/Atom Support:** Added support for recognizing RSS and Atom MIME types and rendering them as plain text
+- **Enhanced Content-Type Detection:** Improved handling of files with incorrect Content-Type headers for common image formats and HTML files
+- **TLS 1.3 Support:** Added TLS 1.3 cipher suites support for modern servers
+- **HTTP Error Reporting:** Improved HTTP error reporting to distinguish timeout, network, and server errors with specific error types (ETIMEDOUT, ECONNRESET, ECONNREFUSED, ENETUNREACH, EHOSTUNREACH)
+- **Redirect Loop Protection:** Added redirect loop protection (max 10 redirects per chain)
+- **Command Line Option:** Added HAIKU as a valid alternative to VVIIV command line option (5-7-5 haiku easter egg)
+- **Default Bookmarks:** Added sensible default bookmarks to bookmarks bar
+
+### Changed
+- **Window Sizing:** On larger screen resolutions (above 640x512) new browser windows will default to a more sensible size rather than full screen
+- **Mouse Pointers:** AWeb now uses system provided contextual mouse pointers if intuition.library v47 or greater is available, instead of its own custom pointers, for links, text cursors, popup menus and resize handles
+- **Quit Requester:** Closing the last browser window from the close gadget will no longer prompt with an 'Are you sure you want to quit?' requester unless there are transfers still in progress
+- **HTTP Buffer Size:** Increased INPUTBLOCKSIZE from 8192 to 16384 bytes to accommodate long headers like content security policy common in 2025
+- **SSL Security:** Increased minimum accepted TLS version to 1.2 and reviewed SSL security code for adherence to best practice (verify peer certificates, no session resumption on renegotiation, removed weak ciphers)
+- **Default Config:** Added default custom config name (AWeb36a3) to the AWeb icon when launching from Workbench to avoid conflict with any preexisting AWeb settings
+
+### Fixed
+- **SSL/TLS Hostname Verification:** Fixed AmiSSL code to verify hostname matches certificate according to RFC 6125 standards (check site name matches CN or one of the SANs)
+- **Task Userdata Race Condition:** Fixed critical race condition by using SSL_set_ex_data() instead of Settaskuserdata() for per-connection context storage, preventing certificate callbacks from accessing wrong or freed pointers
+- **Certificate Callback Memory Safety:** Fixed certificate callback accessing freed memory by clearing ex_data and callback before freeing SSL objects/contexts
+- **Buffer Security:** Replaced ERR_error_string() with ERR_error_string_n() for safe buffer handling, preventing buffer overruns
+- **Hostname Validation:** Added RFC 1035-compliant length validation for hostnames and certificate names (max 253 chars) with explicit null termination for all string buffers
+- **SSL Context Cleanup:** Removed legacy code that modified AmiSSLBase and fixed semaphore release logic to prevent double-release
+- **Pointer Validation:** Added enhanced pointer validation before SSL_connect() to prevent crashes from invalid or corrupted SSL objects
+- **Content-Length Transfer Truncation:** Fixed Content-Length transfer truncation by removing restrictive loop limits
+- **Large File Transfers:** Fixed issue where large file transfers were truncated if more than 500 loops of chunked transfers were needed
+- **Gzip Decompression:** Fixed gzip decompression limits for large compressed files
+- **Chunked Encoding:** Fixed chunk position advancement bug when copying partial chunks due to buffer. When appending chunk continuation data to the gzip buffer, avail_in was incorrectly set to total buffer size instead of only the new unprocessed data. Improved tracking of gziplength to correctly position new data after any unprocessed data
+- **Chunked Encoding Error Handling:** Added chunked encoding error handling with validation and overflow protection
+- **Memory Cleanup:** Improved memory cleanup in all error paths
+- **AWeb: Assign:** Fixed case where if AWeb: did already exist before launch, it would be unset on exit. Now if AWeb: does not already exist, it will be created and cleaned up, but if it is pre-existing, it will be untouched
+- **HTTP Buffer Overflow:** Added bounds checking in Readblock() to clamp received bytes to available buffer space, preventing buffer overflow even if Receive() returns more data than expected. Added validation to ensure blocklength + n doesn't exceed blocksize
+
 ## [3.6alpha2] - 2025-11-16
 
 ### Changed

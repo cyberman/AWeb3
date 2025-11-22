@@ -49,12 +49,12 @@ The requirements for AWeb 3.6 remain the same as the original 3.4 release, howev
 <ul>
 <li>On larger screen resolutions (above 640x512) new browser windows will default to a more sensible size rather than full screen</li>
 <li>Closing the last browser window from the close gadget will no longer prompt with an 'Are you sure you want to quit?' requester unless there are transfers still in progress</li>
-<li>AWeb will now use system provided contextual mouse pointers if intuition.library v47 or greater is available, instead of its own custom pointers, for links, text cursors, popup menus and resize handles</li>
+<li>AWeb will now use system provided <b>contextual mouse pointers</b> if intuition.library v47 or greater is available, instead of its own custom pointers, for links, text cursors, popup menus and resize handles</li>
 <li>Implemented better content type detection for text formats and image formats from web servers that send unknown or octet-stream content type headers, which should reduce the likelihood of being forced to save a file the browser should be able to render</li>
 <li>HAIKU/S is now a valid alternative to the VVIIV/S (5-7-5.. get it?) command line option "easter egg"</li>
 <li>All remaining Latin-1 XML entities are now supported</li>
-<li>Markdown documents loaded both from files or http(s) URLs are rendered as HTML on the fly</li>
-<li>about: URL protocol now provides a <a href="about:home">default home page</a>, an <a href="about:blank">about:blank</a>, a <a href="about:fonts">fonts test page</a>, and a <a href="about:version">version information page</a></li>
+<li><b>Markdown</b> documents loaded both from files or http(s) URLs are rendered as HTML on the fly</li>
+<li><b>about:</b> URL protocol now provides a <a href="about:home">default home page</a>, an <a href="about:blank">about:blank</a>, a <a href="about:fonts">fonts test page</a>, and a <a href="about:version">version information page</a></li>
 <li>Added a default custom config name (AWeb36a3) to the AWeb icon when launching from Workbench in order to avoid conflict with any preexisting AWeb settings in your ENV:AWeb3 directory</li>
 <li>TLS/SSL connections are now much more secure by default - rejecting anything other than TLS 1.2 and TLS 1.3 and only using strong ciphers</li>
 <li>HTTPS connections now properly verify that the hostname matches the certificate following RFC 6125</li>
