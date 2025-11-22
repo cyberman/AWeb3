@@ -164,6 +164,7 @@ extern struct Library *AWebJSBase;
 extern BOOL httpdebug;
 extern BOOL specdebug;
 extern BOOL haiku;
+extern BOOL nostartup;
 
 #include "haiku.h"
 

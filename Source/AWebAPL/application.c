@@ -1231,7 +1231,7 @@ static struct Application *Newapplication(struct Amset *ams)
       app->savepath=Dupstr(prefs.savepath,-1);
       Setapplication(app,ams);
       Makemenus(app);
-      Appopenscreen(app,TRUE);
+      Appopenscreen(app,!nostartup);
       app->blinktimer=Anewobject(AOTP_TIMER,
          AOBJ_Target,app,
          AOBJ_Map,blinktimermap,

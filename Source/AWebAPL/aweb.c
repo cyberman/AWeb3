@@ -114,6 +114,7 @@ BOOL profile=FALSE;
 BOOL nopool=FALSE;
 BOOL has35=FALSE;
 BOOL haiku=FALSE;
+BOOL nostartup=FALSE;
 
 UBYTE *initialurls[16];
 UBYTE localinitialurl[16];
@@ -1289,7 +1290,7 @@ static void Getarguments(struct WBStartup *wbs)
 #ifndef DEMOVERSION
       ",HAIKU=VVIIV/S"
 #endif
-      ",HTTPDEBUG/S"
+      ",HTTPDEBUG/S,NOSTARTUP/S"
 #ifdef BETAKEYFILE
 #ifdef DEMOVERSION
       ",Q/S"
@@ -1326,6 +1327,7 @@ static void Getarguments(struct WBStartup *wbs)
             else if(STRNIEQUAL(*ttp,"CONFIG=",7)) Setprefsname(*ttp+7);
             else if(STRNIEQUAL(*ttp,"HOTLIST=",8)) Sethotlistname(*ttp+8);
             else if(STRIEQUAL(*ttp,"HTTPDEBUG")) httpdebug=TRUE;
+            else if(STRIEQUAL(*ttp,"NOSTARTUP")) nostartup=TRUE;
 #ifndef DEMOVERSION
             else if(STRIEQUAL(*ttp,"VVIIV")) haiku=TRUE;
 #endif
@@ -1372,34 +1374,36 @@ static void Getarguments(struct WBStartup *wbs)
 #ifndef DEMOVERSION
          if(args[4]) haiku=TRUE;
          if(args[5]) httpdebug=TRUE;
+         if(args[6]) nostartup=TRUE;
 #else
          if(args[4]) httpdebug=TRUE;
+         if(args[5]) nostartup=TRUE;
 #endif
 #ifdef BETAKEYFILE
 #ifndef DEMOVERSION
-         if(args[6]) nopool=TRUE;
-         if(args[7]) specdebug=TRUE;
+         if(args[7]) nopool=TRUE;
+         if(args[8]) specdebug=TRUE;
 #else
-         if(args[5]) nopool=TRUE;
-         if(args[6]) specdebug=TRUE;
+         if(args[7]) nopool=TRUE;
+         if(args[8]) specdebug=TRUE;
 #endif
 #ifdef DEVELOPER
 #ifndef DEMOVERSION
-         if(args[8]) localblocksize=*(long *)args[8];
-         if(args[9]) profile=TRUE;
-         if(args[10]) Setoodebug((UBYTE *)args[10]);
-         if(args[11]) Setoomethod((UBYTE *)args[11]);
-         if(args[12]) Setoodelay();
-         if(args[13]) usetemp=TRUE;
-         if(args[14]) ookdebug=TRUE;
+         if(args[9]) localblocksize=*(long *)args[9];
+         if(args[10]) profile=TRUE;
+         if(args[11]) Setoodebug((UBYTE *)args[11]);
+         if(args[12]) Setoomethod((UBYTE *)args[12]);
+         if(args[13]) Setoodelay();
+         if(args[14]) usetemp=TRUE;
+         if(args[15]) ookdebug=TRUE;
 #else
-         if(args[8]) localblocksize=*(long *)args[8];
-         if(args[9]) profile=TRUE;
-         if(args[10]) Setoodebug((UBYTE *)args[10]);
-         if(args[11]) Setoomethod((UBYTE *)args[11]);
-         if(args[12]) Setoodelay();
-         if(args[13]) usetemp=TRUE;
-         if(args[14]) ookdebug=TRUE;
+         if(args[9]) localblocksize=*(long *)args[9];
+         if(args[10]) profile=TRUE;
+         if(args[11]) Setoodebug((UBYTE *)args[11]);
+         if(args[12]) Setoomethod((UBYTE *)args[12]);
+         if(args[13]) Setoodelay();
+         if(args[14]) usetemp=TRUE;
+         if(args[15]) ookdebug=TRUE;
 #endif
 #endif
 #endif
