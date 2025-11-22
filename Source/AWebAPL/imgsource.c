@@ -39,6 +39,8 @@
 #include <proto/intuition.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>
+#include <proto/icon.h>
+#include <dos/dosextens.h>
 
 #ifdef DEVELOPER
 extern BOOL usetemp;
@@ -167,6 +169,107 @@ static void Makegifmask(struct Imgprocess *imp,long xptcolor)
    }
 }
 
+/* Create a bitmap from an Amiga icon Image structure */
+static BOOL Makebitmapfromicon(struct Imgprocess *imp,struct DiskObject *dob)
+{  BOOL result=FALSE;
+   struct Image *img;
+   struct Image *selimg;
+   struct BitMap *tempbitmap;
+   struct RastPort temprp;
+   UBYTE *maskdata;
+   LONG maskrowbytes;
+   LONG maskbytesperrow;
+   LONG i;
+   LONG depth;
+   LONG y;
+   LONG x;
+   UBYTE bit;
+   UBYTE *src;
+   UBYTE *dst;
+   
+   if(!dob || !dob->do_Gadget.GadgetRender) return FALSE;
+   
+   img=dob->do_Gadget.GadgetRender;
+   selimg=dob->do_Gadget.SelectRender;
+   
+   /* Get image dimensions */
+   imp->width=img->Width;
+   imp->height=img->Height;
+   depth=imp->screen ? GetBitMapAttr(imp->screen->RastPort.BitMap,BMA_DEPTH) : 4;
+   if(depth<2) depth=4; /* Minimum depth */
+   if(depth>8) depth=8; /* Maximum for compatibility */
+   imp->depth=depth;
+   
+   /* Allocate bitmap */
+   tempbitmap=AllocBitMap(imp->width,imp->height,depth,
+      BMF_CLEAR|BMF_DISPLAYABLE,
+      imp->screen ? imp->screen->RastPort.BitMap : NULL);
+   if(!tempbitmap) return FALSE;
+   
+   /* Initialize rastport */
+   InitRastPort(&temprp);
+   temprp.BitMap=tempbitmap;
+   temprp.FgPen=1;
+   
+   /* Render the icon image into the bitmap */
+   DrawImage(&temprp,img,0,0);
+   
+   /* Store bitmap before creating mask */
+   imp->bitmap=tempbitmap;
+   imp->memsize=imp->width*imp->height*imp->depth/8;
+   result=TRUE; /* Set success flag early */
+   
+   /* Create mask if select image exists */
+   if(selimg)
+   {  maskrowbytes=(imp->width+7)/8;
+      maskbytesperrow=tempbitmap->BytesPerRow;
+      if(maskdata=AllocMem(maskrowbytes*imp->height,MEMF_PUBLIC|MEMF_CLEAR))
+      {  struct RastPort maskrp;
+         struct BitMap maskbm;
+         InitRastPort(&maskrp);
+         InitBitMap(&maskbm,1,imp->width,imp->height);
+         maskbm.Planes[0]=maskdata;
+         maskbm.BytesPerRow=maskrowbytes;
+         maskrp.BitMap=&maskbm;
+         maskrp.FgPen=1;
+         
+         /* Render select image to create mask */
+         DrawImage(&maskrp,selimg,0,0);
+         
+         /* Allocate mask buffer matching bitmap row size */
+         imp->mask=AllocMem(maskbytesperrow*imp->height,MEMF_PUBLIC|MEMF_CLEAR);
+         if(imp->mask)
+         {  /* Copy 1-bit mask data, expanding to match bitmap row width */
+            src=maskdata;
+            for(y=0;y<imp->height;y++)
+            {  dst=imp->mask+y*maskbytesperrow;
+               /* Copy mask row, padding if necessary */
+               for(x=0;x<maskrowbytes && x<maskbytesperrow;x++)
+               {  dst[x]=src[x];
+               }
+               /* Fill remainder with zeros if bitmap row is wider */
+               for(x=maskrowbytes;x<maskbytesperrow;x++)
+               {  dst[x]=0;
+               }
+               src+=maskrowbytes;
+            }
+            imp->ourmask=TRUE;
+            imp->memsize+=maskbytesperrow*imp->height;
+         }
+         FreeMem(maskdata,maskrowbytes*imp->height);
+      }
+   }
+   
+   /* If we failed after allocating bitmap, free it */
+   if(!result && tempbitmap)
+   {  FreeBitMap(tempbitmap);
+      imp->bitmap=NULL;
+      imp->memsize=0;
+   }
+   
+   return result;
+}
+
 /* Create a datatype object and the mask */
 static BOOL Makeobject(struct Imgprocess *imp)
 {  BOOL result=FALSE;
@@ -174,6 +277,30 @@ static BOOL Makeobject(struct Imgprocess *imp)
    ULONG flags;
    void *maskplane=NULL;
    long xptcolor=Transparentgif(imp);
+   UBYTE *filename;
+   UBYTE *ext;
+   LONG len;
+   struct DiskObject *dob;
+   
+   filename=imp->ims->filename;
+   if(!filename) return FALSE;
+   
+   /* Check if this is a .info file */
+   len=strlen(filename);
+   if(len>=5)
+   {  ext=filename+len-5;
+      if(STRNIEQUAL(ext,".info",5))
+      {  /* Try to load as Amiga icon */
+         dob=GetDiskObject(filename);
+         if(dob)
+         {  result=Makebitmapfromicon(imp,dob);
+            FreeDiskObject(dob);
+            return result;
+         }
+      }
+   }
+   
+   /* Normal datatypes path */
    if(imp->dto=NewDTObject(imp->ims->filename,
          DTA_SourceType,DTST_FILE,
          DTA_GroupID,GID_PICTURE,

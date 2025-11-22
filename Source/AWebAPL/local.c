@@ -77,11 +77,102 @@ static long Htmlmove(UBYTE *to,UBYTE *from,long len)
    return n;
 }
 
-/* Get icon for file based on extension or type */
-static UBYTE *GetFileIcon(UBYTE *filename,LONG entrytype)
-{  UBYTE *ext;
-   LONG len;
+/* Check if a file exists in a directory */
+static BOOL FileExistsInDir(UBYTE *dirname,UBYTE *filename)
+{  BPTR lock;
+   BPTR file_lock;
+   BOOL exists;
+   UBYTE fullpath[512];
    
+   if(!dirname || dirname[0]=='\0')
+   {  /* No directory - just check filename directly */
+      file_lock=Lock(filename,SHARED_LOCK);
+      exists=(file_lock!=0);
+      if(file_lock) UnLock(file_lock);
+      return exists;
+   }
+   
+   lock=Lock(dirname,SHARED_LOCK);
+   if(!lock) return FALSE;
+   
+   strcpy(fullpath,dirname);
+   if(fullpath[strlen(fullpath)-1]!='/' && fullpath[strlen(fullpath)-1]!=':')
+   {  strcat(fullpath,"/");
+   }
+   strcat(fullpath,filename);
+   
+   file_lock=Lock(fullpath,SHARED_LOCK);
+   exists=(file_lock!=0);
+   if(file_lock) UnLock(file_lock);
+   UnLock(lock);
+   
+   return exists;
+}
+
+/* Get icon HTML for file based on extension or type */
+/* Returns pointer to static buffer containing HTML (img tag or entity reference) */
+static UBYTE *GetFileIcon(UBYTE *filename,LONG entrytype,UBYTE *url_base,UBYTE *dirname,BOOL is_volume)
+{  static UBYTE icon_buf[512];
+   UBYTE *ext;
+   LONG len;
+   UBYTE *info_url;
+   LONG info_url_len;
+   UBYTE *p;
+   LONG pos;
+   UBYTE info_filename[256];
+   BOOL info_exists;
+   
+   /* Build .info file path - special case for volumes */
+   if(is_volume)
+   {  /* For volumes: "VolumeName:Disk.info" */
+      sprintf(info_filename,"%s:Disk.info",filename);
+      /* Check if .info file exists - volumes are root level */
+      info_exists=FileExistsInDir("",info_filename);
+   }
+   else
+   {  /* For regular files: "filename.info" */
+      sprintf(info_filename,"%s.info",filename);
+      /* Check if .info file exists in the directory */
+      info_exists=FileExistsInDir(dirname,info_filename);
+   }
+   
+   if(info_exists)
+   {  /* Build .info file URL */
+      info_url_len=strlen(url_base)+strlen(filename)*3+20; /* *3 for URL encoding, +20 for ".info" and img tag */
+      if(is_volume) info_url_len+=10; /* Extra space for ":Disk.info" */
+      if(info_url_len<sizeof(icon_buf))
+      {  info_url=icon_buf+200; /* Use later part of buffer for URL construction */
+         /* Clear the URL buffer area first to remove any leftover data */
+         memset(info_url,0,256);
+         strcpy(info_url,url_base);
+         pos=strlen(info_url);
+         p=info_url+pos;
+         
+         /* Append filename with HTML entity escaping */
+         len=Htmlmove(p,filename,strlen(filename));
+         p[len]='\0';
+         pos+=len;
+         
+         /* Append ".info" or ":Disk.info" */
+         if(is_volume)
+         {  strcat(info_url,":Disk.info");
+         }
+         else
+         {  strcat(info_url,".info");
+         }
+         
+         /* Copy the URL string before clearing icon_buf (since info_url points into icon_buf) */
+         {  UBYTE url_copy[256];
+            strcpy(url_copy,info_url);
+            /* Clear icon_buf before building img tag to remove any leftover data */
+            memset(icon_buf,0,sizeof(icon_buf));
+            sprintf(icon_buf,"<IMG SRC=\"%s\" WIDTH=\"32\" HEIGHT=\"32\" ALT=\"\">",url_copy);
+         }
+         return icon_buf;
+      }
+   }
+   
+   /* Fallback to entity references if buffer too small */
    /* Directory (positive values indicate directory in AmigaOS) */
    if(entrytype>0)
    {  return "&folder;";
@@ -370,9 +461,18 @@ static void GenerateDirListing(struct Fetchdriver *fd,UBYTE *dirname,long lock)
             continue;
          }
          
+         /* Skip .info files - they are icon files, not regular files to list */
+         {  LONG name_len;
+            name_len=strlen(entry->ed_Name);
+            if(name_len>=5 && STRNIEQUAL(entry->ed_Name+name_len-5,".info",5))
+            {  entry=entry->ed_Next;
+               continue;
+            }
+         }
+         
          /* In AmigaOS, positive ed_Type indicates directory, negative indicates file */
          is_dir=(entry->ed_Type>0);
-         icon=GetFileIcon(entry->ed_Name,entry->ed_Type);
+         icon=GetFileIcon(entry->ed_Name,entry->ed_Type,url_base,dirname,FALSE);
          
          /* Build HTML for this entry - alternating row colors */
          /* Start building row at position 0 in buffer */
@@ -675,15 +775,23 @@ static void GenerateVolumeListing(struct Fetchdriver *fd)
             LONG i;
             name_len=vol_name[0];
             if(name_len==0 || name_len>30) continue;
+            /* Clear buffer first to remove any leftover data from previous iteration */
+            memset(vol_name_buf,0,sizeof(vol_name_buf));
             for(i=0;i<name_len;i++)
             {  vol_name_buf[i]=vol_name[i+1];
             }
             vol_name_buf[name_len]='\0';
-            vol_name=vol_name_buf;
+            /* Copy to a persistent location - vol_name is used after this block */
+            {  static UBYTE persistent_vol_name[32];
+               /* Clear persistent buffer first to remove any leftover data */
+               memset(persistent_vol_name,0,sizeof(persistent_vol_name));
+               strcpy(persistent_vol_name,vol_name_buf);
+               vol_name=persistent_vol_name;
+            }
          }
          
-         /* Build HTML for this volume */
-         icon="&folder;"; /* Volumes are always directories */
+         /* Build HTML for this volume - try to use Disk.info icon */
+         icon=GetFileIcon(vol_name,1,url_base,"",TRUE); /* entrytype=1 for directory, is_volume=TRUE, no dirname for volumes */
          row_start_pos=0;
          {  LONG max_remaining;
             LONG len;
