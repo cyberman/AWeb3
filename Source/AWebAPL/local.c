@@ -31,6 +31,7 @@
 #include <proto/utility.h>
 #include <dos/dos.h>
 #include <dos/dostags.h>
+#include <dos/dosextens.h>
 
 #include <string.h>
 
@@ -185,11 +186,17 @@ static void GenerateDirListing(struct Fetchdriver *fd,UBYTE *dirname,long lock)
    
    /* Build base URL for links */
    /* Need: "file:///" (7 chars) + dirname + "/" (if needed) + null terminator */
-   url_base_len=strlen(dirname);
-   if(url_base_len>0 && dirname[url_base_len-1]!='/' && dirname[url_base_len-1]!=':')
-   {  url_base_len++; /* Need space for trailing / */
+   if(dirname && dirname[0]!='\0')
+   {  url_base_len=strlen(dirname);
+      if(url_base_len>0 && dirname[url_base_len-1]!='/' && dirname[url_base_len-1]!=':')
+      {  url_base_len++; /* Need space for trailing / */
+      }
+      url_base_len+=8+1; /* "file:///" (7) + null terminator (1) + safety margin (1) */
    }
-   url_base_len+=8+1; /* "file:///" (7) + null terminator (1) + safety margin (1) */
+   else
+   {  /* Root case - just "file:///" */
+      url_base_len=8+1; /* "file:///" (7) + null terminator (1) */
+   }
    url_base=AllocMem(url_base_len,MEMF_PUBLIC);
    if(!url_base)
    {  FreeMem(exall_data,buffer_size);
@@ -197,9 +204,11 @@ static void GenerateDirListing(struct Fetchdriver *fd,UBYTE *dirname,long lock)
       return;
    }
    strcpy(url_base,"file:///");
-   strcat(url_base,dirname);
-   if(dirname[strlen(dirname)-1]!='/' && dirname[strlen(dirname)-1]!=':')
-   {  strcat(url_base,"/");
+   if(dirname && dirname[0]!='\0')
+   {  strcat(url_base,dirname);
+      if(dirname[strlen(dirname)-1]!='/' && dirname[strlen(dirname)-1]!=':')
+      {  strcat(url_base,"/");
+      }
    }
    
    /* Allocate HTML buffer for incremental output - need enough for header + rows */
@@ -285,12 +294,12 @@ static void GenerateDirListing(struct Fetchdriver *fd,UBYTE *dirname,long lock)
             "}\n"
             "</SCRIPT>\n"
             "</HEAD>\n"
-            "<BODY BGCOLOR=\"#AAAAAA\" MARGINWIDTH=\"0\" MARGINHEIGHT=\"0\" TOPMARGIN=\"0\" LEFTMARGIN=\"0\">\n",dirname);
+            "<BODY BGCOLOR=\"#AAAAAA\" TEXT=\"#000000\" LINK=\"#000000\" VLINK=\"#000000\" ALINK=\"#0000FF\" MARGINWIDTH=\"0\" MARGINHEIGHT=\"0\" TOPMARGIN=\"0\" LEFTMARGIN=\"0\">\n",dirname);
          if(html_len>=max_len) html_len=max_len-1;
          html_buf[html_len]='\0';
          
          /* Add parent directory link if not root */
-         if(html_len<max_len-100)
+         if(html_len<max_len-100 && dirname && dirname[0]!='\0')
          {  p=dirname+strlen(dirname)-1;
             if(*p=='/') p--;
             if(*p==':') p--;
@@ -499,6 +508,294 @@ static void GenerateDirListing(struct Fetchdriver *fd,UBYTE *dirname,long lock)
 
 /*-----------------------------------------------------------------------*/
 
+/* Generate volume listing HTML using LockDosList */
+static void GenerateVolumeListing(struct Fetchdriver *fd)
+{  struct DosList *dl;
+   struct DosList *vol_entry;
+   UBYTE *html_buf;
+   UBYTE *url_base;
+   UBYTE size_buf[32];
+   UBYTE date_buf[64];
+   UBYTE *icon;
+   UBYTE *vol_name;
+   LONG html_buf_size;
+   LONG html_len;
+   LONG row_start_pos;
+   LONG row_num;
+   UBYTE header_done;
+   struct DateStamp *vol_date;
+   
+   /* Lock DOS list for volumes */
+   dl=LockDosList(LDF_VOLUMES|LDF_READ);
+   if(!dl)
+   {  return; /* Can't lock DOS list */
+   }
+   
+   /* Allocate HTML buffer */
+   html_buf_size=4096;
+   html_buf=AllocMem(html_buf_size,MEMF_PUBLIC);
+   if(!html_buf)
+   {  UnLockDosList(LDF_VOLUMES|LDF_READ);
+      return;
+   }
+   
+   /* Build base URL for links */
+   url_base=AllocMem(9,MEMF_PUBLIC); /* "file:///" + null */
+   if(!url_base)
+   {  FreeMem(html_buf,html_buf_size);
+      UnLockDosList(LDF_VOLUMES|LDF_READ);
+      return;
+   }
+   strcpy(url_base,"file:///");
+   
+   header_done=FALSE;
+   row_num=0;
+   html_len=0; /* Initialize html_len */
+   
+   /* Send HTML header first */
+   {  LONG max_len;
+      max_len=html_buf_size-1;
+      html_len=sprintf(html_buf,
+         "<HTML>\n<HEAD>\n<TITLE>Volumes</TITLE>\n"
+         "<SCRIPT LANGUAGE=\"JavaScript1.1\">\n"
+         "var sortCol = 0;\n"
+         "var sortDir = 1;\n"
+         "function getText(cell) {\n"
+         "  var text = '';\n"
+         "  for (var i = 0; i < cell.childNodes.length; i++) {\n"
+         "    if (cell.childNodes[i].nodeType == 3) {\n"
+         "      text += cell.childNodes[i].nodeValue;\n"
+         "    } else if (cell.childNodes[i].nodeType == 1) {\n"
+         "      text += getText(cell.childNodes[i]);\n"
+         "    }\n"
+         "  }\n"
+         "  return text;\n"
+         "}\n"
+         "function sortTable(col) {\n"
+         "  var table = document.filetable;\n"
+         "  if (!table) return;\n"
+         "  var tbody = table.tBodies[0];\n"
+         "  var rows = tbody.rows;\n"
+         "  var arr = [];\n"
+         "  for (var i = 0; i < rows.length; i++) {\n"
+         "    arr[i] = rows[i];\n"
+         "  }\n"
+         "  if (sortCol == col) sortDir = -sortDir;\n"
+         "  else sortDir = 1;\n"
+         "  sortCol = col;\n"
+         "  for (var i = 0; i < arr.length - 1; i++) {\n"
+         "    for (var j = i + 1; j < arr.length; j++) {\n"
+         "      var aVal = getText(arr[i].cells[col]);\n"
+         "      var bVal = getText(arr[j].cells[col]);\n"
+         "      var swap = false;\n"
+         "      if (col == 1 && aVal != '-' && bVal != '-') {\n"
+         "        var aNum = parseInt(aVal) || 0;\n"
+         "        var bNum = parseInt(bVal) || 0;\n"
+         "        swap = (aNum - bNum) * sortDir > 0;\n"
+         "      } else {\n"
+         "        swap = (aVal < bVal ? -1 : aVal > bVal ? 1 : 0) * sortDir > 0;\n"
+         "      }\n"
+         "      if (swap) {\n"
+         "        var tmp = arr[i];\n"
+         "        arr[i] = arr[j];\n"
+         "        arr[j] = tmp;\n"
+         "      }\n"
+         "    }\n"
+         "  }\n"
+         "  for (var i = 0; i < arr.length; i++) {\n"
+         "    tbody.appendChild(arr[i]);\n"
+         "  }\n"
+         "}\n"
+         "</SCRIPT>\n"
+         "</HEAD>\n"
+         "<BODY BGCOLOR=\"#AAAAAA\" TEXT=\"#000000\" LINK=\"#000000\" VLINK=\"#000000\" ALINK=\"#0000FF\" MARGINWIDTH=\"0\" MARGINHEIGHT=\"0\" TOPMARGIN=\"0\" LEFTMARGIN=\"0\">\n");
+      if(html_len>=max_len) html_len=max_len-1;
+      html_buf[html_len]='\0';
+      
+      if(html_len<max_len-100)
+      {  LONG len;
+         len=sprintf(html_buf+html_len,
+            "<TABLE WIDTH=\"100%%\" BORDER=\"0\" CELLPADDING=\"2\" CELLSPACING=\"0\" NAME=\"filetable\" ID=\"filetable\">\n"
+            "<THEAD>\n"
+            "<TR>\n"
+            "<TH WIDTH=\"60%%\"><A HREF=\"javascript:sortTable(0)\">Name</A></TH>\n"
+            "<TH WIDTH=\"15%%\"><A HREF=\"javascript:sortTable(1)\">Size</A></TH>\n"
+            "<TH WIDTH=\"25%%\"><A HREF=\"javascript:sortTable(2)\">Date</A></TH>\n"
+            "</TR>\n"
+            "</THEAD>\n"
+            "<TBODY>\n");
+         if(len>0 && html_len+len<max_len) html_len+=len;
+      }
+      
+      /* Send header */
+      Updatetaskattrs(
+         AOURL_Contenttype,"text/html",
+         AOURL_Data,html_buf,
+         AOURL_Datalength,html_len,
+         TAG_END);
+      
+      header_done=TRUE;
+      html_len=0; /* Reset for row building */
+   }
+   
+   /* Iterate through volumes - add safety limit to prevent infinite loop */
+   {  LONG max_volumes;
+      LONG volume_count;
+      struct DosList *prev_entry;
+      max_volumes=256;
+      volume_count=0;
+      prev_entry=dl; /* Start with the lock result */
+      while(volume_count<max_volumes)
+      {  vol_entry=NextDosEntry(prev_entry,LDF_VOLUMES);
+         if(!vol_entry) break; /* No more entries */
+         
+         /* Safety check: if we get the same entry twice, break to prevent infinite loop */
+         if(vol_entry==prev_entry && volume_count>0) break;
+         prev_entry=vol_entry;
+         volume_count++;
+         
+         /* Only process actual volumes - LDF_VOLUMES should only return volumes */
+         /* But double-check the type to be safe */
+         /* DLT_VOLUME is 2, DLT_DEVICE is 1, DLT_DIRECTORY is 3 */
+         if(vol_entry->dol_Type!=2) continue; /* 2 = DLT_VOLUME */
+         
+         /* Show all volumes, even if not currently mounted (dol_Task may be NULL for ejected volumes) */
+         /* We'll show them anyway so user can see what volumes exist */
+         
+         /* Get volume name - BCPL string */
+         vol_name=(UBYTE *)BADDR(vol_entry->dol_Name);
+         if(!vol_name) continue;
+         
+         /* Skip if name is empty */
+         if(vol_name[0]==0) continue;
+         
+         /* BCPL string: first byte is length, then the string */
+         {  UBYTE name_len;
+            UBYTE vol_name_buf[32];
+            LONG i;
+            name_len=vol_name[0];
+            if(name_len==0 || name_len>30) continue;
+            for(i=0;i<name_len;i++)
+            {  vol_name_buf[i]=vol_name[i+1];
+            }
+            vol_name_buf[name_len]='\0';
+            vol_name=vol_name_buf;
+         }
+         
+         /* Build HTML for this volume */
+         icon="&folder;"; /* Volumes are always directories */
+         row_start_pos=0;
+         {  LONG max_remaining;
+            LONG len;
+            UBYTE *new_buf;
+            ULONG new_size;
+            LONG estimated_row_size;
+            
+            estimated_row_size=strlen(url_base)+strlen(vol_name)*2+200;
+            max_remaining=html_buf_size-1;
+            if(max_remaining<estimated_row_size)
+            {  new_size=html_buf_size;
+               while(new_size-1<estimated_row_size)
+               {  new_size*=2;
+                  if(new_size>65536) break;
+               }
+               new_buf=AllocMem(new_size,MEMF_PUBLIC);
+               if(new_buf)
+               {  if(html_buf && html_len>0)
+                  {  memcpy(new_buf,html_buf,html_len);
+                  }
+                  if(html_buf) FreeMem(html_buf,html_buf_size);
+                  html_buf=new_buf;
+                  html_buf_size=new_size;
+                  max_remaining=html_buf_size-1;
+               }
+               else
+               {  break;
+               }
+            }
+            
+            if(max_remaining<200) break;
+            
+            len=sprintf(html_buf+row_start_pos,"<TR BGCOLOR=\"%s\">\n<TD>%s <A HREF=\"%s",
+               (row_num%2==0)?"#CCCCCC":"#DDDDDD",icon,url_base);
+            if(len<=0 || len>=max_remaining) break;
+            row_start_pos+=len;
+            max_remaining=html_buf_size-row_start_pos-1;
+            
+            len=Htmlmove(html_buf+row_start_pos,vol_name,strlen(vol_name));
+            if(len>=max_remaining) break;
+            row_start_pos+=len;
+            max_remaining=html_buf_size-row_start_pos-1;
+            
+            if(max_remaining<10) break;
+            len=sprintf(html_buf+row_start_pos,":\">");
+            if(len<=0 || len>=max_remaining) break;
+            row_start_pos+=len;
+            max_remaining=html_buf_size-row_start_pos-1;
+            
+            len=Htmlmove(html_buf+row_start_pos,vol_name,strlen(vol_name));
+            if(len>=max_remaining) break;
+            row_start_pos+=len;
+            max_remaining=html_buf_size-row_start_pos-1;
+            
+            if(max_remaining<10) break;
+            len=sprintf(html_buf+row_start_pos,":</A></TD>\n<TD>");
+            if(len<=0 || len>=max_remaining) break;
+            row_start_pos+=len;
+            max_remaining=html_buf_size-row_start_pos-1;
+            
+            /* Size - volumes don't have a simple size, show "-" */
+            strcpy(size_buf,"-");
+            if(max_remaining<50) break;
+            len=sprintf(html_buf+row_start_pos,"%s</TD>\n<TD>",size_buf);
+            if(len<=0 || len>=max_remaining) break;
+            row_start_pos+=len;
+            max_remaining=html_buf_size-row_start_pos-1;
+            
+            /* Date - get from volume date */
+            vol_date=&vol_entry->dol_VolumeDate;
+            if(vol_date && vol_date->ds_Days>0)
+            {  FormatFileDate(date_buf,vol_date->ds_Days,vol_date->ds_Minute,vol_date->ds_Tick);
+            }
+            else
+            {  strcpy(date_buf,"-");
+            }
+            if(max_remaining<100) break;
+            len=sprintf(html_buf+row_start_pos,"%s</TD>\n</TR>\n",date_buf);
+            if(len<=0 || len>=max_remaining) break;
+            row_start_pos+=len;
+            
+            /* Emit only this row */
+            Updatetaskattrs(
+               AOURL_Data,html_buf,
+               AOURL_Datalength,row_start_pos,
+               TAG_END);
+            
+            row_num++;
+         }
+      }
+   }
+   
+   /* Send closing tags */
+   if(header_done)
+   {  LONG len;
+      len=sprintf(html_buf,"</TBODY>\n</TABLE>\n</BODY>\n</HTML>\n");
+      if(len>0 && len<html_buf_size)
+      {  Updatetaskattrs(
+            AOURL_Data,html_buf,
+            AOURL_Datalength,len,
+            TAG_END);
+      }
+   }
+   
+   /* Cleanup */
+   if(html_buf) FreeMem(html_buf,html_buf_size);
+   if(url_base) FreeMem(url_base,9);
+   UnLockDosList(LDF_VOLUMES|LDF_READ);
+}
+
+/*-----------------------------------------------------------------------*/
+
 void Localfiletask(struct Fetchdriver *fd)
 {  long lock;
    void *fh;
@@ -506,6 +803,7 @@ void Localfiletask(struct Fetchdriver *fd)
    UBYTE *name,*buf=NULL,*p;
    UBYTE c;
    BOOL skipvalid=FALSE;
+   BOOL is_root;
    long actual;
    ULONG date=0;
    if(fd->postmsg)
@@ -534,6 +832,20 @@ void Localfiletask(struct Fetchdriver *fd)
       }
    }
    name=fd->name;
+   /* Check if this is root first - before trying index file */
+   is_root=(name[0]=='\0' || 
+            (name[0]=='/' && name[1]=='\0') ||
+            (name[0]==':' && name[1]=='\0'));
+   if(is_root)
+   {  /* Root - generate volume listing using LockDosList */
+      GenerateVolumeListing(fd);
+      if(buf) FREE(buf);
+      Updatetaskattrs(AOTSK_Async,TRUE,
+         AOURL_Eof,TRUE,
+         AOURL_Terminate,TRUE,
+         TAG_END);
+      return;
+   }
    c=fd->name[strlen(fd->name)-1];
    if(c=='/' || c==':')
    {  /* Try index file first */
