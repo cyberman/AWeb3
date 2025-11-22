@@ -27,10 +27,28 @@
 #include "tcperr.h"
 #include "application.h"
 #include "awebtcp.h"
+#include "fetchdriver.h"
 #include <dos/dostags.h>
+
+/* Forward declarations */
+extern struct Assl *Tcpopenssl(struct Library *socketbase);
+extern void Assl_cleanup(struct Assl *assl);
+
+/* Forward declarations for SSL task context functions */
+struct Assl *GetTaskSSLContext(void);
+struct Library *GetTaskSSLSocketBase(void);
+void SetTaskSSLContext(struct Assl *assl,struct Library *socketbase);
+void ClearTaskSSLContext(void);
 
 struct SignalSemaphore tcpsema;
 BOOL startedtcp=FALSE;
+
+/* SSL context per task - store SSL context for current task when FDVF_SSL is set */
+struct Assl *task_ssl_context = NULL;
+struct Library *task_ssl_socketbase = NULL;
+struct Task *task_ssl_task = NULL;
+struct SignalSemaphore task_ssl_sema;
+BOOL task_ssl_sema_init = FALSE;
 
 /*-----------------------------------------------------------------------*/
 
@@ -70,6 +88,10 @@ static long Spawnsync(UBYTE *cmd,UBYTE *args)
 
 BOOL Inittcp(void)
 {  InitSemaphore(&tcpsema);
+   if(!task_ssl_sema_init)
+   {  InitSemaphore(&task_ssl_sema);
+      task_ssl_sema_init=TRUE;
+   }
    return TRUE;
 }
 
@@ -119,7 +141,72 @@ struct Library *Opentcp(struct Library **base,struct Fetchdriver *fd,BOOL autoco
    if(args) FREE(args);
 #endif
    proc->pr_WindowPtr=windowptr;
+   /* Initialize SSL if FDVF_SSL flag is set */
+   if(*base && fd && (fd->flags&FDVF_SSL))
+   {  struct Assl *assl=Tcpopenssl(*base);
+      if(assl)
+      {  SetTaskSSLContext(assl,*base);
+      }
+   }
    return ((*base)?AwebTcpBase:NULL);
+}
+
+/* Get task SSL context - exported for awebtcp.c and awebamitcp.c */
+struct Assl *GetTaskSSLContext(void)
+{  struct Task *task=FindTask(NULL);
+   struct Assl *assl=NULL;
+   if(task && task_ssl_sema_init)
+   {  ObtainSemaphore(&task_ssl_sema);
+      if(task_ssl_task==task)
+      {  assl=task_ssl_context;
+      }
+      ReleaseSemaphore(&task_ssl_sema);
+   }
+   return assl;
+}
+
+struct Library *GetTaskSSLSocketBase(void)
+{  struct Task *task=FindTask(NULL);
+   struct Library *base=NULL;
+   if(task && task_ssl_sema_init)
+   {  ObtainSemaphore(&task_ssl_sema);
+      if(task_ssl_task==task)
+      {  base=task_ssl_socketbase;
+      }
+      ReleaseSemaphore(&task_ssl_sema);
+   }
+   return base;
+}
+
+void SetTaskSSLContext(struct Assl *assl,struct Library *socketbase)
+{  struct Task *task=FindTask(NULL);
+   if(task)
+   {  if(!task_ssl_sema_init)
+      {  InitSemaphore(&task_ssl_sema);
+         task_ssl_sema_init=TRUE;
+      }
+      ObtainSemaphore(&task_ssl_sema);
+      task_ssl_context=assl;
+      task_ssl_socketbase=socketbase;
+      task_ssl_task=task;
+      ReleaseSemaphore(&task_ssl_sema);
+   }
+}
+
+void ClearTaskSSLContext(void)
+{  struct Task *task=FindTask(NULL);
+   if(task && task_ssl_sema_init)
+   {  ObtainSemaphore(&task_ssl_sema);
+      if(task_ssl_task==task)
+      {  if(task_ssl_context)
+         {  Assl_cleanup(task_ssl_context);
+            task_ssl_context=NULL;
+         }
+         task_ssl_socketbase=NULL;
+         task_ssl_task=NULL;
+      }
+      ReleaseSemaphore(&task_ssl_sema);
+   }
 }
 
 #endif /* LOCALONLY */
