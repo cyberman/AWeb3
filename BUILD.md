@@ -144,10 +144,28 @@ smake aweb
 smake awebcfg
 smake awebjs
 smake aweblib/about.aweblib
-smake aweblib/ TODO
+smake aweblib/arexx.aweblib
+smake aweblib/authorize.aweblib
+smake aweblib/awebjs.aweblib
+smake aweblib/gopher.aweblib
+smake aweblib/ftp.aweblib
+smake aweblib/hotlist.aweblib
+smake aweblib/mail.aweblib
+smake aweblib/cachebrowser.aweblib
+smake aweblib/news.aweblib
+smake aweblib/history.aweblib
+smake aweblib/print.aweblib
+smake aweblib/startup.aweblib
 ```
 
 This creates binaries called AWeb, AWebCfg and AWebJS in the AWebAPL folder, as well as all the aweblib plugins
+
+The smakefile is not quite configured correctly to ensure that only changed files get rebuilt. This can be exacerbated if using an emulator where host filesystem timestamps change on access rather than write. So it is sometimes more convenient to just make the objects you know have changed, and then relink the aweb binary, like this:
+
+```
+smake parse.o
+slink with aweb.lnk
+```
 
 ## How To Build AWeb Plugins
 
@@ -164,7 +182,7 @@ smake
 
 ## How To Build AWebGet
 
-TODO
+TODO as AWebGet does not currently build
 
 ## How to Clean
 
@@ -174,7 +192,7 @@ To delete all build artifacts in the project directory, you can run this command
 smake clean
 ```
 
-However, if you need to make a fresh build, it is recommend simply to run:
+However, if you need to make a fresh build, it is recommended simply to run:
 
 ```
 smake -u all
@@ -196,8 +214,10 @@ To make a release archive called for example 'target_file.lha' then run:
 
 ```
 cd Internet
-lha -xer target_file.lha AWeb AWeb.info 
+lha -xer r target_file.lha AWeb AWeb.info 
 ```
+
+This will create an archive containing the whole AWeb directory and it's icon called 'target_file.lha' suitable for distribution.
 
 ## How to Run
 
@@ -214,6 +234,7 @@ AWeb command line and ToolType options:
 - LOCAL/S - Legacy option that treats all URLs passed as local files.
 - CONFIG/K - Load a different prefs config than the default. If this parameter is provided, the prefs will load and save from ENVARC:AWeb3/<configname>/ instead of simply ENVARC:AWeb3/
 - HOTLIST/K - Load the bookmarks hotlist from the given file instead
+- NOSTARTUP/S - Do not load the startup.aweblib plugin even if it is installed, and therefore do not show the splash screen (New in Alpha 4)
 
 The following additional command line options are not built by default in AWeb 3.6 but may be enabled by the developer in custom builds. Inspect the source code for more information:
 - NOPOOL/S - disables use of memory pools
