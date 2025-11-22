@@ -195,7 +195,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">"
                "<title>about:blank</title>"
                "</head>"
-               "<body></body>"
+               "<body bgcolor=\"#AAAAAA\"></body>"
                "</html>");
          if(html_len >= len) html[len-1] = '\0';
       }
@@ -210,7 +210,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
       if(html)
       {  html_len = sprintf(html,
                "<html><head><title>AWeb Fonts</title></head>"
-               "<body bgcolor=\"#FFFFFF\" text=\"#000000\">"
+               "<body bgcolor=\"#AAAAAA\" text=\"#000000\">"
                "<table align=\"center\" width=\"90%%\">"
                "<tr><td align=\"center\">"
                "<h1>AWeb Fonts</h1>"
@@ -302,12 +302,12 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
       if(html)
       {  html_len = sprintf(html,
                "<html><head><title>AWeb Home</title></head>"
-               "<body bgcolor=\"#FFFFFF\" text=\"#000000\" link=\"#0000FF\" vlink=\"#551A8B\" topmargin=\"0\" leftmargin=\"0\">"
+               "<body bgcolor=\"#AAAAAA\" text=\"#000000\" link=\"#0000CC\" vlink=\"#551A8B\" topmargin=\"0\" leftmargin=\"0\">"
                "<table width=\"100%%\" cellpadding=\"5\" cellspacing=\"0\" border=\"0\">"
                "<tr><td align=\"center\">"
                "<img src=\"file:///AWeb:Docs/aweb.iff\" alt=\"AWeb\" align=\"center\">"
                "<br>"
-               "<font size=\"+1\" color=\"#cc0000\"><i>The Amiga Web Browser</i></font>"
+               "<font size=\"+1\" color=\"#CC0000\"><i>The Amiga Web Browser</i></font>"
                "</td></tr>"
                "</table>"
                "<hr>"
@@ -323,8 +323,8 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "</font>"
                "</td>"
                "<td width=\"34%%\" align=\"center\">"
-               "<font size=\"-1\" face=\"sans-serif\" color=\"#666666\"><strong>Search</strong></font><br>"
-               "<font size=\"-2\" face=\"sans-serif\" color=\"#999999\">powered by BoingSearch.com</font><br>"
+               "<font size=\"-1\" face=\"sans-serif\" color=\"#000000\"><strong>Search</strong></font><br>"
+               "<font size=\"-2\" face=\"sans-serif\" color=\"#333333\">powered by BoingSearch.com</font><br>"
                "<form method=\"get\" action=\"http://www.boingsearch.com/\">"
                "<br>"
                "<input type=\"text\" name=\"q\" size=\"25\"><br>"
@@ -354,7 +354,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
    if(html)
       {  html_len = sprintf(html,
             "<html><head><title>About AWeb</title></head>"
-            "<body bgcolor=\"#FFFFFF\" text=\"#000000\">"
+            "<body bgcolor=\"#C0C0C0\" text=\"#000000\">"
             "<table align=\"center\" width=\"90%%\">"
             "<tr><td align=\"center\">"
             "<img src=\"file:///AWeb:Docs/aweb.iff\" alt=\"AWeb\" align=\"center\">"

@@ -1,0 +1,193 @@
+<!--
+/**********************************************************************
+ * 
+ * This file is part of the AWeb distribution
+ *
+ * Copyright (C) 2025 amigazen project
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the AWeb Public License as included in this
+ * distribution.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * AWeb Public License for more details.
+ *
+ **********************************************************************/
+-->
+<html>
+<head>
+<title>
+Release History
+</title>
+</head>
+<body background=awebbg.iff>
+<h1><img src=aweb.iff width=192 height=93 alt=(logo)>&nbsp; Release History</h1>
+
+<h2>AWeb 3.6 Alpha 3</h2>
+
+<h3>New Features</h3>
+<ul>
+<li>On larger screen resolutions (above 640x512) new browser windows will default to a more sensible size rather than full screen</li>
+<li>Closing the last browser window from the close gadget will no longer prompt with an 'Are you sure you want to quit?' requester unless there are transfers still in progress</li>
+<li>AWeb will now use system provided contextual mouse pointers if intuition.library v47 or greater is available, instead of its own custom pointers, for links, text cursors, popup menus and resize handles</li>
+<li>Implemented better content type detection for text formats and image formats from web servers that send unknown or octet-stream content type headers, which should reduce the likelihood of being forced to save a file the browser should be able to render</li>
+<li>HAIKU/S is now a valid alternative to the VVIIV/S (5-7-5.. get it?) command line option "easter egg"</li>
+<li>All remaining Latin-1 XML entities are now supported</li>
+<li>Markdown documents loaded both from files or http(s) URLs are rendered as HTML on the fly</li>
+<li>about: URL protocol now provides a <a href="about:home">default home page</a>, an <a href="about:blank">about:blank</a>, a <a href="about:fonts">fonts test page</a>, and a <a href="about:version">version information page</a></li>
+<li>Added a default custom config name (AWeb36a3) to the AWeb icon when launching from Workbench in order to avoid conflict with any preexisting AWeb settings in your ENV:AWeb3 directory</li>
+<li>TLS/SSL connections are now much more secure by default - rejecting anything other than TLS 1.2 and TLS 1.3 and only using strong ciphers</li>
+<li>HTTPS connections now properly verify that the hostname matches the certificate following RFC 6125</li>
+</ul>
+
+<h3>Bug Fixes</h3>
+<ul>
+<li>Removed an unnecessary additional init SSL function call which may have caused some instability with HTTPS connections</li>
+<li>AWeb really will automatically create the AWeb: assign now if it doesn't already exist, and remove it on exit if it created it. This was broken in 3.6 Alpha 2</li>
+<li>Large files are sometimes truncated, any debugging output on this issue in particular is gratefully received</li>
+</ul>
+
+<h3>Security &amp; Stability Improvements</h3>
+<ul>
+<li><b>Task Userdata Race Condition:</b> Fixed critical race condition where multiple concurrent HTTPS connections in the same task could overwrite each other's userdata, causing certificate callbacks to access wrong or freed pointers. Changed from Settaskuserdata() to SSL_set_ex_data()/SSL_get_ex_data() for per-connection context storage</li>
+<li><b>Certificate Callback Memory Safety:</b> Fixed certificate callback accessing freed memory by clearing ex_data and callback before freeing SSL objects/contexts, and added comprehensive pointer validation</li>
+<li><b>Buffer Security:</b> Replaced ERR_error_string() with ERR_error_string_n() for safe buffer handling, preventing buffer overruns</li>
+<li><b>Hostname Validation:</b> Added RFC 1035-compliant length validation for hostnames and certificate names (max 253 chars) with explicit null termination for all string buffers</li>
+<li><b>SSL Context Cleanup:</b> Fixed SSL context callback cleanup - clear certificate callback before freeing SSL context to prevent callbacks from being called after context is freed</li>
+<li><b>Pointer Validation:</b> Added comprehensive pointer validation before SSL_connect() to prevent crashes from invalid or corrupted SSL objects</li>
+<li><b>TLS 1.3 Support:</b> Added TLS 1.3 cipher suites support for modern servers (e.g., github.com)</li>
+</ul>
+
+<h2>AWeb 3.6 Alpha 2 - 2025-11-16</h2>
+
+<h3>Major Changes</h3>
+<ul>
+<li><b>UI Framework:</b> Migrated from ClassAct classes and headers to ReAction equivalents</li>
+<li><b>Graphics System:</b> Refactored to use P96 instead of Cybergraphics</li>
+<li><b>SSL Implementation:</b> Completely rewritten to use AmiSSL v5.2</li>
+<li><b>Build System:</b> Updated smakefiles to build against NDK3.2 and ToolKit SDK</li>
+<li><b>Executable:</b> Renamed core executable from 'AWeb-II' to simply 'AWeb'</li>
+<li><b>HTTP/HTTPS Code Refactoring:</b> HTTP module completely rewritten to use HTTP/1.1, gzip and chunked encodings</li>
+<li><b>Socket timeouts:</b> Socket connections can be arbitrarily terminated at any time and now timeout after 15 seconds of inactivity</li>
+</ul>
+
+<h3>User Interface &amp; Display</h3>
+<ul>
+<li>Default background color for HTML rendering changed to white</li>
+<li>Images no longer render a border when associated with an &lt;a&gt; link</li>
+<li>Default fonts changed to use the Amiga's default scalable fonts (CGTimes.font, LetterGothic.font) for better rendering quality out of the box, with improved font fallback mechanism to gracefully fall back to bitmap fonts (times.font, courier.font) if scalable fonts are not available, with final fallback to topaz.font</li>
+<li>Added comprehensive web-safe font aliases mapping common web fonts to Amiga scalable fonts:
+  <ul>
+  <li>Serif fonts: Times New Roman, Times, serif, Georgia, Palatino, Garamond, Book Antiqua → CGTimes.font</li>
+  <li>Sans-serif fonts: Arial, Helvetica, sans-serif, Verdana, Trebuchet MS, Tahoma, Lucida Sans Unicode, Comic Sans MS, Impact → CGTriumvirate.font</li>
+  <li>Monospace fonts: Courier New, Courier, monospace, Lucida Console, Consolas → LetterGothic.font</li>
+  </ul>
+</li>
+</ul>
+
+<h3>Networking &amp; Security</h3>
+<ul>
+<li>HTTP client almost completely rewritten to support HTTP 1.1 and added new encodings including chunked and/or gzip and work with Roadshow version of bsdsocket.library headers and AmiSSL 5.2. Includes far more error and bounds checking than original version</li>
+<li>zlib statically linked version included to support gzip encoded http streams. Future plan is to refactor this to use z.library</li>
+<li>Added extensive debugging output for http and amissl modules for developer builds</li>
+<li>Cookies now accepted by default, avoiding requester overload, and they're no longer called 'Netscape Cookies'</li>
+</ul>
+
+<h3>Text &amp; Character Support</h3>
+<ul>
+<li>Added XML character entities support - many new XML character entities such as &bull; and &rsquo; are now supported and mapped to best Latin-1 equivalent</li>
+<li>Added stopgap UTF-8 conversion to prevent common 'spurious glyphs' issues</li>
+<li>Simple addition to parser to ensure HTML documents starting with XML and DOCTYPE headers don't render spurious text</li>
+</ul>
+
+<h3>Configuration &amp; Defaults</h3>
+<ul>
+<li>Default search engine changed to BoingSearch.com. Also works with FrogFind.com</li>
+<li>Updated default bookmarks and default search engine is now boingsearch.com</li>
+<li>Updated default search and navigation URLs to websites relevant in 2025, and optimised default settings</li>
+<li>Disk cache location defaults to T:</li>
+<li>No need to run an installer script, AWeb will run from anywhere, though if the plugins are not in the same directory it won't find them unless they are in the AWeb: assign directory</li>
+<li>Command line arguments: Any URL arguments passed on the command line that are missing the URL protocol are assumed to be local files to open instead using the file:// protocol</li>
+</ul>
+
+<h3>Build &amp; Development</h3>
+<ul>
+<li>Builds again with SAS/C! Does not require gcc, native or cross-compiler to build</li>
+<li>reaction.lib incorporated into build because this is needed to autoopen gradientslider.gadget since NDK3.2 is missing the protos</li>
+<li>The AWebCfg build in the original 3.4 APL release was broken in several ways. Now fixed</li>
+<li>Some refactoring of ezlists and image plugins to build correctly</li>
+<li>Corrected many english grammar issues in default labels and restored buildable catalogs</li>
+<li>Partial update of documentation to reflect reality of 2025</li>
+</ul>
+
+<h3>Plugin Updates</h3>
+<ul>
+<li>JFIF plugin now uses T: for its temporary working directory location</li>
+</ul>
+
+<h3>Critical Bug Fixes</h3>
+<ul>
+<li><b>Memory Corruption:</b> Fixed memory corruption in non-chunked gzip processing where buffer was allocated with first block size but subsequent blocks overflowed the buffer</li>
+<li><b>Infinite Loop:</b> Fixed infinite loop in chunked+gzip processing when waiting for more data</li>
+<li><b>Gzip Cleanup:</b> Fixed duplicate gzip processing that could cause corruption or truncation</li>
+<li><b>Socket Timeouts:</b> Re-enabled and fixed socket timeout handling (SO_RCVTIMEO/SO_SNDTIMEO) to prevent SSL_connect() from hanging indefinitely</li>
+<li><b>Socket Library Cleanup:</b> Fixed race condition where socketbase library was closed while SSL operations were still in progress</li>
+<li><b>SSL Connection Handshake:</b> Fixed blocking SSL_connect() implementation to match earlier working version, with fallback to non-blocking I/O only when needed</li>
+<li><b>Thread-Safe Logging:</b> Implemented thread-safe debug logging using semaphore protection to prevent log corruption from concurrent tasks</li>
+<li><b>Use-After-Free Bugs:</b> Fixed critical race conditions where Assl objects were freed while still in use by concurrent tasks</li>
+<li><b>Per-Connection Semaphores:</b> Added per-connection <code>use_sema</code> semaphore to protect SSL object access vs cleanup operations</li>
+<li><b>SSL Object Lifecycle:</b> Fixed Assl object lifecycle - Assl_cleanup() no longer frees the struct itself (caller must free after cleanup)</li>
+<li><b>SSL Context Creation:</b> Fixed concurrent SSL context creation race conditions with global <code>ssl_init_sema</code> semaphore</li>
+<li><b>Per-Task AmiSSL Initialization:</b> Fixed per-task AmiSSL initialization - each task now correctly calls InitAmiSSL() and OPENSSL_init_ssl()</li>
+<li><b>SocketBase Race Conditions:</b> Fixed race condition with global SocketBase pointer by storing per-connection socketbase in Assl struct</li>
+<li><b>Buffer Validation:</b> Added buffer pointer and length validation in Assl_read() and Assl_write() to prevent overrun</li>
+<li><b>SSL Error Handling:</b> Enhanced SSL error handling with detailed errno reporting for SSL_ERROR_SYSCALL cases</li>
+<li><b>SNI (Server Name Indication):</b> Fixed SNI hostname setting using SSL_set_tlsext_host_name() for proper virtual host support</li>
+<li><b>Non-Blocking I/O:</b> Implemented proper non-blocking SSL handshake with WaitSelect() timeout handling for servers that require it</li>
+<li><b>Task Exit Handling:</b> Added Checktaskbreak() calls to allow graceful exit during blocking SSL operations</li>
+<li><b>Opensocket() Validation:</b> Added socketbase validation throughout Opensocket() to detect and handle cases where library is closed during SSL initialization</li>
+<li><b>Build warnings:</b> Fixed many Library typecast warnings and other build warnings due to type mismatches</li>
+<li><b>Locale targets:</b> Fixed broken locale/cfglocale object targets in smakefile</li>
+<li><b>AWeb: Assign:</b> Set default assign path to simply "AWeb:" and now creates the assign automatically on launch if it does not exist, in which case it also removes it on exit. If assign already exists before launch, it does not remove it.</li>
+</ul>
+
+<h3>Removed Features</h3>
+<ul>
+<li><b>INet225 Support:</b> Disabled INet225 support - removed all support for socket.library, use a bsdsocket.library instead</li>
+<li><b>Miami Support:</b> Disabled MiamiSSL support - although Miami supports bsdsocket.library, miamissl.library and miami.library are no longer supported which probably stops Miami's bsdsocket.library working properly too</li>
+<li><b>CyberGraphX support:</b> Removed (for now anyway) - this build uses P96 instead which should make it more viable under emulation and on OS4</li>
+</ul>
+
+<h2>Known Issues</h2>
+
+<h3>General Issues</h3>
+<ul>
+<li>Although the AmiSSL interface code has been completely rewritten to work with AmiSSL 5.20 and properly support asynchronous SSL connections, especially with the use of multiple threads (Tasks), it is still not completely stable</li>
+<li>This version does not currently include the changes from the various incomplete 3.5 releases, for now, instead it reimplements the HTTP and AmiSSL client code to a more recent standard. Other features of the 3.5 releases will come later</li>
+<li>Setting the disk cache to 0 or a very small size will prevent images from rendering - this is an issue carried over from the original AWeb</li>
+<li>The primary documentation has not yet been updated for release 3.6</li>
+<li>The new support for Markdown documents still has some visual glitches</li>
+<li>The AWebPlugins are not enabled by default, you will need to enable them manually in the configuration</li>
+<li>Feedback is also particularly welcome on default settings and default programs</li>
+</ul>
+
+<h3>OS4 Specific Issues</h3>
+<p>
+The following issues are specific to running this 68K build on OS4:
+</p>
+<ul>
+<li>Pages with a background image experience graphics corruption when using the window scroll bars to scroll the page</li>
+<li>Attempts to access HTTPS connections will trigger a GDI fault in the OS4 version of AmiSSL</li>
+<li>Mousewheel does not scroll</li>
+<li>Since the new default homepage relies on the about.aweblib plugin, there may be issues on OS4, in which case delete the plugin or run AWebCfg first to save a new default home page</li>
+</ul>
+
+<p>
+<hr>
+<a href=aweb.html><img src=back.gif width=32 height=16 alt="<-" border=0></a> Back to
+<a href=aweb.html>index</a>.
+
+</body>
+</html>
