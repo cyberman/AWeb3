@@ -354,7 +354,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
    if(html)
       {  html_len = sprintf(html,
             "<html><head><title>About AWeb</title></head>"
-            "<body bgcolor=\"#C0C0C0\" text=\"#000000\">"
+            "<body bgcolor=\"#AAAAAA\" text=\"#000000\">"
             "<table align=\"center\" width=\"90%%\">"
             "<tr><td align=\"center\">"
             "<img src=\"file:///AWeb:Docs/aweb.iff\" alt=\"AWeb\" align=\"center\">"
