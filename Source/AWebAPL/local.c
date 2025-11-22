@@ -29,12 +29,473 @@
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/utility.h>
+#include <dos/dos.h>
+#include <dos/dostags.h>
 
 #include <string.h>
 
 #ifdef DEVELOPER
 extern long localblocksize;
 #endif
+
+/* Maximum directory entries to display */
+#define MAX_DIR_ENTRIES 256
+
+/*-----------------------------------------------------------------------*/
+
+/* Copy string, but escape HTML characters */
+static long Htmlmove(UBYTE *to,UBYTE *from,long len)
+{  long n=0;
+   for(;len;from++,len--)
+   {  switch(*from)
+      {  case '<':
+            strcpy(to,"&lt;");
+            to+=4;
+            n+=4;
+            break;
+         case '>':
+            strcpy(to,"&gt;");
+            to+=4;
+            n+=4;
+            break;
+         case '&':
+            strcpy(to,"&amp;");
+            to+=5;
+            n+=5;
+            break;
+         case '"':
+            strcpy(to,"&quot;");
+            to+=6;
+            n+=6;
+            break;
+         default:
+            *to++=*from;
+            n++;
+      }
+   }
+   return n;
+}
+
+/* Get icon for file based on extension or type */
+static UBYTE *GetFileIcon(UBYTE *filename,LONG entrytype)
+{  UBYTE *ext;
+   LONG len;
+   
+   /* Directory (positive values indicate directory in AmigaOS) */
+   if(entrytype>0)
+   {  return "&folder;";
+   }
+   
+   /* Find file extension */
+   len=strlen(filename);
+   ext=filename+len;
+   while(ext>filename && *ext!='.') ext--;
+   if(*ext=='.') ext++;
+   else ext=filename+len; /* No extension */
+   
+   /* Check extension (case insensitive) */
+   if(STRNIEQUAL(ext,"html",4) || STRNIEQUAL(ext,"htm",3))
+   {  return "&html;";
+   }
+   else if(STRNIEQUAL(ext,"txt",3) || STRNIEQUAL(ext,"text",4))
+   {  return "&text.document;";
+   }
+   else if(STRNIEQUAL(ext,"gif",3) || STRNIEQUAL(ext,"jpg",3) || 
+            STRNIEQUAL(ext,"jpeg",4) || STRNIEQUAL(ext,"png",3) ||
+            STRNIEQUAL(ext,"iff",3) || STRNIEQUAL(ext,"ilbm",4))
+   {  return "&image;";
+   }
+   else if(STRNIEQUAL(ext,"zip",3) || STRNIEQUAL(ext,"lha",3) ||
+            STRNIEQUAL(ext,"lzx",3) || STRNIEQUAL(ext,"gz",2))
+   {  return "&archive;";
+   }
+   else if(STRNIEQUAL(ext,"mod",3) || STRNIEQUAL(ext,"wav",3) ||
+            STRNIEQUAL(ext,"mp3",3) || STRNIEQUAL(ext,"aiff",4))
+   {  return "&audio;";
+   }
+   else if(STRNIEQUAL(ext,"exe",3) || STRNIEQUAL(ext,"bin",3))
+   {  return "&binary.document;";
+   }
+   
+   /* Default to binary document */
+   return "&binary.document;";
+}
+
+/* Format file size for display using locale */
+static void FormatSize(UBYTE *buf,ULONG size)
+{  if(size<1024)
+   {  Lprintf(buf,"%ld",size);
+   }
+   else if(size<1048576)
+   {  Lprintf(buf,"%ldK",size/1024);
+   }
+   else
+   {  Lprintf(buf,"%ldM",size/1048576);
+   }
+}
+
+/* Format date for display from ExAll date fields using locale */
+static void FormatFileDate(UBYTE *buf,ULONG days,ULONG mins,ULONG ticks)
+{  struct DateStamp ds;
+   ds.ds_Days=days;
+   ds.ds_Minute=mins;
+   ds.ds_Tick=ticks;
+   Lprintdate(buf,"%d-%b-%Y %H:%M",&ds);
+}
+
+/* Generate directory listing HTML */
+static void GenerateDirListing(struct Fetchdriver *fd,UBYTE *dirname,long lock)
+{  struct ExAllData *exall_data;
+   struct ExAllControl *eac;
+   struct ExAllData *entry;
+   UBYTE *html_buf;
+   UBYTE *url_base;
+   UBYTE *p,*q;
+   UBYTE size_buf[32];
+   UBYTE date_buf[64];
+   UBYTE *icon;
+   ULONG buffer_size;
+   LONG html_len;
+   LONG url_base_len;
+   LONG name_len;
+   BOOL is_dir;
+   BOOL more;
+   UBYTE header_done;
+   LONG row_num;
+   LONG html_buf_size;
+   LONG row_start_pos;
+   
+   /* Allocate ExAllControl */
+   eac=AllocDosObjectTags(DOS_EXALLCONTROL,TAG_END);
+   if(!eac) return;
+   
+   /* Initialize ExAllControl */
+   eac->eac_Entries=0;
+   eac->eac_LastKey=0;
+   eac->eac_MatchString=NULL;
+   eac->eac_MatchFunc=NULL;
+   
+   /* Allocate buffer for ExAll data (enough for 256 entries) */
+   buffer_size=MAX_DIR_ENTRIES*sizeof(struct ExAllData)+4096;
+   exall_data=AllocMem(buffer_size,MEMF_CLEAR|MEMF_PUBLIC);
+   if(!exall_data)
+   {  FreeDosObject(DOS_EXALLCONTROL,eac);
+      return;
+   }
+   
+   /* Build base URL for links */
+   /* Need: "file:///" (7 chars) + dirname + "/" (if needed) + null terminator */
+   url_base_len=strlen(dirname);
+   if(url_base_len>0 && dirname[url_base_len-1]!='/' && dirname[url_base_len-1]!=':')
+   {  url_base_len++; /* Need space for trailing / */
+   }
+   url_base_len+=8+1; /* "file:///" (7) + null terminator (1) + safety margin (1) */
+   url_base=AllocMem(url_base_len,MEMF_PUBLIC);
+   if(!url_base)
+   {  FreeMem(exall_data,buffer_size);
+      FreeDosObject(DOS_EXALLCONTROL,eac);
+      return;
+   }
+   strcpy(url_base,"file:///");
+   strcat(url_base,dirname);
+   if(dirname[strlen(dirname)-1]!='/' && dirname[strlen(dirname)-1]!=':')
+   {  strcat(url_base,"/");
+   }
+   
+   /* Allocate HTML buffer for incremental output - need enough for header + rows */
+   html_buf_size=4096;
+   html_buf=AllocMem(html_buf_size,MEMF_PUBLIC);
+   if(!html_buf)
+   {  FreeMem(url_base,url_base_len);
+      FreeMem(exall_data,buffer_size);
+      FreeDosObject(DOS_EXALLCONTROL,eac);
+      return;
+   }
+   
+   header_done=FALSE;
+   row_num=0;
+   
+   /* Process directory using ExAll - may require multiple calls */
+   do
+   {  more=ExAll(lock,exall_data,buffer_size,ED_DATE,eac);
+      
+      if(!more && IoErr()!=ERROR_NO_MORE_ENTRIES)
+      {  /* Error occurred */
+         break;
+      }
+      
+      if(eac->eac_Entries==0)
+      {  continue; /* No entries in this batch */
+      }
+      
+      /* Send HTML header on first batch */
+      if(!header_done)
+      {  LONG max_len;
+         max_len=html_buf_size-1; /* Leave room for null terminator */
+         html_len=sprintf(html_buf,
+            "<HTML>\n<HEAD>\n<TITLE>%s</TITLE>\n"
+            "<SCRIPT LANGUAGE=\"JavaScript1.1\">\n"
+            "var sortCol = 0;\n"
+            "var sortDir = 1;\n"
+            "function getText(cell) {\n"
+            "  var text = '';\n"
+            "  for (var i = 0; i < cell.childNodes.length; i++) {\n"
+            "    if (cell.childNodes[i].nodeType == 3) {\n"
+            "      text += cell.childNodes[i].nodeValue;\n"
+            "    } else if (cell.childNodes[i].nodeType == 1) {\n"
+            "      text += getText(cell.childNodes[i]);\n"
+            "    }\n"
+            "  }\n"
+            "  return text;\n"
+            "}\n"
+            "function sortTable(col) {\n"
+            "  var table = document.filetable;\n"
+            "  if (!table) return;\n"
+            "  var tbody = table.tBodies[0];\n"
+            "  var rows = tbody.rows;\n"
+            "  var arr = [];\n"
+            "  for (var i = 0; i < rows.length; i++) {\n"
+            "    arr[i] = rows[i];\n"
+            "  }\n"
+            "  if (sortCol == col) sortDir = -sortDir;\n"
+            "  else sortDir = 1;\n"
+            "  sortCol = col;\n"
+            "  for (var i = 0; i < arr.length - 1; i++) {\n"
+            "    for (var j = i + 1; j < arr.length; j++) {\n"
+            "      var aVal = getText(arr[i].cells[col]);\n"
+            "      var bVal = getText(arr[j].cells[col]);\n"
+            "      var swap = false;\n"
+            "      if (col == 1 && aVal != '-' && bVal != '-') {\n"
+            "        var aNum = parseInt(aVal) || 0;\n"
+            "        var bNum = parseInt(bVal) || 0;\n"
+            "        swap = (aNum - bNum) * sortDir > 0;\n"
+            "      } else {\n"
+            "        swap = (aVal < bVal ? -1 : aVal > bVal ? 1 : 0) * sortDir > 0;\n"
+            "      }\n"
+            "      if (swap) {\n"
+            "        var tmp = arr[i];\n"
+            "        arr[i] = arr[j];\n"
+            "        arr[j] = tmp;\n"
+            "      }\n"
+            "    }\n"
+            "  }\n"
+            "  for (var i = 0; i < arr.length; i++) {\n"
+            "    tbody.appendChild(arr[i]);\n"
+            "  }\n"
+            "}\n"
+            "</SCRIPT>\n"
+            "</HEAD>\n"
+            "<BODY BGCOLOR=\"#AAAAAA\" MARGINWIDTH=\"0\" MARGINHEIGHT=\"0\" TOPMARGIN=\"0\" LEFTMARGIN=\"0\">\n",dirname);
+         if(html_len>=max_len) html_len=max_len-1;
+         html_buf[html_len]='\0';
+         
+         /* Add parent directory link if not root */
+         if(html_len<max_len-100)
+         {  p=dirname+strlen(dirname)-1;
+            if(*p=='/') p--;
+            if(*p==':') p--;
+            while(p>dirname && *p!='/' && *p!=':') p--;
+            if(p>dirname || (*p=='/' && p>dirname))
+            {  q=p;
+               if(*q=='/') q--;
+               while(q>dirname && *q!='/' && *q!=':') q--;
+               if(q>=dirname && html_len<max_len-100)
+               {  LONG len;
+                  len=sprintf(html_buf+html_len,"<P><A HREF=\"file:///");
+                  if(len>0 && html_len+len<max_len)
+                  {  html_len+=len;
+                     name_len=q-dirname+1;
+                     if(*q==':') name_len++;
+                     if(html_len+name_len+50<max_len)
+                     {  len=Htmlmove(html_buf+html_len,dirname,name_len);
+                        if(len>0 && html_len+len<max_len)
+                        {  html_len+=len;
+                           len=sprintf(html_buf+html_len,"/\">..</A></P>\n");
+                           if(len>0 && html_len+len<max_len) html_len+=len;
+                        }
+                     }
+                  }
+               }
+            }
+         }
+         
+         if(html_len<max_len-100)
+         {  LONG len;
+            len=sprintf(html_buf+html_len,
+               "<TABLE WIDTH=\"100%%\" BORDER=\"0\" CELLPADDING=\"2\" CELLSPACING=\"0\" NAME=\"filetable\" ID=\"filetable\">\n"
+               "<THEAD>\n"
+               "<TR>\n"
+               "<TH WIDTH=\"60%%\"><A HREF=\"javascript:sortTable(0)\">Name</A></TH>\n"
+               "<TH WIDTH=\"15%%\"><A HREF=\"javascript:sortTable(1)\">Size</A></TH>\n"
+               "<TH WIDTH=\"25%%\"><A HREF=\"javascript:sortTable(2)\">Date</A></TH>\n"
+               "</TR>\n"
+               "</THEAD>\n"
+               "<TBODY>\n");
+            if(len>0 && html_len+len<max_len) html_len+=len;
+         }
+         
+         /* Send header */
+         Updatetaskattrs(
+            AOURL_Contenttype,"text/html",
+            AOURL_Data,html_buf,
+            AOURL_Datalength,html_len,
+            TAG_END);
+         
+         header_done=TRUE;
+         html_len=0; /* Reset for row building */
+      }
+      
+      /* Process each entry in this batch */
+      entry=exall_data;
+      while(entry)
+      {  /* Skip . and .. entries */
+         if(entry->ed_Name && STRNIEQUAL(entry->ed_Name,".",1) && 
+            (entry->ed_Name[1]=='\0' || 
+             (entry->ed_Name[1]=='.' && entry->ed_Name[2]=='\0')))
+         {  entry=entry->ed_Next;
+            continue;
+         }
+         
+         if(!entry->ed_Name)
+         {  entry=entry->ed_Next;
+            continue;
+         }
+         
+         /* In AmigaOS, positive ed_Type indicates directory, negative indicates file */
+         is_dir=(entry->ed_Type>0);
+         icon=GetFileIcon(entry->ed_Name,entry->ed_Type);
+         
+         /* Build HTML for this entry - alternating row colors */
+         /* Start building row at position 0 in buffer */
+         row_start_pos=0;
+         {  LONG max_remaining;
+            LONG len;
+            UBYTE *new_buf;
+            ULONG new_size;
+            LONG estimated_row_size;
+            
+            /* Estimate row size: URL base + filename (possibly escaped) + fixed HTML */
+            estimated_row_size=strlen(url_base)+strlen(entry->ed_Name)*2+200;
+            
+            /* Expand buffer if needed */
+            max_remaining=html_buf_size-1;
+            if(max_remaining<estimated_row_size)
+            {  new_size=html_buf_size;
+               while(new_size-1<estimated_row_size)
+               {  new_size*=2;
+                  if(new_size>65536) break; /* Safety limit */
+               }
+               new_buf=AllocMem(new_size,MEMF_PUBLIC);
+               if(new_buf)
+               {  /* html_len should be 0 after header, but copy just in case */
+                  if(html_buf && html_len>0)
+                  {  memcpy(new_buf,html_buf,html_len);
+                  }
+                  if(html_buf) FreeMem(html_buf,html_buf_size);
+                  html_buf=new_buf;
+                  html_buf_size=new_size;
+                  max_remaining=html_buf_size-1;
+               }
+               else
+               {  break; /* Can't expand, skip this entry */
+               }
+            }
+            
+            if(max_remaining<200) break; /* Not enough space */
+            
+            len=sprintf(html_buf+row_start_pos,"<TR BGCOLOR=\"%s\">\n<TD>%s <A HREF=\"%s",
+               (row_num%2==0)?"#CCCCCC":"#DDDDDD",icon,url_base);
+            if(len<=0 || len>=max_remaining) break;
+            row_start_pos+=len;
+            max_remaining=html_buf_size-row_start_pos-1;
+            
+            len=Htmlmove(html_buf+row_start_pos,entry->ed_Name,strlen(entry->ed_Name));
+            if(len>=max_remaining) break;
+            row_start_pos+=len;
+            max_remaining=html_buf_size-row_start_pos-1;
+            
+            if(is_dir)
+            {  if(max_remaining<10) break;
+               len=sprintf(html_buf+row_start_pos,"/");
+               if(len>0 && len<max_remaining) { row_start_pos+=len; max_remaining-=len; }
+            }
+            
+            if(max_remaining<10) break;
+            len=sprintf(html_buf+row_start_pos,"\">");
+            if(len<=0 || len>=max_remaining) break;
+            row_start_pos+=len;
+            max_remaining=html_buf_size-row_start_pos-1;
+            
+            len=Htmlmove(html_buf+row_start_pos,entry->ed_Name,strlen(entry->ed_Name));
+            if(len>=max_remaining) break;
+            row_start_pos+=len;
+            max_remaining=html_buf_size-row_start_pos-1;
+            
+            if(is_dir)
+            {  if(max_remaining<10) break;
+               len=sprintf(html_buf+row_start_pos,"/");
+               if(len>0 && len<max_remaining) { row_start_pos+=len; max_remaining-=len; }
+            }
+            
+            if(max_remaining<20) break;
+            len=sprintf(html_buf+row_start_pos,"</A></TD>\n<TD>");
+            if(len<=0 || len>=max_remaining) break;
+            row_start_pos+=len;
+            max_remaining=html_buf_size-row_start_pos-1;
+            
+            /* Size */
+            if(is_dir)
+            {  strcpy(size_buf,"-");
+            }
+            else
+            {  FormatSize(size_buf,entry->ed_Size);
+            }
+            if(max_remaining<50) break;
+            len=sprintf(html_buf+row_start_pos,"%s</TD>\n<TD>",size_buf);
+            if(len<=0 || len>=max_remaining) break;
+            row_start_pos+=len;
+            max_remaining=html_buf_size-row_start_pos-1;
+            
+            /* Date */
+            FormatFileDate(date_buf,entry->ed_Days,entry->ed_Mins,entry->ed_Ticks);
+            if(max_remaining<100) break;
+            len=sprintf(html_buf+row_start_pos,"%s</TD>\n</TR>\n",date_buf);
+            if(len<=0 || len>=max_remaining) break;
+            row_start_pos+=len;
+            
+            /* Emit only this row */
+            Updatetaskattrs(
+               AOURL_Data,html_buf,
+               AOURL_Datalength,row_start_pos,
+               TAG_END);
+         }
+         
+         row_num++;
+         
+         /* Move to next entry */
+         entry=entry->ed_Next;
+      }
+      
+   } while(more);
+   
+   /* Send closing tags only if header was sent */
+   if(header_done)
+   {  LONG len;
+      len=sprintf(html_buf,"</TBODY>\n</TABLE>\n</BODY>\n</HTML>\n");
+      if(len>0 && len<html_buf_size)
+      {  Updatetaskattrs(
+            AOURL_Data,html_buf,
+            AOURL_Datalength,len,
+            TAG_END);
+      }
+   }
+   
+   /* Cleanup - free in reverse order of allocation */
+   if(html_buf) FreeMem(html_buf,html_buf_size);
+   if(url_base) FreeMem(url_base,url_base_len);
+   if(exall_data) FreeMem(exall_data,buffer_size);
+   if(eac) FreeDosObject(DOS_EXALLCONTROL,eac);
+}
 
 /*-----------------------------------------------------------------------*/
 
@@ -75,7 +536,8 @@ void Localfiletask(struct Fetchdriver *fd)
    name=fd->name;
    c=fd->name[strlen(fd->name)-1];
    if(c=='/' || c==':')
-   {  ObtainSemaphore(&prefssema);
+   {  /* Try index file first */
+      ObtainSemaphore(&prefssema);
       if(buf=ALLOCTYPE(UBYTE,strlen(fd->name)+strlen(prefs.localindex)+2,MEMF_PUBLIC))
       {  strcpy(buf,fd->name);
          strcat(buf,prefs.localindex);
@@ -92,11 +554,66 @@ void Localfiletask(struct Fetchdriver *fd)
          lock=Lock(name,SHARED_LOCK);
       }
    }
+   /* If index file not found and original path was a directory, try directory listing */
+   if(!lock && (c=='/' || c==':'))
+   {  UBYTE *orig_name;
+      UBYTE *dir_buf;
+      long dir_lock;
+      /* Try the original directory path */
+      orig_name=fd->name;
+      dir_buf=NULL;
+      dir_lock=Lock(orig_name,SHARED_LOCK);
+      if(!dir_lock && strchr(orig_name,'\\'))
+      {  if(dir_buf=Dupstr(orig_name,-1))
+         {  UBYTE *dir_p;
+            orig_name=dir_buf;
+            while(dir_p=strchr(orig_name,'\\')) *dir_p='/';
+            dir_lock=Lock(orig_name,SHARED_LOCK);
+         }
+      }
+      if(dir_lock)
+      {  if(fib=AllocDosObjectTags(DOS_FIB,TAG_END))
+         {  if(Examine(dir_lock,fib))
+            {  /* Check if it's a directory */
+               if(fib->fib_DirEntryType>0)
+               {  /* Directory - generate listing */
+                  FreeDosObject(DOS_FIB,fib);
+                  GenerateDirListing(fd,orig_name,dir_lock);
+                  UnLock(dir_lock);
+                  if(dir_buf) FREE(dir_buf);
+                  if(buf) FREE(buf);
+                  Updatetaskattrs(AOTSK_Async,TRUE,
+                     AOURL_Eof,TRUE,
+                     AOURL_Terminate,TRUE,
+                     TAG_END);
+                  return;
+               }
+            }
+            FreeDosObject(DOS_FIB,fib);
+         }
+         UnLock(dir_lock);
+      }
+      if(dir_buf) FREE(dir_buf);
+   }
    if(lock)
    {  if(fib=AllocDosObjectTags(DOS_FIB,TAG_END))
       {  if(Examine(lock,fib))
-         {  if(fib->fib_DirEntryType<0)
-            {  Updatetaskattrs(AOURL_Contentlength,fib->fib_Size,TAG_END);
+         {  /* Check if it's a directory (fib_DirEntryType > 0) */
+            if(fib->fib_DirEntryType>0)
+            {  /* Directory - generate listing */
+               FreeDosObject(DOS_FIB,fib);
+               GenerateDirListing(fd,name,lock);
+               UnLock(lock);
+               if(buf) FREE(buf);
+               Updatetaskattrs(AOTSK_Async,TRUE,
+                  AOURL_Eof,TRUE,
+                  AOURL_Terminate,TRUE,
+                  TAG_END);
+               return;
+            }
+            else if(fib->fib_DirEntryType<0)
+            {  /* Regular file */
+               Updatetaskattrs(AOURL_Contentlength,fib->fib_Size,TAG_END);
             }
             date=fib->fib_Date.ds_Days*86400 +
                  fib->fib_Date.ds_Minute*60 +
