@@ -17,7 +17,7 @@
  *                                                                 *
  * index = path of index file                                      */
 
-index = 'AWebPAth:docs/docsearch.index'
+index = 'AWeb:docs/docsearch.index'
 
 /* makeindex = full command line to make the index.                *
  * The makeindex program takes template: DIR/A/M,TO/A              *
