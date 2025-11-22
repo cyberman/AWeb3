@@ -647,11 +647,9 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
                q++,i++) name[i]=*q;
             name[i]='\0';
             if(cd=Findchar(name))
-            {  /* Allow unterminated names when tolerant; when strict name
-                * must be terminated by tag or non-alphanumeric and match entirely.
-                * Allow unicode characters (>255) only when strict. */
+            {  /* Always convert all entities regardless of HTML mode or character code.
+                * In strict mode, name must be terminated by semicolon or non-alphanumeric. */
                if(STREQUAL(cd->name,name)
-               && (strict || cd->ch<=255)
                && (!strict || (q>=end || !isalnum(*q))))
                {  q=p+1+strlen(cd->name); /* +1 because of & */
                   if(q<end)
