@@ -1,0 +1,762 @@
+<!--
+/**********************************************************************
+ * 
+ * This file is part of the AWeb distribution
+ *
+ * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the AWeb Public License as included in this
+ * distribution.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * AWeb Public License for more details.
+ *
+ **********************************************************************/
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+<TITLE>AWeb HTML 3.2 Compatibility Test Page</TITLE>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
+<META NAME="Description" CONTENT="Comprehensive HTML 3.2 compatibility test for AWeb">
+<ISINDEX PROMPT="Search this page:">
+</HEAD>
+<BODY BACKGROUND="awebbg.iff" BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
+
+<H1><IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)">&nbsp; HTML 3.2 Compatibility Test</H1>
+
+<P>This page tests AWeb's compatibility with the <STRONG>HTML 3.2</STRONG> standard (W3C Recommendation, January 1997). Each section demonstrates supported features and clearly marks any incompatibilities or limitations.</P>
+
+<HR>
+
+<A NAME="top"></A>
+<CENTER>
+<H2>Quick Navigation</H2>
+<A HREF="#document">Document Structure</A> |
+<A HREF="#text">Text Formatting</A> |
+<A HREF="#style">Text Styles</A> |
+<A HREF="#lists">Lists</A> |
+<A HREF="#links">Links & Images</A> |
+<A HREF="#tables">Tables</A> |
+<A HREF="#forms">Forms</A> |
+<A HREF="#compatibility">Compatibility Notes</A>
+</CENTER>
+
+<HR>
+
+<A NAME="document"></A>
+<H2>Document Structure</H2>
+
+<H3>Fully Supported</H3>
+<P>All HTML 3.2 document structure elements are fully supported:</P>
+
+<UL>
+<LI><CODE>&lt;HTML&gt;</CODE> - Document root element</LI>
+<LI><CODE>&lt;HEAD&gt;</CODE> - Document head section</LI>
+<LI><CODE>&lt;BODY&gt;</CODE> - Document body with attributes:
+    <UL>
+    <LI>BGCOLOR - Background color</LI>
+    <LI>TEXT - Text color</LI>
+    <LI>LINK - Link color</LI>
+    <LI>VLINK - Visited link color</LI>
+    <LI>ALINK - Active link color</LI>
+    <LI>BACKGROUND - Background image</LI>
+    </UL>
+</LI>
+<LI><CODE>&lt;TITLE&gt;</CODE> - Document title</LI>
+<LI><CODE>&lt;BASE&gt;</CODE> - Base URL for relative links</LI>
+<LI><CODE>&lt;ISINDEX&gt;</CODE> - Simple search form</LI>
+<LI><CODE>&lt;META&gt;</CODE> - Meta information</LI>
+<LI><CODE>&lt;LINK&gt;</CODE> - Related resources</LI>
+</UL>
+
+<H3>Test Examples</H3>
+<P>This document uses HTML 3.2 DOCTYPE: <CODE>&lt;!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN"&gt;</CODE></P>
+
+<P>The BODY element above demonstrates all color attributes working correctly.</P>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="text"></A>
+<H2>Text Formatting</H2>
+
+<H3>Fully Supported</H3>
+
+<H4>Headings</H4>
+<H1>Heading Level 1 (H1)</H1>
+<H2>Heading Level 2 (H2)</H2>
+<H3>Heading Level 3 (H3)</H3>
+<H4>Heading Level 4 (H4)</H4>
+<H5>Heading Level 5 (H5)</H5>
+<H6>Heading Level 6 (H6)</H6>
+
+<H4>Paragraphs and Line Breaks</H4>
+<P>This is a paragraph element. Paragraphs group text into logical blocks with automatic spacing.</P>
+<P>This is another paragraph, separated from the previous one.</P>
+<BR>
+This line has a line break before it using the BR element.
+<BR><BR>
+Multiple line breaks create vertical spacing.
+
+<H4>Horizontal Rules</H4>
+<HR>
+<HR WIDTH="50%">
+<HR WIDTH="300" SIZE="5">
+<HR NOSHADE>
+
+<H4>Preformatted Text</H4>
+<PRE>
+This is PRE (preformatted) text.
+It preserves    spacing   and
+line breaks exactly as written.
+</PRE>
+
+<LISTING>
+This is LISTING format.
+Similar to PRE but with monospace font.
+</LISTING>
+
+<XMP>
+This is XMP format.
+Also preserves formatting.
+&lt;HTML&gt; tags shown literally.
+</XMP>
+
+<H4>Text Alignment</H4>
+<CENTER>This text is centered using the CENTER tag (HTML 3.2 standard).</CENTER>
+
+<P ALIGN="left">This paragraph is left-aligned (default).</P>
+<P ALIGN="center">This paragraph is center-aligned.</P>
+<P ALIGN="right">This paragraph is right-aligned.</P>
+
+<DIV ALIGN="left">DIV left-aligned</DIV>
+<DIV ALIGN="center">DIV center-aligned</DIV>
+<DIV ALIGN="right">DIV right-aligned</DIV>
+
+<H4>Block Quotes</H4>
+<BLOCKQUOTE>
+This is a block quote. It is typically indented to distinguish quoted text from regular paragraphs. Block quotes can contain multiple paragraphs and other elements.
+</BLOCKQUOTE>
+
+<H4>Address</H4>
+<ADDRESS>
+This is an ADDRESS element, typically used for contact information.<BR>
+It is usually rendered in italics and may be indented.
+</ADDRESS>
+
+<H3>Partially Supported (Tolerant Mode Only)</H3>
+<P><NOBR>This text will not break across lines (NOBR tag - requires tolerant mode)</NOBR></P>
+<P>Here is a word<WBR>break opportunity (WBR tag - requires tolerant mode)</P>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="style"></A>
+<H2>Text Style Elements</H2>
+
+<H3>Fully Supported - Physical Styles</H3>
+<P><B>Bold text (B)</B> <I>Italic text (I)</I> <U>Underlined text (U)</U> <STRIKE>Strikethrough text (STRIKE)</STRIKE></P>
+
+<H3>Fully Supported - Monospace Styles</H3>
+<P><TT>Teletype text (TT)</TT> <CODE>Code text (CODE)</CODE> <SAMP>Sample text (SAMP)</SAMP> <KBD>Keyboard text (KBD)</KBD> <VAR>Variable text (VAR)</VAR></P>
+
+<H3>Fully Supported - Logical Styles</H3>
+<P><EM>Emphasized text (EM)</EM> <STRONG>Strong text (STRONG)</STRONG> <CITE>Citation text (CITE)</CITE> <DFN>Definition text (DFN)</DFN></P>
+
+<H3>Fully Supported - Size and Positioning</H3>
+<P><BIG>Big text (BIG)</BIG> normal text <SMALL>small text (SMALL)</SMALL></P>
+<P>Normal text <SUB>subscript (SUB)</SUB> and <SUP>superscript (SUP)</SUP></P>
+
+<H3>Fully Supported - Font Styling</H3>
+<BASEFONT SIZE="4">
+<P><FONT SIZE="1">Font size 1</FONT> <FONT SIZE="2">Font size 2</FONT> <FONT SIZE="3">Font size 3</FONT> <FONT SIZE="4">Font size 4</FONT> <FONT SIZE="5">Font size 5</FONT> <FONT SIZE="6">Font size 6</FONT> <FONT SIZE="7">Font size 7</FONT></P>
+<P><FONT COLOR="red">Red text</FONT> <FONT COLOR="blue">Blue text</FONT> <FONT COLOR="green">Green text</FONT> <FONT COLOR="#ff00ff">Magenta text (#ff00ff)</FONT></P>
+<P><FONT FACE="Courier">Courier font</FONT> <FONT FACE="Times">Times font</FONT></P>
+</BASEFONT>
+
+<H3>Partially Supported (Tolerant Mode Only)</H3>
+<P><BLINK>This text blinks (BLINK tag - requires tolerant mode, Netscape extension)</BLINK></P>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="lists"></A>
+<H2>Lists</H2>
+
+<H3>Fully Supported - Unordered Lists</H3>
+<UL>
+<LI>First unordered item</LI>
+<LI>Second unordered item</LI>
+<LI>Third unordered item</LI>
+</UL>
+
+<UL TYPE="disc">
+<LI>Disc bullet (default)</LI>
+</UL>
+
+<UL TYPE="circle">
+<LI>Circle bullet</LI>
+</UL>
+
+<UL TYPE="square">
+<LI>Square bullet</LI>
+</UL>
+
+<H3>Fully Supported - Ordered Lists</H3>
+<OL>
+<LI>First ordered item</LI>
+<LI>Second ordered item</LI>
+<LI>Third ordered item</LI>
+</OL>
+
+<OL TYPE="1">
+<LI>Type 1 (numbers, default)</LI>
+<LI>Continuing with numbers</LI>
+</OL>
+
+<OL TYPE="A">
+<LI>Type A (uppercase letters)</LI>
+<LI>Continuing with letters</LI>
+</OL>
+
+<OL TYPE="a">
+<LI>Type a (lowercase letters)</LI>
+<LI>Continuing with letters</LI>
+</OL>
+
+<OL TYPE="I">
+<LI>Type I (uppercase Roman numerals)</LI>
+<LI>Continuing with Roman numerals</LI>
+</OL>
+
+<OL TYPE="i">
+<LI>Type i (lowercase Roman numerals)</LI>
+<LI>Continuing with Roman numerals</LI>
+</OL>
+
+<OL START="5">
+<LI>Ordered list starting at 5</LI>
+<LI>Continuing from 5</LI>
+</OL>
+
+<H3>Fully Supported - Definition Lists</H3>
+<DL>
+<DT>Term 1</DT>
+<DD>Definition 1 - can be multiple paragraphs</DD>
+<DT>Term 2</DT>
+<DD>Definition 2</DD>
+<DD>Multiple definitions for same term</DD>
+</DL>
+
+<H3>Fully Supported - Directory and Menu Lists</H3>
+<DIR>
+<LI>Directory item 1</LI>
+<LI>Directory item 2</LI>
+<LI>Directory item 3</LI>
+</DIR>
+
+<MENU>
+<LI>Menu item 1</LI>
+<LI>Menu item 2</LI>
+<LI>Menu item 3</LI>
+</MENU>
+
+<H3>Fully Supported - Nested Lists</H3>
+<UL>
+<LI>Outer item 1
+    <UL>
+    <LI>Inner item 1</LI>
+    <LI>Inner item 2</LI>
+    </UL>
+</LI>
+<LI>Outer item 2
+    <OL>
+    <LI>Nested ordered item 1</LI>
+    <LI>Nested ordered item 2</LI>
+    </OL>
+</LI>
+</UL>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="links"></A>
+<H2>Links and Images</H2>
+
+<H3>Fully Supported - Hyperlinks</H3>
+<P>This is a <A HREF="test.html">regular hyperlink</A> to a local page.</P>
+<P>This is a link to an <A HREF="#top">anchor on this page</A>.</P>
+<P>This is a <A HREF="mailto:test@example.com">mailto link</A>.</P>
+<P>This link opens in a <A HREF="test.html" TARGET="_blank">new window</A> (TARGET attribute).</P>
+
+<H3>Fully Supported - Anchors</H3>
+<P>This page uses named anchors for navigation. The anchor at the top is: <A NAME="top"></A></P>
+
+<H3>Fully Supported - Images</H3>
+<P>Image with alt text: <IMG SRC="aweb.iff" ALT="AWeb Logo" WIDTH="192" HEIGHT="93" BORDER="1"></P>
+<P>Image aligned left: <IMG SRC="aweb.iff" ALT="Left" ALIGN="left" HSPACE="5" VSPACE="5" WIDTH="96" HEIGHT="46"> This text flows around the left-aligned image. The image has horizontal and vertical spacing attributes.</P>
+<BR CLEAR="left">
+<P>Image aligned right: <IMG SRC="aweb.iff" ALT="Right" ALIGN="right" HSPACE="5" VSPACE="5" WIDTH="96" HEIGHT="46"> This text flows around the right-aligned image.</P>
+<BR CLEAR="right">
+<P>Image aligned top: <IMG SRC="aweb.iff" ALT="Top" ALIGN="top" WIDTH="96" HEIGHT="46"> Text aligned to top</P>
+<P>Image aligned middle: <IMG SRC="aweb.iff" ALT="Middle" ALIGN="middle" WIDTH="96" HEIGHT="46"> Text aligned to middle</P>
+<P>Image aligned bottom: <IMG SRC="aweb.iff" ALT="Bottom" ALIGN="bottom" WIDTH="96" HEIGHT="46"> Text aligned to bottom</P>
+
+<H3>Fully Supported - Client-Side Image Maps</H3>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<MAP NAME="testmap">
+<AREA SHAPE="rect" COORDS="0,0,50,50" HREF="#top" ALT="Rectangle">
+<AREA SHAPE="circle" COORDS="75,75,25" HREF="#top" ALT="Circle">
+<AREA SHAPE="poly" COORDS="100,0,150,50,100,100" HREF="#top" ALT="Polygon">
+<AREA SHAPE="default" HREF="#top" ALT="Default">
+</MAP>
+<P>Image map (requires an image): <IMG SRC="aweb.iff" ALT="Image Map" USEMAP="#testmap" BORDER="0" WIDTH="192" HEIGHT="93"></P>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="tables"></A>
+<H2>Tables</H2>
+
+<H3>Fully Supported - Basic Table Structure</H3>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1">
+<CAPTION>Basic Table with Caption</CAPTION>
+<TR>
+<TH>Header 1</TH>
+<TH>Header 2</TH>
+<TH>Header 3</TH>
+</TR>
+<TR>
+<TD>Cell 1,1</TD>
+<TD>Cell 1,2</TD>
+<TD>Cell 1,3</TD>
+</TR>
+<TR>
+<TD>Cell 2,1</TD>
+<TD>Cell 2,2</TD>
+<TD>Cell 2,3</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Fully Supported - Table Attributes</H3>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="2" WIDTH="80%" CELLPADDING="5" CELLSPACING="3" ALIGN="center">
+<CAPTION ALIGN="top">Table with border, width, cellpadding, and cellspacing</CAPTION>
+<TR>
+<TH>Header 1</TH>
+<TH>Header 2</TH>
+</TR>
+<TR>
+<TD>Cell with padding</TD>
+<TD>Cell with spacing</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Fully Supported - Cell Alignment</H3>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1" WIDTH="100%">
+<TR>
+<TD ALIGN="left">Left aligned</TD>
+<TD ALIGN="center">Center aligned</TD>
+<TD ALIGN="right">Right aligned</TD>
+</TR>
+<TR>
+<TD VALIGN="top">Top aligned</TD>
+<TD VALIGN="middle">Middle aligned</TD>
+<TD VALIGN="bottom">Bottom aligned</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Fully Supported - Colspan and Rowspan</H3>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1">
+<TR>
+<TD COLSPAN="2">Spans 2 columns</TD>
+<TD>Normal cell</TD>
+</TR>
+<TR>
+<TD ROWSPAN="2">Spans 2 rows</TD>
+<TD>Cell 2,2</TD>
+<TD>Cell 2,3</TD>
+</TR>
+<TR>
+<TD>Cell 3,2</TD>
+<TD>Cell 3,3</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Fully Supported - Table Background Colors</H3>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1" BGCOLOR="#eeeeee">
+<TR>
+<TH BGCOLOR="#cccccc">Header 1</TH>
+<TH BGCOLOR="#cccccc">Header 2</TH>
+</TR>
+<TR>
+<TD BGCOLOR="#ffffff">White cell</TD>
+<TD BGCOLOR="#ffffcc">Yellow cell</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Fully Supported - Table Width</H3>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1" WIDTH="50%">
+<TR>
+<TD>50% width table</TD>
+<TD>Second column</TD>
+</TR>
+</TABLE>
+
+<TABLE BORDER="1" WIDTH="400">
+<TR>
+<TD>Fixed 400 pixel width table</TD>
+<TD>Second column</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="forms"></A>
+<H2>Forms</H2>
+
+<H3>Test 1: Form Container with METHOD and ACTION</H3>
+<P><STRONG>What it tests:</STRONG> The FORM element with METHOD (GET/POST) and ACTION attributes.</P>
+<P><STRONG>How to run:</STRONG> This is a demonstration form. The form below uses METHOD="GET" which appends form data to the URL.</P>
+<P><STRONG>Expected results:</STRONG> The form should be displayed. When submitted, it should send data using the GET method to test.cgi.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="GET" ACTION="test.cgi" NAME="testform1" ENCTYPE="application/x-www-form-urlencoded">
+<P>This form uses METHOD="GET" and ACTION="test.cgi"</P>
+<INPUT TYPE="text" NAME="testfield" VALUE="test" SIZE="20">
+<INPUT TYPE="submit" VALUE="Submit (GET)">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2: Form with METHOD="POST"</H3>
+<P><STRONG>What it tests:</STRONG> The FORM element with METHOD="POST" which sends data in the HTTP request body.</P>
+<P><STRONG>How to run:</STRONG> Fill out the form below and click Submit.</P>
+<P><STRONG>Expected results:</STRONG> The form should send data using POST method. The data is sent in the request body, not in the URL.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="testform2">
+<P>Name: <INPUT TYPE="text" NAME="name" VALUE="" SIZE="30"></P>
+<INPUT TYPE="submit" VALUE="Submit (POST)">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 3: Text Input Fields</H3>
+<P><STRONG>What it tests:</STRONG> INPUT TYPE="text", TYPE="password", and TYPE="hidden" with SIZE, MAXLENGTH, and VALUE attributes.</P>
+<P><STRONG>How to run:</STRONG> Type in the text field, try typing in the password field (characters should be masked), and note the hidden field is not visible.</P>
+<P><STRONG>Expected results:</STRONG> Text field should accept input up to MAXLENGTH characters. Password field should mask characters. Hidden field should not be visible but will be submitted with the form.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi">
+<P>Name: <INPUT TYPE="text" NAME="name" VALUE="" SIZE="30" MAXLENGTH="50"></P>
+<P>Password: <INPUT TYPE="password" NAME="passwd" SIZE="20" MAXLENGTH="20"></P>
+<P>Hidden field: <INPUT TYPE="hidden" NAME="hidden" VALUE="hidden_value"></P>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 4: Checkboxes</H3>
+<P><STRONG>What it tests:</STRONG> INPUT TYPE="checkbox" with CHECKED attribute. Multiple checkboxes can be selected.</P>
+<P><STRONG>How to run:</STRONG> Click the checkboxes below. You should be able to select multiple options.</P>
+<P><STRONG>Expected results:</STRONG> Checkboxes should toggle on/off when clicked. Option 1 should be checked by default. Multiple checkboxes can be selected simultaneously.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi">
+<P>Checkboxes (multiple selection allowed):</P>
+<INPUT TYPE="checkbox" NAME="option1" VALUE="1" CHECKED> Option 1<BR>
+<INPUT TYPE="checkbox" NAME="option2" VALUE="2"> Option 2<BR>
+<INPUT TYPE="checkbox" NAME="option3" VALUE="3"> Option 3<BR>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 5: Radio Buttons</H3>
+<P><STRONG>What it tests:</STRONG> INPUT TYPE="radio" with CHECKED attribute. Only one radio button in a group can be selected.</P>
+<P><STRONG>How to run:</STRONG> Click different radio buttons below. Only one should be selected at a time.</P>
+<P><STRONG>Expected results:</STRONG> Radio buttons should allow only one selection per group (same NAME). Choice A should be selected by default. Clicking another radio button should deselect the previous one.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi">
+<P>Radio Buttons (single selection only):</P>
+<INPUT TYPE="radio" NAME="choice" VALUE="A" CHECKED> Choice A<BR>
+<INPUT TYPE="radio" NAME="choice" VALUE="B"> Choice B<BR>
+<INPUT TYPE="radio" NAME="choice" VALUE="C"> Choice C<BR>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 6: File Upload</H3>
+<P><STRONG>What it tests:</STRONG> INPUT TYPE="file" with ENCTYPE="multipart/form-data" for file uploads.</P>
+<P><STRONG>How to run:</STRONG> Click the file input field below. A file requester should open to select a file.</P>
+<P><STRONG>Expected results:</STRONG> The file input should display a field and button. Clicking it should open a file requester. The form must use ENCTYPE="multipart/form-data" for file uploads to work.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" ENCTYPE="multipart/form-data">
+<P>File: <INPUT TYPE="file" NAME="uploadfile" SIZE="30"></P>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 7: Select Dropdown (Single Selection)</H3>
+<P><STRONG>What it tests:</STRONG> SELECT element with OPTION elements and SELECTED attribute for single selection dropdowns.</P>
+<P><STRONG>How to run:</STRONG> Click the dropdown below and select different options.</P>
+<P><STRONG>Expected results:</STRONG> The dropdown should show a list of options. Option 1 should be selected by default. Only one option can be selected at a time.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi">
+<P>Select an option:
+<SELECT NAME="dropdown">
+<OPTION VALUE="1" SELECTED>Option 1</OPTION>
+<OPTION VALUE="2">Option 2</OPTION>
+<OPTION VALUE="3">Option 3</OPTION>
+</SELECT>
+</P>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 8: Select Multiple</H3>
+<P><STRONG>What it tests:</STRONG> SELECT element with MULTIPLE attribute and SIZE attribute for multiple selection lists.</P>
+<P><STRONG>How to run:</STRONG> Click on options in the list below. Hold Ctrl (or Cmd on Mac) and click to select multiple options.</P>
+<P><STRONG>Expected results:</STRONG> The list should display multiple options. Option 1 and Option 3 should be selected by default. You should be able to select multiple options by holding Ctrl/Cmd while clicking.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi">
+<P>Select multiple options (hold Ctrl/Cmd and click):
+<SELECT NAME="multiselect" MULTIPLE SIZE="3">
+<OPTION VALUE="1" SELECTED>Option 1</OPTION>
+<OPTION VALUE="2">Option 2</OPTION>
+<OPTION VALUE="3" SELECTED>Option 3</OPTION>
+</SELECT>
+</P>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 9: Textarea</H3>
+<P><STRONG>What it tests:</STRONG> TEXTAREA element with ROWS and COLS attributes for multi-line text input.</P>
+<P><STRONG>How to run:</STRONG> Type multiple lines of text in the textarea below. Try pressing Enter to create new lines.</P>
+<P><STRONG>Expected results:</STRONG> The textarea should display a multi-line text input field. You should be able to type multiple lines and press Enter to create line breaks. The field should be scrollable if content exceeds the visible area.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi">
+<P>Comments:<BR>
+<TEXTAREA NAME="comments" ROWS="5" COLS="40">Enter your comments here...</TEXTAREA>
+</P>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 10: Submit and Reset Buttons</H3>
+<P><STRONG>What it tests:</STRONG> INPUT TYPE="submit", TYPE="reset", and TYPE="button" elements.</P>
+<P><STRONG>How to run:</STRONG> Fill out the form below, then try the Submit button (sends form data), Reset button (clears form), and Button (no default action).</P>
+<P><STRONG>Expected results:</STRONG> Submit button should send the form data to the ACTION URL. Reset button should clear all form fields to their initial values. Button element has no default action (typically used with ONCLICK handlers).</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="testform10">
+<P>Name: <INPUT TYPE="text" NAME="name" VALUE="" SIZE="20"></P>
+<P>
+<INPUT TYPE="submit" NAME="submit" VALUE="Submit Form">
+<INPUT TYPE="reset" NAME="reset" VALUE="Reset Form">
+<INPUT TYPE="button" NAME="button" VALUE="Click Me" ONCLICK="alert('Button clicked!')">
+</P>
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 11: Comprehensive Form Test</H3>
+<P><STRONG>What it tests:</STRONG> A complete form with all HTML 3.2 form elements and attributes working together.</P>
+<P><STRONG>How to run:</STRONG> Fill out all fields in the form below, then click Submit to test form submission, or Reset to clear all fields.</P>
+<P><STRONG>Expected results:</STRONG> All form elements should work correctly. Submit should send all form data. Reset should clear all fields to their initial state. The form should demonstrate all HTML 3.2 form capabilities.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="comprehensive_form" ENCTYPE="application/x-www-form-urlencoded">
+<P><STRONG>Text Fields:</STRONG><BR>
+Name: <INPUT TYPE="text" NAME="fullname" VALUE="" SIZE="30" MAXLENGTH="50"><BR>
+Email: <INPUT TYPE="text" NAME="email" VALUE="" SIZE="30"><BR>
+Password: <INPUT TYPE="password" NAME="password" SIZE="20" MAXLENGTH="20">
+</P>
+<P><STRONG>Checkboxes:</STRONG><BR>
+<INPUT TYPE="checkbox" NAME="newsletter" VALUE="yes" CHECKED> Subscribe to newsletter<BR>
+<INPUT TYPE="checkbox" NAME="updates" VALUE="yes"> Receive updates
+</P>
+<P><STRONG>Radio Buttons:</STRONG><BR>
+<INPUT TYPE="radio" NAME="gender" VALUE="male" CHECKED> Male<BR>
+<INPUT TYPE="radio" NAME="gender" VALUE="female"> Female<BR>
+<INPUT TYPE="radio" NAME="gender" VALUE="other"> Other
+</P>
+<P><STRONG>Select Dropdown:</STRONG><BR>
+Country:
+<SELECT NAME="country">
+<OPTION VALUE="us" SELECTED>United States</OPTION>
+<OPTION VALUE="uk">United Kingdom</OPTION>
+<OPTION VALUE="ca">Canada</OPTION>
+<OPTION VALUE="au">Australia</OPTION>
+</SELECT>
+</P>
+<P><STRONG>Textarea:</STRONG><BR>
+Comments:<BR>
+<TEXTAREA NAME="comments" ROWS="4" COLS="40">Enter your comments...</TEXTAREA>
+</P>
+<P>
+<INPUT TYPE="submit" VALUE="Submit Form">
+<INPUT TYPE="reset" VALUE="Reset Form">
+</P>
+<INPUT TYPE="hidden" NAME="formid" VALUE="html3_test">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="compatibility"></A>
+<H2>Compatibility Notes</H2>
+
+<H3>HTML 3.2 Features Fully Supported</H3>
+<UL>
+<LI>All document structure elements (HTML, HEAD, BODY, TITLE, BASE, META, LINK, ISINDEX)</LI>
+<LI>All text formatting elements (headings, paragraphs, line breaks, horizontal rules)</LI>
+<LI>All preformatted text elements (PRE, LISTING, XMP)</LI>
+<LI>Text alignment (CENTER, DIV with ALIGN, P with ALIGN)</LI>
+<LI>All text style elements (physical, logical, monospace, size, positioning)</LI>
+<LI>Font styling (FONT, BASEFONT with SIZE, COLOR, FACE)</LI>
+<LI>All list types (UL, OL, DL, DIR, MENU) with all attributes</LI>
+<LI>Hyperlinks and anchors (A with HREF, NAME, TARGET)</LI>
+<LI>Images (IMG with all standard attributes)</LI>
+<LI>Client-side image maps (MAP, AREA with all SHAPE types)</LI>
+<LI>Tables (TABLE, CAPTION, TR, TD, TH with all HTML 3.2 attributes)</LI>
+<LI>Forms (FORM, INPUT, SELECT, OPTION, TEXTAREA with all HTML 3.2 attributes)</LI>
+<LI>Character entities (named and numeric)</LI>
+</UL>
+
+<H3>HTML 3.2 Features Requiring Tolerant Mode</H3>
+<UL>
+<LI>NOBR - No-break text (Netscape extension)</LI>
+<LI>WBR - Word break opportunity (Netscape extension)</LI>
+<LI>BLINK - Blinking text (Netscape extension)</LI>
+</UL>
+
+<H3>HTML 3.2 Limitations</H3>
+<UL>
+<LI>Some advanced table features may have rendering quirks</LI>
+<LI>Complex nested forms may not be fully supported</LI>
+<LI>Some image map coordinate calculations may have minor issues</LI>
+</UL>
+
+<H3>HTML 3.2 vs HTML 4.0</H3>
+<P>This page tests HTML 3.2 specifically. For HTML 4.0 features, see <A HREF="html4_test.html">html4_test.html</A>.</P>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<CENTER>
+<P><SMALL>Last Updated: 2025 - AWeb 3 HTML 3.2 Compatibility Test</SMALL></P>
+<P><A HREF="aweb.html">Back to AWeb documentation index</A></P>
+</CENTER>
+
+</BODY>
+</HTML>
+

@@ -1,0 +1,623 @@
+<!--
+/**********************************************************************
+ * 
+ * This file is part of the AWeb distribution
+ *
+ * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the AWeb Public License as included in this
+ * distribution.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * AWeb Public License for more details.
+ *
+ **********************************************************************/
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML>
+<HEAD>
+<TITLE>AWeb HTML 4.0 Compatibility Test Page</TITLE>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
+<META NAME="Description" CONTENT="Comprehensive HTML 4.0 compatibility test for AWeb">
+<META NAME="Keywords" CONTENT="HTML 4.0, compatibility, test, AWeb">
+</HEAD>
+<BODY BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
+
+<H1><IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)">&nbsp; HTML 4.0 Compatibility Test</H1>
+
+<P>This page tests AWeb's compatibility with the <STRONG>HTML 4.0</STRONG> standard (W3C Recommendation, December 1997). Each section demonstrates supported features and clearly marks incompatibilities or limitations based on the AWeb documentation.</P>
+
+<HR>
+
+<A NAME="top"></A>
+<CENTER>
+<H2>Quick Navigation</H2>
+<A HREF="#document">Document Structure</A> |
+<A HREF="#frames">Frames</A> |
+<A HREF="#tables">Advanced Tables</A> |
+<A HREF="#forms">Advanced Forms</A> |
+<A HREF="#embedded">Embedded Content</A> |
+<A HREF="#style">Style Sheets</A> |
+<A HREF="#scripting">Scripting</A> |
+<A HREF="#compatibility">Compatibility Notes</A>
+</CENTER>
+
+<HR>
+
+<A NAME="document"></A>
+<H2>Document Structure (HTML 4.0)</H2>
+
+<H3>Fully Supported</H3>
+<UL>
+<LI>HTML 4.01 DOCTYPE declarations (Strict, Transitional, Frameset) - AWeb recognizes and processes HTML 4.0 documents</LI>
+<LI>Enhanced META tags with HTTP-EQUIV and NAME attributes - Fully supported (see html-ks.html#META)</LI>
+<LI>LINK element with REL, TYPE, HREF attributes - Fully supported (see html-ks.html#LINK)</LI>
+<LI>STYLE element with TYPE attribute - Supported (see html-ks.html#STYLE), though CSS support is limited</LI>
+<LI>SCRIPT element with LANGUAGE and TYPE attributes - Fully supported (see html-ks.html#SCRIPT)</LI>
+<LI>NOSCRIPT element for non-scripting browsers - Fully supported (see html-ks.html#NOSCRIPT)</LI>
+</UL>
+
+<H3>Test Examples</H3>
+<P>This document uses HTML 4.01 Transitional DOCTYPE.</P>
+<P>The STYLE element is supported in the HEAD, though CSS rendering capabilities are limited.</P>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="frames"></A>
+<H2>Frames (HTML 4.0)</H2>
+
+<H3>Fully Supported</H3>
+<UL>
+<LI>FRAMESET element with COLS and ROWS attributes - Fully supported (see html-ej.html#FRAMESET)</LI>
+<LI>FRAME element with SRC, NAME, FRAMEBORDER, MARGINWIDTH, MARGINHEIGHT, SCROLLING, NORESIZE - Fully supported (see html-ej.html#FRAME)</LI>
+<LI>NOFRAMES element for non-frame browsers - Fully supported (see html-ks.html#NOFRAMES)</LI>
+<LI>Frame targeting with TARGET attribute - Fully supported (see html-ad.html#A and html-ad.html#BASE)</LI>
+</UL>
+
+<H3>Test Examples</H3>
+<P>Frames require a separate frameset document. Here's an example structure:</P>
+<PRE>
+&lt;FRAMESET COLS="25%,75%"&gt;
+  &lt;FRAME SRC="nav.html" NAME="navigation" FRAMEBORDER="1" SCROLLING="yes"&gt;
+  &lt;FRAME SRC="content.html" NAME="main" FRAMEBORDER="1" SCROLLING="auto"&gt;
+  &lt;NOFRAMES&gt;
+    &lt;BODY&gt;Your browser does not support frames.&lt;/BODY&gt;
+  &lt;/NOFRAMES&gt;
+&lt;/FRAMESET&gt;
+</PRE>
+
+<H3>Fully Supported - IFRAME</H3>
+<UL>
+<LI>IFRAME (inline frames) - Fully supported in strict mode (see html-ej.html#IFRAME)</LI>
+<LI>IFRAME attributes: SRC, NAME, WIDTH, HEIGHT, FRAMEBORDER, SCROLLING, MARGINWIDTH, MARGINHEIGHT, ALIGN, HSPACE, VSPACE - All supported</LI>
+</UL>
+
+<H3>IFRAME Test</H3>
+<P>Inline frame example:</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<IFRAME SRC="test.html" WIDTH="400" HEIGHT="200" NAME="iframe1" FRAMEBORDER="1" SCROLLING="yes">
+Your browser does not support inline frames.
+</IFRAME>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="tables"></A>
+<H2>Advanced Tables (HTML 4.0)</H2>
+
+<H3>Fully Supported</H3>
+<UL>
+<LI>TABLE with all HTML 4.0 attributes (BORDER, WIDTH, CELLPADDING, CELLSPACING, ALIGN, BGCOLOR, FRAME, RULES) - Fully supported (see html-tz.html#TABLE)</LI>
+<LI>CAPTION with ALIGN attribute - Fully supported (see html-ad.html#CAPTION)</LI>
+<LI>TR, TD, TH with all alignment and styling attributes - Fully supported (see html-tz.html#TR, html-tz.html#TD, html-tz.html#TH)</LI>
+<LI>COLSPAN and ROWSPAN attributes - Fully supported</LI>
+<LI>THEAD, TBODY, TFOOT - Fully supported in strict mode (see html-tz.html#THEAD, html-tz.html#TBODY, html-tz.html#TFOOT)</LI>
+<LI>COLGROUP and COL - Fully supported in strict mode (see html-ad.html#COLGROUP, html-ad.html#COL)</LI>
+</UL>
+
+<H3>Test Examples</H3>
+
+<H4>Table with Sections</H4>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1">
+<THEAD>
+<TR>
+<TH>Header 1</TH>
+<TH>Header 2</TH>
+</TR>
+</THEAD>
+<TBODY>
+<TR>
+<TD>Body Cell 1,1</TD>
+<TD>Body Cell 1,2</TD>
+</TR>
+<TR>
+<TD>Body Cell 2,1</TD>
+<TD>Body Cell 2,2</TD>
+</TR>
+</TBODY>
+<TFOOT>
+<TR>
+<TD>Footer Cell 1</TD>
+<TD>Footer Cell 2</TD>
+</TR>
+</TFOOT>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Table with Column Groups</H4>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1">
+<COLGROUP SPAN="2" WIDTH="100"></COLGROUP>
+<COL WIDTH="150"></COL>
+<TR>
+<TH>Col 1-2</TH>
+<TH>Col 1-2</TH>
+<TH>Col 3</TH>
+</TR>
+<TR>
+<TD>Data 1</TD>
+<TD>Data 2</TD>
+<TD>Data 3</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Not Supported</H3>
+<UL>
+<LI>Table accessibility attributes (SUMMARY, SCOPE, HEADERS, ABBR) - Not documented in AWeb HTML reference</LI>
+<LI>Advanced table styling via CSS - Limited CSS support overall</LI>
+</UL>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="forms"></A>
+<H2>Advanced Forms (HTML 4.0)</H2>
+
+<H3>Fully Supported</H3>
+<UL>
+<LI>FORM with METHOD, ACTION, TARGET, ENCTYPE attributes - Fully supported (see html-ej.html#FORM)</LI>
+<LI>INPUT types: text, password, hidden, checkbox, radio, submit, reset, button, file - All supported (see html-ej.html#INPUT)</LI>
+<LI>SELECT with NAME, MULTIPLE, SIZE attributes - Fully supported (see html-ks.html#SELECT)</LI>
+<LI>OPTION with VALUE, SELECTED attributes - Fully supported (see html-ks.html#OPTION)</LI>
+<LI>TEXTAREA with NAME, ROWS, COLS attributes - Fully supported (see html-tz.html#TEXTAREA)</LI>
+<LI>BUTTON element with TYPE attribute - Fully supported in strict mode (see html-ad.html#BUTTON)</LI>
+</UL>
+
+<H3>Test Examples</H3>
+
+<H4>Test 1: Form with TARGET Attribute</H4>
+<P><STRONG>What it tests:</STRONG> FORM element with TARGET attribute to submit form results to a specific frame or window.</P>
+<P><STRONG>How to run:</STRONG> Fill out the form below and click Submit. The result should open in a new window or the specified target frame.</P>
+<P><STRONG>Expected results:</STRONG> The form should submit to test.cgi and display results in a new window (TARGET="_blank") or the specified frame.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" TARGET="_blank" NAME="targetform">
+<P>Name: <INPUT TYPE="text" NAME="name" VALUE="" SIZE="30"></P>
+<INPUT TYPE="submit" VALUE="Submit to New Window">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Test 2: Form with NAME Attribute</H4>
+<P><STRONG>What it tests:</STRONG> FORM element with NAME attribute for JavaScript access.</P>
+<P><STRONG>How to run:</STRONG> This form has a NAME attribute that allows JavaScript to access it via document.forms['namedform'].</P>
+<P><STRONG>Expected results:</STRONG> The form should be accessible via JavaScript using document.forms['namedform'] or document.forms[0].</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="namedform">
+<P>Email: <INPUT TYPE="text" NAME="email" VALUE="" SIZE="30"></P>
+<INPUT TYPE="submit" VALUE="Submit">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Test 3: BUTTON Element (HTML 4.0)</H4>
+<P><STRONG>What it tests:</STRONG> BUTTON element with TYPE="submit", TYPE="reset", and TYPE="button" attributes. This is an HTML 4.0 feature that provides more flexibility than INPUT buttons.</P>
+<P><STRONG>How to run:</STRONG> Click each button below to test their functionality.</P>
+<P><STRONG>Expected results:</STRONG> Submit button should submit the form. Reset button should clear form fields. Button element should trigger any ONCLICK handler but not submit the form.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="buttonform">
+<P>Test field: <INPUT TYPE="text" NAME="testfield" VALUE="" SIZE="20"></P>
+<BUTTON TYPE="submit" NAME="buttonsubmit" VALUE="submit">Submit Button</BUTTON>
+<BUTTON TYPE="reset">Reset Button</BUTTON>
+<BUTTON TYPE="button" ONCLICK="alert('Button clicked!')">Click Button</BUTTON>
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Test 4: All INPUT Types</H4>
+<P><STRONG>What it tests:</STRONG> All supported INPUT types: text, password, hidden, checkbox, radio, submit, reset, button, and file.</P>
+<P><STRONG>How to run:</STRONG> Interact with each input type below. Try typing in text fields, selecting checkboxes/radios, clicking buttons, and selecting a file.</P>
+<P><STRONG>Expected results:</STRONG> All input types should display and function correctly. Text fields should accept input, checkboxes/radios should toggle, buttons should work, and file input should open a file requester.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" ENCTYPE="multipart/form-data" NAME="inputtypes">
+<P><STRONG>Text Input:</STRONG><BR>
+<INPUT TYPE="text" NAME="textfield" VALUE="" SIZE="25" MAXLENGTH="50">
+</P>
+<P><STRONG>Password Input:</STRONG><BR>
+<INPUT TYPE="password" NAME="passfield" SIZE="25" MAXLENGTH="20">
+</P>
+<P><STRONG>Checkbox:</STRONG><BR>
+<INPUT TYPE="checkbox" NAME="check1" VALUE="1" CHECKED> Option 1<BR>
+<INPUT TYPE="checkbox" NAME="check2" VALUE="2"> Option 2
+</P>
+<P><STRONG>Radio Buttons:</STRONG><BR>
+<INPUT TYPE="radio" NAME="radio1" VALUE="A" CHECKED> Choice A<BR>
+<INPUT TYPE="radio" NAME="radio1" VALUE="B"> Choice B
+</P>
+<P><STRONG>File Upload:</STRONG><BR>
+<INPUT TYPE="file" NAME="filefield" SIZE="30">
+</P>
+<P>
+<INPUT TYPE="submit" VALUE="Submit">
+<INPUT TYPE="reset" VALUE="Reset">
+<INPUT TYPE="button" VALUE="Button" ONCLICK="alert('Button clicked')">
+</P>
+<INPUT TYPE="hidden" NAME="hiddenfield" VALUE="hidden_value">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Test 5: SELECT with SIZE Attribute</H4>
+<P><STRONG>What it tests:</STRONG> SELECT element with SIZE attribute to control whether it displays as a dropdown (SIZE=1 or omitted) or a list box (SIZE>1).</P>
+<P><STRONG>How to run:</STRONG> Compare the two select elements below - one is a dropdown, the other is a list box.</P>
+<P><STRONG>Expected results:</STRONG> The first SELECT should display as a dropdown menu. The second SELECT with SIZE="3" should display as a list box showing 3 options at once.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="selectform">
+<P><STRONG>Dropdown (SIZE=1 or omitted):</STRONG><BR>
+<SELECT NAME="dropdown">
+<OPTION VALUE="1" SELECTED>Option 1</OPTION>
+<OPTION VALUE="2">Option 2</OPTION>
+<OPTION VALUE="3">Option 3</OPTION>
+<OPTION VALUE="4">Option 4</OPTION>
+</SELECT>
+</P>
+<P><STRONG>List Box (SIZE=3):</STRONG><BR>
+<SELECT NAME="listbox" SIZE="3">
+<OPTION VALUE="1" SELECTED>Option 1</OPTION>
+<OPTION VALUE="2">Option 2</OPTION>
+<OPTION VALUE="3">Option 3</OPTION>
+<OPTION VALUE="4">Option 4</OPTION>
+</SELECT>
+</P>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Test 6: SELECT with MULTIPLE Attribute</H4>
+<P><STRONG>What it tests:</STRONG> SELECT element with MULTIPLE attribute for selecting multiple options simultaneously.</P>
+<P><STRONG>How to run:</STRONG> Hold Ctrl (or Cmd on Mac) and click multiple options in the list below.</P>
+<P><STRONG>Expected results:</STRONG> You should be able to select multiple options by holding Ctrl/Cmd while clicking. Selected options should be highlighted.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="multiselectform">
+<P>Select multiple options (hold Ctrl/Cmd and click):</P>
+<SELECT NAME="multiselect" MULTIPLE SIZE="4">
+<OPTION VALUE="1" SELECTED>Option 1</OPTION>
+<OPTION VALUE="2">Option 2</OPTION>
+<OPTION VALUE="3" SELECTED>Option 3</OPTION>
+<OPTION VALUE="4">Option 4</OPTION>
+<OPTION VALUE="5">Option 5</OPTION>
+</SELECT>
+</P>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Test 7: TEXTAREA with ROWS and COLS</H4>
+<P><STRONG>What it tests:</STRONG> TEXTAREA element with ROWS and COLS attributes to control the visible size of the text area.</P>
+<P><STRONG>How to run:</STRONG> Type multiple lines of text in the textarea below. Try pressing Enter to create new lines.</P>
+<P><STRONG>Expected results:</STRONG> The textarea should display with the specified number of rows and columns. It should be scrollable if content exceeds the visible area. Line breaks should be preserved.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="textareaform">
+<P>Comments (5 rows, 40 columns):</P>
+<TEXTAREA NAME="comments" ROWS="5" COLS="40">Enter your comments here...
+This is a multi-line textarea.
+You can type multiple lines of text.</TEXTAREA>
+</P>
+<INPUT TYPE="submit" VALUE="Test Submit">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Test 8: Comprehensive HTML 4.0 Form</H4>
+<P><STRONG>What it tests:</STRONG> A complete HTML 4.0 form with all supported elements and attributes working together, including FORM TARGET, NAME, BUTTON elements, and all input types.</P>
+<P><STRONG>How to run:</STRONG> Fill out all fields in the comprehensive form below, then test Submit, Reset, and Button elements.</P>
+<P><STRONG>Expected results:</STRONG> All form elements should work correctly. Submit should send all form data. Reset should clear all fields. The form demonstrates all HTML 4.0 form capabilities supported by AWeb.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" NAME="comprehensive_form" TARGET="_self" ENCTYPE="application/x-www-form-urlencoded">
+<P><STRONG>Personal Information:</STRONG><BR>
+Name: <INPUT TYPE="text" NAME="fullname" VALUE="" SIZE="30" MAXLENGTH="50"><BR>
+Email: <INPUT TYPE="text" NAME="email" VALUE="" SIZE="30"><BR>
+Password: <INPUT TYPE="password" NAME="password" SIZE="20" MAXLENGTH="20">
+</P>
+<P><STRONG>Preferences:</STRONG><BR>
+<INPUT TYPE="checkbox" NAME="newsletter" VALUE="yes" CHECKED> Subscribe to newsletter<BR>
+<INPUT TYPE="checkbox" NAME="updates" VALUE="yes"> Receive email updates<BR>
+<INPUT TYPE="checkbox" NAME="notifications" VALUE="yes"> Browser notifications
+</P>
+<P><STRONG>Gender:</STRONG><BR>
+<INPUT TYPE="radio" NAME="gender" VALUE="male" CHECKED> Male<BR>
+<INPUT TYPE="radio" NAME="gender" VALUE="female"> Female<BR>
+<INPUT TYPE="radio" NAME="gender" VALUE="other"> Other
+</P>
+<P><STRONG>Country:</STRONG><BR>
+<SELECT NAME="country">
+<OPTION VALUE="us" SELECTED>United States</OPTION>
+<OPTION VALUE="uk">United Kingdom</OPTION>
+<OPTION VALUE="ca">Canada</OPTION>
+<OPTION VALUE="au">Australia</OPTION>
+<OPTION VALUE="de">Germany</OPTION>
+</SELECT>
+</P>
+<P><STRONG>Interests (select multiple):</STRONG><BR>
+<SELECT NAME="interests" MULTIPLE SIZE="4">
+<OPTION VALUE="tech" SELECTED>Technology</OPTION>
+<OPTION VALUE="sports">Sports</OPTION>
+<OPTION VALUE="music">Music</OPTION>
+<OPTION VALUE="travel">Travel</OPTION>
+<OPTION VALUE="books">Books</OPTION>
+</SELECT>
+</P>
+<P><STRONG>Comments:</STRONG><BR>
+<TEXTAREA NAME="comments" ROWS="4" COLS="40">Enter your comments here...</TEXTAREA>
+</P>
+<P><STRONG>File Upload:</STRONG><BR>
+<INPUT TYPE="file" NAME="uploadfile" SIZE="30">
+</P>
+<P>
+<BUTTON TYPE="submit" NAME="submitbtn">Submit Form</BUTTON>
+<BUTTON TYPE="reset">Reset Form</BUTTON>
+<BUTTON TYPE="button" ONCLICK="alert('HTML 4.0 Button clicked!')">Click Me</BUTTON>
+</P>
+<INPUT TYPE="hidden" NAME="formid" VALUE="html4_test">
+<INPUT TYPE="hidden" NAME="timestamp" VALUE="">
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Not Supported</H3>
+<UL>
+<LI>INPUT TYPE="image" - Not documented in AWeb HTML reference</LI>
+<LI>LABEL element - Not documented in AWeb HTML reference</LI>
+<LI>FIELDSET and LEGEND - Not documented in AWeb HTML reference</LI>
+<LI>OPTGROUP element - Not documented in AWeb HTML reference</LI>
+<LI>Form accessibility attributes - Not documented</LI>
+</UL>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="embedded"></A>
+<H2>Embedded Content (HTML 4.0)</H2>
+
+<H3>Fully Supported</H3>
+<UL>
+<LI>OBJECT element - Fully supported in strict mode (see html-ks.html#OBJECT)</LI>
+<LI>PARAM element - Fully supported (see html-ks.html#PARAM)</LI>
+</UL>
+
+<H3>Partially Supported (Tolerant Mode Only)</H3>
+<UL>
+<LI>EMBED element - Tolerant mode only (Netscape extension, see html-ej.html#EMBED)</LI>
+<LI>BGSOUND element - Tolerant mode only (Internet Explorer extension, see html-ad.html#BGSOUND)</LI>
+</UL>
+
+<H3>Test Examples</H3>
+
+<H4>Object Element</H4>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<OBJECT DATA="test.swf" TYPE="application/x-shockwave-flash" WIDTH="300" HEIGHT="200">
+<PARAM NAME="movie" VALUE="test.swf">
+<PARAM NAME="autoplay" VALUE="true">
+Your browser does not support OBJECT tags.
+</OBJECT>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Embed Element (Tolerant Mode Only)</H4>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<EMBED SRC="test.swf" TYPE="application/x-shockwave-flash" WIDTH="300" HEIGHT="200"></EMBED>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Not Supported</H3>
+<UL>
+<LI>APPLET element - Not documented (deprecated in HTML 4.0, use OBJECT instead)</LI>
+<LI>Most plugin types (Flash, Java applets, etc.) - Plugin support depends on external plugins</LI>
+</UL>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="style"></A>
+<H2>Style Sheets (HTML 4.0)</H2>
+
+<H3>Partially Supported</H3>
+<UL>
+<LI>STYLE element in HEAD - Supported (see html-ks.html#STYLE), though CSS rendering is limited</LI>
+<LI>Basic CSS1 selectors - Limited support</LI>
+<LI>Basic CSS1 properties - Limited support</LI>
+<LI>STYLE attribute on elements - Limited support</LI>
+</UL>
+
+<H3>Test Examples</H3>
+<P>This paragraph would use inline STYLE attribute, but CSS support is limited in AWeb.</P>
+
+<H3>Not Supported</H3>
+<UL>
+<LI>Full CSS1 implementation - Many properties not supported</LI>
+<LI>CSS2 features - Not supported</LI>
+<LI>External stylesheets via LINK - Limited support</LI>
+<LI>@import rules - Not supported</LI>
+<LI>Media types and media queries - Not supported</LI>
+<LI>Advanced selectors (pseudo-classes, pseudo-elements) - Limited support</LI>
+<LI>CSS positioning and layout - Not supported</LI>
+</UL>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="scripting"></A>
+<H2>Scripting (HTML 4.0)</H2>
+
+<H3>Fully Supported</H3>
+<UL>
+<LI>SCRIPT element with LANGUAGE and TYPE attributes - Fully supported (see html-ks.html#SCRIPT)</LI>
+<LI>NOSCRIPT element for non-scripting browsers - Fully supported (see html-ks.html#NOSCRIPT)</LI>
+<LI>Event handlers on HTML elements (ONCLICK, ONLOAD, etc.) - Fully supported (see html.html#events)</LI>
+</UL>
+
+<H3>Test Examples</H3>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+document.write("<P>JavaScript is enabled! This text was written by JavaScript.</P>");
+//-->
+</SCRIPT>
+<NOSCRIPT>
+<P>JavaScript is disabled. This content is shown when JavaScript is not available.</P>
+</NOSCRIPT>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Event Handlers</H3>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<BUTTON ONCLICK="alert('Button clicked!')">Click Me (JavaScript)</BUTTON>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Note</H3>
+<P>For comprehensive JavaScript 1.1 testing, see <A HREF="javascript_test.html">javascript_test.html</A>.</P>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="compatibility"></A>
+<H2>Compatibility Summary</H2>
+
+<H3>HTML 4.0 Features Fully Supported</H3>
+<UL>
+<LI>Document structure and DOCTYPE declarations</LI>
+<LI>Enhanced META and LINK elements</LI>
+<LI>Frames and framesets (FRAMESET, FRAME, NOFRAMES)</LI>
+<LI>IFRAME (inline frames)</LI>
+<LI>Advanced table structure (THEAD, TBODY, TFOOT, COLGROUP, COL)</LI>
+<LI>Form elements and basic attributes (FORM, INPUT, SELECT, OPTION, TEXTAREA, BUTTON)</LI>
+<LI>OBJECT and PARAM elements</LI>
+<LI>Scripting integration (SCRIPT, NOSCRIPT)</LI>
+<LI>Event handlers on HTML elements</LI>
+<LI>Character entities (HTML 4.0 set)</LI>
+</UL>
+
+<H3>HTML 4.0 Features Partially Supported</H3>
+<UL>
+<LI>STYLE element and basic CSS1 - Limited CSS rendering support</LI>
+<LI>EMBED, BGSOUND - Tolerant mode only (browser extensions)</LI>
+</UL>
+
+<H3>HTML 4.0 Features Not Supported</H3>
+<UL>
+<LI>Full CSS1/CSS2 implementation</LI>
+<LI>External stylesheets (limited support)</LI>
+<LI>LABEL, FIELDSET, LEGEND elements</LI>
+<LI>OPTGROUP element</LI>
+<LI>INPUT TYPE="image"</LI>
+<LI>Table accessibility attributes (SUMMARY, SCOPE, HEADERS, ABBR)</LI>
+<LI>Form accessibility attributes</LI>
+<LI>APPLET element (deprecated)</LI>
+<LI>Internationalization features (limited)</LI>
+<LI>XHTML support</LI>
+</UL>
+
+<H3>HTML 4.0 vs HTML 3.2</H3>
+<P>This page tests HTML 4.0 specifically. For HTML 3.2 features, see <A HREF="html3_test.html">html3_test.html</A>.</P>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<CENTER>
+<P><SMALL>Last Updated: 2025 - AWeb 3 HTML 4.0 Compatibility Test</SMALL></P>
+<P><A HREF="aweb.html">Back to AWeb documentation index</A></P>
+</CENTER>
+
+</BODY>
+</HTML>

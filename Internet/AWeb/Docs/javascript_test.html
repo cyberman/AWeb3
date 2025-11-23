@@ -1,0 +1,910 @@
+<!--
+/**********************************************************************
+ * 
+ * This file is part of the AWeb distribution
+ *
+ * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the AWeb Public License as included in this
+ * distribution.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * AWeb Public License for more details.
+ *
+ **********************************************************************/
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+<HEAD>
+<TITLE>AWeb JavaScript 1.1 Compatibility Test Page</TITLE>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
+<META NAME="Description" CONTENT="Comprehensive JavaScript 1.1 compatibility test for AWeb">
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+// JavaScript 1.1 Test Functions
+
+// Window Object Tests
+function testAlert() {
+    window.alert("This is a JavaScript alert dialog!");
+}
+
+function testConfirm() {
+    var result = window.confirm("Do you want to continue?");
+    if (result) {
+        window.status = "You clicked OK";
+    } else {
+        window.status = "You clicked Cancel";
+    }
+}
+
+function testPrompt() {
+    var name = window.prompt("What is your name?", "Guest");
+    if (name) {
+        window.status = "Hello, " + name + "!";
+    } else {
+        window.status = "No name entered";
+    }
+}
+
+function testTimeout() {
+    window.status = "Status will clear in 3 seconds...";
+    window.setTimeout(function() {
+        window.status = "";
+    }, 3000);
+}
+
+function testInterval() {
+    var count = 0;
+    var intervalId = window.setInterval(function() {
+        count++;
+        window.status = "Interval count: " + count;
+        if (count >= 5) {
+            window.clearInterval(intervalId);
+            window.status = "Interval stopped";
+        }
+    }, 1000);
+}
+
+function testOpenWindow() {
+    var newWin = window.open("test.html", "newwin", "width=400,height=300");
+    if (newWin) {
+        window.status = "New window opened";
+    } else {
+        window.status = "Window blocked or failed";
+    }
+}
+
+function testCloseWindow() {
+    if (window.close()) {
+        window.status = "Window close attempted";
+    } else {
+        window.status = "Window cannot be closed (may require user interaction)";
+    }
+}
+
+// Document Object Tests
+function testWrite() {
+    document.open();
+    document.write("<H1>Dynamic Content</H1>");
+    document.write("<P>This was written by JavaScript document.write()!</P>");
+    document.write("<P>Current time: " + new Date() + "</P>");
+    document.close();
+}
+
+function showDocumentInfo() {
+    var info = "Title: " + document.title + "\n";
+    info += "URL: " + document.URL + "\n";
+    info += "Last Modified: " + document.lastModified + "\n";
+    info += "Forms: " + document.forms.length + "\n";
+    info += "Images: " + document.images.length + "\n";
+    info += "Links: " + document.links.length;
+    window.alert(info);
+}
+
+function testGetElementById() {
+    var elem = document.getElementById("testdiv");
+    if (elem) {
+        window.status = "Element found (getElementById is supported)";
+    } else {
+        window.status = "Element not found (getElementById may not be supported)";
+    }
+}
+
+// History Object Tests
+function goBack() {
+    window.history.back();
+}
+
+function goForward() {
+    window.history.forward();
+}
+
+function goHistory(n) {
+    window.history.go(n);
+}
+
+function showHistoryInfo() {
+    var info = "History length: " + window.history.length;
+    window.alert(info);
+}
+
+// Navigator Object Tests
+function showNavigatorInfo() {
+    var info = "App Code Name: " + navigator.appCodeName + "\n";
+    info += "App Name: " + navigator.appName + "\n";
+    info += "App Version: " + navigator.appVersion + "\n";
+    info += "User Agent: " + navigator.userAgent + "\n";
+    info += "Platform: " + navigator.platform + "\n";
+    info += "Java Enabled: " + navigator.javaEnabled() + "\n";
+    info += "Taint Enabled: " + navigator.taintEnabled();
+    window.alert(info);
+}
+
+// Location Object Tests
+function showLocationInfo() {
+    var info = "HREF: " + location.href + "\n";
+    info += "Protocol: " + location.protocol + "\n";
+    info += "Host: " + location.host + "\n";
+    info += "Hostname: " + location.hostname + "\n";
+    info += "Port: " + location.port + "\n";
+    info += "Pathname: " + location.pathname + "\n";
+    info += "Search: " + location.search + "\n";
+    info += "Hash: " + location.hash;
+    window.alert(info);
+}
+
+function testReload() {
+    if (window.confirm("Reload this page?")) {
+        location.reload();
+    }
+}
+
+// String Object Tests
+function testStringMethods() {
+    var str = "Hello World";
+    var info = "Original: " + str + "\n";
+    info += "Length: " + str.length + "\n";
+    info += "UpperCase: " + str.toUpperCase() + "\n";
+    info += "LowerCase: " + str.toLowerCase() + "\n";
+    info += "CharAt(0): " + str.charAt(0) + "\n";
+    info += "IndexOf('o'): " + str.indexOf('o') + "\n";
+    info += "LastIndexOf('o'): " + str.lastIndexOf('o') + "\n";
+    info += "Substring(0,5): " + str.substring(0, 5);
+    window.alert(info);
+}
+
+// Array Object Tests
+function testArrayMethods() {
+    var arr = ["apple", "banana", "cherry"];
+    var info = "Original: " + arr.join(", ") + "\n";
+    info += "Length: " + arr.length + "\n";
+    arr.reverse();
+    info += "Reversed: " + arr.join(", ") + "\n";
+    arr.sort();
+    info += "Sorted: " + arr.join(", ");
+    window.alert(info);
+}
+
+// Math Object Tests
+function testMath() {
+    var result = "PI: " + Math.PI + "\n";
+    result += "E: " + Math.E + "\n";
+    result += "Random: " + Math.random() + "\n";
+    result += "Round 3.7: " + Math.round(3.7) + "\n";
+    result += "Floor 3.7: " + Math.floor(3.7) + "\n";
+    result += "Ceil 3.2: " + Math.ceil(3.2) + "\n";
+    result += "Max(5,10): " + Math.max(5, 10) + "\n";
+    result += "Min(5,10): " + Math.min(5, 10) + "\n";
+    result += "Abs(-5): " + Math.abs(-5) + "\n";
+    result += "Sqrt(16): " + Math.sqrt(16);
+    window.alert(result);
+}
+
+// Date Object Tests
+function testDate() {
+    var now = new Date();
+    var info = "Current Date: " + now.toString() + "\n";
+    info += "getTime(): " + now.getTime() + "\n";
+    info += "getYear(): " + now.getYear() + "\n";
+    info += "getMonth(): " + now.getMonth() + "\n";
+    info += "getDate(): " + now.getDate() + "\n";
+    info += "getDay(): " + now.getDay() + "\n";
+    info += "getHours(): " + now.getHours() + "\n";
+    info += "getMinutes(): " + now.getMinutes();
+    window.alert(info);
+}
+
+// Form Event Handlers
+function validateForm() {
+    var form = document.forms[0];
+    if (form && form.elements[0] && form.elements[0].value == "") {
+        window.alert("Name field is required!");
+        return false;
+    }
+    return true;
+}
+
+function onInputChange(element) {
+    window.status = "Field changed: " + element.value;
+}
+
+function onInputFocus(element) {
+    window.status = "Field focused: " + element.name;
+}
+
+function onInputBlur(element) {
+    window.status = "Field blurred: " + element.name;
+}
+
+// Mouse Event Handlers
+function onMouseOver() {
+    window.status = "Mouse is over the link!";
+}
+
+function onMouseOut() {
+    window.status = "";
+}
+
+// Page Load Handler
+window.onLoad = function() {
+    window.defaultStatus = "AWeb JavaScript 1.1 Compatibility Test - All features loaded";
+};
+
+//-->
+</SCRIPT>
+</HEAD>
+<BODY BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000" ONLOAD="window.defaultStatus='JavaScript 1.1 Test Page Loaded'">
+
+<H1><IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)">&nbsp; JavaScript 1.1 Compatibility Test</H1>
+
+<P>This page tests AWeb's compatibility with <STRONG>JavaScript 1.1</STRONG> (ECMAScript 1, based on Netscape JavaScript 1.1). Each test includes a description of what it tests, how to run it, what results you should expect, and the interactive test itself.</P>
+
+<HR>
+
+<A NAME="top"></A>
+<CENTER>
+<H2>Quick Navigation</H2>
+<A HREF="#core">Core Language</A> |
+<A HREF="#window">Window Object</A> |
+<A HREF="#document">Document Object</A> |
+<A HREF="#history">History Object</A> |
+<A HREF="#navigator">Navigator Object</A> |
+<A HREF="#location">Location Object</A> |
+<A HREF="#builtin">Built-in Objects</A> |
+<A HREF="#events">Event Handlers</A> |
+<A HREF="#compatibility">Compatibility Notes</A>
+</CENTER>
+
+<HR>
+
+<A NAME="core"></A>
+<H2>Core Language Features</H2>
+
+<H3>Test 1: Variables and Data Types</H3>
+<P><STRONG>What it tests:</STRONG> JavaScript variable declaration and basic data types (String, Number, Array).</P>
+<P><STRONG>How to run:</STRONG> The test runs automatically when the page loads. Check the output below.</P>
+<P><STRONG>Expected results:</STRONG> You should see a variable test message, an array test showing numbers 1-5, and a function test showing the result of 5+3=8.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test Output:</STRONG><BR>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var testVar = "JavaScript is working!";
+document.write("<P><STRONG>Variable test:</STRONG> " + testVar + "</P>");
+
+var testArray = [1, 2, 3, 4, 5];
+document.write("<P><STRONG>Array test:</STRONG> " + testArray.join(", ") + "</P>");
+
+function testFunction(x, y) {
+    return x + y;
+}
+document.write("<P><STRONG>Function test:</STRONG> testFunction(5, 3) = " + testFunction(5, 3) + "</P>");
+//-->
+</SCRIPT>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Not Supported</H3>
+<UL>
+<LI>Regular Expressions (RegExp object) - Very limited or no support</LI>
+<LI>Exception handling (try/catch/finally) - Not supported</LI>
+<LI>ES6 features (let/const, arrow functions, classes) - Not supported</LI>
+<LI>Modern Array methods (forEach, map, filter, etc.) - Not supported</LI>
+</UL>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="window"></A>
+<H2>Window Object</H2>
+
+<H3>Test 1: window.alert()</H3>
+<P><STRONG>What it tests:</STRONG> The window.alert() method displays a modal alert dialog with a message.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Alert" button below.</P>
+<P><STRONG>Expected results:</STRONG> A dialog box should appear with the message "This is a JavaScript alert dialog!". Click OK to dismiss it.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testAlert()" VALUE="Test Alert">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2: window.confirm()</H3>
+<P><STRONG>What it tests:</STRONG> The window.confirm() method displays a modal confirmation dialog with OK and Cancel buttons.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Confirm" button below.</P>
+<P><STRONG>Expected results:</STRONG> A dialog box should appear asking "Do you want to continue?" with OK and Cancel buttons. After clicking either button, check the status bar at the bottom of the browser window - it should show "You clicked OK" or "You clicked Cancel" depending on your choice.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testConfirm()" VALUE="Test Confirm">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 3: window.prompt()</H3>
+<P><STRONG>What it tests:</STRONG> The window.prompt() method displays a modal dialog with a text input field.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Prompt" button below.</P>
+<P><STRONG>Expected results:</STRONG> A dialog box should appear asking "What is your name?" with a text field pre-filled with "Guest". Enter a name and click OK, or click Cancel. The status bar should show "Hello, [your name]!" if you entered a name, or "No name entered" if you clicked Cancel.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testPrompt()" VALUE="Test Prompt">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 4: window.status and window.defaultStatus</H3>
+<P><STRONG>What it tests:</STRONG> The window.status property controls the status bar text, and window.defaultStatus sets the default status bar text.</P>
+<P><STRONG>How to run:</STRONG> Look at the status bar at the bottom of the browser window. It should show "JavaScript 1.1 Test Page Loaded" when the page loads.</P>
+<P><STRONG>Expected results:</STRONG> The status bar should display the default message. When you hover over links or interact with elements that change the status, the status bar text should update accordingly.</P>
+
+<H3>Test 5: window.setTimeout()</H3>
+<P><STRONG>What it tests:</STRONG> The window.setTimeout() method executes a function after a specified delay in milliseconds.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Timeout" button below.</P>
+<P><STRONG>Expected results:</STRONG> The status bar should immediately show "Status will clear in 3 seconds...". After 3 seconds, the status bar should clear (become empty).</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testTimeout()" VALUE="Test Timeout">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 6: window.setInterval() and window.clearInterval()</H3>
+<P><STRONG>What it tests:</STRONG> The window.setInterval() method repeatedly executes a function at specified intervals, and window.clearInterval() stops the interval.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Interval" button below.</P>
+<P><STRONG>Expected results:</STRONG> The status bar should show "Interval count: 1", then "Interval count: 2", and so on, updating every second. After 5 counts, it should show "Interval stopped" and the interval should stop updating.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testInterval()" VALUE="Test Interval">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 7: window.open()</H3>
+<P><STRONG>What it tests:</STRONG> The window.open() method opens a new browser window.</P>
+<P><STRONG>How to run:</STRONG> Click the "Open New Window" button below.</P>
+<P><STRONG>Expected results:</STRONG> A new window should open (if not blocked by browser settings). The status bar should show "New window opened" if successful, or "Window blocked or failed" if the window could not be opened. Note: AWeb may block popup windows depending on settings.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testOpenWindow()" VALUE="Open New Window">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 8: window.close()</H3>
+<P><STRONG>What it tests:</STRONG> The window.close() method attempts to close the current window.</P>
+<P><STRONG>How to run:</STRONG> Click the "Close Window" button below.</P>
+<P><STRONG>Expected results:</STRONG> The window may or may not close depending on browser security settings. The status bar should show "Window close attempted" or "Window cannot be closed (may require user interaction)". Note: AWeb typically only allows closing windows that were opened by JavaScript.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testCloseWindow()" VALUE="Close Window">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Not Supported</H3>
+<UL>
+<LI>window.showModalDialog() - Not supported</LI>
+<LI>window.showModelessDialog() - Not supported</LI>
+<LI>window.resizeTo() - Not supported</LI>
+<LI>window.moveTo() - Not supported</LI>
+<LI>window.print() - Not supported</LI>
+</UL>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="document"></A>
+<H2>Document Object</H2>
+
+<H3>Test 1: document.write()</H3>
+<P><STRONG>What it tests:</STRONG> The document.write() method writes HTML content to the document.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test document.write()" button below.</P>
+<P><STRONG>Expected results:</STRONG> The current page should be replaced with new content showing "Dynamic Content" as a heading, a paragraph explaining it was written by JavaScript, and the current date and time. This demonstrates that document.write() can dynamically generate HTML content.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testWrite()" VALUE="Test document.write()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2: Document Properties</H3>
+<P><STRONG>What it tests:</STRONG> The document.title, document.URL, document.lastModified properties, and the document.forms[], document.images[], document.links[] arrays.</P>
+<P><STRONG>How to run:</STRONG> Click the "Show Document Info" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the document title, URL, last modified date, and counts of forms, images, and links on the page.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="showDocumentInfo()" VALUE="Show Document Info">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 3: Document Element Arrays</H3>
+<P><STRONG>What it tests:</STRONG> The document.forms[], document.images[], and document.links[] arrays that contain references to all forms, images, and links on the page.</P>
+<P><STRONG>How to run:</STRONG> Click the "Count Elements" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the number of images, forms, and links found on this page. The counts should match the actual elements present.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="window.alert('Images: ' + document.images.length + ', Forms: ' + document.forms.length + ', Links: ' + document.links.length)" VALUE="Count Elements">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 4: document.getElementById()</H3>
+<P><STRONG>What it tests:</STRONG> The document.getElementById() method retrieves an element by its ID attribute.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test getElementById" button below.</P>
+<P><STRONG>Expected results:</STRONG> The status bar should show "Element found (getElementById is supported)" if the method works, or "Element not found (getElementById may not be supported)" if it doesn't. Note: getElementById() may have limited support in AWeb's JavaScript 1.1 implementation.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DIV ID="testdiv">
+This is a test div element. Click the button to test getElementById.
+</DIV>
+<INPUT TYPE="button" ONCLICK="testGetElementById()" VALUE="Test getElementById">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Not Supported</H3>
+<UL>
+<LI>Full DOM Level 1 implementation - Very limited</LI>
+<LI>document.createElement() - Not supported</LI>
+<LI>document.appendChild() - Not supported</LI>
+<LI>document.removeChild() - Not supported</LI>
+<LI>Advanced DOM manipulation - Not supported</LI>
+</UL>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="history"></A>
+<H2>History Object</H2>
+
+<H3>Test 1: history.back()</H3>
+<P><STRONG>What it tests:</STRONG> The history.back() method navigates to the previous page in the browser history.</P>
+<P><STRONG>How to run:</STRONG> First navigate to another page, then come back to this page. Then click the "History Back" button below.</P>
+<P><STRONG>Expected results:</STRONG> The browser should navigate to the previous page in the history (if one exists). This is equivalent to clicking the browser's back button.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="goBack()" VALUE="History Back">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2: history.forward()</H3>
+<P><STRONG>What it tests:</STRONG> The history.forward() method navigates to the next page in the browser history.</P>
+<P><STRONG>How to run:</STRONG> After using history.back(), click the "History Forward" button below.</P>
+<P><STRONG>Expected results:</STRONG> The browser should navigate to the next page in the history (if one exists). This is equivalent to clicking the browser's forward button.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="goForward()" VALUE="History Forward">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 3: history.go()</H3>
+<P><STRONG>What it tests:</STRONG> The history.go() method navigates to a specific position in the browser history. Positive numbers go forward, negative numbers go back.</P>
+<P><STRONG>How to run:</STRONG> Click either "Go Back 2" or "Go Forward 2" button below.</P>
+<P><STRONG>Expected results:</STRONG> The browser should navigate 2 pages back or forward in the history (if those pages exist).</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="goHistory(-2)" VALUE="Go Back 2"> <INPUT TYPE="button" ONCLICK="goHistory(2)" VALUE="Go Forward 2">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 4: history.length</H3>
+<P><STRONG>What it tests:</STRONG> The history.length property returns the number of entries in the browser history.</P>
+<P><STRONG>How to run:</STRONG> Click the "Show History Info" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the number of pages in the browser history. The number should be greater than 0.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="showHistoryInfo()" VALUE="Show History Info">
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="navigator"></A>
+<H2>Navigator Object</H2>
+
+<H3>Test 1: Navigator Properties</H3>
+<P><STRONG>What it tests:</STRONG> The navigator object properties that provide information about the browser and platform.</P>
+<P><STRONG>How to run:</STRONG> Click the "Show Navigator Info" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing:
+<UL>
+<LI>App Code Name - Browser code name (typically "Mozilla")</LI>
+<LI>App Name - Browser name (should show "AWeb" or similar)</LI>
+<LI>App Version - Browser version information</LI>
+<LI>User Agent - Complete user agent string</LI>
+<LI>Platform - Operating system platform</LI>
+<LI>Java Enabled - Whether Java is enabled (true/false)</LI>
+<LI>Taint Enabled - Whether data tainting is enabled (typically false)</LI>
+</UL>
+</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="showNavigatorInfo()" VALUE="Show Navigator Info">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2: navigator.userAgent (Displayed)</H3>
+<P><STRONG>What it tests:</STRONG> The navigator.userAgent property displayed directly in the page.</P>
+<P><STRONG>How to run:</STRONG> Look at the text below - it displays automatically when the page loads.</P>
+<P><STRONG>Expected results:</STRONG> You should see the user agent string displayed in the test area below.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test Output:</STRONG><BR>
+User Agent: <SCRIPT LANGUAGE="JavaScript">document.write(navigator.userAgent);</SCRIPT>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="location"></A>
+<H2>Location Object</H2>
+
+<H3>Test 1: Location Properties</H3>
+<P><STRONG>What it tests:</STRONG> The location object properties that provide information about the current page URL.</P>
+<P><STRONG>How to run:</STRONG> Click the "Show Location Info" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing:
+<UL>
+<LI>HREF - Complete URL of the current page</LI>
+<LI>Protocol - URL protocol (http:, https:, file:, etc.)</LI>
+<LI>Host - Hostname and port number</LI>
+<LI>Hostname - Hostname only</LI>
+<LI>Port - Port number (empty if default)</LI>
+<LI>Pathname - Path portion of the URL</LI>
+<LI>Search - Query string (empty if none)</LI>
+<LI>Hash - Fragment identifier (empty if none)</LI>
+</UL>
+</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="showLocationInfo()" VALUE="Show Location Info">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2: location.href (Displayed)</H3>
+<P><STRONG>What it tests:</STRONG> The location.href property displayed directly in the page.</P>
+<P><STRONG>How to run:</STRONG> Look at the text below - it displays automatically when the page loads.</P>
+<P><STRONG>Expected results:</STRONG> You should see the current page URL displayed in the test area below.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test Output:</STRONG><BR>
+Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIPT>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 3: location.reload()</H3>
+<P><STRONG>What it tests:</STRONG> The location.reload() method reloads the current page.</P>
+<P><STRONG>How to run:</STRONG> Click the "Reload Page" button below.</P>
+<P><STRONG>Expected results:</STRONG> A confirmation dialog should appear asking "Reload this page?". If you click OK, the page should reload. If you click Cancel, nothing should happen.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testReload()" VALUE="Reload Page">
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="builtin"></A>
+<H2>Built-in Objects</H2>
+
+<H3>Test 1: String Object Methods</H3>
+<P><STRONG>What it tests:</STRONG> String object methods including length, charAt(), indexOf(), lastIndexOf(), substring(), toUpperCase(), and toLowerCase().</P>
+<P><STRONG>How to run:</STRONG> Click the "Test String Methods" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing:
+<UL>
+<LI>Original string: "Hello World"</LI>
+<LI>Length: 11</LI>
+<LI>UpperCase: "HELLO WORLD"</LI>
+<LI>LowerCase: "hello world"</LI>
+<LI>CharAt(0): "H" (first character)</LI>
+<LI>IndexOf('o'): 4 (first occurrence of 'o')</LI>
+<LI>LastIndexOf('o'): 7 (last occurrence of 'o')</LI>
+<LI>Substring(0,5): "Hello" (characters 0-4)</LI>
+</UL>
+</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testStringMethods()" VALUE="Test String Methods">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2: Array Object Methods</H3>
+<P><STRONG>What it tests:</STRONG> Array object methods including length, join(), reverse(), and sort().</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Array Methods" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing:
+<UL>
+<LI>Original array: "apple, banana, cherry"</LI>
+<LI>Length: 3</LI>
+<LI>Reversed: "cherry, banana, apple"</LI>
+<LI>Sorted: "apple, banana, cherry" (alphabetically sorted)</LI>
+</UL>
+</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testArrayMethods()" VALUE="Test Array Methods">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 3: Math Object</H3>
+<P><STRONG>What it tests:</STRONG> Math object constants and methods including PI, E, random(), round(), floor(), ceil(), max(), min(), abs(), and sqrt().</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Math Object" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing:
+<UL>
+<LI>PI: 3.141592653589793 (or similar)</LI>
+<LI>E: 2.718281828459045 (or similar)</LI>
+<LI>Random: A random number between 0 and 1 (different each time)</LI>
+<LI>Round 3.7: 4</LI>
+<LI>Floor 3.7: 3</LI>
+<LI>Ceil 3.2: 4</LI>
+<LI>Max(5,10): 10</LI>
+<LI>Min(5,10): 5</LI>
+<LI>Abs(-5): 5</LI>
+<LI>Sqrt(16): 4</LI>
+</UL>
+</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testMath()" VALUE="Test Math Object">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 4: Date Object</H3>
+<P><STRONG>What it tests:</STRONG> Date object creation and methods including getTime(), getYear(), getMonth(), getDate(), getDay(), getHours(), and getMinutes().</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Date Object" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing:
+<UL>
+<LI>Current Date: A string representation of the current date and time</LI>
+<LI>getTime(): Number of milliseconds since January 1, 1970</LI>
+<LI>getYear(): Current year (may be 2-digit or 4-digit depending on implementation)</LI>
+<LI>getMonth(): Current month (0-11, where 0 is January)</LI>
+<LI>getDate(): Day of month (1-31)</LI>
+<LI>getDay(): Day of week (0-6, where 0 is Sunday)</LI>
+<LI>getHours(): Current hour (0-23)</LI>
+<LI>getMinutes(): Current minutes (0-59)</LI>
+</UL>
+</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testDate()" VALUE="Test Date Object">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Not Supported</H3>
+<UL>
+<LI>RegExp object - Regular expressions not supported</LI>
+<LI>JSON object - JSON parsing/stringifying not supported</LI>
+<LI>Modern Array methods (forEach, map, filter, etc.) - Not supported</LI>
+<LI>Advanced String methods (split, replace, match, etc.) - Limited or not supported</LI>
+</UL>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="events"></A>
+<H2>Event Handlers</H2>
+
+<H3>Test 1: ONMOUSEOVER and ONMOUSEOUT</H3>
+<P><STRONG>What it tests:</STRONG> Mouse event handlers that trigger when the mouse moves over or away from an element.</P>
+<P><STRONG>How to run:</STRONG> Move your mouse over the link below, then move it away.</P>
+<P><STRONG>Expected results:</STRONG> When you move the mouse over the link, the status bar should show "Mouse is over the link!". When you move the mouse away, the status bar should clear.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<A HREF="#top" ONMOUSEOVER="onMouseOver()" ONMOUSEOUT="onMouseOut()">Hover over this link</A> - watch the status bar!
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2: ONCLICK</H3>
+<P><STRONG>What it tests:</STRONG> The ONCLICK event handler that triggers when an element is clicked.</P>
+<P><STRONG>How to run:</STRONG> Click any of the test buttons on this page - they all use ONCLICK handlers.</P>
+<P><STRONG>Expected results:</STRONG> When you click a button, the associated JavaScript function should execute. For example, clicking "Test Alert" should show an alert dialog.</P>
+
+<H3>Test 3: ONFOCUS and ONBLUR</H3>
+<P><STRONG>What it tests:</STRONG> Focus event handlers that trigger when a form field gains or loses keyboard focus.</P>
+<P><STRONG>How to run:</STRONG> Click in the text field in Test 5 below, then click outside of it.</P>
+<P><STRONG>Expected results:</STRONG> When you click in the field (giving it focus), the status bar should show "Field focused: name". When you click outside (blur), the status bar should show "Field blurred: name".</P>
+
+<H3>Test 4: ONCHANGE</H3>
+<P><STRONG>What it tests:</STRONG> The ONCHANGE event handler that triggers when a form field value changes.</P>
+<P><STRONG>How to run:</STRONG> Type something in the text field in Test 5 below, then click outside the field or press Tab.</P>
+<P><STRONG>Expected results:</STRONG> After you change the text and move away from the field, the status bar should show "Field changed: [your text]".</P>
+
+<H3>Test 5: ONSUBMIT and ONRESET</H3>
+<P><STRONG>What it tests:</STRONG> Form event handlers that trigger when a form is submitted or reset.</P>
+<P><STRONG>How to run:</STRONG> Try submitting the form below (leave the name field empty to test validation), or click the Reset button.</P>
+<P><STRONG>Expected results:</STRONG> 
+<UL>
+<LI>If you try to submit with an empty name field, an alert should appear saying "Name field is required!" and the form should not submit.</LI>
+<LI>If you click Reset, an alert should appear saying "Form reset!" and the form fields should be cleared.</LI>
+</UL>
+</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<FORM METHOD="POST" ACTION="test.cgi" ONSUBMIT="return validateForm()" ONRESET="window.alert('Form reset!')">
+<P>Name: <INPUT TYPE="text" NAME="name" VALUE="" SIZE="30" ONCHANGE="onInputChange(this)" ONFOCUS="onInputFocus(this)" ONBLUR="onInputBlur(this)"></P>
+<P>
+<INPUT TYPE="submit" VALUE="Submit Form">
+<INPUT TYPE="reset" VALUE="Reset Form">
+</P>
+</FORM>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 6: ONLOAD</H3>
+<P><STRONG>What it tests:</STRONG> The ONLOAD event handler that triggers when the page finishes loading.</P>
+<P><STRONG>How to run:</STRONG> This test runs automatically when the page loads. Check the status bar.</P>
+<P><STRONG>Expected results:</STRONG> When the page loads, the status bar should show "JavaScript 1.1 Test Page Loaded" (set by the BODY ONLOAD attribute).</P>
+
+<H3>Partially Supported</H3>
+<UL>
+<LI>ONSELECT - Text selection event - May have limited support</LI>
+<LI>ONKEYDOWN, ONKEYUP, ONKEYPRESS - Keyboard events - Limited support</LI>
+<LI>ONDBLCLICK - Double-click event - May have limited support</LI>
+</UL>
+
+<H3>Not Supported</H3>
+<UL>
+<LI>Event bubbling and capturing - Not supported</LI>
+<LI>addEventListener() - Not supported</LI>
+<LI>removeEventListener() - Not supported</LI>
+<LI>Event object properties - Limited support</LI>
+</UL>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="compatibility"></A>
+<H2>Compatibility Summary</H2>
+
+<H3>JavaScript 1.1 Features Fully Supported</H3>
+<UL>
+<LI>Core language features (variables, functions, control structures)</LI>
+<LI>Window object (alert, confirm, prompt, status, setTimeout, setInterval)</LI>
+<LI>Document object (write, title, URL, forms, images, links arrays)</LI>
+<LI>History object (back, forward, go, length)</LI>
+<LI>Navigator object (appName, userAgent, javaEnabled, etc.)</LI>
+<LI>Location object (href, protocol, host, reload, etc.)</LI>
+<LI>String object (basic methods)</LI>
+<LI>Array object (basic methods)</LI>
+<LI>Math object (basic methods)</LI>
+<LI>Date object (basic methods)</LI>
+<LI>Event handlers (onclick, onload, onmouseover, etc.)</LI>
+</UL>
+
+<H3>JavaScript 1.1 Features Partially Supported</H3>
+<UL>
+<LI>window.open() and window.close() - Basic support with limitations</LI>
+<LI>document.getElementById() - May have limited support</LI>
+<LI>document.cookie - Basic support</LI>
+<LI>switch statement - May have limitations</LI>
+<LI>Keyboard events - Limited support</LI>
+</UL>
+
+<H3>JavaScript 1.1 Features Not Supported</H3>
+<UL>
+<LI>Regular Expressions (RegExp object) - Not supported</LI>
+<LI>Exception handling (try/catch/finally) - Not supported</LI>
+<LI>Full DOM Level 1 - Very limited implementation</LI>
+<LI>document.createElement() and DOM manipulation - Not supported</LI>
+<LI>JSON parsing/stringifying - Not supported</LI>
+<LI>Modern Array methods (forEach, map, filter, etc.) - Not supported</LI>
+<LI>Advanced String methods (split, replace, match, etc.) - Limited or not supported</LI>
+<LI>Event bubbling and capturing - Not supported</LI>
+<LI>addEventListener() / removeEventListener() - Not supported</LI>
+<LI>XMLHttpRequest (AJAX) - Not supported</LI>
+<LI>ES6 features (let/const, arrow functions, classes) - Not supported</LI>
+</UL>
+
+<H3>JavaScript 1.1 vs Modern JavaScript</H3>
+<P>AWeb implements JavaScript 1.1, which is based on ECMAScript 1 (1997). This is significantly older than modern JavaScript (ES6+, 2015+). Many features that are standard in modern browsers are not available in AWeb's JavaScript implementation.</P>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<CENTER>
+<P><SMALL>Last Updated: 2025 - AWeb 3 JavaScript 1.1 Compatibility Test</SMALL></P>
+<P><A HREF="aweb.html">Back to AWeb documentation index</A></P>
+</CENTER>
+
+</BODY>
+</HTML>
