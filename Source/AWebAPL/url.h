@@ -188,6 +188,9 @@
 #define AOURL_Filename     (AOURL_Dummy+135)
    /* (UBYTE *) Filename from Content-Disposition header */
 
+#define AOURL_Linkurl      (AOURL_Dummy+136)
+   /* (UBYTE *) Url to link to (moved url for permanently moved original otherwise) */
+
 #define AOURL_    (AOURL_Dummy+)
 #define AOURL_    (AOURL_Dummy+)
 

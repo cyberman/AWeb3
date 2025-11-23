@@ -858,9 +858,11 @@ static void Setnewwinhis(struct Frame *fr,void *whis,BOOL noreferer)
          fr->inputflags|=FRMF_USEFRAGMENT;
       }
    }
-   /* If the url is the same and not expired, just use the old copy. */
+   /* If the url is the same and not expired, just use the old copy.
+    * However, if the URL was temporarily moved, reload it to get the current location. */
    if(url==oldurl && !(fr->flags&FRMF_RELOADVERIFY)
-   && (history || Agetattr(url,AOURL_Sourcevalid)))
+   && (history || Agetattr(url,AOURL_Sourcevalid))
+   && !Agetattr(url,AOURL_Tempmovedto))
    {  if(!isleading
       && ((!fragment && !oldfragment)
            || (fragment && oldfragment && STRIEQUAL(fragment,oldfragment))))

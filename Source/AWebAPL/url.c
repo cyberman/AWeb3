@@ -332,9 +332,19 @@ static BOOL Movedtoloop(struct Url *url)
 }
 
 /* Permanently moved URLs should return their new address */
-static UBYTE *Urladdress(struct Url *url)
+static UBYTE *Urllinkaddress(struct Url *url)
 {  short n=0;
    while(url->movedto && !(url->flags&(URLF_TEMPMOVED|URLF_VOLATILE)))
+   {  url=url->movedto;
+      if(++n>99) break;
+   }
+   return url->url?url->url:NULLSTRING;
+}
+/* temporary ones should not */
+
+static UBYTE *Urladdress(struct Url *url)
+{  short n=0;
+   while(url->movedto && !(url->flags&(URLF_VOLATILE)))
    {  url=url->movedto;
       if(++n>99) break;
    }
@@ -1057,6 +1067,9 @@ static long Geturl(struct Url *url,struct Amset *ams)
             if(url->movedto && (url->flags&URLF_TEMPMOVED))
             {  PUTATTR(tag,url->movedto->url);
             }
+            break;
+         case AOURL_Linkurl:
+            PUTATTR(tag,Urllinkaddress(url));
             break;
          case AOURL_Realurl:
             PUTATTR(tag,url->url);

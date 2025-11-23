@@ -79,7 +79,7 @@ struct Httpinfo
    long nextscanpos;          /* Block position to scan */
    long linelength;           /* Length of current header line */
    long readheaders;          /* Number of header bytes read */
-   ULONG movedto;             /* AOURL_ tag if 301 or 302 status */
+   ULONG movedto;             /* AOURL_ tag if 301 302 303 307 status */
    UBYTE *movedtourl;         /* URL string moved to */
    UBYTE parttype[32];        /* Content-type for this part */
    long partlength;           /* Content-length for this part */
@@ -863,7 +863,10 @@ static BOOL Readresponse(struct Httpinfo *hi)
       if(stat<400)
       {  hi->flags|=HTTPIF_TUNNELOK;
          if(stat==301) hi->movedto=AOURL_Movedto;
-         else if(stat==302) hi->movedto=AOURL_Tempmovedto;
+         else if(stat==302 || stat==307)
+         {  hi->movedto=AOURL_Tempmovedto;
+            Updatetaskattrs(AOURL_Nocache,TRUE,TAG_END);
+         }
          else if(stat==303) hi->movedto=AOURL_Seeother;
          else if(stat==304)
          {  Updatetaskattrs(
