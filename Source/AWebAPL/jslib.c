@@ -698,6 +698,7 @@ __asm __saveds void *Newjcontext(register __a0 UBYTE *screenname)
    {  if(jc=ALLOCSTRUCT(Jcontext,1,0,pool))
       {  jc->pool=pool;
          NEWLIST(&jc->objects);
+         NEWLIST(&jc->tmp);
          Newexecute(jc);
          jc->screenname=screenname;
       }

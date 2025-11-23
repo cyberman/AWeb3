@@ -329,7 +329,14 @@ struct Jobject *Newobject(struct Jcontext *jc)
 {  struct Jobject *jo;
    if(jo=ALLOCSTRUCT(Jobject,1,0,jc->pool))
    {  NEWLIST(&jo->properties);
-      ADDTAIL(&jc->objects,jo);
+      /* Add to tmp list if active (during function execution), otherwise to objects */
+      /* Check if tmp list has objects: if first->next != last, list is not empty */
+      if(jc->tmp.first->next != jc->tmp.last)
+      {  ADDTAIL(&jc->tmp,jo);
+      }
+      else
+      {  ADDTAIL(&jc->objects,jo);
+      }
 //debug(" NEW object %08lx\n",jo);
    }
    return jo;
@@ -537,11 +544,25 @@ void Garbagecollect(struct Jcontext *jc)
    struct Function *f;
    struct With *w;
    struct Variable *v;
-   for(jo=jc->objects.first;jo->next;jo=jo->next)
-   {  jo->flags&=~OBJF_USED;
+   BOOL usingtmp;
+   /* Use tmp list if active (during function execution), otherwise use objects */
+   /* Check if tmp list has objects: if first->next != last, list is not empty */
+   usingtmp=(jc->tmp.first->next != jc->tmp.last);
+   if(usingtmp)
+   {  for(jo=jc->tmp.first;jo->next;jo=jo->next)
+      {  jo->flags&=~OBJF_USED;
+      }
+      for(jo=jc->tmp.first;jo->next;jo=jo->next)
+      {  if(jo->keepnr) Garbagemark(jo);
+      }
    }
-   for(jo=jc->objects.first;jo->next;jo=jo->next)
-   {  if(jo->keepnr) Garbagemark(jo);
+   else
+   {  for(jo=jc->objects.first;jo->next;jo=jo->next)
+      {  jo->flags&=~OBJF_USED;
+      }
+      for(jo=jc->objects.first;jo->next;jo=jo->next)
+      {  if(jo->keepnr) Garbagemark(jo);
+      }
    }
    for(f=jc->functions.first;f->next;f=f->next)
    {  Garbagemark(f->arguments);
@@ -561,11 +582,26 @@ void Garbagecollect(struct Jcontext *jc)
       {  Garbagemark(w->jo);
       }
    }
-   for(jo=jc->objects.first;jo->next;jo=jonext)
-   {  jonext=jo->next;
-      if(!(jo->flags&OBJF_USED))
-      {  REMOVE(jo);
-         Disposeobject(jo);
+   if(usingtmp)
+   {  for(jo=jc->tmp.first;jo->next;jo=jonext)
+      {  jonext=jo->next;
+         if(!(jo->flags&OBJF_USED))
+         {  REMOVE(jo);
+            Disposeobject(jo);
+         }
+      }
+      /* Move surviving objects to objects list */
+      while(jo=(struct Jobject *)RemHead(&jc->tmp))
+      {  ADDTAIL(&jc->objects,jo);
+      }
+   }
+   else
+   {  for(jo=jc->objects.first;jo->next;jo=jonext)
+      {  jonext=jo->next;
+         if(!(jo->flags&OBJF_USED))
+         {  REMOVE(jo);
+            Disposeobject(jo);
+         }
       }
    }
 }

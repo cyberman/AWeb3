@@ -552,8 +552,12 @@ static void Callfunction(struct Jcontext *jc,struct Elementlist *elist,
          ADDHEAD(&jc->functions,f);
          oldthis=jc->jthis;
          jc->jthis=jthis;
+         /* Install temporary objects list for function execution */
+         NEWLIST(&jc->tmp);
          if(construct) jc->flags|=EXF_CONSTRUCT;
          Execute(jc,func);
+         /* Garbage collect temporary objects and merge survivors to objects */
+         Garbagecollect(jc);
          jc->jthis=oldthis;
          jc->flags=oldflags;
          REMOVE(f);

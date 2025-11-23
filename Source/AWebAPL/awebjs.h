@@ -77,6 +77,7 @@ struct Jcontext
    struct Token *nexttoken;
    void *program;
    LIST(Jobject) objects;
+   LIST(Jobject) tmp;           /* Temporary object list during function execution */
    USHORT flags;
    USHORT dflags;             /* Debugger state */
    UBYTE *screenname;
