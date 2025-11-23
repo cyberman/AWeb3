@@ -62,6 +62,21 @@ static long bevelw,bevelh;
 
 /*------------------------------------------------------------------------*/
 
+/* Get font from element, with fallback to screen font */
+static struct TextFont *Getbuttonfont(struct Button *but)
+{  struct TextFont *font;
+   
+   /* Try to get font from element */
+   font=(struct TextFont *)Agetattr(but,AOELT_Font);
+   
+   /* Fallback to screen font if not set */
+   if(!font)
+   {  font=(struct TextFont *)Agetattr(Aweb(),AOAPP_Screenfont);
+   }
+   
+   return font;
+}
+
 /* Perform the actions for clicking the button */
 static void Clickbutton(struct Button *but,BOOL js)
 {  switch(but->type)
@@ -167,10 +182,12 @@ static long Measurebutton(struct Button *but,struct Ammeasure *amm)
          }
       }
       else
-      {  SetFont(mrp,(struct TextFont *)Agetattr(Aweb(),AOAPP_Screenfont));
+      {  struct TextFont *font=Getbuttonfont(but);
+         SetFont(mrp,font);
          SetSoftStyle(mrp,0,0x0f);
          but->aow=Textlength(mrp,but->value,strlen(but->value))+2*bevelw+8;
-         but->aoh=mrp->TxHeight+2*bevelh+2;
+         /* Match input field height calculation for consistent appearance */
+         but->aoh=font->tf_YSize+2*bevelh+4;
          but->flags&=~BUTF_REMEASURE;
          AmethodasA(AOTP_FIELD,but,amm);
       }
@@ -242,8 +259,8 @@ static long Renderbutton(struct Button *but,struct Amrender *amr)
    {  rp=coo->rp;
       Agetattrs(Aweb(),
          AOAPP_Colormap,&colormap,
-         AOAPP_Screenfont,&font,
          TAG_END);
+      font=Getbuttonfont(but);
       if(but->flags&BUTF_SELECTED)
       {  state=IDS_SELECTED;
          tpen=coo->dri->dri_Pens[FILLTEXTPEN];

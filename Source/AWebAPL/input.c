@@ -71,9 +71,74 @@ enum KEY_EQVS
 
 /*------------------------------------------------------------------------*/
 
+/* Get font from element, with fallback to system font */
+static struct TextFont *Getinputfont(struct Ainput *inp)
+{  struct TextFont *font;
+   
+   /* Try to get font from element */
+   font=(struct TextFont *)Agetattr(inp,AOELT_Font);
+   
+   /* Fallback to system font if not set */
+   if(!font)
+   {  font=(struct TextFont *)Agetattr(Aweb(),AOAPP_Systemfont);
+   }
+   
+   return font;
+}
+
+/* Get X position of character at given index (handles variable-width fonts) */
+static long Getcharxpos(struct Ainput *inp,long charpos,struct TextFont *font,struct RastPort *rp)
+{  long xpos=0;
+   long start=inp->left;
+   long len;
+   
+   if(charpos>start)
+   {  len=charpos-start;
+      if(len>0 && len<=inp->buf.length-start)
+      {  SetFont(rp,font);
+         xpos=TextLength(rp,inp->buf.buffer+start,len);
+      }
+   }
+   
+   return xpos;
+}
+
+/* Convert mouse X position to character position (handles variable-width fonts) */
+static long Xpostocharpos(struct Ainput *inp,long mousex,struct TextFont *font,struct RastPort *rp)
+{  long x=mousex-inp->aox-bevelw-2;
+   long charpos=inp->left;
+   long len=MIN(inp->size,inp->buf.length-inp->left);
+   long i;
+   long nextwidth;
+   
+   if(x<0) return inp->left;
+   
+   SetFont(rp,font);
+   
+   /* Find character position by measuring text width */
+   for(i=0;i<=len;i++)
+   {  if(i<len)
+      {  nextwidth=TextLength(rp,inp->buf.buffer+inp->left,i+1);
+      }
+      else
+      {  nextwidth=TextLength(rp,inp->buf.buffer+inp->left,len);
+         if(inp->size>len) nextwidth+=font->tf_XSize*(inp->size-len);
+      }
+      if(nextwidth>=x)
+      {  charpos=inp->left+i;
+         break;
+      }
+      if(i==len)
+      {  charpos=inp->left+len;
+      }
+   }
+   
+   return charpos;
+}
+
 /* Render the field contents */
 static void Rendercontents(struct Ainput *inp,struct Coords *coo)
-{  struct TextFont *sysfont=(struct TextFont *)Agetattr(Aweb(),AOAPP_Systemfont);
+{  struct TextFont *sysfont=Getinputfont(inp);
    struct RastPort *rp;
    long x,y,len,i;
    coo=Clipcoords(inp->cframe,coo);
@@ -99,12 +164,19 @@ static void Rendercontents(struct Ainput *inp,struct Coords *coo)
          }
       }
       SetABPenDrMd(rp,0,0,JAM1);
-      RectFill(rp,x+len*sysfont->tf_XSize,y,
-         x+inp->size*sysfont->tf_XSize-1,y+sysfont->tf_YSize-1);
+      /* Fill remaining area - handle variable-width fonts */
+      {  long textwidth=TextLength(rp,inp->buf.buffer+inp->left,len);
+         long fieldwidth=inp->size*sysfont->tf_XSize;
+         if(textwidth<fieldwidth)
+         {  RectFill(rp,x+textwidth,y,x+fieldwidth-1,y+sysfont->tf_YSize-1);
+         }
+      }
       if(inp->pos>=0)
-      {  SetDrMd(rp,COMPLEMENT);
-         RectFill(rp,x+(inp->pos-inp->left)*sysfont->tf_XSize,y,
-            x+(inp->pos-inp->left+1)*sysfont->tf_XSize-1,y+sysfont->tf_YSize-1);
+      {  long cursorx=Getcharxpos(inp,inp->pos,sysfont,rp);
+         long cursorw=1;
+         /* For variable-width fonts, cursor should be 1 pixel wide */
+         SetDrMd(rp,COMPLEMENT);
+         RectFill(rp,x+cursorx,y,x+cursorx+cursorw-1,y+sysfont->tf_YSize-1);
          SetDrMd(rp,JAM1);
       }
    }
@@ -114,10 +186,23 @@ static void Rendercontents(struct Ainput *inp,struct Coords *coo)
 /* Ensure the current position is visible */
 static void Makevisible(struct Ainput *inp)
 {  struct Arect vis;
-   struct TextFont *sysfont=(struct TextFont *)Agetattr(Aweb(),AOAPP_Systemfont);
-   vis.minx=inp->aox+bevelw+2+(inp->pos-inp->left)*sysfont->tf_XSize;
+   struct TextFont *sysfont=Getinputfont(inp);
+   struct RastPort *rp;
+   long cursorx;
+   
+   /* Get a rastport for measuring - use mrp if available */
+   rp=mrp;
+   if(rp)
+   {  cursorx=Getcharxpos(inp,inp->pos,sysfont,rp);
+   }
+   else
+   {  /* Fallback to fixed-width calculation if no rastport available */
+      cursorx=(inp->pos-inp->left)*sysfont->tf_XSize;
+   }
+   
+   vis.minx=inp->aox+bevelw+2+cursorx;
    vis.miny=inp->aoy+bevelh+2;
-   vis.maxx=vis.minx+sysfont->tf_XSize-1;
+   vis.maxx=vis.minx+1;
    vis.maxy=vis.miny+sysfont->tf_YSize-1;
    Asetattrs(inp->frame,AOFRM_Makevisible,&vis,TAG_END);
 }
@@ -426,7 +511,7 @@ static void Methodtostring(struct Jcontext *jc)
 /*------------------------------------------------------------------------*/
 
 static long Measureinput(struct Ainput *inp,struct Ammeasure *amm)
-{  struct TextFont *sysfont=(struct TextFont *)Agetattr(Aweb(),AOAPP_Systemfont);
+{  struct TextFont *sysfont=Getinputfont(inp);
    inp->aow=inp->size*sysfont->tf_XSize+2*bevelw+4;
    inp->aoh=sysfont->tf_YSize+2*bevelh+4;
    AmethodasA(AOTP_FIELD,inp,amm);
@@ -577,17 +662,15 @@ static long Hittestinput(struct Ainput *inp,struct Amhittest *amh)
 
 static long Goactiveinput(struct Ainput *inp,struct Amgoactive *amg)
 {  struct Coords *coo=NULL;
-   struct TextFont *sysfont=(struct TextFont *)Agetattr(Aweb(),AOAPP_Systemfont);
+   struct TextFont *sysfont=Getinputfont(inp);
    long x;
    coo=Clipcoords(inp->cframe,coo);  /* no clip needed */
    if(coo)
    {  if(amg->imsg && amg->imsg->Class==IDCMP_MOUSEBUTTONS)
-      {  x=amg->imsg->MouseX-inp->aox-coo->dx-bevelw-2;
-         if(x<0) x=0;
-         inp->pos=x/sysfont->tf_XSize;
-         if(inp->pos>=inp->size) inp->pos=inp->size-1;
-         inp->pos+=inp->left;
+      {  x=amg->imsg->MouseX-inp->aox-coo->dx;
+         inp->pos=Xpostocharpos(inp,x,sysfont,coo->rp);
          if(inp->pos>inp->buf.length) inp->pos=inp->buf.length;
+         if(inp->pos<inp->left) inp->pos=inp->left;
       }
       else inp->pos=MIN(inp->buf.length,inp->size+inp->left-1);
    }
@@ -610,7 +693,7 @@ static long Goactiveinput(struct Ainput *inp,struct Amgoactive *amg)
 static long Handleinputinput(struct Ainput *inp,struct Aminput *ami)
 {  struct Coords *coo=NULL;
    long result=AMR_REUSE;
-   struct TextFont *sysfont=(struct TextFont *)Agetattr(Aweb(),AOAPP_Systemfont);
+   struct TextFont *sysfont=Getinputfont(inp);
    long x,y;
    if(ami->imsg)
    {  switch(ami->imsg->Class)
@@ -631,12 +714,9 @@ static long Handleinputinput(struct Ainput *inp,struct Aminput *ami)
                   y=ami->imsg->MouseY-coo->dy-inp->aoy;
                   if(x>=0 && x<inp->aow && y>=0 && y<inp->aoh)
                   {  /* Click inside container */
-                     x=x-bevelw-2;
-                     if(x<0) x=0;
-                     inp->pos=x/sysfont->tf_XSize;
-                     if(inp->pos>=inp->size) inp->pos=inp->size-1;
-                     inp->pos+=inp->left;
+                     inp->pos=Xpostocharpos(inp,ami->imsg->MouseX-coo->dx,sysfont,coo->rp);
                      if(inp->pos>inp->buf.length) inp->pos=inp->buf.length;
+                     if(inp->pos<inp->left) inp->pos=inp->left;
                      Makevisible(inp);
                      Rendercontents(inp,NULL);
                      result=AMR_ACTIVE;

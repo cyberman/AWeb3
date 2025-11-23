@@ -94,9 +94,107 @@ static struct DrawList epictdata[]=
 
 /*------------------------------------------------------------------------*/
 
+/* Get font from element, with fallback to system font */
+static struct TextFont *Gettextareafont(struct Textarea *txa)
+{  struct TextFont *font;
+   
+   /* Try to get font from element */
+   font=(struct TextFont *)Agetattr(txa,AOELT_Font);
+   
+   /* Fallback to system font if not set */
+   if(!font)
+   {  font=(struct TextFont *)Agetattr(Aweb(),AOAPP_Systemfont);
+   }
+   
+   return font;
+}
+
+/* Get X position of cursor on current line (handles variable-width fonts) */
+static long Gettextareacursorx(struct Textarea *txa,struct TextFont *font,struct RastPort *rp)
+{  long xpos=0;
+   UBYTE *p,*q,*lineend;
+   long i;
+   long curx=txa->curx-txa->left;
+   
+   if(curx<=0) return 0;
+   
+   /* Find start of current line */
+   p=txa->buf.buffer;
+   for(i=0;i<txa->cury;i++)
+   {  q=strchr(p,'\n');
+      if(q) p=q+1;
+      else break;
+   }
+   
+   /* Find end of current line */
+   q=strchr(p,'\n');
+   if(!q) q=p+strlen(p);
+   lineend=q;
+   
+   /* Measure text up to cursor position */
+   p+=txa->left;
+   if(p<lineend && curx>0)
+   {  long len=MIN(curx,lineend-p);
+      SetFont(rp,font);
+      xpos=TextLength(rp,p,len);
+   }
+   
+   return xpos;
+}
+
+/* Convert mouse X position to character position on a line (handles variable-width fonts) */
+static long Xpostocharposinline(struct Textarea *txa,long mousex,long liney,struct TextFont *font,struct RastPort *rp)
+{  long x=mousex;
+   long charpos=txa->left;
+   UBYTE *p,*q,*lineend;
+   long i;
+   long len;
+   
+   if(x<0) return txa->left;
+   
+   /* Find start of target line */
+   p=txa->buf.buffer;
+   for(i=0;i<liney;i++)
+   {  q=strchr(p,'\n');
+      if(q) p=q+1;
+      else break;
+   }
+   
+   /* Find end of target line */
+   q=strchr(p,'\n');
+   if(!q) q=p+strlen(p);
+   lineend=q;
+   
+   /* Measure text to find character position */
+   p+=txa->left;
+   len=lineend-p;
+   if(len>0)
+   {  SetFont(rp,font);
+      for(i=0;i<=len;i++)
+      {  long nextwidth;
+         if(i<len)
+         {  nextwidth=TextLength(rp,p,i+1);
+         }
+         else
+         {  nextwidth=TextLength(rp,p,len);
+            if(txa->cols>len) nextwidth+=font->tf_XSize*(txa->cols-len);
+         }
+         if(nextwidth>=x)
+         {  charpos=txa->left+i;
+            break;
+         }
+         if(i==len)
+         {  charpos=txa->left+len;
+         }
+      }
+   }
+   
+   return charpos;
+}
+
 /* Adjust size, initialize scrollers */
 static void Adjusttextarea(struct Textarea *txa)
-{  struct TextFont *tf=(struct TextFont *)Agetattr(Aweb(),AOAPP_Systemfont);
+{  struct TextFont *tf=Gettextareafont(txa);
    long min;
    txa->charw=tf->tf_XSize;
    txa->charh=tf->tf_YSize;
@@ -252,8 +350,8 @@ static void Rendertext(struct Textarea *txa,struct Coords *coo,USHORT flags)
       Agetattrs(Aweb(),
          AOAPP_Colormap,&colormap,
          AOAPP_Drawinfo,&drinfo,
-         AOAPP_Systemfont,&font,
          TAG_END);
+      font=Gettextareafont(txa);
       if(flags&TXRF_BEVEL)
       {  SetAttrs(tbevel,
             IA_Width,txa->aow-txa->scrw,
@@ -301,9 +399,10 @@ static void Rendertext(struct Textarea *txa,struct Coords *coo,USHORT flags)
          }
       }
       if(txa->flags&TXAF_CURSOR && !(flags&TXRF_NOCURSOR))
-      {  SetDrMd(rp,COMPLEMENT);
-         RectFill(rp,x+(txa->curx-txa->left)*txa->charw,y+(txa->cury-txa->top)*txa->charh,
-            x+(txa->curx-txa->left+1)*txa->charw-1,y+(txa->cury-txa->top+1)*txa->charh-1);
+      {  long cursorx=Gettextareacursorx(txa,font,rp);
+         SetDrMd(rp,COMPLEMENT);
+         RectFill(rp,x+cursorx,y+(txa->cury-txa->top)*txa->charh,
+            x+cursorx+1-1,y+(txa->cury-txa->top+1)*txa->charh-1);
       }
       SetDrMd(rp,JAM1);
    }
@@ -313,9 +412,23 @@ static void Rendertext(struct Textarea *txa,struct Coords *coo,USHORT flags)
 /* Ensure the current position is visible */
 static void Makevisible(struct Textarea *txa)
 {  struct Arect vis;
-   vis.minx=txa->aox+tbevelw+2+(txa->curx-txa->left)*txa->charw;
+   struct TextFont *font=Gettextareafont(txa);
+   struct RastPort *rp;
+   long cursorx;
+   
+   /* Get a rastport for measuring - use mrp if available */
+   rp=mrp;
+   if(rp)
+   {  cursorx=Gettextareacursorx(txa,font,rp);
+   }
+   else
+   {  /* Fallback to fixed-width calculation if no rastport available */
+      cursorx=(txa->curx-txa->left)*txa->charw;
+   }
+   
+   vis.minx=txa->aox+tbevelw+2+cursorx;
    vis.miny=txa->aoy+tbevelh+2+(txa->cury-txa->top)*txa->charh;
-   vis.maxx=vis.minx+txa->charw-1;
+   vis.maxx=vis.minx+1;
    vis.maxy=vis.miny+txa->charh-1;
    Asetattrs(txa->frame,AOFRM_Makevisible,&vis,TAG_END);
 }
@@ -556,8 +669,17 @@ static long Goactivetext(struct Textarea *txa,struct Amgoactive *amg,long x,long
       txa->flags|=TXAF_CURSOR;
    }
    else if(x>=0 && x<txa->cols*txa->charw && y>=0 && y<txa->rows*txa->charh)
-   {  txa->curx=x/txa->charw+txa->left;
-      txa->cury=y/txa->charh+txa->top;
+   {  struct TextFont *font=Gettextareafont(txa);
+      struct RastPort *rp=mrp;
+      long liney=y/txa->charh+txa->top;
+      txa->cury=liney;
+      if(rp)
+      {  txa->curx=Xpostocharposinline(txa,x,liney,font,rp);
+      }
+      else
+      {  /* Fallback to fixed-width calculation if no rastport available */
+         txa->curx=x/txa->charw+txa->left;
+      }
       txa->flags|=TXAF_CURSOR;
    }
    if(txa->flags&TXAF_CURSOR)
@@ -581,13 +703,20 @@ static long Handleinputtext(struct Textarea *txa,struct Aminput *ami)
             {  x=ami->imsg->MouseX-txa->aox-coo->dx-tbevelw-2;
                y=ami->imsg->MouseY-txa->aoy-coo->dy-tbevelh-2;
                if(x>=0 && x<txa->cols*txa->charw && y>=0 && y<txa->rows*txa->charh)
-               {  x=x/txa->charw+txa->left;
-                  y=y/txa->charh+txa->top;
+               {  struct TextFont *font=Gettextareafont(txa);
+                  struct RastPort *rp=coo->rp;
+                  long liney=y/txa->charh+txa->top;
                   if(y!=txa->cury)
                   {  Rendertext(txa,coo,TXRF_CURRENTONLY|TXRF_NOCURSOR);
                   }
-                  txa->curx=x;
-                  txa->cury=y;
+                  txa->cury=liney;
+                  if(rp)
+                  {  txa->curx=Xpostocharposinline(txa,x,liney,font,rp);
+                  }
+                  else
+                  {  /* Fallback to fixed-width calculation if no rastport available */
+                     txa->curx=x/txa->charw+txa->left;
+                  }
                   Curposadjust(txa);
                   Findline(txa);
                   Makevisible(txa); /* can't use coords after this */

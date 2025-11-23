@@ -119,6 +119,21 @@ static struct TagItem mapscroll[]={ AOSCR_Top,AOSEL_Listtop,TAG_END };
 
 /*------------------------------------------------------------------------*/
 
+/* Get font from element, with fallback to screen font */
+static struct TextFont *Getselectfont(struct Select *sel)
+{  struct TextFont *font;
+   
+   /* Try to get font from element */
+   font=(struct TextFont *)Agetattr(sel,AOELT_Font);
+   
+   /* Fallback to screen font if not set */
+   if(!font)
+   {  font=(struct TextFont *)Agetattr(Aweb(),AOAPP_Screenfont);
+   }
+   
+   return font;
+}
+
 static void Processselpopup(void);
 
 static long __saveds __asm Selpopupidcmphook(register __a0 struct Hook *hook,
@@ -142,6 +157,7 @@ static struct Selpopup *Openselpopup(struct Select *sel)
    struct MsgPort *port;
    struct Coords coords={0};
    struct Window *refwin;
+   struct TextFont *font;
    long n,height,screenh,selected=-1;
    BOOL fits=TRUE;
    if(Agetattr(Aweb(),AOAPP_Screenvalid))
@@ -155,6 +171,8 @@ static struct Selpopup *Openselpopup(struct Select *sel)
          AOAPP_Processtype,AOTP_SELECT,
          AOAPP_Processfun,Processselpopup,
          TAG_END);
+      /* Get font from select element */
+      font=Getselectfont(sel);
       if(spu=ALLOCSTRUCT(Selpopup,1,MEMF_CLEAR))
       {  spu->select=sel;
          NewList(&spu->nodes);
@@ -172,10 +190,14 @@ static struct Selpopup *Openselpopup(struct Select *sel)
             if(node) AddTail(&spu->nodes,node);
          }
          screenh-=4*bevelh;
-         height=sel->nroptions*sel->itemh+4*bevelh;
-         if(height>screenh)
-         {  height=screenh;
-            fits=FALSE;
+         /* Use default screen font height for popup, not element font */
+         {  struct TextFont *screenfont=(struct TextFont *)Agetattr(Aweb(),AOAPP_Screenfont);
+            long itemh=screenfont?screenfont->tf_YSize:sel->itemh;
+            height=sel->nroptions*itemh+4*bevelh;
+            if(height>screenh)
+            {  height=screenh;
+               fits=FALSE;
+            }
          }
          spu->hook.h_Entry=(HOOKFUNC)Selpopupidcmphook;
          spu->hook.h_Data=spu;
@@ -209,9 +231,22 @@ static struct Selpopup *Openselpopup(struct Select *sel)
          End;
          if(spu->cawin)
          {  spu->window=(struct Window *)RA_OpenWindow(spu->cawin);
+            /* Set font on window's RastPort before ListBrowser renders */
+            if(font && spu->window && spu->window->RPort)
+            {  SetFont(spu->window->RPort,font);
+            }
             Setgadgetattrs(spu->listgad,spu->window,NULL,
                LISTBROWSER_MakeVisible,selected,
-               TAG_END);            
+               TAG_END);
+            /* Force ListBrowser to refresh with new font */
+            if(font && spu->window && spu->listgad)
+            {  Setgadgetattrs(spu->listgad,spu->window,NULL,
+                  LISTBROWSER_Labels,~0,
+                  TAG_END);
+               Setgadgetattrs(spu->listgad,spu->window,NULL,
+                  LISTBROWSER_Labels,&spu->nodes,
+                  TAG_END);
+            }
          }
       }
    }
@@ -302,13 +337,11 @@ static long Selectedoption(struct Select *sel)
 }
 
 /*------------------------------------------------------------------------*/
-
-/* Definition is complete. */
 static void Completeselect(struct Select *sel)
 {  long minh,listh,size;
    struct Option *opt;
    BOOL select=FALSE;
-   struct TextFont *font=(struct TextFont *)Agetattr(Aweb(),AOAPP_Screenfont);
+   struct TextFont *font=Getselectfont(sel);
    UBYTE *p;
    long i,n;
    if(!font)
@@ -479,11 +512,11 @@ static void Renderpopup(struct Select *sel,struct Coords *coo)
    struct TextFont *font=NULL;
    x=sel->aox+coo->dx;
    y=sel->aoy+coo->dy;
-   Agetattrs(Aweb(),
-      AOAPP_Colormap,&colormap,
-      AOAPP_Drawinfo,&drinfo,
-      AOAPP_Screenfont,&font,
-      TAG_END);
+      Agetattrs(Aweb(),
+         AOAPP_Colormap,&colormap,
+         AOAPP_Drawinfo,&drinfo,
+         TAG_END);
+      font=Getselectfont(sel);
    SetAttrs(bevel,
       IA_Width,sel->aow,
       IA_Height,sel->aoh,
@@ -636,10 +669,9 @@ static void Renderlistitem(struct Select *sel,struct Coords *coo,struct Option *
 {  long w;
    struct RastPort *rp=coo->rp;
    struct DrawInfo *drinfo=NULL;
-   struct TextFont *font=NULL;
+   struct TextFont *font=Getselectfont(sel);
    Agetattrs(Aweb(),
       AOAPP_Drawinfo,&drinfo,
-      AOAPP_Screenfont,&font,
       TAG_END);
    y+=(n-sel->top)*sel->itemh;
    w=sel->listw-2*bevelw;
@@ -648,7 +680,9 @@ static void Renderlistitem(struct Select *sel,struct Coords *coo,struct Option *
       RectFill(rp,x,y,x+w-1,y+sel->itemh-1);
       x+=2;
       if(opt->flags&OPTF_SELECTED)
-      {  DrawImageState(rp,check,x,y,IDS_NORMAL,drinfo);
+      {  /* Center checkmark vertically with text */
+         long checky=y+(sel->itemh-checkh)/2;
+         DrawImageState(rp,check,x,checky,IDS_NORMAL,drinfo);
       }
       x+=2+checkw;
       SetAPen(rp,coo->dri->dri_Pens[TEXTPEN]);
@@ -1266,7 +1300,7 @@ static BOOL Seljaddoption(struct Objhookdata *od)
 
 static long Measureselect(struct Select *sel,struct Ammeasure *amm)
 {  struct Option *opt;
-   struct TextFont *font=(struct TextFont *)Agetattr(Aweb(),AOAPP_Screenfont);
+   struct TextFont *font=Getselectfont(sel);
    if(sel->flags&SELF_COMPLETE)
    {  if(sel->flags&SELF_SIZECHANGED)
       {  /* re-compute size etc. */
@@ -1285,7 +1319,8 @@ static long Measureselect(struct Select *sel,struct Ammeasure *amm)
          sel->aoh=MAX(12,mrp->TxHeight+2)+2*bevelh;
       }
       else
-      {  sel->listw=sel->width+4+2*bevelw;
+      {  /* Add extra padding for variable-width fonts */
+         sel->listw=sel->width+8+2*bevelw;
          if(sel->flags&SELF_MULTIPLE) sel->listw+=checkw+2;
          sel->aow=sel->listw;
          if(sel->flags&SELF_SCROLLER) sel->aow+=Agetattr(sel->scroll,AOBJ_Width);
@@ -1637,7 +1672,9 @@ BOOL Installselect(void)
 }
 
 BOOL Initselect(void)
-{  struct TextFont *font=(struct TextFont *)Agetattr(Aweb(),AOAPP_Screenfont);
+{  struct TextFont *font;
+   /* Use screen font for initialization - this is called before elements exist */
+   font=(struct TextFont *)Agetattr(Aweb(),AOAPP_Screenfont);
    checkh=font->tf_YSize;
    checkw=2*font->tf_XSize;
    SetAttrs(check,
