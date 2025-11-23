@@ -49,6 +49,7 @@ struct Fetch
    UBYTE statusbuf[STATUSBUFSIZE];
    void *netstat;
    ULONG validate;
+   UBYTE *etag;                  /* ETag value for If-None-Match header */
    ULONG windowkey;
    ULONG loadflags;
    long channelid;
@@ -710,6 +711,7 @@ static BOOL Startdriver(struct Fetch *fch)
    if(!(fch->fd->block=ALLOCTYPE(UBYTE,INPUTBLOCKSIZE,MEMF_PUBLIC))) return FALSE;
    fch->fd->blocksize=INPUTBLOCKSIZE;
    fch->fd->validate=fch->validate;
+   fch->fd->etag=fch->etag?Dupstr(fch->etag,-1):NULL;
    if(fch->flags&FCHF_NOCACHE)
    {  fch->fd->flags|=FDVF_NOCACHE;
    }
@@ -1019,6 +1021,10 @@ static long Setfetch(struct Fetch *fch,struct Amset *ams)
          case AOFCH_Ifmodifiedsince:
             fch->validate=tag->ti_Data;
             break;
+         case AOFCH_Etag:
+            if(fch->etag) FREE(fch->etag);
+            fch->etag=tag->ti_Data?Dupstr((UBYTE *)tag->ti_Data,-1):NULL;
+            break;
          case AOFCH_Nocache:
             if(tag->ti_Data) fch->flags|=FCHF_NOCACHE;
             else fch->flags&=~FCHF_NOCACHE;
@@ -1116,6 +1122,7 @@ static void Disposefetch(struct Fetch *fch)
       if(fch->postmsg) FREE(fch->postmsg);
       if(fch->mpd) Freemultipartdata(fch->mpd);
       if(fch->referer) FREE(fch->referer);
+      if(fch->etag) FREE(fch->etag);
       Amethodas(AOTP_OBJECT,fch,AOM_DISPOSE);
       Checkwaitrequests();
    }
@@ -1158,6 +1165,9 @@ static long Getfetch(struct Fetch *fch,struct Amset *ams)
             break;
          case AOFCH_Channelid:
             PUTATTR(tag,fch->channelid);
+            break;
+         case AOFCH_Etag:
+            PUTATTR(tag,fch->etag);
             break;
       }
    }

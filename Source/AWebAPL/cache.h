@@ -54,6 +54,9 @@
 #define AOCAC_Sendinfo     (AOCAC_Dummy+9)   /* SET */
    /* (void *) Send cache's url SRCUPDATE with headers, use this as FETCH pointer */
 
+#define AOCAC_Etag         (AOCAC_Dummy+10)  /* GET */
+   /* (UBYTE *) ETag value from HTTP response for cache validation */
+
 #define AOCAC_    (AOCAC_Dummy+)
 #define AOCAC_    (AOCAC_Dummy+)
 #define AOCAC_    (AOCAC_Dummy+)

@@ -28,6 +28,7 @@ struct Cache
    ULONG expires;                /* In GMT as we locally believe it. */
    ULONG cachedate;              /* Time object went into cache, in seconds from 1978. */
    UBYTE mimetype[32];
+   UBYTE etag[64];               /* ETag value from HTTP response for cache validation */
    long disksize;                /* Size written to disk. */
    USHORT flags;
    struct Node *brnode;          /* Cache browser list node. */

@@ -340,6 +340,19 @@ static UBYTE *Urllinkaddress(struct Url *url)
    }
    return url->url?url->url:NULLSTRING;
 }
+
+/* Find the ETag of this object */
+static UBYTE *Urletag(struct Url *url)
+{  UBYTE *etag=NULL;
+   void *cache;
+   if(cache=Agetattr(url,AOURL_Cache))
+   {  etag=(UBYTE *)Agetattr(cache,AOCAC_Etag);
+   }
+   if(!etag)
+   {  etag=(UBYTE *)Agetattr(url,AOURL_Etag);
+   }
+   return etag;
+}
 /* temporary ones should not */
 
 static UBYTE *Urladdress(struct Url *url)
@@ -629,7 +642,11 @@ static long Loadurl(struct Url *url,struct Aumload *auml)
       }
    }
    if(avf)
-   {  if(url->cache) veridate=Agetattr(url->cache,AOCAC_Lastmodified);
+   {  UBYTE *etag=NULL;
+      if(url->cache)
+      {  veridate=Agetattr(url->cache,AOCAC_Lastmodified);
+         etag=(UBYTE *)Agetattr(url->cache,AOCAC_Etag);
+      }
       else
       {  /* For local files, use date from source. */
          if(url->source &&
@@ -642,6 +659,7 @@ static long Loadurl(struct Url *url,struct Aumload *auml)
          AOFCH_Url,url,
          AOFCH_Name,url->url,
          AOFCH_Ifmodifiedsince,veridate,
+         AOFCH_Etag,etag,
          AOFCH_Referer,auml->referer?((struct Url *)auml->referer)->url:NULL,
          AOFCH_Noproxy,BOOLVAL(auml->flags&AUMLF_NOPROXY),
          AOFCH_Loadflags,auml->flags,
@@ -1070,6 +1088,9 @@ static long Geturl(struct Url *url,struct Amset *ams)
             break;
          case AOURL_Linkurl:
             PUTATTR(tag,Urllinkaddress(url));
+            break;
+         case AOURL_Etag:
+            PUTATTR(tag,Urletag(url));
             break;
          case AOURL_Realurl:
             PUTATTR(tag,url->url);

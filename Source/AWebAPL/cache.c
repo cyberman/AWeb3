@@ -80,9 +80,9 @@ struct Creghdr          /* Cache registration header */
    ULONG lastnr;        /* last nr used */
 };
 
-#define CACHEVERSION    3
+#define CACHEVERSION    4
 
-struct Cregentry        /* Cache registration entry version 3 */
+struct Cregentry        /* Cache registration entry version 3/4 */
 {  ULONG nr;            /* nr of file */
    ULONG date;          /* date stamp */
    ULONG expires;       /* expiry date stamp */
@@ -127,7 +127,7 @@ static BOOL Readcachereg(UBYTE *name,long lock)
    {  if(ReadAsync(fh,&crh,sizeof(crh))!=sizeof(crh)) goto err;
       ok=FALSE;
       if(!STRNEQUAL(crh.label,"AWCR",4)) goto err;
-      if(crh.version!=CACHEVERSION) goto err;
+      if(crh.version<3 || crh.version>CACHEVERSION) goto err;
       ok=TRUE;
       cachenr=crh.lastnr;
       readsize=sizeof(crh);
@@ -190,6 +190,23 @@ static BOOL Readcachereg(UBYTE *name,long lock)
                }
                else if(cre.type==COTYPE_TEMPMOVED)
                {  Asetattrs(url,AOURL_Tempmovedto,p,TAG_END);
+               }
+               /* Read ETag if version >= 4 */
+               if(crh.version>=4)
+               {  UBYTE etagbuf[64];
+                  UBYTE *ep=etagbuf;
+                  i=0;
+                  do
+                  {  if(ReadAsync(fh,ep,1)!=1) goto err;
+                     readsize+=1;
+                     i++;
+                  } while(*ep++ && i<64); /* loop until nullbyte read */
+                  if(i>=64) goto err;
+                  strcpy(cac->etag,etagbuf);
+               }
+               else
+               {  /* Version 3: no ETag, initialize to empty */
+                  cac->etag[0]='\0';
                }
                if(cre.nr>cachenr) cachenr=cre.nr;
             }
@@ -271,6 +288,8 @@ static void Writeregentry(void *fh,struct Cache *cac,BOOL del)
    WriteAsync(fh,cac->mimetype,strlen(cac->mimetype)+1);
    WriteAsync(fh,url,urlsize);
    if(movedto && !del) WriteAsync(fh,movedto,movedsize);
+   /* Write ETag (version 4) */
+   WriteAsync(fh,cac->etag,strlen(cac->etag)+1);
 #endif
 }
 
@@ -453,6 +472,10 @@ static void Sendinfo(struct Cache *cac,void *fetch)
    if(cac->expires)
    {  Makedate(cac->expires,datebuf);
       sprintf(buf,"Expires: %s",datebuf);
+      Asrcupdatetags(cac->url,fetch,AOURL_Header,buf,TAG_END);
+   }
+   if(*cac->etag)
+   {  sprintf(buf,"ETag: %s",cac->etag);
       Asrcupdatetags(cac->url,fetch,AOURL_Header,buf,TAG_END);
    }
 }
@@ -736,6 +759,9 @@ static long Getcache(struct Cache *cac,struct Amset *ams)
          case AOCAC_Expired:
             PUTATTR(tag,cac->expires && cac->expires<=Today());
             break;
+         case AOCAC_Etag:
+            PUTATTR(tag,*cac->etag?cac->etag:NULL);
+            break;
       }
    }
    return 0;
@@ -765,6 +791,10 @@ static long Srcupdatecache(struct Cache *cac,struct Amsrcupdate *ams)
             break;
          case AOURL_Expires:
             cac->expires=tag->ti_Data;
+            break;
+         case AOURL_Etag:
+            strncpy(cac->etag,(UBYTE *)tag->ti_Data,63);
+            cac->etag[63]='\0';
             break;
          case AOURL_Terminate:
             eof=TRUE;

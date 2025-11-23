@@ -88,6 +88,9 @@
 #define AOFCH_Multipartdata (AOFCH_Dummy+20) /* NEW */
    /* (struct Multipartdata *) Multipart form data to post */
 
+#define AOFCH_Etag      (AOFCH_Dummy+21)   /* NEW,SET,GET */
+   /* (UBYTE *) ETag value for If-None-Match header */
+
 #define AOFCH_    (AOFCH_Dummy+)
 #define AOFCH_    (AOFCH_Dummy+)
 
