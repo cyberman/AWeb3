@@ -90,6 +90,9 @@
 #define AOSRC_Foreign      (AOSRC_Dummy+20)  /* GET */
    /* (BOOL) Data uses foreign character set */
 
+#define AOSRC_Filename     (AOSRC_Dummy+21)  /* GET */
+   /* (UBYTE *) Filename suggested by Content-Disposition header */
+
 #define AOSRC_    (AOSRC_Dummy+)
 #define AOSRC_    (AOSRC_Dummy+)
 

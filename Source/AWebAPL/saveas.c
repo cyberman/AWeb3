@@ -77,6 +77,27 @@ static USHORT Icontype(struct Saveas *sas)
 
 /*------------------------------------------------------------------------*/
 
+static UBYTE *Savepathsrc(void *src)
+{  UBYTE *path;
+   UBYTE *fname;
+   UBYTE *name;
+   long len;
+   name=NULL;
+   if((fname=(UBYTE *)Agetattr(src,AOSRC_Filename)))
+   {  if((path=(UBYTE *)Agetattr(Aweb(),AOAPP_Savepath)))
+      {  /* Only use the file part of a suggested filename */
+         fname=FilePart(fname);
+         len=strlen(path);
+         if(fname) len+=strlen(fname);
+         if(name=ALLOCTYPE(UBYTE,len+4,0))
+         {  strcpy(name,path);
+            AddPart(name,fname?fname:NULLSTRING,len+3);
+         }
+      }
+   }
+   return name;
+}
+
 static long Setsaveas(struct Saveas *sas,struct Amset *ams)
 {  long result;
    struct TagItem *tag,*tstate=ams->tags;
@@ -186,7 +207,9 @@ static long Srcupdatesaveas(struct Saveas *sas,struct Amsrcupdate *ams)
    if(!(sas->flags&(SASF_CANCEL|SASF_ERROR)))
    {  if((data || eof) && !sas->file && !sas->temp)
       {  if(!sas->req)
-         {  name=Savepath((void *)Agetattr(sas->source,AOSRC_Url));
+         {  if(!(name=Savepathsrc(sas->source)))
+            {  name=Savepath((void *)Agetattr(sas->source,AOSRC_Url));
+            }
             if(sas->unktype)
             {  url=(void *)Agetattr(sas->source,AOSRC_Url);
                unkurl=(UBYTE *)Agetattr(url,AOURL_Url);
@@ -291,7 +314,9 @@ static long Updatesaveas(struct Saveas *sas,struct Amset *ams)
       }
       else
       {  /* Couldn't open file, try again */
-         name=Savepath((void *)Agetattr(sas->source,AOSRC_Url));
+         if(!(name=Savepathsrc(sas->source)))
+         {  name=Savepath((void *)Agetattr(sas->source,AOSRC_Url));
+         }
          sas->req=Anewobject(AOTP_FILEREQ,
             AOFRQ_Title,AWEBSTR(MSG_FILE_SAVETITLE),
             AOFRQ_Filename,name,
