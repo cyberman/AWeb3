@@ -326,6 +326,7 @@ static struct Chardes chars[]=
    "iuml",  239,
    "lang",  9001,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "laquo", 171,
+   "larr",  8592,  /* Left arrow (←) - Unicode U+2190 */
    "ldquo", 147,  /* Latin-1 left double quotation mark (Windows-1252 extension) */
    "le",    8804,  /* No Latin-1 equivalent, kept as Unicode for translation */
    "lowast",8727,  /* No Latin-1 equivalent, kept as Unicode for translation */
@@ -359,6 +360,7 @@ static struct Chardes chars[]=
    "prime", 146,  /* Approximated as right single quote in Latin-1 */
    "quot",  34,
    "rang",  9002,  /* No Latin-1 equivalent, kept as Unicode for translation */
+   "rarr",  8594,  /* Right arrow (→) - Unicode U+2192 */
    "raquo", 187,
    "reg",   174,  /* Latin-1 Registered trademark symbol */
    "rdquo", 148,  /* Latin-1 right double quotation mark (Windows-1252 extension) */
@@ -731,6 +733,8 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
             case 8254:n=(UBYTE)0xAF;break;
             case 8260:n=(UBYTE)'/';break;
             case 8482:r="TM";break;
+            case 8592:n=(UBYTE)171;break;  /* Left arrow (larr) - approximate as « (laquo) */
+            case 8594:n=(UBYTE)187;break;  /* Right arrow (rarr) - approximate as » (raquo) */
             case 8709:n=(UBYTE)0xD8;break;
             case 8722:n=(UBYTE)'-';break;
             case 8727:n=(UBYTE)'*';break;

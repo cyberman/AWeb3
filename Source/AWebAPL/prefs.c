@@ -871,9 +871,95 @@ static BOOL Nextname(struct Namebreak *nb)
    return TRUE;
 }
 
+/* Check if a font name is a generic font family */
+static BOOL Isgenericfamily(UBYTE *name)
+{  if(STRIEQUAL(name,"serif")) return TRUE;
+   if(STRIEQUAL(name,"sans-serif")) return TRUE;
+   if(STRIEQUAL(name,"monospace")) return TRUE;
+   if(STRIEQUAL(name,"cursive")) return TRUE;
+   if(STRIEQUAL(name,"fantasy")) return TRUE;
+   return FALSE;
+}
+
+/* Try to open a font directly by name from the system.
+ * Returns the opened font, or NULL if not found.
+ * The actual font name used (with .font extension) is stored in usedname buffer.
+ * Uses OpenDiskFont() from diskfont.library to open fonts from disk.
+ */
+static struct TextFont *Tryopenfontdirect(UBYTE *name,short fontsize,UBYTE *usedname,long usednamelen)
+{  struct TextAttr ta={0};
+   struct TextFont *font;
+   UBYTE *p;
+   /* Build font name with .font extension if not present */
+   strncpy(usedname,name,usednamelen-1);
+   usedname[usednamelen-1]='\0';
+   p=usedname;
+   while(*p) p++;
+   if(p-usedname<usednamelen-5)
+   {  if(p-usedname<5 || STRIEQUAL(p-5,".font"))
+      {  /* Already has .font extension or too short */
+      }
+      else
+      {  strcpy(p,".font");
+      }
+   }
+   ta.ta_Name=usedname;
+   ta.ta_YSize=fontsize;
+   font=OpenDiskFont(&ta);
+   return font;
+}
+
 struct Fontprefs *Matchfont(UBYTE *face,short size,BOOL fixed)
 {  struct Fontalias *fa;
    struct Namebreak nbf,nba;
+   struct TextFont *directfont;
+   UBYTE *genericfamily;
+   UBYTE actualfontname[256];
+   short fontsize;
+   /* Get the actual font size from preferences for this HTML font size index (0-6).
+    * This ensures consistent point size usage throughout the font selection process.
+    * The size parameter corresponds to HTML font sizes 1-7 (mapped to indices 0-6).
+    */
+   fontsize=prefs.font[fixed?1:0][size].fontsize;
+   /* First pass: try to open fonts directly by name from the system.
+    * Use the default preference font size for consistency with the size index.
+    */
+   nbf.list=nbf.current=face;
+   while(Nextname(&nbf))
+   {  /* Skip generic families in direct opening pass */
+      if(Isgenericfamily(nbf.buffer)) continue;
+      /* Try to open the font directly using the consistent font size */
+      directfont=Tryopenfontdirect(nbf.buffer,fontsize,actualfontname,sizeof(actualfontname));
+      if(directfont)
+      {  /* Check if font is appropriate (not proportional for fixed fonts) */
+         if(!(fixed && (directfont->tf_Flags&FPF_PROPORTIONAL)))
+         {  /* Font opened successfully and is appropriate */
+            /* Add to alias list dynamically so it can be reused */
+            fa=Addfontalias(&prefs.aliaslist,nbf.buffer);
+            if(fa)
+            {  if(!fa->fp[size].font)
+               {  fa->fp[size].fontname=Dupstr(actualfontname,-1);
+                  fa->fp[size].fontsize=fontsize;
+                  fa->fp[size].font=directfont;
+               }
+               else
+               {  /* Already in alias list, close the duplicate */
+                  CloseFont(directfont);
+               }
+               return &fa->fp[size];
+            }
+            else
+            {  /* Could not add to alias list, close font and continue */
+               CloseFont(directfont);
+            }
+         }
+         else
+         {  /* Font is proportional but we need fixed-width */
+            CloseFont(directfont);
+         }
+      }
+   }
+   /* Second pass: check alias list */
    nbf.list=nbf.current=face;
    while(Nextname(&nbf))
    {  for(fa=prefs.aliaslist.first;fa->next;fa=fa->next)
@@ -891,5 +977,38 @@ struct Fontprefs *Matchfont(UBYTE *face,short size,BOOL fixed)
          }
       }
    }
+   /* Third pass: check for generic font families and map to defaults */
+   genericfamily=NULL;
+   nbf.list=nbf.current=face;
+   while(Nextname(&nbf))
+   {  if(Isgenericfamily(nbf.buffer))
+      {  genericfamily=nbf.buffer;
+         break;
+      }
+   }
+   if(genericfamily)
+   {  /* Map generic families to appropriate default fonts */
+      if(STRIEQUAL(genericfamily,"serif"))
+      {  /* Use default serif font (normal, not fixed) */
+         return &prefs.font[0][size];
+      }
+      else if(STRIEQUAL(genericfamily,"sans-serif"))
+      {  /* Use default sans-serif font (normal, not fixed) */
+         return &prefs.font[0][size];
+      }
+      else if(STRIEQUAL(genericfamily,"monospace"))
+      {  /* Use default monospace font (fixed) */
+         return &prefs.font[1][size];
+      }
+      else if(STRIEQUAL(genericfamily,"cursive"))
+      {  /* Use default serif font for cursive */
+         return &prefs.font[0][size];
+      }
+      else if(STRIEQUAL(genericfamily,"fantasy"))
+      {  /* Use default sans-serif font for fantasy */
+         return &prefs.font[0][size];
+      }
+   }
+   /* Final fallback: use default preference font for type */
    return &prefs.font[fixed?1:0][size];
 }
