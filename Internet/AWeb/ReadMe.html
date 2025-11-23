@@ -45,6 +45,24 @@ This alpha build supports a HTTPDEBUG/S command line option which will output a 
 The requirements for AWeb 3.6 remain the same as the original 3.4 release, however most websites, even those that only use HTML 3 and 4 features, require significant amounts of RAM - 8MB Fast RAM is probably a sensible minimum. Some of the new default settings assume a more powerful Amiga than would have been common in the 1990s. It will of course fail to work with any modern website requiring HTML5, CSS3, video content,heavy JavaScript, etc. This build is not optimised for any particular CPU architecture.
 </p>
 
+<h2>What's New in 3.6 Alpha 4?</h2>
+<ul>
+<li>FONT tags now search first for the named font if it exists on the system, then for the mapped alternative, then for the fallback font for the requested family</li>
+<li>The new about:fonts page now illustrates exactly how AWeb will render the defacto standard web safe fonts on your system with the fonts you have installed</li>
+<li>FORM elements such as INPUT, TEXTAREA, SELECT and BUTTON now render using the current font of the element they are contained within, rather than the system font</li>
+<li>URL parameters passed on the command line with no URL protocol are assumed to be local files, or in other words to open local files it is no longer necessary to specify the file:// protocol (actually this was added in 3.6 Alpha 2 but missed from these Release Notes)</li>
+<li>The file:// protocol now supports browsing and navigating directories as well as viewing files unless a file "index.html" is present in the directory. From here you can view individual files and navigate into subdirectories.</li>
+<li>Additionally, if you navigate to the <a href="file:///">file:///</a> root URL you will see a list of all mounted volumes</li>>
+<li>Added new command line option (and corresponding ToolType) "NOSTARTUP/S". If this is passed, the startup.aweblib plugin will not be run even if it exists and therefore no splash screen will show.</li>
+<li>The Documentation now includes test pages for HTML3.2, HTML4.0 and JavaScript 1.1 to make it easy to see exactly how AWeb handles these standards</li>
+<li>3.5 FEATURE: JavaScript now employs dynamic garbage collection during script execution instead of only at the end</li>
+<li>3.5 FEATURE: Implemented ETags for caching</li>
+<li>3.5 FEATURE: Implemented Content-Disposition parsing used for setting suggested name for file downloads</li>
+<li>3.5 FEATURE: Reintegrated support for 302 and 307 redirects</li>
+<li>FIXED: Entities are now always rendered as actual characters regardless of the HTML compatibility mode</li>
+</ul>
+
+
 <h2>What's New in 3.6 Alpha 3?</h2>
 <ul>
 <li>On larger screen resolutions (above 640x512) new browser windows will default to a more sensible size rather than full screen</li>
@@ -89,7 +107,7 @@ The requirements for AWeb 3.6 remain the same as the original 3.4 release, howev
 
 <h3>Known Issues in 3.6 Alpha 3</h3>
 <ul>
-<li>Although the AmiSSL interface code has been completely rewritten to work with AmiSSL 5.20 and properly support asynchronous SSL connections, especially with the use of multiple threads (Tasks), it is still not completelty stable.</li>
+<li>Although the AmiSSL interface code has been completely rewritten to work with AmiSSL 5.20 and properly support asynchronous SSL connections, especially with the use of multiple threads (Tasks), it is still not completely stable.</li>
 <li>This version does not currently include the changes from the various incomplete 3.5 releases, for now, instead it reimplements the HTTP and AmiSSL client code to a more recent standard. Other features of the 3.5 releases will come later.</li>
 <li>Setting the disk cache to 0 or a very small size will prevent images from rendering - this is an issue carried over from the original AWeb</li>
 <li>The primary documentation has not yet been updated for release 3.6</li>
