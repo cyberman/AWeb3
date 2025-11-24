@@ -21,7 +21,10 @@
 #include "aweblib.h"
 #include "fetchdriver.h"
 #include "task.h"
+#include "plugin.h"
 #include <exec/resident.h>
+#include <exec/libraries.h>
+#include <exec/nodes.h>
 
 struct Library *AboutBase;
 void *AwebPluginBase;
@@ -215,14 +218,14 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<tr><td align=\"center\">"
                "<img src=\"file:///AWeb:Docs/aweb.iff\" alt=\"AWeb\" align=\"center\">"
                "<br>"
-               "<font size=\"+1\" color=\"#CC0000\"><i>The Amiga Web Browser</i></font>"
+               "<font size=\"+2\" color=\"#CC0000\"><i>The Amiga Web Browser</i></font>"
                "</td></tr>"
                "</table>"
                "<br clear=\"all\">"
                "<hr>"
                "<h2>Web Safe Font Families</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
-               "<tr bgcolor=\"#F5F5F5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
+               "<tr bgcolor=\"#E5E5E5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
                "<tr><td><font face=\"serif\">serif</font></td><td><font face=\"serif\">An old silent pond<br>A frog jumps into the pond&mdash;<br>Splash! Silence again.</font></td></tr>"
                "<tr><td><font face=\"sans-serif\">sans-serif</font></td><td><font face=\"sans-serif\">Morning glory!<br>the well bucket-entangled,<br>I ask for water.</font></td></tr>"
                "<tr><td><font face=\"monospace\">monospace</font></td><td><font face=\"monospace\">An old silent pond<br>A frog jumps into the pond&mdash;<br>Splash! Silence again.</font></td></tr>"
@@ -231,7 +234,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "</table>"
                "<h2>Serif Fonts</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
-               "<tr bgcolor=\"#F5F5F5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
+               "<tr bgcolor=\"#E5E5E5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
                "<tr><td><font face=\"Times New Roman, serif\">Times New Roman, serif</font></td><td><font face=\"Times New Roman, serif\">A summer river being crossed<br>how pleasing<br>with sandals in my hands!</font></td></tr>"
                "<tr><td><font face=\"Times, serif\">Times, serif</font></td><td><font face=\"Times, serif\">A summer river being crossed<br>how pleasing<br>with sandals in my hands!</font></td></tr>"
                "<tr><td><font face=\"Georgia\">Georgia</font></td><td><font face=\"Georgia\">A summer river being crossed<br>how pleasing<br>with sandals in my hands!</font></td></tr>"
@@ -241,7 +244,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "</table>"
                "<h2>Sans-Serif Fonts</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
-               "<tr bgcolor=\"#F5F5F5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
+               "<tr bgcolor=\"#E5E5E5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
                "<tr><td><font face=\"Arial, Helvetica, sans-serif\">Arial, Helvetica, sans-serif</font></td><td><font face=\"Arial, Helvetica, sans-serif\">After the storm<br>the moon's brightness<br>on the green pines.</font></td></tr>"
                "<tr><td><font face=\"Helvetica, Arial, sans-serif\">Helvetica, Arial, sans-serif</font></td><td><font face=\"Helvetica, Arial, sans-serif\">After the storm<br>the moon's brightness<br>on the green pines.</font></td></tr>"
                "<tr><td><font face=\"Verdana\">Verdana</font></td><td><font face=\"Verdana\">After the storm<br>the moon's brightness<br>on the green pines.</font></td></tr>"
@@ -253,7 +256,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "</table>"
                "<h2>Monospace Fonts</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
-               "<tr bgcolor=\"#F5F5F5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
+               "<tr bgcolor=\"#E5E5E5\"><td><strong>Font Family</strong></td><td><strong>Sample Text</strong></td></tr>"
                "<tr><td><font face=\"Courier New, Courier, monospace\">Courier New, Courier, monospace</font></td><td><font face=\"Courier New, Courier, monospace\">A summer river being crossed<br>how pleasing<br>with sandals in my hands!</font></td></tr>"
                "<tr><td><font face=\"Courier, Courier New, monospace\">Courier, Courier New, monospace</font></td><td><font face=\"Courier, Courier New, monospace\">A summer river being crossed<br>how pleasing<br>with sandals in my hands!</font></td></tr>"
                "<tr><td><font face=\"Monaco\">Monaco</font></td><td><font face=\"Monaco\">A summer river being crossed<br>how pleasing<br>with sandals in my hands!</font></td></tr>"
@@ -265,7 +268,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<h2>Font Selection Chain Examples</h2>"
                "<p><small>These examples demonstrate the font selection priority: direct system font &rarr; alias mapping &rarr; generic family &rarr; default preference.</small></p>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
-               "<tr bgcolor=\"#F5F5F5\"><td><strong>Font Face Attribute</strong></td><td><strong>Expected Behavior</strong></td><td><strong>Sample</strong></td></tr>"
+               "<tr bgcolor=\"#E5E5E5\"><td><strong>Font Face Attribute</strong></td><td><strong>Expected Behavior</strong></td><td><strong>Sample</strong></td></tr>"
                "<tr><td><code>face=\"Times New Roman, serif\"</code></td><td>Try Times New Roman.font, then alias, then serif default</td><td><font face=\"Times New Roman, serif\">A summer river being crossed how pleasing with sandals in my hands!</font></td></tr>"
                "<tr><td><code>face=\"Arial, Helvetica, sans-serif\"</code></td><td>Try Arial.font, then Helvetica.font, then alias, then sans-serif default</td><td><font face=\"Arial, Helvetica, sans-serif\">After the storm the moon's brightness on the green pines.</font></td></tr>"
                "<tr><td><code>face=\"Courier New, Courier, monospace\"</code></td><td>Try Courier New.font, then Courier.font, then alias, then monospace default</td><td><font face=\"Courier New, Courier, monospace\">A summer river being crossed how pleasing with sandals in my hands!</font></td></tr>"
@@ -273,7 +276,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "</table>"
                "<h2>Font Sizes</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
-               "<tr bgcolor=\"#F5F5F5\"><td><strong>Size</strong></td><td><strong>Sample Text</strong></td></tr>"
+               "<tr bgcolor=\"#E5E5E5\"><td><strong>Size</strong></td><td><strong>Sample Text</strong></td></tr>"
                "<tr><td><code>size=\"-2\"</code></td><td><font size=\"-2\">After the storm</font></td></tr>"
                "<tr><td><code>size=\"-1\"</code></td><td><font size=\"-1\">the moon's brightness</font></td></tr>"
                "<tr><td><code>size=\"1\" (default)</code></td><td><font size=\"1\">on the green pines.</font></td></tr>"
@@ -284,7 +287,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "</table>"
                "<h2>Font Styles</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
-               "<tr bgcolor=\"#F5F5F5\"><td><strong>Style</strong></td><td><strong>Sample Text</strong></td></tr>"
+               "<tr bgcolor=\"#E5E5E5\"><td><strong>Style</strong></td><td><strong>Sample Text</strong></td></tr>"
                "<tr><td><code>&lt;b&gt;</code></td><td><b>Morning glory!</b></td></tr>"
                "<tr><td><code>&lt;i&gt;</code></td><td><i>the well bucket-entangled,</i></td></tr>"
                "<tr><td><code>&lt;u&gt;</code></td><td><u>I ask for water.</u></td></tr>"
@@ -296,7 +299,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "</table>"
                "<h2>Special Characters</h2>"
                "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
-               "<tr bgcolor=\"#F5F5F5\"><td><strong>Category</strong></td><td><strong>Sample</strong></td></tr>"
+               "<tr bgcolor=\"#E5E5E5\"><td><strong>Category</strong></td><td><strong>Sample</strong></td></tr>"
                "<tr><td>Numbers</td><td>0123456789</td></tr>"
                "<tr><td>Uppercase</td><td>ABCDEFGHIJKLMNOPQRSTUVWXYZ</td></tr>"
                "<tr><td>Lowercase</td><td>abcdefghijklmnopqrstuvwxyz</td></tr>"
@@ -348,20 +351,25 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "<tr><td align=\"center\">"
                "<img src=\"file:///AWeb:Docs/aweb.iff\" alt=\"AWeb\" align=\"center\">"
                "<br>"
-               "<font size=\"+1\" color=\"#CC0000\"><i>The Amiga Web Browser</i></font>"
+               "<font size=\"+2\" color=\"#CC0000\"><i>The Amiga Web Browser</i></font>"
                "</td></tr>"
                "</table>"
                "<hr>"
                "<table width=\"100%%\" cellpadding=\"5\" cellspacing=\"10\" border=\"0\">"
                "<tr valign=\"top\">"
                "<td width=\"33%%\" align=\"left\">"
+               "<table width=\"100%%\" cellpadding=\"5\" cellspacing=\"0\" border=\"1\" bordercolorlight=\"#FFFFFF\" bordercolordark=\"#888888\" bgcolor=\"#E5E5E5\">"
+               "<tr><td>"
                "<font face=\"sans-serif\" size=\"-1\">"
                "<strong>AWeb Links</strong><br>"
                "&bull; <a href=\"file:///AWeb:Docs/aweb.html\">Documentation</a><br>"
                "&bull; <a href=\"x-aweb:hotlist\">Hotlist</a><br>"
                "&bull; <a href=\"about:version\">Version</a><br>"
+               "&bull; <a href=\"about:plugins\">Plugins</a><br>"
                "&bull; <a href=\"about:fonts\">Web Fonts</a>"
                "</font>"
+               "</td></tr>"
+               "</table>"
                "</td>"
                "<td width=\"34%%\" align=\"center\">"
                "<font size=\"-1\" face=\"sans-serif\" color=\"#000000\"><strong>Search</strong></font><br>"
@@ -373,17 +381,164 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
                "</form>"
                "</td>"
                "<td width=\"33%%\" align=\"right\">"
+               "<table width=\"100%%\" cellpadding=\"5\" cellspacing=\"0\" border=\"1\" bordercolorlight=\"#FFFFFF\" bordercolordark=\"#888888\" bgcolor=\"#E5E5E5\">"
+               "<tr><td>"
                "<font face=\"sans-serif\" size=\"-1\">"
                "<strong>WWW Links</strong><br>"
                "&bull; <a href=\"https://www.amiga.com/\">Amiga.com</a><br>"
                "&bull; <a href=\"http://www.aminet.net/\">Aminet</a><br>"
                "&bull; <a href=\"http://www.amigazen.com/aweb/\">AWeb Home</a>"
                "</font>"
+               "</td></tr>"
+               "</table>"
                "</td>"
                "</tr>"
                "</table>"
                "</body></html>");
          if(html_len >= len) html[len-1] = '\0';
+      }
+      return html;
+   }
+   
+   /* Check for about:plugins */
+   if(STRNIEQUAL(page,"plugins",7) && (page[7]=='\0' || page[7]==' ' || page[7]=='\t'))
+   {  /* about:plugins - list loaded plugins */
+      struct Library *lib;
+      struct Node *node;
+      UBYTE *html_ptr;
+      long html_used;
+      UBYTE *libname;
+      UBYTE *libid;
+      UBYTE *known_aweblibs[] = {
+         (UBYTE *)"AWeb:aweblib/about.aweblib",
+         (UBYTE *)"AWeb:aweblib/arexx.aweblib",
+         (UBYTE *)"AWeb:aweblib/authorize.aweblib",
+         (UBYTE *)"AWeb:aweblib/cachebrowser.aweblib",
+         (UBYTE *)"AWeb:aweblib/ftp.aweblib",
+         (UBYTE *)"AWeb:aweblib/gemini.aweblib",
+         (UBYTE *)"AWeb:aweblib/gopher.aweblib",
+         (UBYTE *)"AWeb:aweblib/history.aweblib",
+         (UBYTE *)"AWeb:aweblib/hotlist.aweblib",
+         (UBYTE *)"AWeb:aweblib/mail.aweblib",
+         (UBYTE *)"AWeb:aweblib/news.aweblib",
+         (UBYTE *)"AWeb:aweblib/print.aweblib",
+         (UBYTE *)"AWeb:aweblib/startup.aweblib",
+         (UBYTE *)"AWeb:aweblib/awebjs.aweblib",
+         NULL
+      };
+      int i;
+      
+      len = 20480;  /* Large buffer for plugin list and configuration instructions */
+      html = ALLOCTYPE(UBYTE,len,MEMF_PUBLIC);
+      if(html)
+      {  html_ptr = html;
+         html_used = sprintf(html_ptr,
+               "<html><head><title>AWeb Plugins</title></head>"
+               "<body bgcolor=\"#AAAAAA\" text=\"#000000\">"
+               "<table width=\"100%%\" cellpadding=\"5\" cellspacing=\"0\" border=\"0\">"
+               "<tr><td align=\"center\">"
+               "<img src=\"file:///AWeb:Docs/aweb.iff\" alt=\"AWeb\" align=\"center\">"
+               "<br>"
+               "<font size=\"+2\" color=\"#CC0000\"><i>The Amiga Web Browser</i></font>"
+               "</td></tr>"
+               "</table>"
+               "<br clear=\"all\">"
+               "<hr>"
+               "<h2>Loaded AWebPlugins</h2>"
+               "<p><small>AWebPlugins are external plugin modules that extend AWeb's functionality.</small></p>"
+               "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
+               "<tr bgcolor=\"#E5E5E5\"><td><strong>Plugin Name</strong></td><td><strong>Version</strong></td><td><strong>Revision</strong></td><td><strong>ID String</strong></td></tr>");
+         html_ptr += html_used;
+         html_used = len - (html_ptr - html);
+         
+         /* Scan library list for AWebPlugins */
+         if(SysBase)
+         {  node = (struct Node *)SysBase->LibList.lh_Head;
+            while((node = node->ln_Succ) && node->ln_Succ)
+            {  lib = (struct Library *)node;
+               libname = (UBYTE *)lib->lib_Node.ln_Name;
+               if(libname && strstr((char *)libname,".awebplugin"))
+               {  libid = (UBYTE *)lib->lib_IdString;
+                  if(!libid) libid = (UBYTE *)"";
+                  html_used = sprintf(html_ptr,
+                        "<tr><td><code>%s</code></td><td>%ld</td><td>%ld</td><td><small>%s</small></td></tr>",
+                        libname ? libname : "(unknown)",
+                        (long)lib->lib_Version,
+                        (long)lib->lib_Revision,
+                        libid);
+                  html_ptr += html_used;
+                  html_used = len - (html_ptr - html);
+                  if(html_used < 200) break;
+               }
+            }
+         }
+         
+         html_used = sprintf(html_ptr, "</table>");
+         html_ptr += html_used;
+         html_used = len - (html_ptr - html);
+         
+         html_used = sprintf(html_ptr,
+               "<h2>Configuring AWebPlugins</h2>"
+               "<p>AWebPlugins are already bundled with the AWeb distribution. To configure a plugin for a specific MIME type:</p>"
+               "<ol>"
+               "<li>Start AWeb and open the browser settings (Settings menu &rarr; Browser Options).</li>"
+               "<li>Navigate to the <em>Viewers</em> page in the settings window.</li>"
+               "<li>Select the entry for the MIME type you want to configure (e.g., <code>IMAGE/PNG</code>, <code>IMAGE/GIF</code>, <code>IMAGE/JPEG</code>).</li>"
+               "<li>Change the following settings:"
+               "<ul>"
+               "<li><strong>Action:</strong> Select &quot;AWeb Plugin (A)&quot;</li>"
+               "<li><strong>Name:</strong> Enter the full path to the plugin file (e.g., <code>AWeb:awebplugins/awebpng.awebplugin</code>)</li>"
+               "<li><strong>Arguments:</strong> Leave blank or supply optional parameters as documented for each plugin</li>"
+               "</ul>"
+               "</li>"
+               "<li>Save your settings.</li>"
+               "</ol>"
+               "<p><small>Note: Plugin files are typically located in the <code>awebplugins</code> drawer where AWeb is installed. "
+               "Each plugin may support optional parameters that can be specified in the Arguments field. "
+               "See the plugin documentation for details on available parameters.</small></p>"
+               "<hr>");
+         html_ptr += html_used;
+         html_used = len - (html_ptr - html);
+         
+         html_used = sprintf(html_ptr,
+               "<h2>Loaded AWebLib Modules</h2>"
+               "<p><small>AWebLib modules are protocol handlers and internal extensions.</small></p>"
+               "<table width=\"100%%\" cellpadding=\"10\" cellspacing=\"0\" border=\"1\" bordercolor=\"#CCCCCC\">"
+               "<tr bgcolor=\"#E5E5E5\"><td><strong>Module Name</strong></td><td><strong>Version</strong></td><td><strong>Revision</strong></td><td><strong>ID String</strong></td></tr>");
+         html_ptr += html_used;
+         html_used = len - (html_ptr - html);
+         
+         /* Try to open known aweblib plugins */
+         for(i = 0; known_aweblibs[i]; i++)
+         {  lib = OpenLibrary(known_aweblibs[i], 0);
+            if(lib)
+            {  libname = (UBYTE *)lib->lib_Node.ln_Name;
+               libid = (UBYTE *)lib->lib_IdString;
+               if(!libid) libid = (UBYTE *)"";
+               html_used = sprintf(html_ptr,
+                     "<tr><td><code>%s</code></td><td>%ld</td><td>%ld</td><td><small>%s</small></td></tr>",
+                     libname ? libname : known_aweblibs[i],
+                     (long)lib->lib_Version,
+                     (long)lib->lib_Revision,
+                     libid);
+               html_ptr += html_used;
+               html_used = len - (html_ptr - html);
+               if(html_used < 200) break;
+               CloseLibrary(lib);
+            }
+         }
+         
+         html_used = sprintf(html_ptr, "</table>");
+         html_ptr += html_used;
+         html_used = len - (html_ptr - html);
+         
+         html_used = sprintf(html_ptr,
+               "<hr>"
+               "<p><small>Note: Only currently loaded plugins are shown. Plugins are loaded on demand when their functionality is needed.</small></p>"
+               "<hr>"
+               "</body></html>");
+         html_ptr += html_used;
+         *html_ptr = '\0';
       }
       return html;
    }
