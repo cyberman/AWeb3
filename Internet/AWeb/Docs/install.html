@@ -1,9 +1,10 @@
 <!--
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -54,6 +55,25 @@ In the JFIF preference editor, you must add an application named
 <code><b>AWebIP</b></code> (AWeb Image Processing), and then select
 <em>Single-Pass Quantization</em> (in the GadTools version of the
 preference editor) or <em>One-pass</em> (in the MUI version).
+
+<h2>Image Format Plugins</h2>
+AWeb includes three image format plugins that are preinstalled but need to be
+configured before use:
+<ul>
+<li><a href=awebpng.html>AWeb PNG plugin</a> - for viewing PNG images
+<li><a href=awebgif.html>AWeb GIF plugin</a> - for viewing GIF images (including animated GIFs)
+<li><a href=awebjfif.html>AWeb JFIF plugin</a> - for viewing JPEG/JFIF images
+</ul>
+<p>
+These plugins are located in the <code>awebplugins</code> drawer where AWeb is
+installed. To use them, you need to configure them in AWeb's browser settings
+(Viewers page) for their respective MIME types. See the individual plugin
+documentation pages for detailed configuration instructions and available
+parameters.
+<p>
+<em>Note:</em> These plugins are bundled with AWeb. Patent restrictions on
+these image formats have long since expired, allowing these plugins to be
+included in the standard distribution.
 
 <h2>The AWebLib drawer</h2>
 In order to reduce the size of the executable, some less frequently used parts

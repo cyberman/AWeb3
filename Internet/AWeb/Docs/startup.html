@@ -4,6 +4,7 @@
  * This file is part of the AWeb distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
+ * Changes Copyright (C) 2025 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -62,14 +63,14 @@ You can start AWeb from the Shell (or the CLI).
 <dl>
 <dt>Format:
 <dd><code><b>AWeb [<i>url_or_filename</i>]... [ LOCAL ] [CONFIG <i>settings_name</i>]
-[HOTLIST <i>hotlist_filename</i>]</b></code>
+[HOTLIST <i>hotlist_filename</i>] [ HAIKU | VVIIV ] [ HTTPDEBUG ] [ NOSTARTUP ]</b></code>
 <p>
 <dt>Template:
-<dd><code><b>URL/M,LOCAL/S,CONFIG/K,HOTLIST/K</b></code>
+<dd><code><b>URL/M,LOCAL/S,CONFIG/K,HOTLIST/K,HAIKU=VVIIV/S,HTTPDEBUG/S,NOSTARTUP/S</b></code>
 </dl>
 The documents in the URL argument are loaded when AWeb starts. If the LOCAL
 argument is present, the names will be interpreted as local file names,
-rather than network URLs.
+rather than network URLs. Since AWeb 3.6, local files can be opened without the need to specify the file:// protocol.
 <p>
 The name in the CONFIG argument will be used as subdirectory name relative
 to <code>ENV:AWeb3</code> to look for the settings.
@@ -81,6 +82,12 @@ The file in the HOTLIST argument will be used as AWeb's hotlist instead of
 the default, <code>AWeb.hotlist</code>.
 If the file doesn't exist, it will be created
 the first time you add an entry to the hotlist.
+
+If HAIKU or VVIIV is specified, AWeb will output error messages as haikus.
+
+If HTTPDEBUG is specified, AWeb will output extensive network debugging output. It is suggested to pipe this output to a file on a corruption-proof filesystem in case of data loss in the event of a bug in AWeb taking down the whole system.
+
+If NOSTARTUP is specified, AWeb will not load the startup.aweblib plugin and therefore not show the splash screen.
 
 <p>
 <hr>
