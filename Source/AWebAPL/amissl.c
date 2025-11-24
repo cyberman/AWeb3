@@ -61,6 +61,7 @@ extern BOOL debug_log_sema_initialized;
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
 #include <openssl/x509v3.h> /* For X509_get_ext_d2i, GENERAL_NAME, NID_subject_alt_name */
+#include <openssl/x509_vfy.h> /* For X509_STORE, X509_STORE_CTX, X509_verify_cert */
 #include <stdarg.h>
 
 /* Pragma definitions are provided by <proto/amissl.h> and
@@ -345,9 +346,97 @@ static void ssl_info_callback(const SSL *ssl, int where, int ret) {
   */
 }
 
+/* Helper function to manually verify certificate chain */
+/* Validates certificate chain against trusted CAs, checks expiration, etc. */
+/* Returns TRUE if certificate chain is valid, FALSE otherwise */
+/* CRITICAL: Must accept AmiSSLBase to shadow the global variable for OpenSSL macros */
+static BOOL Verify_certificate_chain(SSL *ssl, SSL_CTX *sslctx, struct Library *AmiSSLBase) {
+  X509_STORE *store;
+  X509_STORE_CTX *store_ctx;
+  X509 *cert;
+  STACK_OF(X509) *chain;
+  int verify_result;
+  BOOL result = FALSE;
+  
+  if (!ssl || !sslctx || !AmiSSLBase) {
+    return FALSE;
+  }
+  
+  /* Get peer certificate */
+  cert = SSL_get_peer_certificate(ssl);
+  if (!cert) {
+    debug_printf("DEBUG: Verify_certificate_chain: No peer certificate\n");
+    return FALSE;
+  }
+  
+  /* Get certificate chain from SSL connection */
+  chain = SSL_get_peer_cert_chain(ssl);
+  
+  /* Get the certificate store from SSL context (contains trusted CAs) */
+  store = SSL_CTX_get_cert_store(sslctx);
+  if (!store) {
+    debug_printf("DEBUG: Verify_certificate_chain: Failed to get certificate store\n");
+    X509_free(cert);
+    return FALSE;
+  }
+  
+  /* Create verification context */
+  store_ctx = X509_STORE_CTX_new();
+  if (!store_ctx) {
+    debug_printf("DEBUG: Verify_certificate_chain: Failed to create store context\n");
+    X509_free(cert);
+    return FALSE;
+  }
+  
+  /* Initialize verification context */
+  if (X509_STORE_CTX_init(store_ctx, store, cert, chain) != 1) {
+    debug_printf("DEBUG: Verify_certificate_chain: Failed to initialize store context\n");
+    X509_STORE_CTX_free(store_ctx);
+    X509_free(cert);
+    return FALSE;
+  }
+  
+  /* Set purpose to SSL client */
+  X509_STORE_CTX_set_purpose(store_ctx, X509_PURPOSE_SSL_CLIENT);
+  
+  /* Perform verification */
+  verify_result = X509_verify_cert(store_ctx);
+  
+  if (verify_result == 1) {
+    /* Certificate chain is valid */
+    debug_printf("DEBUG: Verify_certificate_chain: Certificate chain validation SUCCESS\n");
+    result = TRUE;
+  } else {
+    /* Certificate chain validation failed */
+    int error = X509_STORE_CTX_get_error(store_ctx);
+    int depth = X509_STORE_CTX_get_error_depth(store_ctx);
+    X509 *error_cert = X509_STORE_CTX_get_current_cert(store_ctx);
+    const char *error_str;
+    
+    error_str = X509_verify_cert_error_string(error);
+    debug_printf("DEBUG: Verify_certificate_chain: Certificate chain validation FAILED\n");
+    debug_printf("DEBUG: Verify_certificate_chain: Error: %s (code %d) at depth %d\n",
+                 error_str ? error_str : "unknown", error, depth);
+    
+    if (error_cert) {
+      char cert_name[256];
+      X509_NAME_oneline(X509_get_subject_name(error_cert), cert_name, sizeof(cert_name));
+      cert_name[sizeof(cert_name) - 1] = '\0';
+      debug_printf("DEBUG: Verify_certificate_chain: Failed certificate: %s\n", cert_name);
+    }
+    
+    result = FALSE;
+  }
+  
+  /* Cleanup */
+  X509_STORE_CTX_free(store_ctx);
+  X509_free(cert);
+  
+  return result;
+}
+
 /* Helper function to validate hostname against certificate Common Name and Subject Alternative Names */
 /* Returns TRUE if hostname matches certificate, FALSE otherwise */
-/* Helper function to validate hostname against certificate Common Name and Subject Alternative Names */
 /* CRITICAL: Must accept AmiSSLBase to shadow the global variable for OpenSSL macros */
 static BOOL Validate_hostname(X509 *cert, UBYTE *hostname, struct Library *AmiSSLBase) {
   int i;
@@ -1517,6 +1606,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
   X509 *cert; /* Certificate for validation prompt */
   char cert_subj[256]; /* Certificate subject for user prompt */
   BOOL hostname_valid;
+  BOOL chain_valid; /* Certificate chain validation result */
 
   debug_printf("DEBUG: Assl_connect: ENTRY - assl=%p, sock=%ld, hostname=%s\n",
                assl, sock, hostname ? (char *)hostname : "(NULL)");
@@ -1575,7 +1665,10 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
   if (ssl_result == 1) {
     debug_printf("DEBUG: Assl_connect: Handshake SUCCESS\n");
     
-    /* Manually verify certificate AFTER handshake completes (prevents deadlocks) */
+    /* Manually verify certificate chain AFTER handshake completes (prevents deadlocks) */
+    /* This validates: trusted CA, expiration, signature validity, etc. */
+    chain_valid = Verify_certificate_chain(assl->ssl, assl->sslctx, AmiSSLBase);
+    
     cert_subj[0] = '\0'; /* Initialize */
     cert = SSL_get_peer_certificate(assl->ssl);
     if (cert) {
@@ -1586,13 +1679,24 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
       /* Validate hostname against certificate */
       if (hostname && *hostname) {
         hostname_valid = Validate_hostname(cert, hostname, AmiSSLBase);
-        if (!hostname_valid) {
-          /* Hostname mismatch - prompt user */
-          debug_printf("DEBUG: Assl_connect: Hostname '%s' does not match certificate '%s'\n",
-                       hostname, cert_subj);
+        
+        if (!chain_valid || !hostname_valid) {
+          /* Certificate validation failed - either chain invalid or hostname mismatch */
+          if (!chain_valid && !hostname_valid) {
+            debug_printf("DEBUG: Assl_connect: Certificate chain INVALID and hostname '%s' does not match certificate '%s'\n",
+                         hostname, cert_subj);
+          } else if (!chain_valid) {
+            debug_printf("DEBUG: Assl_connect: Certificate chain INVALID (hostname '%s' matches certificate '%s')\n",
+                         hostname, cert_subj);
+          } else {
+            debug_printf("DEBUG: Assl_connect: Hostname '%s' does not match certificate '%s' (chain valid)\n",
+                         hostname, cert_subj);
+          }
+          
+          /* Prompt user to accept or reject */
           if (Httpcertaccept(hostname, cert_subj)) {
             /* User accepted - allow connection */
-            debug_printf("DEBUG: Assl_connect: User accepted certificate with hostname mismatch\n");
+            debug_printf("DEBUG: Assl_connect: User accepted certificate despite validation failure\n");
             result = ASSLCONNECT_OK;
           } else {
             /* User rejected */
@@ -1601,15 +1705,27 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
             result = ASSLCONNECT_DENIED;
           }
         } else {
-          /* Hostname matches - connection is good */
-          debug_printf("DEBUG: Assl_connect: Hostname '%s' matches certificate '%s'\n",
+          /* Both chain and hostname are valid - connection is good */
+          debug_printf("DEBUG: Assl_connect: Certificate chain VALID and hostname '%s' matches certificate '%s'\n",
                        hostname, cert_subj);
           result = ASSLCONNECT_OK;
         }
       } else {
-        /* No hostname to validate - accept connection */
-        debug_printf("DEBUG: Assl_connect: No hostname provided, accepting certificate\n");
-        result = ASSLCONNECT_OK;
+        /* No hostname to validate - check chain only */
+        if (!chain_valid) {
+          debug_printf("DEBUG: Assl_connect: Certificate chain INVALID (no hostname to validate)\n");
+          if (Httpcertaccept((UBYTE *)"", cert_subj)) {
+            debug_printf("DEBUG: Assl_connect: User accepted certificate despite chain validation failure\n");
+            result = ASSLCONNECT_OK;
+          } else {
+            debug_printf("DEBUG: Assl_connect: User rejected certificate\n");
+            assl->denied = TRUE;
+            result = ASSLCONNECT_DENIED;
+          }
+        } else {
+          debug_printf("DEBUG: Assl_connect: Certificate chain VALID (no hostname provided)\n");
+          result = ASSLCONNECT_OK;
+        }
       }
       
       X509_free(cert);
