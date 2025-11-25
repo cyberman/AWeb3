@@ -226,18 +226,92 @@ static void Messageread(struct Fetchdriver *fd,long n)
       TAG_END);
 }
 
+/* Forward declarations */
+static void CleanupKeepAlivePool(void);
+
+/* Normalize hostname for comparison (strips www. prefix if present) */
+/* This allows www.example.com and example.com to match for connection pooling */
+static UBYTE *NormalizeHostname(UBYTE *hostname)
+{  if(!hostname) return NULL;
+   
+   /* Check if hostname starts with "www." (case-insensitive) */
+   if(strlen((char *)hostname) > 4 && 
+      (hostname[0] == 'w' || hostname[0] == 'W') &&
+      (hostname[1] == 'w' || hostname[1] == 'W') &&
+      (hostname[2] == 'w' || hostname[2] == 'W') &&
+      hostname[3] == '.')
+   {  /* Return pointer to hostname without www. prefix */
+      return hostname + 4;
+   }
+   
+   return hostname;
+}
+
+/* Compare two hostnames for connection pooling (handles www. prefix) */
+static BOOL HostnameMatches(UBYTE *hostname1, UBYTE *hostname2)
+{  UBYTE *norm1;
+   UBYTE *norm2;
+   
+   if(!hostname1 || !hostname2) return FALSE;
+   
+   norm1 = NormalizeHostname(hostname1);
+   norm2 = NormalizeHostname(hostname2);
+   
+   return STRIEQUAL(norm1, norm2);
+}
+
 /* Get a connection from the keep-alive pool */
 static struct KeepAliveConnection *GetKeepAliveConnection(UBYTE *hostname, long port, BOOL ssl)
 {  struct KeepAliveConnection *conn;
    struct KeepAliveConnection *next;
    struct timeval current_time;
    ULONG current_sec;
+   int pool_count;  /* C89: Declare at start */
    
-   if(!keepalive_sema_initialized || !hostname) return NULL;
+   if(!keepalive_sema_initialized || !hostname)
+   {  debug_printf("DEBUG: GetKeepAliveConnection: Early return (sema_init=%d, hostname=%p)\n",
+                  keepalive_sema_initialized, hostname);
+      return NULL;
+   }
    
    ObtainSemaphore(&keepalive_sema);
    GetSysTime(&current_time);
    current_sec = current_time.tv_secs;
+   
+   /* Count pool size for debugging - do this BEFORE any debug_printf calls */
+   pool_count = 0;
+   for(conn = (struct KeepAliveConnection *)keepalive_pool.first;
+       conn->next;
+       conn = next)
+   {  next = (struct KeepAliveConnection *)conn->next;
+      pool_count++;
+   }
+   
+   /* CRITICAL: Release semaphore before debug_printf to prevent deadlock */
+   /* debug_printf may acquire debug_log_sema, causing AB-BA deadlock */
+   ReleaseSemaphore(&keepalive_sema);
+   
+   if(httpdebug)
+   {  debug_printf("DEBUG: GetKeepAliveConnection: Searching pool for %s:%ld (SSL=%d), pool has %d connections\n",
+                  hostname, port, ssl, pool_count);
+      
+      /* Debug: List all connections in pool */
+      if(pool_count > 0)
+      {  ObtainSemaphore(&keepalive_sema);
+         debug_printf("DEBUG: GetKeepAliveConnection: Pool contents:\n");
+         for(conn = (struct KeepAliveConnection *)keepalive_pool.first;
+             conn->next;
+             conn = next)
+         {  next = (struct KeepAliveConnection *)conn->next;
+            debug_printf("DEBUG: GetKeepAliveConnection:   - %s:%ld (SSL=%d, in_use=%d, sock=%ld)\n",
+                        conn->hostname ? (char *)conn->hostname : "(null)", conn->port, conn->ssl, conn->in_use, conn->sock);
+         }
+         ReleaseSemaphore(&keepalive_sema);
+      }
+   }
+   
+   /* Re-acquire semaphore for actual pool operations */
+   ObtainSemaphore(&keepalive_sema);
    
    /* Look for an idle connection matching hostname:port:ssl */
    for(conn = (struct KeepAliveConnection *)keepalive_pool.first;
@@ -246,27 +320,33 @@ static struct KeepAliveConnection *GetKeepAliveConnection(UBYTE *hostname, long 
    {  next = (struct KeepAliveConnection *)conn->next;
       
       /* Check if connection matches and is not in use */
+      /* Use HostnameMatches to handle www. prefix differences */
       if(!conn->in_use &&
          conn->port == port &&
          conn->ssl == ssl &&
          conn->hostname &&
-         STRIEQUAL(conn->hostname, hostname))
-      {        /* Check if connection hasn't timed out */
-         if((current_sec - conn->last_used) < KEEPALIVE_TIMEOUT)
+         HostnameMatches(conn->hostname, hostname))
+      {  /* Check if connection hasn't timed out */
+         ULONG age = current_sec - conn->last_used;
+         if(age < KEEPALIVE_TIMEOUT)
          {  /* Found a valid connection - mark as in use and return it */
             conn->in_use = TRUE;
             conn->last_used = current_sec;
             Remove((struct Node *)conn);
             ReleaseSemaphore(&keepalive_sema);
-            debug_printf("DEBUG: GetKeepAliveConnection: Reusing connection for %s:%ld (SSL=%d)\n",
-                        hostname, port, ssl);
+            /* CRITICAL: debug_printf AFTER releasing semaphore to prevent deadlock */
+            debug_printf("DEBUG: GetKeepAliveConnection: Reusing connection for %s:%ld (SSL=%d, sock=%ld, age=%lu sec)\n",
+                        hostname, port, ssl, conn->sock, age);
             return conn;
          }
          else
          {  /* Connection timed out - remove it */
-            debug_printf("DEBUG: GetKeepAliveConnection: Removing timed-out connection for %s:%ld\n",
-                        conn->hostname ? conn->hostname : "(null)", conn->port);
             Remove((struct Node *)conn);
+            /* CRITICAL: Release semaphore BEFORE closing connections to prevent deadlock */
+            /* Closing connections may call Assl_closessl which needs ssl_init_sema */
+            ReleaseSemaphore(&keepalive_sema);
+            debug_printf("DEBUG: GetKeepAliveConnection: Removing timed-out connection for %s:%ld (age=%lu sec)\n",
+                        conn->hostname ? (char *)conn->hostname : "(null)", conn->port, age);
             /* Close socket and SSL */
             if(conn->sock >= 0 && conn->socketbase)
             {  if(conn->assl) Assl_closessl(conn->assl);
@@ -279,8 +359,12 @@ static struct KeepAliveConnection *GetKeepAliveConnection(UBYTE *hostname, long 
             if(conn->socketbase) CloseLibrary(conn->socketbase);
             if(conn->hostname) FREE(conn->hostname);
             FREE(conn);
+            /* Re-acquire semaphore to continue loop */
+            ObtainSemaphore(&keepalive_sema);
          }
       }
+      /* CRITICAL: Remove debug_printf from inside semaphore-protected loop */
+      /* Debug logging moved outside to prevent deadlock */
    }
    
    ReleaseSemaphore(&keepalive_sema);
@@ -290,16 +374,57 @@ static struct KeepAliveConnection *GetKeepAliveConnection(UBYTE *hostname, long 
 /* Return a connection to the keep-alive pool */
 static void ReturnKeepAliveConnection(struct Httpinfo *hi)
 {  struct KeepAliveConnection *conn;
+   struct KeepAliveConnection *next;
    struct timeval current_time;
    ULONG current_sec;
+   int pool_count;  /* C89: Declare at start */
    
-   if(!keepalive_sema_initialized || !hi || !hi->hostname) return;
+   debug_printf("DEBUG: ReturnKeepAliveConnection: ENTRY (hi=%p, hostname=%p, sock=%ld, socketbase=%p, flags=0x%04X)\n",
+                hi, hi ? hi->hostname : NULL, hi ? hi->sock : -1, hi ? hi->socketbase : NULL, hi ? hi->flags : 0);
+   
+   if(!keepalive_sema_initialized)
+   {  debug_printf("DEBUG: ReturnKeepAliveConnection: keep-alive semaphore not initialized\n");
+      return;
+   }
+   if(!hi)
+   {  debug_printf("DEBUG: ReturnKeepAliveConnection: hi is NULL\n");
+      return;
+   }
+   if(!hi->hostname)
+   {  debug_printf("DEBUG: ReturnKeepAliveConnection: hostname is NULL\n");
+      return;
+   }
    
    /* Only return if keep-alive is supported */
-   if(!((hi->flags & HTTPIF_KEEPALIVE) && (hi->flags & HTTPIF_KEEPALIVE_REQ))) return;
+   if(!((hi->flags & HTTPIF_KEEPALIVE) && (hi->flags & HTTPIF_KEEPALIVE_REQ)))
+   {  debug_printf("DEBUG: ReturnKeepAliveConnection: Keep-alive not enabled (flags=0x%04X, KEEPALIVE=0x%04X, KEEPALIVE_REQ=0x%04X)\n",
+                   hi->flags, hi->flags & HTTPIF_KEEPALIVE, hi->flags & HTTPIF_KEEPALIVE_REQ);
+      return;
+   }
    
    /* Don't pool proxy connections */
-   if(hi->connect) return;
+   /* When using a proxy, hi->connect is the proxy hostname and hi->hostname is the destination */
+   /* When NOT using a proxy, hi->connect == hi->hostname (both are the destination hostname) */
+   /* So we check if they're different to detect proxy usage */
+   if(hi->connect && hi->hostname && !STRIEQUAL(hi->connect, hi->hostname))
+   {  debug_printf("DEBUG: ReturnKeepAliveConnection: Proxy connection (connect=%s, hostname=%s), not pooling\n",
+                  hi->connect, hi->hostname);
+      return;
+   }
+   
+   /* Validate connection state before pooling */
+   if(hi->sock < 0)
+   {  debug_printf("DEBUG: ReturnKeepAliveConnection: Cannot pool - invalid socket (sock=%ld < 0)\n", hi->sock);
+      return;
+   }
+   if(!hi->socketbase)
+   {  debug_printf("DEBUG: ReturnKeepAliveConnection: Cannot pool - socketbase is NULL (sock=%ld)\n", hi->sock);
+      return;
+   }
+   
+   /* CRITICAL: debug_printf BEFORE obtaining semaphore to prevent deadlock */
+   debug_printf("DEBUG: ReturnKeepAliveConnection: Attempting to pool connection (hostname=%s, sock=%ld, socketbase=%p, assl=%p, ssl=%d)\n",
+                hi->hostname ? (char *)hi->hostname : "(null)", hi->sock, hi->socketbase, hi->assl, BOOLVAL(hi->flags & HTTPIF_SSL));
    
    ObtainSemaphore(&keepalive_sema);
    GetSysTime(&current_time);
@@ -309,7 +434,14 @@ static void ReturnKeepAliveConnection(struct Httpinfo *hi)
    conn = ALLOCTYPE(struct KeepAliveConnection, 1, 0);
    if(conn)
    {  conn->hostname = Dupstr(hi->hostname, -1);
-      conn->port = hi->port;
+      /* Normalize port - use actual port or default based on SSL flag */
+      /* This ensures port matching works correctly when retrieving */
+      if(hi->port > 0)
+      {  conn->port = hi->port;
+      }
+      else
+      {  conn->port = BOOLVAL(hi->flags & HTTPIF_SSL) ? 443 : 80;
+      }
       conn->ssl = BOOLVAL(hi->flags & HTTPIF_SSL);
       conn->socketbase = hi->socketbase;
       conn->sock = hi->sock;
@@ -317,45 +449,25 @@ static void ReturnKeepAliveConnection(struct Httpinfo *hi)
       conn->last_used = current_sec;
       conn->in_use = FALSE;
       
-      if(conn->hostname)
+      if(conn->hostname && conn->sock >= 0 && conn->socketbase)
       {  AddHead((struct List *)&keepalive_pool, (struct Node *)conn);
-         debug_printf("DEBUG: ReturnKeepAliveConnection: Pooled connection for %s:%ld (SSL=%d)\n",
-                     conn->hostname, conn->port, conn->ssl);
+         /* CRITICAL: Release semaphore BEFORE debug_printf to prevent deadlock */
+         ReleaseSemaphore(&keepalive_sema);
+         debug_printf("DEBUG: ReturnKeepAliveConnection: Pooled connection for %s:%ld (SSL=%d, sock=%ld)\n",
+                     conn->hostname, conn->port, conn->ssl, conn->sock);
          /* Clear pointers in Httpinfo so they don't get freed */
          hi->socketbase = NULL;
          hi->sock = -1;
          hi->assl = NULL;
+         return; /* Early return - semaphore already released */
       }
       else
-      {  FREE(conn);
-      }
-   }
-   
-   ReleaseSemaphore(&keepalive_sema);
-}
-
-/* Clean up expired connections from the pool */
-static void CleanupKeepAlivePool(void)
-{  struct KeepAliveConnection *conn;
-   struct KeepAliveConnection *next;
-   struct timeval current_time;
-   ULONG current_sec;
-   
-   if(!keepalive_sema_initialized) return;
-   
-   ObtainSemaphore(&keepalive_sema);
-   GetSysTime(&current_time);
-   current_sec = current_time.tv_secs;
-   
-   for(conn = (struct KeepAliveConnection *)keepalive_pool.first;
-       conn->next;
-       conn = next)
-   {  next = (struct KeepAliveConnection *)conn->next;
-      
-      /* Remove timed-out or in-use connections */
-      if(conn->in_use || ((current_sec - conn->last_used) >= KEEPALIVE_TIMEOUT))
-      {  Remove((struct Node *)conn);
-         /* Close socket and SSL */
+      {  /* CRITICAL: Release semaphore BEFORE debug_printf and cleanup */
+         ReleaseSemaphore(&keepalive_sema);
+         debug_printf("DEBUG: ReturnKeepAliveConnection: Failed to pool - invalid connection state (hostname=%p, sock=%ld, socketbase=%p, assl=%p)\n",
+                     conn->hostname, conn->sock, conn->socketbase, conn->assl);
+         /* Clean up invalid connection */
+         /* Note: conn->assl is the same pointer as hi->assl, so we must clear hi->assl to prevent double cleanup */
          if(conn->sock >= 0 && conn->socketbase)
          {  if(conn->assl) Assl_closessl(conn->assl);
             a_close(conn->sock, conn->socketbase);
@@ -363,14 +475,189 @@ static void CleanupKeepAlivePool(void)
          if(conn->assl)
          {  Assl_cleanup(conn->assl);
             FREE(conn->assl);
+            /* Clear hi->assl to prevent double cleanup in Httpretrieve cleanup code */
+            hi->assl = NULL;
          }
-         if(conn->socketbase) CloseLibrary(conn->socketbase);
+         if(conn->socketbase)
+         {  CloseLibrary(conn->socketbase);
+            /* Clear hi->socketbase to prevent double cleanup */
+            hi->socketbase = NULL;
+         }
          if(conn->hostname) FREE(conn->hostname);
          FREE(conn);
+         /* Also clear sock to prevent issues */
+         hi->sock = -1;
+      }
+   }
+   else
+   {  debug_printf("DEBUG: ReturnKeepAliveConnection: Failed to allocate KeepAliveConnection struct\n");
+   }
+   
+   ReleaseSemaphore(&keepalive_sema);
+   
+   /* Clean up expired connections after releasing semaphore */
+   /* This prevents deadlocks - CleanupKeepAlivePool will acquire the semaphore itself */
+   /* Note: We don't call this while holding the semaphore to avoid deadlocks */
+   CleanupKeepAlivePool();
+}
+
+/* Clean up expired connections from the pool */
+static void CleanupKeepAlivePool(void)
+{  struct KeepAliveConnection *conn;
+   struct KeepAliveConnection *next;
+   struct KeepAliveConnection *to_close;
+   struct KeepAliveConnection *close_list;
+   struct timeval current_time;
+   ULONG current_sec;
+   ULONG age;  /* C89: Declare at start of function */
+   
+   if(!keepalive_sema_initialized) return;
+   
+   ObtainSemaphore(&keepalive_sema);
+   GetSysTime(&current_time);
+   current_sec = current_time.tv_secs;
+   
+   /* Build list of connections to close (don't close while holding semaphore) */
+   close_list = NULL;
+   for(conn = (struct KeepAliveConnection *)keepalive_pool.first;
+       conn->next;
+       conn = next)
+   {  next = (struct KeepAliveConnection *)conn->next;
+      
+      /* Calculate age of connection */
+      age = current_sec - conn->last_used;
+      
+      /* Remove timed-out or in-use connections */
+      if(conn->in_use || (age >= KEEPALIVE_TIMEOUT))
+      {  Remove((struct Node *)conn);
+         debug_printf("DEBUG: CleanupKeepAlivePool: Removing %s connection for %s:%ld (age=%lu sec, in_use=%d)\n",
+                     conn->ssl ? "SSL" : "HTTP",
+                     conn->hostname ? (char *)conn->hostname : "(null)", conn->port, age, conn->in_use);
+         /* Add to close list - we'll close after releasing semaphore */
+         /* NODE(KeepAliveConnection) defines next as struct KeepAliveConnection *, so no cast needed */
+         conn->next = close_list;
+         close_list = conn;
       }
    }
    
    ReleaseSemaphore(&keepalive_sema);
+   
+   /* Now close connections without holding semaphore to prevent deadlocks */
+   /* This prevents deadlock if Assl_closessl/Assl_cleanup need ssl_init_sema */
+   while(close_list)
+   {  to_close = close_list;
+      close_list = (struct KeepAliveConnection *)to_close->next;
+      
+      /* Close socket and SSL */
+      if(to_close->sock >= 0 && to_close->socketbase)
+      {  if(to_close->assl) Assl_closessl(to_close->assl);
+         a_close(to_close->sock, to_close->socketbase);
+      }
+      if(to_close->assl)
+      {  Assl_cleanup(to_close->assl);
+         FREE(to_close->assl);
+      }
+      if(to_close->socketbase) CloseLibrary(to_close->socketbase);
+      if(to_close->hostname) FREE(to_close->hostname);
+      FREE(to_close);
+   }
+}
+
+/* Close all idle (not in-use) keep-alive connections */
+/* This is called when navigating to a new page to reset the connection pool */
+/* CRITICAL: Only closes connections that have exceeded KEEPALIVE_TIMEOUT */
+void CloseIdleKeepAliveConnections(void)
+{  struct KeepAliveConnection *conn;
+   struct KeepAliveConnection *next;
+   struct KeepAliveConnection *to_close;
+   struct KeepAliveConnection *close_list;
+   struct timeval current_time;
+   ULONG current_sec;
+   ULONG age;  /* C89: Declare at start */
+   long closed_count = 0;
+   long total_count = 0;
+   
+   debug_printf("DEBUG: CloseIdleKeepAliveConnections: ENTRY\n");
+   
+   if(!keepalive_sema_initialized)
+   {  debug_printf("DEBUG: CloseIdleKeepAliveConnections: keep-alive semaphore not initialized\n");
+      return;
+   }
+   
+   ObtainSemaphore(&keepalive_sema);
+   GetSysTime(&current_time);
+   current_sec = current_time.tv_secs;
+   
+   /* Check if list is empty */
+   if(!keepalive_pool.first || (struct Node *)keepalive_pool.first == (struct Node *)&keepalive_pool)
+   {  debug_printf("DEBUG: CloseIdleKeepAliveConnections: Pool is empty, nothing to close\n");
+      ReleaseSemaphore(&keepalive_sema);
+      return;
+   }
+   
+   /* Build list of connections to close (don't close while holding semaphore) */
+   /* CRITICAL: Only close connections that are idle AND have exceeded KEEPALIVE_TIMEOUT */
+   close_list = NULL;
+   for(conn = (struct KeepAliveConnection *)keepalive_pool.first;
+       conn && (struct Node *)conn != (struct Node *)&keepalive_pool && conn->next;
+       conn = next)
+   {  next = (struct KeepAliveConnection *)conn->next;
+      total_count++;
+      
+      /* Only close idle connections (not currently in use) that have timed out */
+      if(!conn->in_use)
+      {  age = current_sec - conn->last_used;
+         if(age >= KEEPALIVE_TIMEOUT)
+         {  Remove((struct Node *)conn);
+            closed_count++;
+            debug_printf("DEBUG: CloseIdleKeepAliveConnections: Marking timed-out %s connection for closure (sock=%ld, age=%lu sec)\n",
+                        conn->ssl ? "SSL" : "HTTP",
+                        conn->hostname ? (char *)conn->hostname : "(null)", conn->port, conn->sock, age);
+            /* Add to close list - we'll close after releasing semaphore */
+            /* NODE(KeepAliveConnection) defines next as struct KeepAliveConnection *, so no cast needed */
+            conn->next = close_list;
+            close_list = conn;
+         }
+         else
+         {  debug_printf("DEBUG: CloseIdleKeepAliveConnections: Keeping idle %s connection for %s:%ld (sock=%ld, age=%lu sec, timeout=%d)\n",
+                        conn->ssl ? "SSL" : "HTTP",
+                        conn->hostname ? (char *)conn->hostname : "(null)", conn->port, conn->sock, age, KEEPALIVE_TIMEOUT);
+         }
+      }
+      else
+      {  debug_printf("DEBUG: CloseIdleKeepAliveConnections: Skipping in-use %s connection for %s:%ld (sock=%ld)\n",
+                     conn->ssl ? "SSL" : "HTTP",
+                     conn->hostname ? (char *)conn->hostname : "(null)", conn->port, conn->sock);
+      }
+   }
+   
+   ReleaseSemaphore(&keepalive_sema);
+   
+   /* Now close connections without holding semaphore to prevent deadlocks */
+   /* This prevents deadlock if Assl_closessl/Assl_cleanup need ssl_init_sema */
+   while(close_list)
+   {  to_close = close_list;
+      close_list = (struct KeepAliveConnection *)to_close->next;
+      
+      debug_printf("DEBUG: CloseIdleKeepAliveConnections: Closing idle %s connection for %s:%ld (sock=%ld)\n",
+                  to_close->ssl ? "SSL" : "HTTP",
+                  to_close->hostname ? (char *)to_close->hostname : "(null)", to_close->port, to_close->sock);
+      
+      /* Close socket and SSL */
+      if(to_close->sock >= 0 && to_close->socketbase)
+      {  if(to_close->assl) Assl_closessl(to_close->assl);
+         a_close(to_close->sock, to_close->socketbase);
+      }
+      if(to_close->assl)
+      {  Assl_cleanup(to_close->assl);
+         FREE(to_close->assl);
+      }
+      if(to_close->socketbase) CloseLibrary(to_close->socketbase);
+      if(to_close->hostname) FREE(to_close->hostname);
+      FREE(to_close);
+   }
+   
+   debug_printf("DEBUG: CloseIdleKeepAliveConnections: EXIT - closed %ld of %ld connections\n", closed_count, total_count);
 }
 
 static BOOL Makehttpaddr(struct Httpinfo *hi,UBYTE *proxy,UBYTE *url,BOOL ssl)
@@ -552,10 +839,24 @@ static void ResetSocketTimeout(struct Httpinfo *hi)
    timeout.tv_sec = 15;  /* 15 second timeout per operation - reasonable for modern networks */
    timeout.tv_usec = 0;
    
+   /* CRITICAL: Validate SocketBase before using it */
+   /* On AmigaOS, if SocketBase is NULL or invalid, calling socket functions causes Guru Meditation */
+   if(!hi->socketbase)
+   {  debug_printf("DEBUG: ResetSocketTimeout: socketbase is NULL, cannot set timeout\n");
+      return;
+   }
+   
    /* Set global SocketBase for setsockopt() from proto/bsdsocket.h */
    /* Save and restore SocketBase to avoid race conditions */
    saved_socketbase = SocketBase;
    SocketBase = hi->socketbase;
+   
+   /* CRITICAL: Validate SocketBase is still valid after assignment */
+   if(!SocketBase)
+   {  debug_printf("DEBUG: ResetSocketTimeout: SocketBase became NULL after assignment\n");
+      SocketBase = saved_socketbase; /* Restore before returning */
+      return;
+   }
    
    /* Reset receive timeout - this ensures next recv() gets a fresh 15-second timeout */
    /* This is important for long data transfers where gaps between packets might occur */
@@ -794,6 +1095,14 @@ static struct Authorize *Parseauth(UBYTE *buf,UBYTE *server)
 static BOOL Readheaders(struct Httpinfo *hi)
 {  /* Reset encoding flags at start of headers - this is crucial! */
    hi->flags &= ~(HTTPIF_GZIPENCODED | HTTPIF_GZIPDECODING | HTTPIF_CHUNKED);
+   
+   /* For HTTP/1.1, assume keep-alive is supported by default if we requested it */
+   /* This will be cleared if server explicitly says "Connection: close" */
+   /* HTTP/1.1 spec: keep-alive is default unless Connection: close is present */
+   if(hi->flags & HTTPIF_KEEPALIVE_REQ)
+   {  hi->flags |= HTTPIF_KEEPALIVE;
+      debug_printf("DEBUG: Assuming keep-alive support for HTTP/1.1 (will be cleared if server says 'close')\n");
+   }
    
    for(;;)
    {  if(!Findline(hi)) return FALSE;
@@ -3918,9 +4227,10 @@ static BOOL Readdata(struct Httpinfo *hi)
    }
    
    /* Force cleanup of any pending network operations to prevent exit hanging */
+   /* BUT: Don't close socket if keep-alive is enabled - we'll return it to the pool */
    /* For SSL connections, must close SSL BEFORE closing socket */
-   if(hi->sock >= 0) {
-      debug_printf("DEBUG: Force closing socket to prevent exit hanging\n");
+   if(hi->sock >= 0 && !((hi->flags & HTTPIF_KEEPALIVE) && (hi->flags & HTTPIF_KEEPALIVE_REQ))) {
+      debug_printf("DEBUG: Force closing socket to prevent exit hanging (keep-alive disabled)\n");
       /* If this is an SSL connection, close SSL first */
 #ifndef DEMOVERSION
       if(hi->flags & HTTPIF_SSL && hi->assl)
@@ -3933,6 +4243,9 @@ static BOOL Readdata(struct Httpinfo *hi)
          a_close(hi->sock, hi->socketbase);
       }
       hi->sock = -1;
+   }
+   else if(hi->sock >= 0)
+   {  debug_printf("DEBUG: Skipping force-close - keep-alive enabled, connection will be pooled (sock=%ld)\n", hi->sock);
    }
    
    /* Final memory corruption detection and prevention */
@@ -4145,9 +4458,49 @@ BOOL Httpcertaccept(char *hostname,char *certname)
 /* Open the tcp stack, and optionally the SSL library */
 static BOOL Openlibraries(struct Httpinfo *hi)
 {  BOOL result=FALSE;
+   struct KeepAliveConnection *pooled_conn;
+   long port;
    
    debug_printf("DEBUG: Openlibraries: ENTRY - flags=0x%04X, SSL=%s\n", 
           hi->flags, (hi->flags&HTTPIF_SSL) ? "YES" : "NO");
+   
+   /* Check for pooled connection BEFORE creating new libraries */
+   /* This allows us to reuse existing socketbase and Assl from the pool */
+   /* A proxy connection is identified if hi->connect (proxy host) is different from hi->hostname (destination host) */
+   /* NOTE: Only SSL connections are pooled/reused for now - HTTP connections are not reused to avoid socket conflicts */
+   debug_printf("DEBUG: Openlibraries: Checking for pooled connection (connect=%p, hostname=%p, SSL=%d)\n",
+               hi->connect, hi->hostname, BOOLVAL(hi->flags&HTTPIF_SSL));
+   if(hi->hostname && (hi->flags&HTTPIF_SSL) && 
+      (!hi->connect || (hi->connect && STRIEQUAL(hi->connect, hi->hostname))))
+   {  /* Direct SSL connection (not a proxy) - can reuse pooled connection */
+      port = (hi->port > 0) ? hi->port : 443;
+      debug_printf("DEBUG: Openlibraries: Calling GetKeepAliveConnection for %s:%ld (SSL=1)\n",
+                  hi->hostname, port);
+      pooled_conn = GetKeepAliveConnection(hi->hostname, port, TRUE);
+      if(pooled_conn)
+      {  /* Reuse pooled SSL connection - use its socketbase, Assl, and socket */
+         hi->socketbase = pooled_conn->socketbase;
+         hi->assl = pooled_conn->assl;
+         hi->sock = pooled_conn->sock;
+         hi->connection_reused = TRUE;
+         debug_printf("DEBUG: Openlibraries: Reusing pooled SSL connection (socketbase=%p, assl=%p, sock=%ld)\n",
+                     hi->socketbase, hi->assl, hi->sock);
+         /* Free the pool entry - connection is now in use */
+         FREE(pooled_conn->hostname);
+         FREE(pooled_conn);
+         return TRUE; /* Success - we have everything we need from the pool */
+      }
+      else
+      {  debug_printf("DEBUG: Openlibraries: No pooled SSL connection found for %s:%ld\n",
+                     hi->hostname, port);
+      }
+   }
+   else
+   {  debug_printf("DEBUG: Openlibraries: Skipping pool check (proxy=%s, direct=%s, SSL=%d)\n",
+                  hi->connect ? (char *)hi->connect : "(none)",
+                  hi->hostname ? (char *)hi->hostname : "(none)",
+                  BOOLVAL(hi->flags&HTTPIF_SSL));
+   }
    
    debug_printf("DEBUG: Openlibraries: Calling Opentcp()\n");
    Opentcp(&hi->socketbase,hi->fd,!hi->fd->validate);
@@ -4230,101 +4583,89 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
    struct timeval timeout;
    struct KeepAliveConnection *pooled_conn;
    long port;
+   struct Library *saved_socketbase_opensocket;  /* C89: Declare at start */
    
-   /* Check keep-alive pool first (only for non-proxy connections) */
-   if(!hi->connect && hi->hostname)
-   {  port = (hi->port > 0) ? hi->port : ((hi->flags & HTTPIF_SSL) ? 443 : 80);
-      pooled_conn = GetKeepAliveConnection(hi->hostname, port, BOOLVAL(hi->flags & HTTPIF_SSL));
-      if(pooled_conn)
-      {  /* Reuse pooled connection */
-         hi->socketbase = pooled_conn->socketbase;
-         hi->sock = pooled_conn->sock;
-         hi->assl = pooled_conn->assl;
-         hi->connection_reused = TRUE;
-         debug_printf("DEBUG: Opensocket: Reusing pooled connection (sock=%ld, assl=%p)\n",
-                     hi->sock, hi->assl);
-         /* Free the pool entry - connection is now in use */
-         FREE(pooled_conn->hostname);
-         FREE(pooled_conn);
-         return hi->sock;
+   /* 1. Check for reused connection */
+   if(hi->connection_reused)
+   {  debug_printf("DEBUG: Opensocket: Using pooled connection (sock=%ld)\n", hi->sock);
+      sock = hi->sock;
+      /* We DO NOT return immediately - we fall through to apply setsockopt */
+   }
+   else
+   {  /* Standard new connection logic */
+      /* Check keep-alive pool first (only for non-proxy connections) */
+      /* Note: This is a fallback for HTTP connections - SSL connections are handled in Openlibraries() */
+      if(!hi->connect && hi->hostname && !(hi->flags & HTTPIF_SSL))
+      {  port = (hi->port > 0) ? hi->port : 80;
+         pooled_conn = GetKeepAliveConnection(hi->hostname, port, FALSE);
+         if(pooled_conn)
+         {  /* Reuse pooled connection */
+            hi->socketbase = pooled_conn->socketbase;
+            hi->sock = pooled_conn->sock;
+            hi->assl = pooled_conn->assl;
+            hi->connection_reused = TRUE;
+            sock = hi->sock;
+            debug_printf("DEBUG: Opensocket: Reusing pooled HTTP connection (sock=%ld)\n",
+                        hi->sock);
+            /* Free the pool entry - connection is now in use */
+            FREE(pooled_conn->hostname);
+            FREE(pooled_conn);
+         }
       }
-   }
-   
-   /* Clean up expired connections periodically */
-   CleanupKeepAlivePool();
-   
-   /* Validate socketbase is still valid before using it */
-   /* Another task might have closed the library, invalidating our handle */
-   if(!hi->socketbase)
-   {  debug_printf("DEBUG: Opensocket: socketbase is NULL, returning -1\n");
-      return -1;
-   }
-   
+      
+      /* Clean up expired connections periodically */
+      CleanupKeepAlivePool();
+      
+      /* If we didn't get a pooled connection, create a new one */
+      if(!hi->connection_reused)
+      {  /* Validate socketbase is still valid before using it */
+         /* Another task might have closed the library, invalidating our handle */
+         if(!hi->socketbase)
+         {  debug_printf("DEBUG: Opensocket: socketbase is NULL, returning -1\n");
+            return -1;
+         }
+         
 #ifndef DEMOVERSION
-   if(hi->flags&HTTPIF_SSL)
-   {  /* Validate socketbase again before SSL operations */
-      if(!hi->socketbase)
-      {  debug_printf("DEBUG: Opensocket: socketbase became NULL before SSL init, returning -1\n");
-         return -1;
-      }
-      debug_printf("DEBUG: Opensocket: Calling Assl_openssl() before creating socket\n");
-      if(!Assl_openssl(hi->assl))
-      {  debug_printf("DEBUG: Opensocket: Assl_openssl() failed, returning -1\n");
-         return -1;
-      }
-      debug_printf("DEBUG: Opensocket: Assl_openssl() succeeded\n");
-      
-      /* Validate socketbase is still valid after SSL init */
-      /* Another task might have closed the library during SSL initialization */
-      if(!hi->socketbase)
-      {  debug_printf("DEBUG: Opensocket: socketbase became NULL during SSL init, returning -1\n");
-         Assl_closessl(hi->assl);
-         return -1;
-      }
-   }
+         if(hi->flags&HTTPIF_SSL)
+         {  /* Validate socketbase again before SSL operations */
+            if(!hi->socketbase)
+            {  debug_printf("DEBUG: Opensocket: socketbase became NULL before SSL init, returning -1\n");
+               return -1;
+            }
+            debug_printf("DEBUG: Opensocket: Calling Assl_openssl() before creating socket\n");
+            if(!Assl_openssl(hi->assl))
+            {  debug_printf("DEBUG: Opensocket: Assl_openssl() failed, returning -1\n");
+               return -1;
+            }
+            debug_printf("DEBUG: Opensocket: Assl_openssl() succeeded\n");
+            
+            /* Validate socketbase is still valid after SSL init */
+            /* Another task might have closed the library during SSL initialization */
+            if(!hi->socketbase)
+            {  debug_printf("DEBUG: Opensocket: socketbase became NULL during SSL init, returning -1\n");
+               Assl_closessl(hi->assl);
+               return -1;
+            }
+         }
 #endif
-   /* Final validation before creating socket */
-   if(!hi->socketbase)
-   {  debug_printf("DEBUG: Opensocket: socketbase is NULL before socket creation, returning -1\n");
-      return -1;
-   }
-   sock=a_socket(hent->h_addrtype,SOCK_STREAM,0,hi->socketbase);
-   debug_printf("DEBUG: Opensocket: Created socket %ld\n", sock);
-   if(sock<0)
-   {  Assl_closessl(hi->assl);
-      return -1;
+         /* Final validation before creating socket */
+         if(!hi->socketbase)
+         {  debug_printf("DEBUG: Opensocket: socketbase is NULL before socket creation, returning -1\n");
+            return -1;
+         }
+         sock=a_socket(hent->h_addrtype,SOCK_STREAM,0,hi->socketbase);
+         debug_printf("DEBUG: Opensocket: Created socket %ld\n", sock);
+         if(sock<0)
+         {  Assl_closessl(hi->assl);
+            return -1;
+         }
+      }
    }
    
-   /* Set socket timeouts to prevent hanging connections */
-   /* Use reasonable timeout for modern networks (15 seconds per operation) */
-   /* This timeout applies per-operation, so each recv()/send() gets a fresh timeout */
-   /* Since it resets after each successful receive, long transfers can still complete */
-   timeout.tv_sec = 15;  /* 15 second timeout per operation */
-   timeout.tv_usec = 0;
+   /* NOTE: Timeouts are NOT applied here - they are applied in Connect() */
+   /* AFTER the SSL handshake completes. This prevents the receive timeout */
+   /* from interfering with the handshake process. */
    
-   /* Set global SocketBase for setsockopt() from proto/bsdsocket.h */
-   /* The proto header expects SocketBase to be available, so we set it to hi->socketbase */
-   /* Save and restore SocketBase to avoid race conditions with concurrent tasks */
-   {  struct Library *saved_socketbase_opensocket;
-      saved_socketbase_opensocket = SocketBase;
-      SocketBase = hi->socketbase;
-      
-      /* Set receive timeout - This prevents operations from hanging indefinitely */
-      /* SO_RCVTIMEO is per-operation, so each recv() gets a fresh 30-second timeout */
-      /* Since timeout resets after each successful receive, long transfers can complete */
-      if(setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
-      {  /* Timeout setting failed, but continue */
-      }
-      
-      /* Set send timeout - This prevents operations from hanging indefinitely */
-      /* SO_SNDTIMEO is per-operation, so each send() gets a fresh 15-second timeout */
-      if(setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
-      {  /* Timeout setting failed, but continue */
-      }
-      
-      /* Restore SocketBase immediately after setsockopt() */
-      SocketBase = saved_socketbase_opensocket;
-   }
    return sock;
 }
 
@@ -4333,6 +4674,8 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
 {  BOOL ok=FALSE;
    long result;
    UBYTE *hostname_str;
+   struct timeval timeout;  /* C89: Declare at start */
+   struct Library *saved_socketbase_connect;  /* C89: Declare at start */
    
    if(hi->port==-1)
    {  if(hi->flags&HTTPIF_SSL) hi->port=443;
@@ -4340,6 +4683,13 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
    }
    debug_printf("DEBUG: Attempting to connect to %s:%ld (SSL=%s)\n", 
           hent->h_name, hi->port, (hi->flags&HTTPIF_SSL) ? "YES" : "NO");
+   
+   /* CRITICAL: Validate SocketBase before using socket functions */
+   if(!hi->socketbase)
+   {  debug_printf("DEBUG: Connect: socketbase is NULL, cannot connect\n");
+      return FALSE;
+   }
+   
    if(!a_connect(hi->sock,hent,hi->port,hi->socketbase))
    {  /* TCP connect succeeded - a_connect returns 0 on success */
       debug_printf("DEBUG: TCP connect succeeded\n");
@@ -4368,8 +4718,25 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
             result=Assl_connect(hi->assl,hi->sock,hi->hostname);
             debug_printf("DEBUG: SSL connect result: %ld (ASSLCONNECT_OK=%d)\n", result, ASSLCONNECT_OK);
             ok=(result==ASSLCONNECT_OK);
-            if(result==ASSLCONNECT_DENIED) hi->flags|=HTTPIF_NOSSLREQ;
-            if(!ok && !(hi->flags&HTTPIF_NOSSLREQ))
+            
+            /* CRITICAL: If SSL_connect() fails on a reused connection, treat it as stale */
+            /* The socket might have been closed by the server, or SSL state is invalid */
+            if(!ok && hi->connection_reused)
+            {  debug_printf("DEBUG: Connect: SSL_connect() failed on reused connection - treating as stale\n");
+               /* Close the stale connection */
+               Assl_closessl(hi->assl);
+               if(hi->sock >= 0 && hi->socketbase)
+               {  a_close(hi->sock, hi->socketbase);
+               }
+               hi->sock = -1;
+               hi->connection_reused = FALSE;
+               /* Return FALSE so caller can retry with fresh connection */
+               ok = FALSE;
+            }
+            else if(result==ASSLCONNECT_DENIED) 
+            {  hi->flags|=HTTPIF_NOSSLREQ;
+            }
+            else if(!ok && !(hi->flags&HTTPIF_NOSSLREQ))
             {  UBYTE errbuf[128],*p;
                p=Assl_geterror(hi->assl,errbuf);
                if(Securerequest(hi,p))
@@ -4385,6 +4752,49 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
          }
       }
 #endif
+      
+      /* CRITICAL: Apply timeouts AFTER connection (and SSL handshake) is established */
+      /* This prevents SO_RCVTIMEO from interfering with the SSL handshake process */
+      /* The handshake uses the standard TCP connect timeout, not the data receive timeout */
+      if(ok && hi->sock >= 0)
+      {  /* CRITICAL: Validate SocketBase before using socket functions */
+         if(!hi->socketbase)
+         {  debug_printf("DEBUG: Connect: socketbase is NULL, cannot set timeouts\n");
+            return FALSE;
+         }
+         
+         timeout.tv_sec = 15;  /* 15 second timeout per operation */
+         timeout.tv_usec = 0;
+         
+         /* Set global SocketBase for setsockopt() from proto/bsdsocket.h */
+         saved_socketbase_connect = SocketBase;
+         SocketBase = hi->socketbase;
+         
+         /* CRITICAL: Validate SocketBase is still valid after assignment */
+         if(!SocketBase)
+         {  debug_printf("DEBUG: Connect: SocketBase became NULL after assignment\n");
+            SocketBase = saved_socketbase_connect; /* Restore before returning */
+            return FALSE;
+         }
+         
+         /* Set receive timeout - This prevents operations from hanging indefinitely */
+         /* SO_RCVTIMEO is per-operation, so each recv() gets a fresh 15-second timeout */
+         /* Since timeout resets after each successful receive, long transfers can complete */
+         if(setsockopt(hi->sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
+         {  /* Timeout setting failed, but continue */
+         }
+         
+         /* Set send timeout - This prevents operations from hanging indefinitely */
+         /* SO_SNDTIMEO is per-operation, so each send() gets a fresh 15-second timeout */
+         if(setsockopt(hi->sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
+         {  /* Timeout setting failed, but continue */
+         }
+         
+         /* Restore SocketBase immediately after setsockopt() */
+         SocketBase = saved_socketbase_connect;
+         
+         debug_printf("DEBUG: Connect: Applied socket timeouts after connection established\n");
+      }
    }
    else
    {  /* TCP connect failed - a_connect returns non-zero on failure */
@@ -4576,6 +4986,9 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
    long reqlen,msglen,result;
    UBYTE *request,*p,*q;
    BOOL error=FALSE;
+   int retry_count;  /* C89: Declare at start */
+   BOOL try_again;   /* C89: Declare at start */
+   long sent;        /* C89: Declare at start */
    
    debug_printf("DEBUG: Httpretrieve: ENTRY - URL=%s, SSL=%d\n",
           fd ? (char *)fd->name : "(null)", fd ? BOOLVAL(fd->flags&FDVF_SSL) : 0);
@@ -4625,19 +5038,24 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
    else
    {
 #endif
-   debug_printf("DEBUG: Httpretrieve: Calling Openlibraries()\n");
-   result=Openlibraries(hi);
-   debug_printf("DEBUG: Httpretrieve: Openlibraries() returned %ld\n", result);
-   
+   /* Retry loop for stale keep-alive connections (RFC 7230) */
+   retry_count = 0;
+   do
+   {  try_again = FALSE; /* Default to single run */
+      
+      debug_printf("DEBUG: Httpretrieve: Calling Openlibraries() (retry_count=%d)\n", retry_count);
+      result=Openlibraries(hi);
+      debug_printf("DEBUG: Httpretrieve: Openlibraries() returned %ld\n", result);
+      
 #ifndef DEMOVERSION
-   if(result && (hi->fd->flags&FDVF_FORMWARN) && !(hi->flags&HTTPIF_SSL))
-   {  debug_printf("DEBUG: Httpretrieve: Calling Formwarnrequest()\n");
-      result=Formwarnrequest();
-      debug_printf("DEBUG: Httpretrieve: Formwarnrequest() returned %ld\n", result);
-   }
+      if(result && (hi->fd->flags&FDVF_FORMWARN) && !(hi->flags&HTTPIF_SSL))
+      {  debug_printf("DEBUG: Httpretrieve: Calling Formwarnrequest()\n");
+         result=Formwarnrequest();
+         debug_printf("DEBUG: Httpretrieve: Formwarnrequest() returned %ld\n", result);
+      }
 #endif
-   
-   if(result)
+      
+      if(result)
    {        debug_printf("DEBUG: Httpretrieve: Libraries opened, starting DNS lookup for '%s'\n",
              hi->connect ? (char *)hi->connect : "(null)");
       Updatetaskattrs(AOURL_Netstatus,NWS_LOOKUP,TAG_END);
@@ -4656,9 +5074,48 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                hi->flags&HTTPIF_SSL?"HTTPS":"HTTP",hent->h_name);
             
                /* Skip Connect() if connection was reused from pool (already connected) */
+               /* NOTE: For SSL, we assume the connection is valid. If it's stale, */
+               /* the retry logic will handle it when Send/Receive fails. */
                if(hi->connection_reused)
-               {  debug_printf("DEBUG: Httpretrieve: Skipping Connect() - using pooled connection\n");
+               {  debug_printf("DEBUG: Httpretrieve: Skipping Connect() - using pooled HTTP connection\n");
                   result = TRUE; /* Connection already established */
+                  
+                  /* Apply timeouts to reused connection (refresh them) */
+                  /* This ensures reused connections have fresh timeouts */
+                  if(hi->sock >= 0 && hi->socketbase)
+                  {  struct timeval timeout;
+                     struct Library *saved_socketbase;
+                     
+                     /* CRITICAL: Validate SocketBase before using socket functions */
+                     if(!hi->socketbase)
+                     {  debug_printf("DEBUG: Httpretrieve: socketbase is NULL, cannot set timeouts on reused connection\n");
+                        result = FALSE;
+                        error = TRUE;
+                        break;
+                     }
+                     
+                     timeout.tv_sec = 15;  /* 15 second timeout per operation */
+                     timeout.tv_usec = 0;
+                     
+                     saved_socketbase = SocketBase;
+                     SocketBase = hi->socketbase;
+                     
+                     /* CRITICAL: Validate SocketBase is still valid after assignment */
+                     if(!SocketBase)
+                     {  debug_printf("DEBUG: Httpretrieve: SocketBase became NULL after assignment\n");
+                        SocketBase = saved_socketbase; /* Restore before continuing */
+                        result = FALSE;
+                        error = TRUE;
+                        break;
+                     }
+                     
+                     /* Set receive and send timeouts */
+                     setsockopt(hi->sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+                     setsockopt(hi->sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout));
+                     
+                     SocketBase = saved_socketbase;
+                     debug_printf("DEBUG: Httpretrieve: Applied timeouts to reused HTTP connection\n");
+                  }
                }
                else
                {  debug_printf("DEBUG: Httpretrieve: Calling Connect()\n");
@@ -4676,6 +5133,37 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                   }
                   else
                   {  result = Connect(hi,hent);
+                     
+                     /* CRITICAL: If Connect() failed and we haven't retried yet, retry with fresh connection */
+                     /* This handles stale reused connections (SSL_connect() fails) and transient network errors */
+                     if(!result && retry_count == 0)
+                     {  debug_printf("DEBUG: Httpretrieve: Connect() failed - retrying with fresh connection (retry_count=%d)\n", retry_count);
+                        
+                        /* Ensure cleanup is complete */
+                        if(hi->connection_reused)
+                        {  /* Connection was reused but Connect() failed - cleanup already done in Connect() */
+                           hi->connection_reused = FALSE;
+                        }
+                        else
+                        {  /* Fresh connection failed - clean up here */
+#ifndef DEMOVERSION
+                           if(hi->assl)
+                           {  Assl_closessl(hi->assl);
+                           }
+#endif
+                           if(hi->sock >= 0 && hi->socketbase)
+                           {  a_close(hi->sock, hi->socketbase);
+                           }
+                           hi->sock = -1;
+                        }
+                        
+                        /* Free request buffer if allocated */
+                        if(request != fd->block) FREE(request);
+                        
+                        retry_count++;
+                        try_again = TRUE;
+                        continue; /* Jump to start of do-while */
+                     }
                   }
                }
                
@@ -4699,7 +5187,39 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                debug_printf("DEBUG: Httpretrieve: Building HTTP request\n");
                reqlen=Buildrequest(fd,hi,&request);
                debug_printf("DEBUG: Httpretrieve: Request built, length=%ld, calling Send()\n", reqlen);
-               result=(Send(hi,request,reqlen)==reqlen);
+               
+               /* Send Request */
+               sent = Send(hi,request,reqlen);
+               
+               /* FIX: Detect Stale Connection on Send */
+               if(sent != reqlen && hi->connection_reused && retry_count == 0)
+               {  debug_printf("DEBUG: Keep-Alive Send failed (sent=%ld, expected=%ld). Retrying with fresh connection.\n",
+                              sent, reqlen);
+                  
+                  /* 1. Clean up bad connection */
+#ifndef DEMOVERSION
+                  if(hi->assl)
+                  {  Assl_closessl(hi->assl);
+                  }
+#endif
+                  if(hi->sock >= 0 && hi->socketbase)
+                  {  a_close(hi->sock, hi->socketbase);
+                  }
+                  hi->sock = -1;
+                  
+                  /* 2. Mark as not reused so Openlibraries creates fresh */
+                  hi->connection_reused = FALSE;
+                  
+                  /* 3. Free request buffer if allocated */
+                  if(request != fd->block) FREE(request);
+                  
+                  /* 4. Trigger retry loop */
+                  retry_count++;
+                  try_again = TRUE;
+                  continue; /* Jump to start of do-while */
+               }
+               
+               result = (sent == reqlen);
                debug_printf("DEBUG: Httpretrieve: Send() returned, result=%ld (expected %ld)\n", result, reqlen);
 #ifdef BETAKEYFILE
                if(httpdebug)
@@ -4753,12 +5273,43 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                   }
                   else
                   {  debug_printf("DEBUG: Httpretrieve: About to call Httpresponse() - this may take a while\n");
-                  Httpresponse(hi,TRUE);
-                     debug_printf("DEBUG: Httpretrieve: Httpresponse() returned\n");
+                     
+                     /* FIX: Detect Stale Connection on Immediate Receive */
+                     /* Reset status before reading to detect connection failures */
+                     hi->status = 0;
+                     Httpresponse(hi,TRUE);
+                     debug_printf("DEBUG: Httpretrieve: Httpresponse() returned - status=%ld, blocklength=%ld\n",
+                                 hi->status, hi->blocklength);
+                     
+                     /* If status is 0 (no headers read) or specific socket error */
+                     /* AND we reused a connection AND we haven't retried yet... */
+                     if(hi->status <= 0 && hi->connection_reused && retry_count == 0)
+                     {  debug_printf("DEBUG: Keep-Alive Receive failed (Server closed). Retrying fresh.\n");
+                        
+                        /* Cleanup and Retry logic */
+#ifndef DEMOVERSION
+                        if(hi->assl)
+                        {  Assl_closessl(hi->assl);
+                        }
+#endif
+                        if(hi->sock >= 0 && hi->socketbase)
+                        {  a_close(hi->sock, hi->socketbase);
+                        }
+                        hi->sock = -1;
+                        hi->connection_reused = FALSE;
+                        
+                        /* Clear any error flags set by the failed attempt */
+                        Updatetaskattrs(AOURL_Error, FALSE, TAG_END);
+                        
+                        retry_count++;
+                        try_again = TRUE;
+                        continue; /* Jump to start of do-while */
+                     }
                   }
                }
                else
-               {  debug_printf("DEBUG: Httpretrieve: Request send failed, setting error\n");
+               {  /* Send failed on a NON-reused connection */
+                  debug_printf("DEBUG: Httpretrieve: Request send failed, setting error\n");
                   error=TRUE;
                }
             }
@@ -4816,29 +5367,35 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
             }
             }
             
-            debug_printf("DEBUG: Httpretrieve: Cleaning up connection\n");
-            /* Return connection to pool if keep-alive is supported */
-            if((hi->flags & HTTPIF_KEEPALIVE) && (hi->flags & HTTPIF_KEEPALIVE_REQ))
-            {  /* Return connection to pool for reuse */
-               debug_printf("DEBUG: Httpretrieve: Keep-alive enabled, returning connection to pool (sock=%ld)\n", hi->sock);
-               ReturnKeepAliveConnection(hi);
-            }
-            else
-            {  /* Close connection normally */
-               /* Close SSL connection BEFORE closing socket */
-               /* SSL shutdown needs the socket to still be open */
-               if(hi->assl)
-               {  debug_printf("DEBUG: Httpretrieve: Closing SSL connection\n");
-                  Assl_closessl(hi->assl);
-                  /* DON'T set hi->assl to NULL here - Assl_cleanup() will handle it */
-                  /* Assl_closessl() only closes the connection, doesn't free the Assl structure */
+            /* Cleanup logic (Keep-Alive pool return vs Close) */
+            /* Only cleanup if we're not retrying */
+            if(!try_again)
+            {  debug_printf("DEBUG: Httpretrieve: Cleaning up connection\n");
+               /* Return connection to pool if keep-alive is supported */
+               if((hi->flags & HTTPIF_KEEPALIVE) && (hi->flags & HTTPIF_KEEPALIVE_REQ) && !error)
+               {  /* Return connection to pool for reuse */
+                  debug_printf("DEBUG: Httpretrieve: Keep-alive enabled, returning connection to pool (sock=%ld)\n", hi->sock);
+                  ReturnKeepAliveConnection(hi);
                }
-               /* Now safe to close socket - SSL has been properly shut down */
-               if(hi->sock >= 0)
-               {  debug_printf("DEBUG: Httpretrieve: Closing socket %ld\n", hi->sock);
-                  a_close(hi->sock,hi->socketbase);
-                  hi->sock = -1;
-                  debug_printf("DEBUG: Httpretrieve: Socket closed\n");
+               else
+               {  /* Close connection normally */
+                  /* Close SSL connection BEFORE closing socket */
+                  /* SSL shutdown needs the socket to still be open */
+#ifndef DEMOVERSION
+                  if(hi->assl)
+                  {  debug_printf("DEBUG: Httpretrieve: Closing SSL connection\n");
+                     Assl_closessl(hi->assl);
+                     /* DON'T set hi->assl to NULL here - Assl_cleanup() will handle it */
+                     /* Assl_closessl() only closes the connection, doesn't free the Assl structure */
+                  }
+#endif
+                  /* Now safe to close socket - SSL has been properly shut down */
+                  if(hi->sock >= 0)
+                  {  debug_printf("DEBUG: Httpretrieve: Closing socket %ld\n", hi->sock);
+                     a_close(hi->sock,hi->socketbase);
+                     hi->sock = -1;
+                     debug_printf("DEBUG: Httpretrieve: Socket closed\n");
+                  }
                }
             }
       }
@@ -4853,13 +5410,21 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
          Tcperror(fd,TCPERR_NOHOST,hi->hostname);
       }
       
-      debug_printf("DEBUG: Httpretrieve: Calling a_cleanup()\n");
-      a_cleanup(hi->socketbase);
-      debug_printf("DEBUG: Httpretrieve: a_cleanup() completed\n");
+      if(!try_again)
+      {  debug_printf("DEBUG: Httpretrieve: Calling a_cleanup()\n");
+         a_cleanup(hi->socketbase);
+         debug_printf("DEBUG: Httpretrieve: a_cleanup() completed\n");
+      }
    }
    else
    {  debug_printf("DEBUG: Httpretrieve: Openlibraries() or Formwarnrequest() failed, reporting no lib error\n");
       Tcperror(fd,TCPERR_NOLIB);
+   }
+   
+   } while(try_again); /* Retry loop for stale keep-alive connections */
+   
+   if(error)
+   {  Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
    }
 #ifndef DEMOVERSION
    /* Clean up Assl structure */

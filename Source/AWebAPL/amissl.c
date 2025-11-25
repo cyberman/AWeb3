@@ -1619,6 +1619,18 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
   /* Save global SocketBase at start - we'll restore it at all exit points */
   saved_socketbase = SocketBase;
 
+  /* CRITICAL: Set SocketBase to the connection's socketbase before any socket operations */
+  /* OpenSSL's BIO layer uses socket functions that require SocketBase to be set */
+  /* Without this, SSL_connect() will crash when trying to do network I/O */
+  if (assl->socketbase) {
+    SocketBase = assl->socketbase;
+    debug_printf("DEBUG: Assl_connect: Set SocketBase=%p for SSL operations\n", SocketBase);
+  } else {
+    debug_printf("DEBUG: Assl_connect: ERROR - assl->socketbase is NULL! Cannot proceed.\n");
+    SocketBase = saved_socketbase;
+    return ASSLCONNECT_FAIL;
+  }
+
   AmiSSLBase = assl->amisslbase;
 
   /* CRITICAL FIX: DO NOT Obtain ssl_init_sema here!
@@ -1758,7 +1770,15 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
   /* Always restore SocketBase before returning */
   SocketBase = saved_socketbase;
 
-  debug_printf("DEBUG: Assl_connect: EXIT - returning %ld\n", result);
+  if(result == ASSLCONNECT_OK)
+  {  debug_printf("DEBUG: Assl_connect: EXIT - returning ASSLCONNECT_OK (%d)\n", result);
+  }
+  else if(result == ASSLCONNECT_DENIED)
+  {  debug_printf("DEBUG: Assl_connect: EXIT - returning ASSLCONNECT_DENIED (%d)\n", result);
+  }
+  else
+  {  debug_printf("DEBUG: Assl_connect: EXIT - returning ASSLCONNECT_FAIL (%d)\n", result);
+  }
   return result;
 }
 
