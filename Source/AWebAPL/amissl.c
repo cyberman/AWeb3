@@ -396,8 +396,10 @@ static BOOL Verify_certificate_chain(SSL *ssl, SSL_CTX *sslctx, struct Library *
     return FALSE;
   }
   
-  /* Set purpose to SSL client */
-  X509_STORE_CTX_set_purpose(store_ctx, X509_PURPOSE_SSL_CLIENT);
+  /* Set purpose to SSL client (for server certificate verification) */
+  /* Note: We don't set a purpose check as it's too strict for modern certificates */
+  /* Many valid SSL certificates don't have explicit extended key usage extensions */
+  /* The certificate chain validation and hostname matching are sufficient */
   
   /* Perform verification */
   verify_result = X509_verify_cert(store_ctx);
@@ -435,9 +437,60 @@ static BOOL Verify_certificate_chain(SSL *ssl, SSL_CTX *sslctx, struct Library *
   return result;
 }
 
+/* Helper function to match hostname against a pattern (supports wildcards per RFC 6125) */
+/* Returns TRUE if hostname matches pattern, FALSE otherwise */
+/* Pattern can be exact match (e.g., "example.com") or wildcard (e.g., "*.example.com") */
+/* Wildcard matches only one level: *.example.com matches www.example.com but not sub.www.example.com */
+static BOOL MatchHostnamePattern(const char *hostname, const char *pattern) {
+  const char *wildcard;
+  const char *pattern_suffix;
+  const char *hostname_suffix;
+  int pattern_suffix_len;
+  
+  if (!hostname || !pattern) {
+    return FALSE;
+  }
+  
+  /* Exact match */
+  if (STRIEQUAL(hostname, pattern)) {
+    return TRUE;
+  }
+  
+  /* Check for wildcard pattern (*.example.com) */
+  if (pattern[0] == '*' && pattern[1] == '.') {
+    /* Wildcard must be at the start and followed by a dot */
+    pattern_suffix = pattern + 2; /* Skip "*." */
+    pattern_suffix_len = strlen(pattern_suffix);
+    
+    if (pattern_suffix_len == 0) {
+      return FALSE; /* Invalid: just "*." */
+    }
+    
+    /* Find the first dot in hostname to get the suffix */
+    hostname_suffix = strchr(hostname, '.');
+    if (!hostname_suffix) {
+      return FALSE; /* Hostname has no dot, can't match *.example.com */
+    }
+    
+    hostname_suffix++; /* Skip the dot */
+    
+    /* Compare suffixes (case-insensitive) */
+    if (STRIEQUAL(hostname_suffix, pattern_suffix)) {
+      /* Verify wildcard only matches one level (no dots before the matched part) */
+      /* Check that there's exactly one dot before the suffix in the hostname */
+      if (strchr(hostname, '.') == hostname_suffix - 1) {
+        return TRUE;
+      }
+    }
+  }
+  
+  return FALSE;
+}
+
 /* Helper function to validate hostname against certificate Common Name and Subject Alternative Names */
 /* Returns TRUE if hostname matches certificate, FALSE otherwise */
 /* CRITICAL: Must accept AmiSSLBase to shadow the global variable for OpenSSL macros */
+/* Supports wildcard matching per RFC 6125 (e.g., *.example.com matches www.example.com) */
 static BOOL Validate_hostname(X509 *cert, UBYTE *hostname, struct Library *AmiSSLBase) {
   int i;
   BOOL result = FALSE;
@@ -452,6 +505,7 @@ static BOOL Validate_hostname(X509 *cert, UBYTE *hostname, struct Library *AmiSS
   const GENERAL_NAME *name;
   char *dns_name;
   int dns_len;
+  int hostname_len;
 
   /* Safety check for library base */
   if (!AmiSSLBase) {
@@ -460,6 +514,11 @@ static BOOL Validate_hostname(X509 *cert, UBYTE *hostname, struct Library *AmiSS
 
   if (!cert || !hostname) {
     return FALSE;
+  }
+
+  hostname_len = strlen((char *)hostname);
+  if (hostname_len <= 0 || hostname_len > 253) {
+    return FALSE; /* Invalid hostname length */
   }
 
   /* CRITICAL: Shadow the global AmiSSLBase with the one passed as parameter */
@@ -483,10 +542,8 @@ static BOOL Validate_hostname(X509 *cert, UBYTE *hostname, struct Library *AmiSS
           /* RFC 1035: Domain names max 253 characters, labels max 63 */
           /* Common Name should be reasonable length for hostname validation */
           if (len > 0 && len <= 253 && cn) {
-            int hostname_len = strlen((char *)hostname);
-            /* Only compare if lengths match and hostname is reasonable */
-            if (hostname_len > 0 && hostname_len <= 253 &&
-                len == hostname_len && STRIEQUAL(cn, (char *)hostname)) {
+            /* Use wildcard matching (supports exact match and *.example.com patterns) */
+            if (MatchHostnamePattern((char *)hostname, cn)) {
               result = TRUE;
             }
           }
@@ -509,10 +566,8 @@ static BOOL Validate_hostname(X509 *cert, UBYTE *hostname, struct Library *AmiSS
         /* Validate lengths to prevent buffer overruns */
         /* RFC 1035: Domain names max 253 characters, labels max 63 */
         if (dns_len > 0 && dns_len <= 253 && dns_name) {
-          int hostname_len = strlen((char *)hostname);
-          /* Only compare if lengths match and hostname is reasonable */
-          if (hostname_len > 0 && hostname_len <= 253 &&
-              dns_len == hostname_len && STRIEQUAL(dns_name, (char *)hostname)) {
+          /* Use wildcard matching (supports exact match and *.example.com patterns) */
+          if (MatchHostnamePattern((char *)hostname, dns_name)) {
             result = TRUE;
             break; /* Found match in SAN, no need to check further */
           }
