@@ -48,6 +48,9 @@
 #ifndef SO_SNDTIMEO
 #define SO_SNDTIMEO 0x1005
 #endif
+#ifndef MSG_PEEK
+#define MSG_PEEK 0x02  /* Peek at incoming data without removing it */
+#endif
 
 /* Define SocketBase for setsockopt() from proto/bsdsocket.h */
 /* The proto header declares it as extern, so we need to provide the actual definition */
@@ -326,7 +329,68 @@ static struct KeepAliveConnection *GetKeepAliveConnection(UBYTE *hostname, long 
    }
    
    if(found_conn)
-   {  debug_printf("DEBUG: GetKeepAliveConnection: Reusing connection for %s:%ld\n", hostname, port);
+   {  /* CRITICAL: Validate pooled connection is still alive */
+      /* For SSL connections, MSG_PEEK is unreliable - SSL layer buffers data */
+      /* SSL connections will be validated when used - if they fail, retry logic will create new connection */
+      /* For HTTP connections, use MSG_PEEK to check if connection is still alive */
+      if(found_conn->ssl)
+      {  /* SSL connection - skip MSG_PEEK validation */
+         /* SSL connections will be validated when used - if SSL_write/SSL_read fails, retry logic will create new connection */
+         debug_printf("DEBUG: GetKeepAliveConnection: Reusing pooled SSL connection for %s:%ld (validation deferred to use-time)\n", hostname, port);
+      }
+      else
+      {  /* HTTP connection - validate using MSG_PEEK */
+         long peek_result;
+         long peek_errno = 0;
+         struct Library *saved_socketbase;
+         
+         if(found_conn->sock >= 0 && found_conn->socketbase)
+         {  UBYTE peek_buffer[1];
+            
+            saved_socketbase = SocketBase;
+            SocketBase = found_conn->socketbase;
+            
+            /* Use a_recv() with MSG_PEEK to check if connection is still alive */
+            /* MSG_PEEK doesn't consume data, just checks if data is available or connection is closed */
+            peek_result = a_recv(found_conn->sock, peek_buffer, 1, MSG_PEEK, found_conn->socketbase);
+            peek_errno = Errno();
+            
+            SocketBase = saved_socketbase;
+            
+            if(peek_result == 0)
+            {  /* EOF - server closed the connection */
+               debug_printf("DEBUG: GetKeepAliveConnection: Pooled HTTP connection is dead (EOF from MSG_PEEK), discarding\n");
+               /* Connection is dead - free it and return NULL to create new connection */
+               FreeConnectionNode(found_conn);
+               return NULL;
+            }
+            else if(peek_result < 0)
+            {  /* Check errno to determine if connection is dead */
+               if(peek_errno == EPIPE || peek_errno == ECONNRESET || peek_errno == ENOTCONN)
+               {  debug_printf("DEBUG: GetKeepAliveConnection: Pooled HTTP connection is dead (errno=%ld), discarding\n", peek_errno);
+                  /* Connection is dead - free it and return NULL */
+                  FreeConnectionNode(found_conn);
+                  return NULL;
+               }
+               else if(peek_errno == EAGAIN || peek_errno == EWOULDBLOCK || peek_errno == EINTR)
+               {  /* Connection is alive but no data available or call was interrupted - this is fine */
+                  debug_printf("DEBUG: GetKeepAliveConnection: Pooled HTTP connection is alive (errno=%ld from MSG_PEEK)\n", peek_errno);
+               }
+               else
+               {  debug_printf("DEBUG: GetKeepAliveConnection: MSG_PEEK returned error (errno=%ld), assuming connection is dead\n", peek_errno);
+                  /* Unknown error - assume connection is dead to be safe */
+                  FreeConnectionNode(found_conn);
+                  return NULL;
+               }
+            }
+            else
+            {  /* peek_result > 0 - data available, connection is alive */
+               debug_printf("DEBUG: GetKeepAliveConnection: Pooled HTTP connection is alive (data available)\n");
+            }
+         }
+         
+         debug_printf("DEBUG: GetKeepAliveConnection: Reusing validated HTTP connection for %s:%ld\n", hostname, port);
+      }
    }
    
    return found_conn;
@@ -730,7 +794,8 @@ static long Receive(struct Httpinfo *hi,UBYTE *buffer,long length)
 
 /* Read remainder of block. Returns FALSE if eof or error. */
 static BOOL Readblock(struct Httpinfo *hi)
-{  long n;
+{  static long soft_error_retry_count = 0; /* Simple retry counter to prevent infinite loops */
+   long n;
    debug_printf("DEBUG: Readblock() called, current blocklength=%ld\n", hi->blocklength);
    
 #ifdef DEVELOPER
@@ -751,6 +816,11 @@ static BOOL Readblock(struct Httpinfo *hi)
    
    debug_printf("DEBUG: Readblock: Receive returned %ld bytes\n", n);
    
+   /* Reset retry counter on successful read */
+   if(n > 0)
+   {  soft_error_retry_count = 0;
+   }
+   
    if(n < 0)
    {  long errno_value = 0;
       UBYTE *hostname_str;  /* Declare at start of block for older C standards */
@@ -766,17 +836,112 @@ static BOOL Readblock(struct Httpinfo *hi)
       /* DEBUG: Log the specific error state */
       debug_printf("DEBUG: Readblock error: n=%ld, errno=%ld\n", n, errno_value);
       
+      /* FIX: If SSL read returned -1 but Socket library says No Error (0), 
+         it means AmiSSL returned -1 for WANT_READ/WRITE. Treat as soft error. */
+      if(errno_value == 0 && (hi->flags & HTTPIF_SSL))
+      {  debug_printf("DEBUG: Readblock: SSL soft error detected (n=-1, errno=0)\n");
+         errno_value = 35; /* Force treat as EAGAIN */
+      }
+      
+      /* CRITICAL: If EINTR, check for task break BEFORE calling WaitSelect */
+      /* This prevents infinite loop on exit signal */
+      if(errno_value == EINTR)
+      {  debug_printf("DEBUG: Readblock: Receive interrupted (EINTR)\n");
+         /* Check if user/system requested abort */
+         if(Checktaskbreak())
+         {  debug_printf("DEBUG: Readblock: Task break detected (EINTR from Receive)\n");
+            return FALSE; /* Return FALSE to stop reading and exit */
+         }
+         /* Harmless signal, treat as soft error and continue to WaitSelect */
+         debug_printf("DEBUG: Readblock: EINTR was harmless signal, proceeding to WaitSelect\n");
+      }
+      
       /* CRITICAL: Check for SSL "WANT_READ" / "EAGAIN" BEFORE checking for task break */
       /* If we are just waiting for data, we shouldn't abort even if a signal was seemingly set */
       /* errno 35 = EAGAIN/EWOULDBLOCK */
       /* errno 4 = EINTR (interrupted system call - can retry) */
       /* errno 0 with n=-1 usually means SSL_ERROR_WANT_READ/WRITE handled by Receive but returned as -1 */
       if(errno_value == EAGAIN || errno_value == EWOULDBLOCK || errno_value == EINTR || errno_value == 0)
-      {  debug_printf("DEBUG: Readblock: Soft error (WANT_READ/EAGAIN/EINTR/errno=0), keeping connection open\n");
-         /* Do NOT return FALSE here. Return TRUE implies "0 bytes read, but connection still alive" */
-         /* This allows the read loop to continue and retry */
-         return TRUE;
+      {  soft_error_retry_count++;
+         debug_printf("DEBUG: Readblock: Soft error (WANT_READ/EAGAIN/EINTR/errno=0), retry count=%ld, waiting for data with WaitSelect\n", soft_error_retry_count);
+         
+         /* CRITICAL: After too many retries, treat as connection failure */
+         if(soft_error_retry_count > 10)
+         {  debug_printf("DEBUG: Readblock: Too many soft error retries (%ld), treating as connection failure\n", soft_error_retry_count);
+            soft_error_retry_count = 0;
+            /* Fall through to hard error handling */
+         }
+         else
+         {  /* CRITICAL: Use WaitSelect() to sleep until data is ready, preventing busy-wait loop */
+            /* This releases CPU cycles for other tasks and prevents 100% CPU usage */
+            if(hi->sock >= 0 && hi->socketbase)
+            {  fd_set readfds;
+            struct timeval timeout;
+            struct Library *saved_socketbase;
+            int select_result;
+            
+            FD_ZERO(&readfds);
+            FD_SET(hi->sock, &readfds);
+            
+            /* Set timeout to 5 seconds - reasonable wait time for data */
+            timeout.tv_sec = 5;
+            timeout.tv_usec = 0;
+            
+            saved_socketbase = SocketBase;
+            SocketBase = hi->socketbase;
+            
+            /* Wait for socket to become readable or timeout */
+            select_result = WaitSelect(hi->sock + 1, &readfds, NULL, NULL, &timeout, hi->socketbase);
+            
+            SocketBase = saved_socketbase;
+            
+            if(select_result > 0 && FD_ISSET(hi->sock, &readfds))
+            {  debug_printf("DEBUG: Readblock: Socket is ready for reading, will retry\n");
+               /* Socket is ready - return TRUE to retry the read */
+               return TRUE;
+            }
+            else if(select_result == 0)
+            {  debug_printf("DEBUG: Readblock: WaitSelect timed out, treating as soft error\n");
+               /* Timeout - treat as soft error and retry */
+               return TRUE;
+            }
+            else
+            {  debug_printf("DEBUG: Readblock: WaitSelect failed (result=%d), checking errno\n", select_result);
+               /* WaitSelect failed - usually EINTR */
+               if(hi->socketbase)
+               {  struct Library *saved_socketbase2 = SocketBase;
+                  SocketBase = hi->socketbase;
+                  errno_value = Errno();
+                  SocketBase = saved_socketbase2;
+                  
+                  if(errno_value == EINTR)
+                  {  debug_printf("DEBUG: Readblock: WaitSelect interrupted (EINTR)\n");
+                     /* CRITICAL: Check if this interruption is a user exit/stop command */
+                     if(Checktaskbreak())
+                     {  debug_printf("DEBUG: Readblock: Task break detected during WaitSelect - Aborting\n");
+                        return FALSE; /* Return FALSE so the task can exit */
+                     }
+                     /* If not a break signal, it's a harmless system signal, so retry */
+                     return TRUE;
+                  }
+                  else if(errno_value == EAGAIN)
+                  {  debug_printf("DEBUG: Readblock: WaitSelect EAGAIN, retrying\n");
+                     return TRUE;
+                  }
+               }
+               /* Other errors fall through */
+            }
+         }
+         else
+         {  debug_printf("DEBUG: Readblock: Invalid socket, cannot use WaitSelect\n");
+            /* No valid socket - return TRUE to allow retry (may succeed on next attempt) */
+            return TRUE;
+         }
       }
+      }
+      
+      /* Reset retry counter on hard error */
+      soft_error_retry_count = 0;
       
       /* Now check for user abort - but only if it's not a soft error */
       if(Checktaskbreak())
@@ -4079,25 +4244,17 @@ static BOOL Readdata(struct Httpinfo *hi)
       debug_printf("DEBUG: Zlib stream cleaned up\n");
    }
    
-   /* CRITICAL: Force socket closure if keep-alive NOT active */
-   /* This prevents pooling dead connections that the server has closed */
+   /* CRITICAL: Mark socket for closure if keep-alive NOT active */
+   /* Do NOT clean up Assl/socketbase here - let Httpretrieve handle cleanup to prevent double-free */
+   /* Just mark the socket as invalid so it won't be pooled */
    if(hi->sock >= 0)
    {  if (!((hi->flags & HTTPIF_KEEPALIVE) && (hi->flags & HTTPIF_KEEPALIVE_REQ)))
-      {  debug_printf("DEBUG: Readdata cleanup: Closing non-keepalive socket\n");
-#ifndef DEMOVERSION
-         if(hi->assl) Assl_closessl(hi->assl);
-#endif
-         if(hi->socketbase) a_close(hi->sock, hi->socketbase);
+      {  debug_printf("DEBUG: Readdata: Marking non-keepalive socket for closure (sock=%ld)\n", hi->sock);
+         /* Mark socket as invalid - Httpretrieve will handle actual cleanup */
          hi->sock = -1;
-         
-         /* Also free the library/assl references now since we won't pool */
-#ifndef DEMOVERSION
-         if(hi->assl) { Assl_cleanup(hi->assl); FREE(hi->assl); hi->assl=NULL; }
-#endif
-         if(hi->socketbase) { CloseLibrary(hi->socketbase); hi->socketbase=NULL; }
       }
       else
-      {  debug_printf("DEBUG: Readdata cleanup: Keeping keep-alive socket for pooling (sock=%ld)\n", hi->sock);
+      {  debug_printf("DEBUG: Readdata: Keeping keep-alive socket for pooling (sock=%ld)\n", hi->sock);
       }
    }
    
@@ -5051,6 +5208,9 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
 #ifndef DEMOVERSION
                   if(hi->assl)
                   {  Assl_closessl(hi->assl);
+                     Assl_cleanup(hi->assl);
+                     FREE(hi->assl);
+                     hi->assl = NULL;
                   }
 #endif
                   if(hi->sock >= 0 && hi->socketbase)
@@ -5058,7 +5218,13 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                   }
                   hi->sock = -1;
                   
-                  /* 2. Mark as not reused so Openlibraries creates fresh */
+                  /* 2. Clear socketbase so Openlibraries creates fresh connection */
+                  if(hi->socketbase)
+                  {  CloseLibrary(hi->socketbase);
+                     hi->socketbase = NULL;
+                  }
+                  
+                  /* 3. Mark as not reused so Openlibraries creates fresh */
                   hi->connection_reused = FALSE;
                   
                   /* 3. Free request buffer if allocated */

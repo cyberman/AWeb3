@@ -824,12 +824,10 @@ struct Assl *Assl_initamissl(struct Library *socketbase) {
       debug_printf("DEBUG: Assl_initamissl: Stored owning task=%p\n",
                    assl->owning_task);
 
-      /* Increment per-task reference count */
-      /* This tracks how many Assl objects each task has */
-      /* When count reaches 0, we call CleanupAmiSSL() for that task */
-      IncrementTaskRef();
-      debug_printf(
-          "DEBUG: Assl_initamissl: Incremented task reference count\n");
+      /* CRITICAL: Do NOT use per-task reference counting */
+      /* AmiSSL 5.x handles thread-local storage automatically */
+      /* Calling CloseAmiSSL() per-task destroys OpenSSL state for other connections */
+      /* InitAmiSSL() should be called once at startup, CleanupAmiSSL() once at shutdown */
 
       /* Semaphore already initialized above, and closed flag already set to
        * FALSE */
@@ -1033,108 +1031,22 @@ static int __saveds __stdargs Certcallback(int ok, X509_STORE_CTX *sctx) {
 }
 
 __asm void Assl_cleanup(register __a0 struct Assl *assl) {
-  /* CRITICAL: Shadow the global AmiSSLBase - will be set from assl if available */
-  struct Library *AmiSSLBase = NULL;
-  struct Library *local_amisslbase = NULL; /* For error checking */
-  
-  if (assl) { /* Validate assl pointer before accessing semaphore field */
-    if ((ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0) {
-      debug_printf("DEBUG: Assl_cleanup: Invalid Assl pointer (%p), skipping\n",
-                   assl);
-      return;
-    }
+  if (assl) {
+    if ((ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0) return;
 
-    /* CRITICAL: Shadow the global AmiSSLBase with the one stored in this connection's context */
-    /* OpenSSL macros (like CleanupAmiSSL) implicitly use the symbol AmiSSLBase */
-    AmiSSLBase = assl->amisslbase;
-    local_amisslbase = assl->amisslbase;
-
-    /* First ensure SSL objects are closed */
-    /* Assl_closessl() is idempotent and handles its own locking */
-    if (assl->amisslbase) { /* Call Assl_closessl() to properly clean up SSL
-                               objects */
-      /* It will handle semaphore protection and is safe to call even if already
-       * closed */
+    /* 1. Ensure SSL connection is closed */
+    if (assl->amisslbase) {
       Assl_closessl(assl);
     }
 
-    /* CRITICAL: Do NOT use semaphores for cleanup coordination */
-    /* The working example (AmiSpeedTest) doesn't use semaphores at all */
-
-    /* Decrement per-task reference count BEFORE clearing library bases */
-    /* If this was the last Assl for this task, we need to call CloseAmiSSL()
-     * and close the per-task libraries */
-    /* We need the library bases to still be valid for CloseAmiSSL() */
-    if (assl->owning_task) {
-      /* Save library bases and task pointer before clearing */
-      struct Library *task_amisslbase = assl->amisslbase;
-      struct Library *task_amisslmasterbase = assl->amisslmasterbase;
-      struct Task *owning_task = assl->owning_task;
-      BOOL is_last = DecrementTaskRef(owning_task);
-      debug_printf("DEBUG: Assl_cleanup: Decremented task reference count for "
-                   "task %p, is_last=%d\n",
-                   owning_task, is_last);
-
-      if (is_last && task_amisslbase && task_amisslmasterbase) {
-        /* This was the last Assl for this task - clean up per-task AmiSSL instance */
-        /* Per AmiSSL SDK: When using OpenAmiSSLTags(), we must call CloseAmiSSL()
-         * when finished */
-        /* CloseAmiSSL() will automatically call CleanupAmiSSL() if needed */
-        debug_printf("DEBUG: Assl_cleanup: Last Assl for task %p, cleaning up "
-                     "per-task AmiSSL instance\n",
-                     owning_task);
-
-        /* CRITICAL: Shadow the global AmiSSLBase for CloseAmiSSL() macro */
-        /* CloseAmiSSL() macro may reference the global symbol, so we shadow it locally */
-        /* C89: Declare all variables at start of block */
-        {
-          struct Library *AmiSSLMasterBase; /* Shadow global AmiSSLMasterBase for CloseAmiSSL() macro */
-          
-          AmiSSLBase = task_amisslbase;
-          local_amisslbase = task_amisslbase;
-          AmiSSLMasterBase = task_amisslmasterbase;
-          
-          debug_printf("DEBUG: Assl_cleanup: Calling CloseAmiSSL() for task %p "
-                       "(amisslbase=%p, masterbase=%p)\n",
-                       owning_task, task_amisslbase, task_amisslmasterbase);
-
-          /* Call CloseAmiSSL() - this will clean up OpenSSL state and close libraries */
-          /* Per SDK: CloseAmiSSL() handles cleanup automatically */
-          /* CloseAmiSSL() takes no arguments */
-          CloseAmiSSL();
-          check_ssl_error("CloseAmiSSL", local_amisslbase);
-
-          debug_printf("DEBUG: Assl_cleanup: CloseAmiSSL() completed\n");
-        }
-
-        /* Close the per-task amisslmaster.library instance */
-        /* CloseAmiSSL() may have closed it, but we ensure it's closed here */
-        if (task_amisslmasterbase) {
-          debug_printf("DEBUG: Assl_cleanup: Closing per-task amisslmaster.library "
-                       "at %p for task %p\n",
-                       task_amisslmasterbase, owning_task);
-          CloseLibrary(task_amisslmasterbase);
-          debug_printf("DEBUG: Assl_cleanup: Closed per-task amisslmaster.library\n");
-        }
-      }
-    }
-
-    /* Clear all library references to signal this object is truly dead */
-    /* Assl_closessl() already nulled ssl and sslctx */
+    /* 2. Clear references (BUT DO NOT CLOSE LIBRARIES HERE) */
+    /* Closing libraries here causes race conditions with other active tasks */
     assl->amisslbase = NULL;
     assl->amisslmasterbase = NULL;
     assl->amissslextbase = NULL;
-    assl->owning_task = NULL; /* Clear task pointer */
-    /* 'closed' flag was already set by Assl_closessl() */
+    assl->owning_task = NULL;
 
-    /* DO NOT FREE THE STRUCT HERE! */
-    /* FREE(assl); <-- THIS IS THE BUG! */
-    /* The semaphore 'use_sema' is part of the struct itself */
-    /* If we free the struct here, another task might try to obtain the
-     * semaphore */
-    /* and crash accessing freed memory */
-    /* The caller (AWeb) must now be responsible for calling FREE(assl) */
-    /* after it calls Assl_cleanup() */
+    /* 3. Do NOT free assl here. http.c handles the free. */
   }
 }
 
@@ -1982,11 +1894,15 @@ __asm long Assl_write(register __a0 struct Assl *assl,
                   if (retry_ssl_error == SSL_ERROR_WANT_READ || 
                       retry_ssl_error == SSL_ERROR_WANT_WRITE) {
                      /* Still WANT_READ/WANT_WRITE after retry - this is unusual for blocking socket */
-                     /* Return -1 to let caller handle it (may indicate connection issue) */
-                     debug_printf("DEBUG: Assl_write: Retry still returned WANT_READ/WANT_WRITE - returning -1\n");
+                     debug_printf("DEBUG: Assl_write: Retry still returned WANT_READ/WANT_WRITE\n");
+                     
                      if (httpdebug) {
                        print_ssl_errors_bio("SSL_write (WANT_IO after retry)", local_amisslbase);
                      }
+                     
+                     /* CRITICAL FIX: Set errno so http.c knows to wait */
+                     errno = 35; /* EWOULDBLOCK / EAGAIN */
+                     
                      return -1;
                   } else {
                      /* Different error - return it */
@@ -2228,11 +2144,15 @@ __asm long Assl_read(register __a0 struct Assl *assl,
                   } else if (retry_ssl_error == SSL_ERROR_WANT_READ || 
                              retry_ssl_error == SSL_ERROR_WANT_WRITE) {
                      /* Still WANT_READ/WANT_WRITE after retry - this is unusual for blocking socket */
-                     /* Return -1 to let caller handle it (may indicate connection issue) */
-                     debug_printf("DEBUG: Assl_read: Retry still returned WANT_READ/WANT_WRITE - returning -1\n");
+                     debug_printf("DEBUG: Assl_read: Retry still returned WANT_READ/WANT_WRITE\n");
+                     
                      if (httpdebug) {
                        print_ssl_errors_bio("SSL_read (WANT_IO after retry)", local_amisslbase);
                      }
+                     
+                     /* CRITICAL FIX: Set errno so http.c knows to wait */
+                     errno = 35; /* EWOULDBLOCK / EAGAIN */
+                     
                      return -1;
                   } else {
                      /* Different error - return it */
