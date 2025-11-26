@@ -110,7 +110,7 @@ struct Authorize           /* HTTP Basic authorization scheme data */
 /* Network status window codes */
 enum NWS_STATUSES
 {  NWS_QUEUED=1,NWS_STARTED,NWS_LOOKUP,NWS_CONNECT,NWS_LOGIN,NWS_NEWSGROUP,
-   NWS_UPLOAD,NWS_WAIT,NWS_READ,NWS_PROCESS,NWS_END,
+   NWS_UPLOAD,NWS_WAIT,NWS_READ,NWS_PROCESS,NWS_KEEPALIVE,NWS_END,
 };
 
 /* OS dependency */

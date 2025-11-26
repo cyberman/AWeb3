@@ -566,6 +566,9 @@ extern void Freehttp(void);
    // http protocol subtask
 extern void Httptask(struct Fetchdriver *fd);
 
+   // keep-alive connection management
+extern void CloseIdleKeepAliveConnections(void);
+
 /*-----------------------------------------------------------------------*/
 /*-- info ---------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/

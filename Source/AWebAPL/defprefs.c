@@ -45,7 +45,7 @@
 #define DEFMAXCONNECT   2
 #else
 #define NDTRUE          TRUE
-#define DEFMAXCONNECT   8
+#define DEFMAXCONNECT   12
 #endif
 
 struct Prefs defprefs=
