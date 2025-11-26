@@ -1932,8 +1932,120 @@ __asm long Assl_write(register __a0 struct Assl *assl,
           return -1;
         }
         
-        check_ssl_error("SSL_write", local_amisslbase);
-        return result;
+        /* CRITICAL: If SSL_write() returns -1, we MUST check SSL_get_error() */
+        /* to determine the actual error condition */
+        if (result < 0) {
+          long ssl_error;
+          long errno_value;
+          
+          ssl_error = SSL_get_error(assl->ssl, result);
+          debug_printf("DEBUG: Assl_write: SSL_write() returned -1, SSL_get_error=%ld\n", ssl_error);
+          
+          /* Check SSL error type */
+          if (ssl_error == SSL_ERROR_WANT_READ || ssl_error == SSL_ERROR_WANT_WRITE) {
+            /* SSL wants more I/O - for blocking sockets, this should be rare */
+            /* It can occur during SSL renegotiation or when OpenSSL's internal buffer is full */
+            /* For blocking sockets, retry once - the socket will block until ready or timeout */
+            debug_printf("DEBUG: Assl_write: SSL wants I/O (WANT_READ=%d, "
+                         "WANT_WRITE=%d) - retrying once on blocking socket\n",
+                         ssl_error == SSL_ERROR_WANT_READ,
+                         ssl_error == SSL_ERROR_WANT_WRITE);
+            check_ssl_error("SSL_write (WANT_IO)", local_amisslbase);
+            
+            /* Retry the write once - on blocking socket, this will block until ready or timeout */
+            {  long retry_result;
+               
+               /* Check if connection was closed before retry */
+               if (assl->closed || !assl->ssl || !assl->sslctx) {
+                  debug_printf("DEBUG: Assl_write: Connection closed before retry\n");
+                  return -1;
+               }
+               
+               debug_printf("DEBUG: Assl_write: Retrying SSL_write() for WANT_READ/WANT_WRITE\n");
+               retry_result = SSL_write(assl->ssl, buffer, length);
+               
+               /* Check if connection was closed during retry */
+               if (assl->closed || !assl->ssl || !assl->sslctx) {
+                  debug_printf("DEBUG: Assl_write: Connection closed during retry\n");
+                  return -1;
+               }
+               
+               if (retry_result > 0) {
+                  /* Success - return the result */
+                  debug_printf("DEBUG: Assl_write: Retry succeeded, wrote %ld bytes\n", retry_result);
+                  return retry_result;
+               } else {
+                  /* Check error type on retry */
+                  long retry_ssl_error = SSL_get_error(assl->ssl, retry_result);
+                  debug_printf("DEBUG: Assl_write: Retry returned %ld, SSL_get_error=%ld\n", retry_result, retry_ssl_error);
+                  
+                  if (retry_ssl_error == SSL_ERROR_WANT_READ || 
+                      retry_ssl_error == SSL_ERROR_WANT_WRITE) {
+                     /* Still WANT_READ/WANT_WRITE after retry - this is unusual for blocking socket */
+                     /* Return -1 to let caller handle it (may indicate connection issue) */
+                     debug_printf("DEBUG: Assl_write: Retry still returned WANT_READ/WANT_WRITE - returning -1\n");
+                     if (httpdebug) {
+                       print_ssl_errors_bio("SSL_write (WANT_IO after retry)", local_amisslbase);
+                     }
+                     return -1;
+                  } else {
+                     /* Different error - return it */
+                     debug_printf("DEBUG: Assl_write: Retry got different error (%ld), returning -1\n", retry_ssl_error);
+                     return -1;
+                  }
+               }
+            }
+          } else if (ssl_error == SSL_ERROR_SYSCALL) {
+            /* System call error - check errno */
+            errno_value = errno;
+            debug_printf("DEBUG: Assl_write: SSL_ERROR_SYSCALL (errno=%ld)\n", errno_value);
+            if (errno_value == 0) {
+              /* errno=0 with SSL_ERROR_SYSCALL usually means EOF */
+              debug_printf("DEBUG: Assl_write: SSL_ERROR_SYSCALL with errno=0, treating as connection closed\n");
+              check_ssl_error("SSL_write (SYSCALL EOF)", local_amisslbase);
+              return -1;
+            } else if (errno_value == EAGAIN || errno_value == EWOULDBLOCK) {
+              /* Non-blocking I/O would block - return -1 */
+              debug_printf("DEBUG: Assl_write: EAGAIN/EWOULDBLOCK, returning -1\n");
+              check_ssl_error("SSL_write (EAGAIN)", local_amisslbase);
+              return -1;
+            } else {
+              /* Other system error */
+              debug_printf("DEBUG: Assl_write: System error (errno=%ld)\n", errno_value);
+              check_ssl_error("SSL_write (SYSCALL)", local_amisslbase);
+              if (httpdebug) {
+                print_ssl_errors_bio("SSL_write (SYSCALL)", local_amisslbase);
+              }
+              return -1;
+            }
+          } else if (ssl_error == SSL_ERROR_SSL) {
+            /* SSL protocol error */
+            debug_printf("DEBUG: Assl_write: SSL protocol error\n");
+            check_ssl_error("SSL_write (SSL_ERROR)", local_amisslbase);
+            if (httpdebug) {
+              print_ssl_errors_bio("SSL_write (SSL_ERROR)", local_amisslbase);
+            }
+            return -1;
+          } else {
+            /* Unknown SSL error */
+            debug_printf("DEBUG: Assl_write: Unknown SSL error (%ld)\n", ssl_error);
+            check_ssl_error("SSL_write (UNKNOWN)", local_amisslbase);
+            if (httpdebug) {
+              print_ssl_errors_bio("SSL_write (UNKNOWN)", local_amisslbase);
+            }
+            return -1;
+          }
+        } else if (result == 0) {
+          /* SSL_write() returned 0 - this shouldn't happen normally */
+          /* But if it does, treat as error */
+          debug_printf("DEBUG: Assl_write: SSL_write() returned 0 (unexpected)\n");
+          check_ssl_error("SSL_write (ZERO)", local_amisslbase);
+          return -1;
+        } else {
+          /* Success - return number of bytes written */
+          check_ssl_error("SSL_write", local_amisslbase);
+          return result;
+        }
       } else {
         debug_printf(
             "DEBUG: Assl_write: Invalid SSL pointer (ssl=%p, sslctx=%p)\n",
@@ -2069,17 +2181,66 @@ __asm long Assl_read(register __a0 struct Assl *assl,
             return 0;
           } else if (ssl_error == SSL_ERROR_WANT_READ ||
                      ssl_error == SSL_ERROR_WANT_WRITE) {
-            /* SSL wants more I/O - this shouldn't happen on blocking socket */
-            /* but we'll return -1 to indicate error */
+            /* SSL wants more I/O - for blocking sockets, this should be rare */
+            /* It can occur during SSL renegotiation or when OpenSSL's internal buffer is empty */
+            /* For blocking sockets, retry once - the socket will block until data arrives or timeout */
             debug_printf("DEBUG: Assl_read: SSL wants I/O (WANT_READ=%d, "
-                         "WANT_WRITE=%d)\n",
+                         "WANT_WRITE=%d) - retrying once on blocking socket\n",
                          ssl_error == SSL_ERROR_WANT_READ,
                          ssl_error == SSL_ERROR_WANT_WRITE);
             check_ssl_error("SSL_read (WANT_IO)", local_amisslbase);
-            if (httpdebug) {
-              print_ssl_errors_bio("SSL_read (WANT_IO)", local_amisslbase);
+            
+            /* Retry the read once - on blocking socket, this will block until data arrives or timeout */
+            /* This handles cases where OpenSSL needs more network I/O before it can decrypt data */
+            {  long retry_result;
+               
+               /* Check if connection was closed before retry */
+               if (assl->closed || !assl->ssl || !assl->sslctx) {
+                  debug_printf("DEBUG: Assl_read: Connection closed before retry\n");
+                  return -1;
+               }
+               
+               debug_printf("DEBUG: Assl_read: Retrying SSL_read() for WANT_READ/WANT_WRITE\n");
+               retry_result = SSL_read(assl->ssl, buffer, length);
+               
+               /* Check if connection was closed during retry */
+               if (assl->closed || !assl->ssl || !assl->sslctx) {
+                  debug_printf("DEBUG: Assl_read: Connection closed during retry\n");
+                  return -1;
+               }
+               
+               if (retry_result > 0) {
+                  /* Success - return the result */
+                  debug_printf("DEBUG: Assl_read: Retry succeeded, read %ld bytes\n", retry_result);
+                  return retry_result;
+               } else if (retry_result == 0) {
+                  /* EOF - connection closed cleanly */
+                  debug_printf("DEBUG: Assl_read: Retry returned 0 (EOF)\n");
+                  return 0;
+               } else {
+                  /* Check error type on retry */
+                  long retry_ssl_error = SSL_get_error(assl->ssl, retry_result);
+                  debug_printf("DEBUG: Assl_read: Retry returned -1, SSL_get_error=%ld\n", retry_ssl_error);
+                  
+                  if (retry_ssl_error == SSL_ERROR_ZERO_RETURN) {
+                     debug_printf("DEBUG: Assl_read: Retry got ZERO_RETURN (EOF)\n");
+                     return 0;
+                  } else if (retry_ssl_error == SSL_ERROR_WANT_READ || 
+                             retry_ssl_error == SSL_ERROR_WANT_WRITE) {
+                     /* Still WANT_READ/WANT_WRITE after retry - this is unusual for blocking socket */
+                     /* Return -1 to let caller handle it (may indicate connection issue) */
+                     debug_printf("DEBUG: Assl_read: Retry still returned WANT_READ/WANT_WRITE - returning -1\n");
+                     if (httpdebug) {
+                       print_ssl_errors_bio("SSL_read (WANT_IO after retry)", local_amisslbase);
+                     }
+                     return -1;
+                  } else {
+                     /* Different error - return it */
+                     debug_printf("DEBUG: Assl_read: Retry got different error (%ld), returning -1\n", retry_ssl_error);
+                     return -1;
+                  }
+               }
             }
-            return -1;
           } else if (ssl_error == SSL_ERROR_SYSCALL) {
             /* System call error - check errno */
             errno_value = errno;

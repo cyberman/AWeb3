@@ -172,7 +172,9 @@ struct KeepAliveConnection
 static LIST(KeepAliveConnection) keepalive_pool;
 static struct SignalSemaphore keepalive_sema;
 static BOOL keepalive_sema_initialized = FALSE;
-#define KEEPALIVE_TIMEOUT 30  /* 30 seconds timeout for idle connections */
+/* LIMITS TO PREVENT CLOGGING */
+#define KEEPALIVE_TIMEOUT 15  /* Reduced to 15s to free resources faster */
+#define MAX_IDLE_CONNECTIONS 8 /* Hard limit on idle connections */
 
 /* Redirect loop protection - track redirects across HTTP requests */
 static int redirect_count=0;
@@ -257,259 +259,195 @@ static BOOL HostnameMatches(UBYTE *hostname1, UBYTE *hostname2)
    norm1 = NormalizeHostname(hostname1);
    norm2 = NormalizeHostname(hostname2);
    
-   return STRIEQUAL(norm1, norm2);
+   return (BOOL)STRIEQUAL(norm1, norm2);
+}
+
+/* Free a connection node and all its resources */
+static void FreeConnectionNode(struct KeepAliveConnection *conn)
+{  if(!conn) return;
+   
+   if(conn->sock >= 0 && conn->socketbase)
+   {  if(conn->assl) Assl_closessl(conn->assl);
+      a_close(conn->sock, conn->socketbase);
+   }
+   if(conn->assl)
+   {  Assl_cleanup(conn->assl);
+      FREE(conn->assl);
+   }
+   if(conn->socketbase) CloseLibrary(conn->socketbase);
+   if(conn->hostname) FREE(conn->hostname);
+   FREE(conn);
 }
 
 /* Get a connection from the keep-alive pool */
 static struct KeepAliveConnection *GetKeepAliveConnection(UBYTE *hostname, long port, BOOL ssl)
 {  struct KeepAliveConnection *conn;
    struct KeepAliveConnection *next;
+   struct KeepAliveConnection *found_conn = NULL;
    struct timeval current_time;
    ULONG current_sec;
-   int pool_count;  /* C89: Declare at start */
+   struct KeepAliveConnection *dead_list = NULL;
    
-   if(!keepalive_sema_initialized || !hostname)
-   {  debug_printf("DEBUG: GetKeepAliveConnection: Early return (sema_init=%d, hostname=%p)\n",
-                  keepalive_sema_initialized, hostname);
-      return NULL;
-   }
+   if(!keepalive_sema_initialized || !hostname) return NULL;
    
    ObtainSemaphore(&keepalive_sema);
    GetSysTime(&current_time);
    current_sec = current_time.tv_secs;
    
-   /* Count pool size for debugging - do this BEFORE any debug_printf calls */
-   pool_count = 0;
-   for(conn = (struct KeepAliveConnection *)keepalive_pool.first;
-       conn->next;
-       conn = next)
-   {  next = (struct KeepAliveConnection *)conn->next;
-      pool_count++;
-   }
-   
-   /* CRITICAL: Release semaphore before debug_printf to prevent deadlock */
-   /* debug_printf may acquire debug_log_sema, causing AB-BA deadlock */
-   ReleaseSemaphore(&keepalive_sema);
-   
-   if(httpdebug)
-   {  debug_printf("DEBUG: GetKeepAliveConnection: Searching pool for %s:%ld (SSL=%d), pool has %d connections\n",
-                  hostname, port, ssl, pool_count);
-      
-      /* Debug: List all connections in pool */
-      if(pool_count > 0)
-      {  ObtainSemaphore(&keepalive_sema);
-         debug_printf("DEBUG: GetKeepAliveConnection: Pool contents:\n");
-         for(conn = (struct KeepAliveConnection *)keepalive_pool.first;
-             conn->next;
-             conn = next)
-         {  next = (struct KeepAliveConnection *)conn->next;
-            debug_printf("DEBUG: GetKeepAliveConnection:   - %s:%ld (SSL=%d, in_use=%d, sock=%ld)\n",
-                        conn->hostname ? (char *)conn->hostname : "(null)", conn->port, conn->ssl, conn->in_use, conn->sock);
-         }
-         ReleaseSemaphore(&keepalive_sema);
-      }
-   }
-   
-   /* Re-acquire semaphore for actual pool operations */
-   ObtainSemaphore(&keepalive_sema);
-   
-   /* Look for an idle connection matching hostname:port:ssl */
-   for(conn = (struct KeepAliveConnection *)keepalive_pool.first;
-       conn->next;
-       conn = next)
+   for(conn = (struct KeepAliveConnection *)keepalive_pool.first; conn->next; conn = next)
    {  next = (struct KeepAliveConnection *)conn->next;
       
-      /* Check if connection matches and is not in use */
-      /* Use HostnameMatches to handle www. prefix differences */
-      if(!conn->in_use &&
-         conn->port == port &&
-         conn->ssl == ssl &&
-         conn->hostname &&
-         HostnameMatches(conn->hostname, hostname))
-      {  /* Check if connection hasn't timed out */
-         ULONG age = current_sec - conn->last_used;
+      if(!conn->in_use && conn->port == port && conn->ssl == ssl &&
+         conn->hostname && HostnameMatches(conn->hostname, hostname))
+      {  ULONG age = current_sec - conn->last_used;
          if(age < KEEPALIVE_TIMEOUT)
-         {  /* Found a valid connection - mark as in use and return it */
-            conn->in_use = TRUE;
+         {  conn->in_use = TRUE;
             conn->last_used = current_sec;
             Remove((struct Node *)conn);
-            ReleaseSemaphore(&keepalive_sema);
-            /* CRITICAL: debug_printf AFTER releasing semaphore to prevent deadlock */
-            debug_printf("DEBUG: GetKeepAliveConnection: Reusing connection for %s:%ld (SSL=%d, sock=%ld, age=%lu sec)\n",
-                        hostname, port, ssl, conn->sock, age);
-            return conn;
+            found_conn = conn;
+            break; /* Stop searching, found one */
          }
          else
-         {  /* Connection timed out - remove it */
+         {  /* Found a timed out connection, mark for deletion */
             Remove((struct Node *)conn);
-            /* CRITICAL: Release semaphore BEFORE closing connections to prevent deadlock */
-            /* Closing connections may call Assl_closessl which needs ssl_init_sema */
-            ReleaseSemaphore(&keepalive_sema);
-            debug_printf("DEBUG: GetKeepAliveConnection: Removing timed-out connection for %s:%ld (age=%lu sec)\n",
-                        conn->hostname ? (char *)conn->hostname : "(null)", conn->port, age);
-            /* Close socket and SSL */
-            if(conn->sock >= 0 && conn->socketbase)
-            {  if(conn->assl) Assl_closessl(conn->assl);
-               a_close(conn->sock, conn->socketbase);
-            }
-            if(conn->assl)
-            {  Assl_cleanup(conn->assl);
-               FREE(conn->assl);
-            }
-            if(conn->socketbase) CloseLibrary(conn->socketbase);
-            if(conn->hostname) FREE(conn->hostname);
-            FREE(conn);
-            /* Re-acquire semaphore to continue loop */
-            ObtainSemaphore(&keepalive_sema);
+            conn->next = dead_list;
+            dead_list = conn;
          }
       }
-      /* CRITICAL: Remove debug_printf from inside semaphore-protected loop */
-      /* Debug logging moved outside to prevent deadlock */
    }
    
    ReleaseSemaphore(&keepalive_sema);
-   return NULL;
+   
+   /* Cleanup dead connections outside semaphore */
+   while(dead_list)
+   {  conn = dead_list;
+      dead_list = conn->next;
+      FreeConnectionNode(conn);
+   }
+   
+   if(found_conn)
+   {  debug_printf("DEBUG: GetKeepAliveConnection: Reusing connection for %s:%ld\n", hostname, port);
+   }
+   
+   return found_conn;
 }
 
 /* Return a connection to the keep-alive pool */
 static void ReturnKeepAliveConnection(struct Httpinfo *hi)
 {  struct KeepAliveConnection *conn;
-   struct KeepAliveConnection *next;
+   struct KeepAliveConnection *node, *next_node;
+   struct KeepAliveConnection *kill_list = NULL;
    struct timeval current_time;
    ULONG current_sec;
-   int pool_count;  /* C89: Declare at start */
+   ULONG age;  /* C89: Declare at start */
+   int pool_count = 0;
    
-   debug_printf("DEBUG: ReturnKeepAliveConnection: ENTRY (hi=%p, hostname=%p, sock=%ld, socketbase=%p, flags=0x%04X)\n",
-                hi, hi ? hi->hostname : NULL, hi ? hi->sock : -1, hi ? hi->socketbase : NULL, hi ? hi->flags : 0);
+   if(!keepalive_sema_initialized || !hi || !hi->hostname) return;
    
-   if(!keepalive_sema_initialized)
-   {  debug_printf("DEBUG: ReturnKeepAliveConnection: keep-alive semaphore not initialized\n");
-      return;
-   }
-   if(!hi)
-   {  debug_printf("DEBUG: ReturnKeepAliveConnection: hi is NULL\n");
-      return;
-   }
-   if(!hi->hostname)
-   {  debug_printf("DEBUG: ReturnKeepAliveConnection: hostname is NULL\n");
-      return;
-   }
-   
-   /* Only return if keep-alive is supported */
-   if(!((hi->flags & HTTPIF_KEEPALIVE) && (hi->flags & HTTPIF_KEEPALIVE_REQ)))
-   {  debug_printf("DEBUG: ReturnKeepAliveConnection: Keep-alive not enabled (flags=0x%04X, KEEPALIVE=0x%04X, KEEPALIVE_REQ=0x%04X)\n",
-                   hi->flags, hi->flags & HTTPIF_KEEPALIVE, hi->flags & HTTPIF_KEEPALIVE_REQ);
-      return;
-   }
-   
-   /* Don't pool proxy connections */
-   /* When using a proxy, hi->connect is the proxy hostname and hi->hostname is the destination */
-   /* When NOT using a proxy, hi->connect == hi->hostname (both are the destination hostname) */
-   /* So we check if they're different to detect proxy usage */
-   if(hi->connect && hi->hostname && !STRIEQUAL(hi->connect, hi->hostname))
-   {  debug_printf("DEBUG: ReturnKeepAliveConnection: Proxy connection (connect=%s, hostname=%s), not pooling\n",
-                  hi->connect, hi->hostname);
+   /* CRITICAL FIX: Do NOT pool if server requested close */
+   /* Check flags AND explicit Connection header parsing result */
+   /* If HTTPIF_KEEPALIVE is NOT set, it means server said "close" or didn't say "keep-alive" on HTTP/1.0 */
+   if(!(hi->flags & HTTPIF_KEEPALIVE))
+   {  debug_printf("DEBUG: ReturnKeepAliveConnection: Server requested close (no KEEPALIVE flag), closing connection\n");
+      /* Close it now */
+#ifndef DEMOVERSION
+      if(hi->assl) Assl_closessl(hi->assl);
+#endif
+      if(hi->sock >= 0 && hi->socketbase) a_close(hi->sock, hi->socketbase);
+      hi->sock = -1;
+      /* Clean up SSL struct if needed */
+#ifndef DEMOVERSION
+      if(hi->assl) { Assl_cleanup(hi->assl); FREE(hi->assl); hi->assl = NULL; }
+#endif
+      if(hi->socketbase) { CloseLibrary(hi->socketbase); hi->socketbase = NULL; }
       return;
    }
    
-   /* Validate connection state before pooling */
-   if(hi->sock < 0)
-   {  debug_printf("DEBUG: ReturnKeepAliveConnection: Cannot pool - invalid socket (sock=%ld < 0)\n", hi->sock);
-      return;
-   }
-   if(!hi->socketbase)
-   {  debug_printf("DEBUG: ReturnKeepAliveConnection: Cannot pool - socketbase is NULL (sock=%ld)\n", hi->sock);
-      return;
-   }
+   /* Also check if client requested keep-alive */
+   if(!(hi->flags & HTTPIF_KEEPALIVE_REQ)) return;
    
-   /* CRITICAL: debug_printf BEFORE obtaining semaphore to prevent deadlock */
-   debug_printf("DEBUG: ReturnKeepAliveConnection: Attempting to pool connection (hostname=%s, sock=%ld, socketbase=%p, assl=%p, ssl=%d)\n",
-                hi->hostname ? (char *)hi->hostname : "(null)", hi->sock, hi->socketbase, hi->assl, BOOLVAL(hi->flags & HTTPIF_SSL));
+   /* Don't pool proxy connections mixed with hostname */
+   if(hi->connect && hi->hostname && !STRIEQUAL(hi->connect, hi->hostname)) return;
    
-   ObtainSemaphore(&keepalive_sema);
+   if(hi->sock < 0 || !hi->socketbase) return;
+   
+   conn = ALLOCTYPE(struct KeepAliveConnection, 1, 0);
+   if(!conn) return;
+   
    GetSysTime(&current_time);
    current_sec = current_time.tv_secs;
    
-   /* Create new pool entry */
-   conn = ALLOCTYPE(struct KeepAliveConnection, 1, 0);
-   if(conn)
-   {  conn->hostname = Dupstr(hi->hostname, -1);
-      /* Normalize port - use actual port or default based on SSL flag */
-      /* This ensures port matching works correctly when retrieving */
-      if(hi->port > 0)
-      {  conn->port = hi->port;
-      }
-      else
-      {  conn->port = BOOLVAL(hi->flags & HTTPIF_SSL) ? 443 : 80;
-      }
-      conn->ssl = BOOLVAL(hi->flags & HTTPIF_SSL);
-      conn->socketbase = hi->socketbase;
-      conn->sock = hi->sock;
-      conn->assl = hi->assl;
-      conn->last_used = current_sec;
-      conn->in_use = FALSE;
+   conn->hostname = Dupstr(hi->hostname, -1);
+   conn->port = (hi->port > 0) ? hi->port : (BOOLVAL(hi->flags & HTTPIF_SSL) ? 443 : 80);
+   conn->ssl = BOOLVAL(hi->flags & HTTPIF_SSL);
+   conn->socketbase = hi->socketbase;
+   conn->sock = hi->sock;
+   conn->assl = hi->assl;
+   conn->last_used = current_sec;
+   conn->in_use = FALSE;
+
+   ObtainSemaphore(&keepalive_sema);
+   
+   /* 1. Count existing connections and remove expired/excess ones */
+   /* This prevents the pool from growing indefinitely */
+   for(node = (struct KeepAliveConnection *)keepalive_pool.first; node->next; node = next_node)
+   {  next_node = (struct KeepAliveConnection *)node->next;
       
-      if(conn->hostname && conn->sock >= 0 && conn->socketbase)
-      {  AddHead((struct List *)&keepalive_pool, (struct Node *)conn);
-         /* CRITICAL: Release semaphore BEFORE debug_printf to prevent deadlock */
-         ReleaseSemaphore(&keepalive_sema);
-         debug_printf("DEBUG: ReturnKeepAliveConnection: Pooled connection for %s:%ld (SSL=%d, sock=%ld)\n",
-                     conn->hostname, conn->port, conn->ssl, conn->sock);
-         /* Clear pointers in Httpinfo so they don't get freed */
-         hi->socketbase = NULL;
-         hi->sock = -1;
-         hi->assl = NULL;
-         return; /* Early return - semaphore already released */
+      age = current_sec - node->last_used;
+      
+      if(age >= KEEPALIVE_TIMEOUT)
+      {  /* Remove expired */
+         Remove((struct Node *)node);
+         node->next = kill_list;
+         kill_list = node;
       }
       else
-      {  /* CRITICAL: Release semaphore BEFORE debug_printf and cleanup */
-         ReleaseSemaphore(&keepalive_sema);
-         debug_printf("DEBUG: ReturnKeepAliveConnection: Failed to pool - invalid connection state (hostname=%p, sock=%ld, socketbase=%p, assl=%p)\n",
-                     conn->hostname, conn->sock, conn->socketbase, conn->assl);
-         /* Clean up invalid connection */
-         /* Note: conn->assl is the same pointer as hi->assl, so we must clear hi->assl to prevent double cleanup */
-         if(conn->sock >= 0 && conn->socketbase)
-         {  if(conn->assl) Assl_closessl(conn->assl);
-            a_close(conn->sock, conn->socketbase);
-         }
-         if(conn->assl)
-         {  Assl_cleanup(conn->assl);
-            FREE(conn->assl);
-            /* Clear hi->assl to prevent double cleanup in Httpretrieve cleanup code */
-            hi->assl = NULL;
-         }
-         if(conn->socketbase)
-         {  CloseLibrary(conn->socketbase);
-            /* Clear hi->socketbase to prevent double cleanup */
-            hi->socketbase = NULL;
-         }
-         if(conn->hostname) FREE(conn->hostname);
-         FREE(conn);
-         /* Also clear sock to prevent issues */
-         hi->sock = -1;
+      {  pool_count++;
       }
+   }
+   
+   /* 2. If still too many, remove oldest (from Tail) */
+   while (pool_count >= MAX_IDLE_CONNECTIONS)
+   {   node = (struct KeepAliveConnection *)keepalive_pool.last;
+       if (node && (struct Node *)node != (struct Node *)&keepalive_pool && node->prev) /* Check if valid node (not list header) */
+       {   Remove((struct Node *)node);
+           node->next = kill_list;
+           kill_list = node;
+           pool_count--;
+       }
+       else break;
+   }
+
+   /* 3. Add new connection to Head (LIFO) */
+   if(conn->hostname)
+   {  AddHead((struct List *)&keepalive_pool, (struct Node *)conn);
+      /* Clear pointers in Httpinfo */
+      hi->socketbase = NULL;
+      hi->sock = -1;
+      hi->assl = NULL;
    }
    else
-   {  debug_printf("DEBUG: ReturnKeepAliveConnection: Failed to allocate KeepAliveConnection struct\n");
+   {  FREE(conn); 
    }
-   
    ReleaseSemaphore(&keepalive_sema);
    
-   /* Clean up expired connections after releasing semaphore */
-   /* This prevents deadlocks - CleanupKeepAlivePool will acquire the semaphore itself */
-   /* Note: We don't call this while holding the semaphore to avoid deadlocks */
-   CleanupKeepAlivePool();
+   /* Clean up culled connections outside semaphore to prevent deadlock */
+   while(kill_list)
+   {  node = kill_list;
+      kill_list = node->next;
+      FreeConnectionNode(node);
+   }
+   
+   debug_printf("DEBUG: ReturnKeepAliveConnection: Pooled %s:%ld (Pool size: %d)\n", hi->hostname, hi->port, pool_count+1);
 }
 
 /* Clean up expired connections from the pool */
 static void CleanupKeepAlivePool(void)
 {  struct KeepAliveConnection *conn;
    struct KeepAliveConnection *next;
-   struct KeepAliveConnection *to_close;
-   struct KeepAliveConnection *close_list;
+   struct KeepAliveConnection *close_list = NULL;
    struct timeval current_time;
    ULONG current_sec;
-   ULONG age;  /* C89: Declare at start of function */
    
    if(!keepalive_sema_initialized) return;
    
@@ -517,49 +455,21 @@ static void CleanupKeepAlivePool(void)
    GetSysTime(&current_time);
    current_sec = current_time.tv_secs;
    
-   /* Build list of connections to close (don't close while holding semaphore) */
-   close_list = NULL;
-   for(conn = (struct KeepAliveConnection *)keepalive_pool.first;
-       conn->next;
-       conn = next)
+   for(conn = (struct KeepAliveConnection *)keepalive_pool.first; conn->next; conn = next)
    {  next = (struct KeepAliveConnection *)conn->next;
       
-      /* Calculate age of connection */
-      age = current_sec - conn->last_used;
-      
-      /* Remove timed-out or in-use connections */
-      if(conn->in_use || (age >= KEEPALIVE_TIMEOUT))
+      if(conn->in_use || ((current_sec - conn->last_used) >= KEEPALIVE_TIMEOUT))
       {  Remove((struct Node *)conn);
-         debug_printf("DEBUG: CleanupKeepAlivePool: Removing %s connection for %s:%ld (age=%lu sec, in_use=%d)\n",
-                     conn->ssl ? "SSL" : "HTTP",
-                     conn->hostname ? (char *)conn->hostname : "(null)", conn->port, age, conn->in_use);
-         /* Add to close list - we'll close after releasing semaphore */
-         /* NODE(KeepAliveConnection) defines next as struct KeepAliveConnection *, so no cast needed */
          conn->next = close_list;
          close_list = conn;
       }
    }
-   
    ReleaseSemaphore(&keepalive_sema);
    
-   /* Now close connections without holding semaphore to prevent deadlocks */
-   /* This prevents deadlock if Assl_closessl/Assl_cleanup need ssl_init_sema */
    while(close_list)
-   {  to_close = close_list;
-      close_list = (struct KeepAliveConnection *)to_close->next;
-      
-      /* Close socket and SSL */
-      if(to_close->sock >= 0 && to_close->socketbase)
-      {  if(to_close->assl) Assl_closessl(to_close->assl);
-         a_close(to_close->sock, to_close->socketbase);
-      }
-      if(to_close->assl)
-      {  Assl_cleanup(to_close->assl);
-         FREE(to_close->assl);
-      }
-      if(to_close->socketbase) CloseLibrary(to_close->socketbase);
-      if(to_close->hostname) FREE(to_close->hostname);
-      FREE(to_close);
+   {  conn = close_list;
+      close_list = (struct KeepAliveConnection *)conn->next;
+      FreeConnectionNode(conn);
    }
 }
 
@@ -569,95 +479,26 @@ static void CleanupKeepAlivePool(void)
 void CloseIdleKeepAliveConnections(void)
 {  struct KeepAliveConnection *conn;
    struct KeepAliveConnection *next;
-   struct KeepAliveConnection *to_close;
-   struct KeepAliveConnection *close_list;
-   struct timeval current_time;
-   ULONG current_sec;
-   ULONG age;  /* C89: Declare at start */
-   long closed_count = 0;
-   long total_count = 0;
+   struct KeepAliveConnection *close_list = NULL;
    
-   debug_printf("DEBUG: CloseIdleKeepAliveConnections: ENTRY\n");
-   
-   if(!keepalive_sema_initialized)
-   {  debug_printf("DEBUG: CloseIdleKeepAliveConnections: keep-alive semaphore not initialized\n");
-      return;
-   }
+   if(!keepalive_sema_initialized) return;
    
    ObtainSemaphore(&keepalive_sema);
-   GetSysTime(&current_time);
-   current_sec = current_time.tv_secs;
-   
-   /* Check if list is empty */
-   if(!keepalive_pool.first || (struct Node *)keepalive_pool.first == (struct Node *)&keepalive_pool)
-   {  debug_printf("DEBUG: CloseIdleKeepAliveConnections: Pool is empty, nothing to close\n");
-      ReleaseSemaphore(&keepalive_sema);
-      return;
-   }
-   
-   /* Build list of connections to close (don't close while holding semaphore) */
-   /* CRITICAL: Only close connections that are idle AND have exceeded KEEPALIVE_TIMEOUT */
-   close_list = NULL;
-   for(conn = (struct KeepAliveConnection *)keepalive_pool.first;
-       conn && (struct Node *)conn != (struct Node *)&keepalive_pool && conn->next;
-       conn = next)
+   for(conn = (struct KeepAliveConnection *)keepalive_pool.first; conn && conn->next; conn = next)
    {  next = (struct KeepAliveConnection *)conn->next;
-      total_count++;
-      
-      /* Only close idle connections (not currently in use) that have timed out */
       if(!conn->in_use)
-      {  age = current_sec - conn->last_used;
-         if(age >= KEEPALIVE_TIMEOUT)
-         {  Remove((struct Node *)conn);
-            closed_count++;
-            debug_printf("DEBUG: CloseIdleKeepAliveConnections: Marking timed-out %s connection for closure (sock=%ld, age=%lu sec)\n",
-                        conn->ssl ? "SSL" : "HTTP",
-                        conn->hostname ? (char *)conn->hostname : "(null)", conn->port, conn->sock, age);
-            /* Add to close list - we'll close after releasing semaphore */
-            /* NODE(KeepAliveConnection) defines next as struct KeepAliveConnection *, so no cast needed */
-            conn->next = close_list;
-            close_list = conn;
-         }
-         else
-         {  debug_printf("DEBUG: CloseIdleKeepAliveConnections: Keeping idle %s connection for %s:%ld (sock=%ld, age=%lu sec, timeout=%d)\n",
-                        conn->ssl ? "SSL" : "HTTP",
-                        conn->hostname ? (char *)conn->hostname : "(null)", conn->port, conn->sock, age, KEEPALIVE_TIMEOUT);
-         }
-      }
-      else
-      {  debug_printf("DEBUG: CloseIdleKeepAliveConnections: Skipping in-use %s connection for %s:%ld (sock=%ld)\n",
-                     conn->ssl ? "SSL" : "HTTP",
-                     conn->hostname ? (char *)conn->hostname : "(null)", conn->port, conn->sock);
+      {  Remove((struct Node *)conn);
+         conn->next = close_list;
+         close_list = conn;
       }
    }
-   
    ReleaseSemaphore(&keepalive_sema);
    
-   /* Now close connections without holding semaphore to prevent deadlocks */
-   /* This prevents deadlock if Assl_closessl/Assl_cleanup need ssl_init_sema */
    while(close_list)
-   {  to_close = close_list;
-      close_list = (struct KeepAliveConnection *)to_close->next;
-      
-      debug_printf("DEBUG: CloseIdleKeepAliveConnections: Closing idle %s connection for %s:%ld (sock=%ld)\n",
-                  to_close->ssl ? "SSL" : "HTTP",
-                  to_close->hostname ? (char *)to_close->hostname : "(null)", to_close->port, to_close->sock);
-      
-      /* Close socket and SSL */
-      if(to_close->sock >= 0 && to_close->socketbase)
-      {  if(to_close->assl) Assl_closessl(to_close->assl);
-         a_close(to_close->sock, to_close->socketbase);
-      }
-      if(to_close->assl)
-      {  Assl_cleanup(to_close->assl);
-         FREE(to_close->assl);
-      }
-      if(to_close->socketbase) CloseLibrary(to_close->socketbase);
-      if(to_close->hostname) FREE(to_close->hostname);
-      FREE(to_close);
+   {  conn = close_list;
+      close_list = (struct KeepAliveConnection *)conn->next;
+      FreeConnectionNode(conn);
    }
-   
-   debug_printf("DEBUG: CloseIdleKeepAliveConnections: EXIT - closed %ld of %ld connections\n", closed_count, total_count);
 }
 
 static BOOL Makehttpaddr(struct Httpinfo *hi,UBYTE *proxy,UBYTE *url,BOOL ssl)
@@ -885,6 +726,8 @@ static long Receive(struct Httpinfo *hi,UBYTE *buffer,long length)
    return result;
 }
 
+
+
 /* Read remainder of block. Returns FALSE if eof or error. */
 static BOOL Readblock(struct Httpinfo *hi)
 {  long n;
@@ -908,78 +751,83 @@ static BOOL Readblock(struct Httpinfo *hi)
    
    debug_printf("DEBUG: Readblock: Receive returned %ld bytes\n", n);
    
-   if(n<0 || Checktaskbreak())
-   {  
-      /* Check errno to provide more specific error reporting */
-      /* Use Errno() function from bsdsocket.library to get error code */
-      /* Note: Errno() is deprecated per SDK but still works. Modern way is SocketBaseTags() with SBTC_ERRNO */
-      if(n < 0 && !Checktaskbreak())
-      {  long errno_value;
-         UBYTE *hostname_str;  /* Declare at start of block for older C standards */
-         if(hi->socketbase)
-         {  struct Library *saved_socketbase = SocketBase;
-            SocketBase = hi->socketbase;
-            errno_value = Errno(); /* Get error code from bsdsocket.library */
-            SocketBase = saved_socketbase;
-         }
-         else
-         {  errno_value = 0; /* No socketbase - can't get errno */
-         }
-         
-         /* EAGAIN (errno=35) means "Resource temporarily unavailable" - in SSL context this often
-          * means "no more data available" (EOF), not an actual error. Treat it as EOF, not error. */
-         if(errno_value == EAGAIN)
-         {  debug_printf("DEBUG: Readblock: EAGAIN (no more data available) - treating as EOF\n");
-            /* EAGAIN is not an error - it just means no more data available (EOF) */
-            /* Return FALSE to indicate EOF, but don't call Tcperror() */
-            return FALSE;
-         }
-         
-         /* Report specific error type via Tcperror() for actual errors */
-         hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"unknown";
-         if(errno_value == ETIMEDOUT)
-         {  debug_printf("DEBUG: Readblock: Receive timeout (errno=ETIMEDOUT)\n");
-            /* Timeout during receive - report as timeout error */
-            Tcperror(hi->fd, TCPERR_NOCONNECT_TIMEOUT, hostname_str);
-         }
-         else if(errno_value == ECONNRESET)
-         {  debug_printf("DEBUG: Readblock: Connection reset by peer (errno=ECONNRESET)\n");
-            /* Connection was reset - report as connection error */
-            Tcperror(hi->fd, TCPERR_NOCONNECT_RESET, hostname_str);
-         }
-         else if(errno_value == ECONNREFUSED)
-         {  debug_printf("DEBUG: Readblock: Connection refused (errno=ECONNREFUSED)\n");
-            /* Connection refused - report as connection error */
-            Tcperror(hi->fd, TCPERR_NOCONNECT_REFUSED, hostname_str);
-         }
-         else if(errno_value == ENETUNREACH)
-         {  debug_printf("DEBUG: Readblock: Network unreachable (errno=ENETUNREACH)\n");
-            /* Network unreachable - report as network error */
-            Tcperror(hi->fd, TCPERR_NOCONNECT_UNREACH, hostname_str);
-         }
-         else if(errno_value == EHOSTUNREACH)
-         {  debug_printf("DEBUG: Readblock: Host unreachable (errno=EHOSTUNREACH)\n");
-            /* Host unreachable - report as network error */
-            Tcperror(hi->fd, TCPERR_NOCONNECT_HOSTUNREACH, hostname_str);
-         }
-         else
-         {  debug_printf("DEBUG: Readblock: Network error (errno=%ld), returning FALSE\n", errno_value);
-            /* Other network error - report generic error */
-            Tcperror(hi->fd, TCPERR_NOCONNECT, hostname_str);
-         }
+   if(n < 0)
+   {  long errno_value = 0;
+      UBYTE *hostname_str;  /* Declare at start of block for older C standards */
+      
+      /* Get errno value for error analysis */
+      if(hi->socketbase)
+      {  struct Library *saved_socketbase = SocketBase;
+         SocketBase = hi->socketbase;
+         errno_value = Errno(); /* Get error code from bsdsocket.library */
+         SocketBase = saved_socketbase;
       }
-      else if(Checktaskbreak())
-      {  debug_printf("DEBUG: Readblock: Task break detected, returning FALSE\n");
-         /* Task break - don't report error, just return */
+      
+      /* DEBUG: Log the specific error state */
+      debug_printf("DEBUG: Readblock error: n=%ld, errno=%ld\n", n, errno_value);
+      
+      /* CRITICAL: Check for SSL "WANT_READ" / "EAGAIN" BEFORE checking for task break */
+      /* If we are just waiting for data, we shouldn't abort even if a signal was seemingly set */
+      /* errno 35 = EAGAIN/EWOULDBLOCK */
+      /* errno 4 = EINTR (interrupted system call - can retry) */
+      /* errno 0 with n=-1 usually means SSL_ERROR_WANT_READ/WRITE handled by Receive but returned as -1 */
+      if(errno_value == EAGAIN || errno_value == EWOULDBLOCK || errno_value == EINTR || errno_value == 0)
+      {  debug_printf("DEBUG: Readblock: Soft error (WANT_READ/EAGAIN/EINTR/errno=0), keeping connection open\n");
+         /* Do NOT return FALSE here. Return TRUE implies "0 bytes read, but connection still alive" */
+         /* This allows the read loop to continue and retry */
+         return TRUE;
+      }
+      
+      /* Now check for user abort - but only if it's not a soft error */
+      if(Checktaskbreak())
+      {  debug_printf("DEBUG: Readblock: Task break confirmed by user/system\n");
+         return FALSE;
+      }
+      
+      /* Hard Error Handling */
+      hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"unknown";
+      debug_printf("DEBUG: Readblock: Hard error detected (errno=%ld)\n", errno_value);
+      if(errno_value == ETIMEDOUT)
+      {  debug_printf("DEBUG: Readblock: Receive timeout (errno=ETIMEDOUT)\n");
+         /* Timeout during receive - report as timeout error */
+         Tcperror(hi->fd, TCPERR_NOCONNECT_TIMEOUT, hostname_str);
+      }
+      else if(errno_value == ECONNRESET)
+      {  debug_printf("DEBUG: Readblock: Connection reset by peer (errno=ECONNRESET)\n");
+         /* Connection was reset - report as connection error */
+         Tcperror(hi->fd, TCPERR_NOCONNECT_RESET, hostname_str);
+      }
+      else if(errno_value == ECONNREFUSED)
+      {  debug_printf("DEBUG: Readblock: Connection refused (errno=ECONNREFUSED)\n");
+         /* Connection refused - report as connection error */
+         Tcperror(hi->fd, TCPERR_NOCONNECT_REFUSED, hostname_str);
+      }
+      else if(errno_value == ENETUNREACH)
+      {  debug_printf("DEBUG: Readblock: Network unreachable (errno=ENETUNREACH)\n");
+         /* Network unreachable - report as network error */
+         Tcperror(hi->fd, TCPERR_NOCONNECT_UNREACH, hostname_str);
+      }
+      else if(errno_value == EHOSTUNREACH)
+      {  debug_printf("DEBUG: Readblock: Host unreachable (errno=EHOSTUNREACH)\n");
+         /* Host unreachable - report as network error */
+         Tcperror(hi->fd, TCPERR_NOCONNECT_HOSTUNREACH, hostname_str);
       }
       else
-      {  debug_printf("DEBUG: Readblock: error or task break, returning FALSE\n");
+      {  debug_printf("DEBUG: Readblock: Network error (errno=%ld), returning FALSE\n", errno_value);
+         /* Other network error - report generic error */
+         Tcperror(hi->fd, TCPERR_NOCONNECT, hostname_str);
       }
-/* Don't send error, let source driver keep its partial data if it wants to.
-      Updatetaskattrs(
-         AOURL_Error,TRUE,
-         TAG_END);
-*/
+      return FALSE;
+   }
+   
+   if(n == 0)
+   {  debug_printf("DEBUG: Readblock: EOF (0 bytes) received\n");
+      return FALSE; /* True EOF */
+   }
+   
+   /* Check for task break after successful read */
+   if(Checktaskbreak())
+   {  debug_printf("DEBUG: Readblock: Task break detected after successful read\n");
       return FALSE;
    }
    if(n==0) 
@@ -1093,15 +941,18 @@ static struct Authorize *Parseauth(UBYTE *buf,UBYTE *server)
 /* Read and process headers until end of headers. Read when necessary.
  * Returns FALSE if eof or error, or data should be skipped. */
 static BOOL Readheaders(struct Httpinfo *hi)
-{  /* Reset encoding flags at start of headers - this is crucial! */
+{     /* Reset encoding flags at start of headers - this is crucial! */
    hi->flags &= ~(HTTPIF_GZIPENCODED | HTTPIF_GZIPDECODING | HTTPIF_CHUNKED);
    
-   /* For HTTP/1.1, assume keep-alive is supported by default if we requested it */
-   /* This will be cleared if server explicitly says "Connection: close" */
-   /* HTTP/1.1 spec: keep-alive is default unless Connection: close is present */
+   /* Default assumption based on protocol version */
+   /* For HTTP/1.1, Keep-Alive is default. For 1.0, it's not. */
+   /* We assume 1.1 default if we requested it, BUT we must clear it if server says close */
    if(hi->flags & HTTPIF_KEEPALIVE_REQ)
    {  hi->flags |= HTTPIF_KEEPALIVE;
       debug_printf("DEBUG: Assuming keep-alive support for HTTP/1.1 (will be cleared if server says 'close')\n");
+   }
+   else
+   {  hi->flags &= ~HTTPIF_KEEPALIVE; /* Default off for HTTP/1.0 unless header found */
    }
    
    for(;;)
@@ -1236,13 +1087,15 @@ static BOOL Readheaders(struct Httpinfo *hi)
       {  /* Parse Connection header to detect keep-alive support */
          UBYTE *p;
          for(p=hi->fd->block+11;*p && isspace(*p);p++);
-         if(strstr(p,"keep-alive") || strstr(p,"Keep-Alive"))
-         {  hi->flags|=HTTPIF_KEEPALIVE;
-            debug_printf("DEBUG: Server supports keep-alive\n");
+         
+         /* Case insensitive check using STRNIEQUAL for exact word matching */
+         if(STRNIEQUAL(p, "close", 5))
+         {  hi->flags &= ~HTTPIF_KEEPALIVE;
+            debug_printf("DEBUG: Server sent Connection: close\n");
          }
-         else if(strstr(p,"close") || strstr(p,"Close"))
-         {  hi->flags&=~HTTPIF_KEEPALIVE;
-            debug_printf("DEBUG: Server requested connection close\n");
+         else if(STRNIEQUAL(p, "keep-alive", 10))
+         {  hi->flags |= HTTPIF_KEEPALIVE;
+            debug_printf("DEBUG: Server sent Connection: keep-alive\n");
          }
       }
       else if(STRNIEQUAL(hi->fd->block,"ETag:",5))
@@ -4226,26 +4079,26 @@ static BOOL Readdata(struct Httpinfo *hi)
       debug_printf("DEBUG: Zlib stream cleaned up\n");
    }
    
-   /* Force cleanup of any pending network operations to prevent exit hanging */
-   /* BUT: Don't close socket if keep-alive is enabled - we'll return it to the pool */
-   /* For SSL connections, must close SSL BEFORE closing socket */
-   if(hi->sock >= 0 && !((hi->flags & HTTPIF_KEEPALIVE) && (hi->flags & HTTPIF_KEEPALIVE_REQ))) {
-      debug_printf("DEBUG: Force closing socket to prevent exit hanging (keep-alive disabled)\n");
-      /* If this is an SSL connection, close SSL first */
+   /* CRITICAL: Force socket closure if keep-alive NOT active */
+   /* This prevents pooling dead connections that the server has closed */
+   if(hi->sock >= 0)
+   {  if (!((hi->flags & HTTPIF_KEEPALIVE) && (hi->flags & HTTPIF_KEEPALIVE_REQ)))
+      {  debug_printf("DEBUG: Readdata cleanup: Closing non-keepalive socket\n");
 #ifndef DEMOVERSION
-      if(hi->flags & HTTPIF_SSL && hi->assl)
-      {  debug_printf("DEBUG: Force closing SSL connection before socket\n");
-         Assl_closessl(hi->assl);
-      }
+         if(hi->assl) Assl_closessl(hi->assl);
 #endif
-      /* Use AmigaOS socket close function */
-      if(hi->socketbase) {
-         a_close(hi->sock, hi->socketbase);
+         if(hi->socketbase) a_close(hi->sock, hi->socketbase);
+         hi->sock = -1;
+         
+         /* Also free the library/assl references now since we won't pool */
+#ifndef DEMOVERSION
+         if(hi->assl) { Assl_cleanup(hi->assl); FREE(hi->assl); hi->assl=NULL; }
+#endif
+         if(hi->socketbase) { CloseLibrary(hi->socketbase); hi->socketbase=NULL; }
       }
-      hi->sock = -1;
-   }
-   else if(hi->sock >= 0)
-   {  debug_printf("DEBUG: Skipping force-close - keep-alive enabled, connection will be pooled (sock=%ld)\n", hi->sock);
+      else
+      {  debug_printf("DEBUG: Readdata cleanup: Keeping keep-alive socket for pooling (sock=%ld)\n", hi->sock);
+      }
    }
    
    /* Final memory corruption detection and prevention */
@@ -4580,10 +4433,8 @@ static BOOL Openlibraries(struct Httpinfo *hi)
 /* Create SSL context, SSL and socket */
 static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
 {  long sock;
-   struct timeval timeout;
    struct KeepAliveConnection *pooled_conn;
    long port;
-   struct Library *saved_socketbase_opensocket;  /* C89: Declare at start */
    
    /* 1. Check for reused connection */
    if(hi->connection_reused)
