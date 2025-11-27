@@ -90,6 +90,7 @@ struct Httpinfo
    UBYTE *userid;             /* Userid from URL */
    UBYTE *passwd;             /* Password from URL */
    BOOL connection_reused;   /* TRUE if connection was reused from pool */
+   long soft_error_retry_count; /* Retry counter for soft errors (per-connection) */
 };
 
 #define HTTPIF_AUTH        0x0001   /* Tried with a known to be valid auth */
@@ -280,6 +281,34 @@ static void FreeConnectionNode(struct KeepAliveConnection *conn)
    if(conn->socketbase) CloseLibrary(conn->socketbase);
    if(conn->hostname) FREE(conn->hostname);
    FREE(conn);
+}
+
+/* Clean up HTTP connection resources in correct order */
+/* CRITICAL: Order matters - SSL must be closed before socket, socket before library */
+static void CleanupHttpConnection(struct Httpinfo *hi)
+{  if(!hi) return;
+   
+#ifndef DEMOVERSION
+   /* Step 1: Close SSL connection (must be done while socket is still open) */
+   if(hi->assl)
+   {  Assl_closessl(hi->assl);
+      Assl_cleanup(hi->assl);
+      FREE(hi->assl);
+      hi->assl = NULL;
+   }
+#endif
+   
+   /* Step 2: Close socket (safe now that SSL is closed) */
+   if(hi->sock >= 0 && hi->socketbase)
+   {  a_close(hi->sock, hi->socketbase);
+      hi->sock = -1;
+   }
+   
+   /* Step 3: Close socket library (safe now that socket is closed) */
+   if(hi->socketbase)
+   {  CloseLibrary(hi->socketbase);
+      hi->socketbase = NULL;
+   }
 }
 
 /* Get a connection from the keep-alive pool */
@@ -519,7 +548,7 @@ static void CleanupKeepAlivePool(void)
    GetSysTime(&current_time);
    current_sec = current_time.tv_secs;
    
-   for(conn = (struct KeepAliveConnection *)keepalive_pool.first; conn->next; conn = next)
+   for(conn = (struct KeepAliveConnection *)keepalive_pool.first; conn && conn->next; conn = next)
    {  next = (struct KeepAliveConnection *)conn->next;
       
       if(conn->in_use || ((current_sec - conn->last_used) >= KEEPALIVE_TIMEOUT))
@@ -570,48 +599,93 @@ static BOOL Makehttpaddr(struct Httpinfo *hi,UBYTE *proxy,UBYTE *url,BOOL ssl)
    UBYTE *userid=NULL,*passwd=NULL;
    long l;
    BOOL gotport=FALSE;
-   if(u=strchr(url,':')) u++; /* Should always be found */
-   else u=url;
+   BOOL result = FALSE;
+   
+   /* Input validation */
+   if(!hi || !url || !*url)
+   {  return FALSE;
+   }
+   
+   /* Validate URL length (RFC 7230: HTTP/1.1 request line max 8000 bytes) */
+   if(strlen((char *)url) > 8000)
+   {  return FALSE;
+   }
+   
+   u = strchr(url, ':');
+   if(u) u++; /* Skip protocol prefix */
+   else u = url;
    if(u[0]=='/' && u[1]=='/') u+=2;
    if(proxy)
    {  p=strchr(proxy,':');
       hi->connect=Dupstr(proxy,p?p-proxy:-1);
+      if(!hi->connect) goto cleanup_error;
       hi->port=p?atol(p+1):8080;
+      
+      /* Validate port number */
+      if(hi->port < 1 || hi->port > 65535)
+      {  hi->port = 8080; /* Default proxy port */
+      }
+      
       p=stpbrk(u,":/");
       if(p && *p==':' && (q=strchr(p,'@')) && (!(r=strchr(p,'/')) || q<r))
       {  /* userid:passwd@host[:port][/path] */
          userid=Dupstr(u,p-u);
+         if(!userid) goto cleanup_error;
          passwd=Dupstr(p+1,q-p-1);
+         if(!passwd) goto cleanup_error;
          u=q+1;
          p=stpbrk(u,":/");
       }
       hi->hostname=Dupstr(u,p?p-u:-1);
+      if(!hi->hostname) goto cleanup_error;
+      
+      /* Validate hostname length (RFC 1035: max 253 characters) */
+      if(strlen((char *)hi->hostname) > 253)
+      {  goto cleanup_error;
+      }
+      
       gotport=(p && *p==':');
       p=strchr(u,'/');
       hi->hostport=Dupstr(u,p?p-u:-1);
+      if(!hi->hostport) goto cleanup_error;
+      
       if(ssl)
       {  /* Will be tunneled. Use abspath like with no proxy */
          if(gotport)
          {  hi->tunnel=Dupstr(hi->hostport,-1);
+            if(!hi->tunnel) goto cleanup_error;
          }
          else
-         {  hi->tunnel=ALLOCTYPE(UBYTE,strlen(hi->hostname)+5,0);
+         {  long tunnel_len;
+            tunnel_len = strlen(hi->hostname) + 5;
+            hi->tunnel=ALLOCTYPE(UBYTE, tunnel_len, 0);
             if(hi->tunnel)
-            {  strcpy(hi->tunnel,hi->hostname);
-               strcat(hi->tunnel,":443");
+            {  strcpy((char *)hi->tunnel, (char *)hi->hostname);
+               strcat((char *)hi->tunnel, ":443");
+            }
+            else
+            {  goto cleanup_error;
             }
          }
          hi->abspath=Dupstr(p?p:(UBYTE *)"/",-1);
+         if(!hi->abspath) goto cleanup_error;
          hi->flags|=HTTPIF_SSLTUNNEL;
       }
       else
       {  if(p)
          {  hi->abspath=Dupstr(url,-1);
+            if(!hi->abspath) goto cleanup_error;
          }
          else
          {  /* append '/' */
-            l=strlen(url);
-            if(hi->abspath=Dupstr(url,l+1)) hi->abspath[l]='/';
+            l=strlen((char *)url);
+            hi->abspath=Dupstr(url,l+1);
+            if(hi->abspath)
+            {  hi->abspath[l]='/';
+            }
+            else
+            {  goto cleanup_error;
+            }
          }
       }
    }
@@ -620,36 +694,71 @@ static BOOL Makehttpaddr(struct Httpinfo *hi,UBYTE *proxy,UBYTE *url,BOOL ssl)
       if(p && *p==':' && (q=strchr(p,'@')) && (!(r=strchr(p,'/')) || q<r))
       {  /* userid:password@host[:port][/path] */
          userid=Dupstr(u,p-u);
+         if(!userid) goto cleanup_error;
          passwd=Dupstr(p+1,q-p-1);
+         if(!passwd) goto cleanup_error;
          u=q+1;
          p=stpbrk(u,":/");
       }
       hi->connect=Dupstr(u,p?p-u:-1);
+      if(!hi->connect) goto cleanup_error;
+      
+      /* Validate hostname length */
+      if(strlen((char *)hi->connect) > 253)
+      {  goto cleanup_error;
+      }
+      
       if(p && *p==':')
-      {  hi->port=atol(p+1);
+      {  hi->port=atol((char *)p+1);
+         /* Validate port number */
+         if(hi->port < 1 || hi->port > 65535)
+         {  hi->port = -1; /* Invalid port, use default */
+         }
       }
       else
       {  hi->port=-1;
       }
       p=strchr(u,'/');
       hi->hostport=Dupstr(u,p?p-u:-1);
+      if(!hi->hostport) goto cleanup_error;
       hi->abspath=Dupstr(p?p:(UBYTE *)"/",-1);
+      if(!hi->abspath) goto cleanup_error;
       hi->hostname=Dupstr(hi->connect,-1);
+      if(!hi->hostname) goto cleanup_error;
    }
+   
    if(userid && passwd)
    {  if(hi->auth) Freeauthorize(hi->auth);
-      if(hi->auth=Newauthorize(hi->hostport,"dummyrealm"))
+      hi->auth = Newauthorize(hi->hostport,"dummyrealm");
+      if(hi->auth)
       {  Setauthorize(hi->auth,userid,passwd);
          hi->flags|=HTTPIF_AUTH;
       }
    }
+   
    if(userid) FREE(userid);
    if(passwd) FREE(passwd);
-   return (BOOL)(hi->connect && hi->hostport && hi->abspath && hi->hostname);
+   
+   result = (BOOL)(hi->connect && hi->hostport && hi->abspath && hi->hostname);
+   if(!result) goto cleanup_error;
+   
+   return TRUE;
+   
+cleanup_error:
+   /* Clean up any allocations made before error */
+   if(hi->connect) { FREE(hi->connect); hi->connect = NULL; }
+   if(hi->hostname) { FREE(hi->hostname); hi->hostname = NULL; }
+   if(hi->hostport) { FREE(hi->hostport); hi->hostport = NULL; }
+   if(hi->abspath) { FREE(hi->abspath); hi->abspath = NULL; }
+   if(hi->tunnel) { FREE(hi->tunnel); hi->tunnel = NULL; }
+   if(userid) FREE(userid);
+   if(passwd) FREE(passwd);
+   return FALSE;
 }
 
 /* Build a HTTP request. The length is returned.
- * (*request) is either fd->block or a dynamic string if fd->block was too small */
+ * (*request) is either fd->block or a dynamic string if fd->block was too small
+ * NOTE: Caller must free *request if it differs from fd->block (check: request != fd->block) */
 static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **request)
 {  UBYTE *p=fd->block;
    UBYTE *cookies;
@@ -794,8 +903,7 @@ static long Receive(struct Httpinfo *hi,UBYTE *buffer,long length)
 
 /* Read remainder of block. Returns FALSE if eof or error. */
 static BOOL Readblock(struct Httpinfo *hi)
-{  static long soft_error_retry_count = 0; /* Simple retry counter to prevent infinite loops */
-   long n;
+{  long n;
    debug_printf("DEBUG: Readblock() called, current blocklength=%ld\n", hi->blocklength);
    
 #ifdef DEVELOPER
@@ -818,7 +926,7 @@ static BOOL Readblock(struct Httpinfo *hi)
    
    /* Reset retry counter on successful read */
    if(n > 0)
-   {  soft_error_retry_count = 0;
+   {  hi->soft_error_retry_count = 0;
    }
    
    if(n < 0)
@@ -862,13 +970,13 @@ static BOOL Readblock(struct Httpinfo *hi)
       /* errno 4 = EINTR (interrupted system call - can retry) */
       /* errno 0 with n=-1 usually means SSL_ERROR_WANT_READ/WRITE handled by Receive but returned as -1 */
       if(errno_value == EAGAIN || errno_value == EWOULDBLOCK || errno_value == EINTR || errno_value == 0)
-      {  soft_error_retry_count++;
-         debug_printf("DEBUG: Readblock: Soft error (WANT_READ/EAGAIN/EINTR/errno=0), retry count=%ld, waiting for data with WaitSelect\n", soft_error_retry_count);
+      {  hi->soft_error_retry_count++;
+         debug_printf("DEBUG: Readblock: Soft error (WANT_READ/EAGAIN/EINTR/errno=0), retry count=%ld, waiting for data with WaitSelect\n", hi->soft_error_retry_count);
          
          /* CRITICAL: After too many retries, treat as connection failure */
-         if(soft_error_retry_count > 10)
-         {  debug_printf("DEBUG: Readblock: Too many soft error retries (%ld), treating as connection failure\n", soft_error_retry_count);
-            soft_error_retry_count = 0;
+         if(hi->soft_error_retry_count > 10)
+         {  debug_printf("DEBUG: Readblock: Too many soft error retries (%ld), treating as connection failure\n", hi->soft_error_retry_count);
+            hi->soft_error_retry_count = 0;
             /* Fall through to hard error handling */
          }
          else
@@ -941,7 +1049,7 @@ static BOOL Readblock(struct Httpinfo *hi)
       }
       
       /* Reset retry counter on hard error */
-      soft_error_retry_count = 0;
+      hi->soft_error_retry_count = 0;
       
       /* Now check for user abort - but only if it's not a soft error */
       if(Checktaskbreak())
@@ -5205,24 +5313,7 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                               sent, reqlen);
                   
                   /* 1. Clean up bad connection */
-#ifndef DEMOVERSION
-                  if(hi->assl)
-                  {  Assl_closessl(hi->assl);
-                     Assl_cleanup(hi->assl);
-                     FREE(hi->assl);
-                     hi->assl = NULL;
-                  }
-#endif
-                  if(hi->sock >= 0 && hi->socketbase)
-                  {  a_close(hi->sock, hi->socketbase);
-                  }
-                  hi->sock = -1;
-                  
-                  /* 2. Clear socketbase so Openlibraries creates fresh connection */
-                  if(hi->socketbase)
-                  {  CloseLibrary(hi->socketbase);
-                     hi->socketbase = NULL;
-                  }
+                  CleanupHttpConnection(hi);
                   
                   /* 3. Mark as not reused so Openlibraries creates fresh */
                   hi->connection_reused = FALSE;
@@ -5396,23 +5487,8 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                }
                else
                {  /* Close connection normally */
-                  /* Close SSL connection BEFORE closing socket */
-                  /* SSL shutdown needs the socket to still be open */
-#ifndef DEMOVERSION
-                  if(hi->assl)
-                  {  debug_printf("DEBUG: Httpretrieve: Closing SSL connection\n");
-                     Assl_closessl(hi->assl);
-                     /* DON'T set hi->assl to NULL here - Assl_cleanup() will handle it */
-                     /* Assl_closessl() only closes the connection, doesn't free the Assl structure */
-                  }
-#endif
-                  /* Now safe to close socket - SSL has been properly shut down */
-                  if(hi->sock >= 0)
-                  {  debug_printf("DEBUG: Httpretrieve: Closing socket %ld\n", hi->sock);
-                     a_close(hi->sock,hi->socketbase);
-                     hi->sock = -1;
-                     debug_printf("DEBUG: Httpretrieve: Socket closed\n");
-                  }
+                  debug_printf("DEBUG: Httpretrieve: Closing connection (not keep-alive)\n");
+                  CleanupHttpConnection(hi);
                }
             }
       }
@@ -5443,34 +5519,10 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
    if(error)
    {  Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
    }
-#ifndef DEMOVERSION
-   /* Clean up Assl structure */
-   /* Must clean up Assl BEFORE closing socketbase library */
-   /* This ensures SSL operations are fully complete before library is closed */
-   /* Note: If keep-alive is enabled, ReturnKeepAliveConnection() already cleared hi->assl */
-   if(hi->assl)
-   {  debug_printf("DEBUG: Httpretrieve: Cleaning up Assl structure\n");
-      /* Assl_closessl() should have already freed SSL resources */
-      /* Assl_cleanup() will null out library bases to mark the object as dead */
-      Assl_cleanup(hi->assl);
-      /* Free the struct after Assl_cleanup() has cleaned it up */
-      /* Assl_cleanup() no longer frees the struct to prevent use-after-free crashes */
-      FREE(hi->assl);
-      hi->assl=NULL;
-      debug_printf("DEBUG: Httpretrieve: Assl structure cleaned up\n");
-   }
-#endif
-   
-   /* Only close socketbase library after all SSL operations are complete */
-   /* This ensures no concurrent SSL operations are using the library when we close it */
-   /* Must wait until Assl is fully cleaned up before closing socketbase */
-   /* Note: If keep-alive is enabled, ReturnKeepAliveConnection() already cleared hi->socketbase */
-   if(hi->socketbase)
-   {  debug_printf("DEBUG: Httpretrieve: Closing socketbase library\n");
-      CloseLibrary(hi->socketbase);
-      hi->socketbase=NULL;
-      debug_printf("DEBUG: Httpretrieve: Socketbase library closed\n");
-   }
+   /* Final cleanup - ensure all resources are freed */
+   /* Note: If keep-alive is enabled, ReturnKeepAliveConnection() already cleared hi->assl and hi->socketbase */
+   /* But we do a final check to ensure nothing was missed */
+   CleanupHttpConnection(hi);
 #ifdef DEVELOPER
    }
 #endif
@@ -5490,6 +5542,9 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
 void Httptask(struct Fetchdriver *fd)
 {  struct Httpinfo hi={0};
    int loop_count=0;
+   
+   /* Initialize per-connection retry counter */
+   hi.soft_error_retry_count = 0;
    
    debug_printf("DEBUG: Httptask: ENTRY - URL=%s, proxy=%s, SSL=%d\n",
           fd ? (char *)fd->name : "(null)", fd && fd->proxy ? (char *)fd->proxy : "(none)",
@@ -5528,18 +5583,10 @@ void Httptask(struct Fetchdriver *fd)
          }
          
          hi.status=0;
-         /* CRITICAL: Clean up any existing Assl before next iteration to prevent SSL context reuse */
+         /* CRITICAL: Clean up any existing connection before next iteration to prevent SSL context reuse */
          /* This prevents wild free defects when redirects cause multiple connections */
-         if(hi.assl)
-         {  debug_printf("DEBUG: Httptask: Cleaning up existing Assl before redirect iteration\n");
-            Assl_closessl(hi.assl);
-            Assl_cleanup(hi.assl);
-            FREE(hi.assl);
-            hi.assl = NULL;
-         }
-         /* CRITICAL: Reset socket and socketbase to prevent reuse */
-         hi.sock = -1;
-         hi.socketbase = NULL;
+         debug_printf("DEBUG: Httptask: Cleaning up existing connection before redirect iteration\n");
+         CleanupHttpConnection(&hi);
          debug_printf("DEBUG: Httptask: Calling Httpretrieve() - status reset to 0\n");
          Httpretrieve(&hi,fd);
          debug_printf("DEBUG: Httptask: Httpretrieve() returned - status=%ld, flags=0x%04X\n",
