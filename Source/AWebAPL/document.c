@@ -96,9 +96,17 @@ static long Fragmentpos(struct Document *doc,UBYTE *name)
 
 /*------------------------------------------------------------------------*/
 
+static void Disposebguser(struct Bguser *bgu)
+{  if(bgu)
+   {  FREE(bgu);
+   }
+}
+
 static void Disposebgimage(struct Bgimage *bgi)
-{  if(bgi)
+{  void *p;
+   if(bgi)
    {  if(bgi->copy) Adisposeobject(bgi->copy);
+      while(p=REMHEAD(&bgi->bgusers)) Disposebguser(p);
       FREE(bgi);
    }
 }
@@ -354,6 +362,72 @@ static long Renderdocument(struct Document *doc,struct Amrender *amr)
    return 0;
 }
 
+/* Global counter for background image updates */
+ULONG bgupdate = 0;
+
+/* Changebackground: When a background image changes, only re-render the
+ * specific bodies/elements that use it, rather than forcing a complete
+ * document redraw. This provides dramatic speed improvements. */
+static long Changebackground(struct Document *doc, struct Bgimage *bgimage)
+{  struct Bgimage *bgi;
+   /* find the Bgimage for this background.  */
+   /* If the document has no frame, it's not displayed so don't try and render */
+   if(doc->frame)
+   {  for(bgi=doc->bgimages.first;bgi->next;bgi=bgi->next)
+      {  if(bgi->copy==bgimage)
+         {  struct Bguser *bgu;
+            /* increment the bgupdate key */
+            bgupdate++;
+            /* Work through the list of elements using this background */
+            /* Render as required*/
+            for(bgu=bgi->bgusers.first;bgu->next;bgu=bgu->next)
+            {  struct Aobject *obj;
+               struct Coords *coo = NULL;
+               long minx,miny,maxx,maxy;
+               long bx,by,bw,bh;
+               coo = Clipcoords(doc->cdv.cframe,coo);
+               if(coo)
+               {  obj = (struct Aobject *)bgu->user;
+                  if(obj->objecttype == AOTP_BODY)
+                  {  if(bgupdate > Agetattr(obj,AOBDY_Bgupdate))
+                     {  /* Get body coordinates using Agetattr to avoid direct struct access */
+                        Agetattrs(obj,
+                           AOBJ_Left,&bx,
+                           AOBJ_Top,&by,
+                           AOBJ_Width,&bw,
+                           AOBJ_Height,&bh,
+                           TAG_END);
+                        minx = MAX(coo->minx - coo->dx,bx);
+                        miny = MAX(coo->miny - coo->dy,by);
+                        maxx = MIN(coo->maxx - coo->dx,bx + bw - 1);
+                        maxy = MIN(coo->maxy - coo->dy,by + bh - 1);
+                        Anotifyset(obj,AOBJ_Bgchanged,TRUE,TAG_END);
+                        Arender(obj,coo,minx,miny,maxx,maxy,AMRF_CLEAR,NULL);
+                     }
+                  }
+                  else
+                  {  /* For other element types, get their coordinates */
+                     Agetattrs(obj,
+                        AOBJ_Left,&bx,
+                        AOBJ_Top,&by,
+                        AOBJ_Width,&bw,
+                        AOBJ_Height,&bh,
+                        TAG_END);
+                     minx = MAX(coo->minx - coo->dx,bx);
+                     miny = MAX(coo->miny - coo->dy,by);
+                     maxx = MIN(coo->maxx - coo->dx,bx + bw - 1);
+                     maxy = MIN(coo->maxy - coo->dy,by + bh - 1);
+                     Arender(obj,coo,minx,miny,maxx,maxy,AMRF_CLEAR,NULL);
+                  }
+                  Unclipcoords(coo);
+               }
+            }
+         }
+      }
+   }
+   return 0;
+}
+
 static void Srcupdatedocument(struct Document *doc)
 {  if(!(doc->pflags&DPF_SUSPEND))
    {  if(doc->frame)
@@ -451,6 +525,9 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
             if(tag->ti_Data && doc->body)
             {  Anotifyset(doc->body,AOBJ_Nobackground,TRUE,TAG_END);
             }
+            break;
+         case AOBJ_Changedbgimage:
+            if(tag->ti_Data) Changebackground(doc,(struct Bgimage *)tag->ti_Data);
             break;
          case AOCDV_Bgchanged:
             if(tag->ti_Data)

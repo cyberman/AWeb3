@@ -206,11 +206,18 @@ struct Fragment
    struct Element *elt;       /* The related NAME element */
 };
 
+/* a user of a given background image */
+struct Bguser
+{  NODE(Bguser);
+   void *user;
+};
+
 /* All bgimages used in document or tables */
 struct Bgimage
 {  NODE(Bgimage);
    void *url;                 /* Url for this image */
    void *copy;                /* Image copy object */
+   LIST(Bguser) bgusers;      /* List of objects using this bgimage */
 };
 
 /* META or LINK text */

@@ -21,6 +21,9 @@
 #include "aweb.h"
 #include "body.h"
 #include "element.h"
+#include "docprivate.h"
+#include "frprivate.h"
+#include "copy.h"
 
 #include <proto/exec.h>
 #include <proto/dos.h>
@@ -67,6 +70,7 @@ struct Body
    LIST(Margin) rightmargins; /* Right side floating margins */
    short bgcolor;             /* Pen number for background or -1 */
    void *bgimage;             /* Background image or NULL */
+   ULONG bgupdate;            /* Value of bgupdate last time this body was rendered */
    LIST(Openfont) openfonts;  /* All fonts used (and therefore opened) by us */
    struct Bodybuild *bld;     /* Variables only needed during growth */
 };
@@ -921,6 +925,8 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
    short bgcolor;
    void *bgimage;
    long y;
+   /* prevent multiple rendering by putting the value of bgupdate in to bd->bgupdate */
+   bd->bgupdate = bgupdate;
    /* If AMRF_CHANGED, start with first child from rendery, but only if something
     * was changed.
     * Otherwise render everything. */
@@ -1025,6 +1031,11 @@ static long Setbody(struct Body *bd,struct Amset *ams)
             break;
          case AOBJ_Nobackground:
             SETFLAG(bd->flags,BDYF_NOBACKGROUND,tag->ti_Data);
+            break;
+         case AOBJ_Changedbgimage:
+            if(bd->parent && tag->ti_Data)
+            {  Asetattrs(bd->parent,AOBJ_Changedbgimage,tag->ti_Data,TAG_END);
+            }
             break;
          case AOBDY_Sethardstyle:
             if(bd->bld) bd->bld->hardstyle|=tag->ti_Data;
@@ -1159,6 +1170,35 @@ static long Setbody(struct Body *bd,struct Amset *ams)
             break;
          case AOBDY_Bgimage:
             bd->bgimage=(void *)tag->ti_Data;
+            /* Register this body as a user of the background image */
+            if(bd->bgimage)
+            {  void *framecopy;
+               struct Document *doc;
+               struct Bguser *bgu;
+               struct Bgimage *bgi;
+               struct Frame *fr;
+               /* get the document we belong to ... */
+               /* but abort if we sometimes don't have a frame */
+               /* NOTE: at sometime investigate just why this can happen */
+               if(bd->frame)
+               {  fr = (struct Frame *)bd->frame;
+                  framecopy = fr->copy;
+                  if(framecopy)
+                  {  doc = (struct Document *)Agetattr((struct Aobject*)framecopy,AOCPY_Driver);
+                     if(doc)
+                     {  for(bgi=doc->bgimages.first;bgi->next;bgi=bgi->next)
+                        {  if((void *)tag->ti_Data == bgi->copy)
+                           {  if((bgu = ALLOCSTRUCT(Bguser,1,MEMF_CLEAR)))
+                              {  bgu->user = bd;
+                                 ADDTAIL(&bgi->bgusers,bgu);
+                              }
+                              break;
+                           }
+                        }
+                     }
+                  }
+               }
+            }
             Removelinesbelow(bd,-1);
             bd->flags|=BDYF_CHANGEDCHILD;
             bd->flags&=~BDYF_LAYOUTREADY;
@@ -1249,6 +1289,9 @@ static long Getbody(struct Body *bd,struct Amset *ams)
             break;
          case AOBDY_Style:
             PUTATTR(tag,bd->bld->hardstyle|bd->bld->font.first->style);
+            break;
+         case AOBDY_Bgupdate:
+            PUTATTR(tag,bd->bgupdate);
             break;
       }
    }

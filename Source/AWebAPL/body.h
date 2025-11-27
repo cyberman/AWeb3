@@ -103,10 +103,16 @@
 #define AOBDY_Baseface     (AOBDY_Dummy+28)  /* SET */
    /* (UBYTE *) Comma-separated list of preferred basefont face names */
 
+#define AOBDY_Bgupdate     (AOBDY_Dummy+31)   /* GET */
+   /* ULONG last bgupdate key value */
+
 #define AOBDY_    (AOBDY_Dummy+)
 #define AOBDY_    (AOBDY_Dummy+)
 
 /*--- body support structures ---*/
+
+/* global references */
+extern ULONG bgupdate;
 
 /* Listinfo contains details about the current list.
  * Set AOBDY_List to add a new list level. Set to NULL to

@@ -547,6 +547,7 @@ static void *Backgroundimg(struct Document *doc,UBYTE *urlname)
    if(bgi=ALLOCSTRUCT(Bgimage,1,MEMF_CLEAR))
    {  bgi->url=url;
       bgi->copy=elt;
+      NEWLIST(&bgi->bgusers);
       ADDTAIL(&doc->bgimages,bgi);
    }
    return elt;

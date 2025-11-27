@@ -286,6 +286,9 @@ struct Aobject
    /* (UBYTE *) Status text to be displayed. Only supported by objects that may return
     * AMHR_STATUS on an AOM_HITTEST message. */
 
+#define AOBJ_Changedbgimage (AOBJ_Dummy+32) /* SET */
+   /* (struct Bgimage *) Background image has changed, notify users to re-render */
+
 #define AOBJ_     (AOBJ_Dummy+)
 #define AOBJ_     (AOBJ_Dummy+)
 
