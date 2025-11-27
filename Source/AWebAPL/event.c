@@ -391,7 +391,11 @@ static void Inputwindocref(void *win,void *url,UBYTE *fragment,UBYTE *frameid,
 {  struct Awindow *awin=win;
    struct Winhis *whis;
    if(awin && url)
-   {  if(whis=Anewobject(AOTP_WINHIS,
+   {  /* Close idle keep-alive connections when navigating to a new page */
+      /* This resets the connection pool for the new page context */
+      CloseIdleKeepAliveConnections();
+      
+      if(whis=Anewobject(AOTP_WINHIS,
          AOWHS_Copyfrom,awin->whis,
          AOWHS_Key,awin->key,
          AOWHS_Windownr,awin->windownr,
@@ -736,7 +740,10 @@ void Processwindow(void)
    struct InputEvent ie;
    UBYTE buffer[8];
    struct MsgPort *windowport=(struct MsgPort *)Agetattr(Aweb(),AOAPP_Windowport);
-   while(msg=Getimessage(windowport,AOTP_WINDOW))
+   struct List *msglist = (struct List *)Agetattr(Aweb(),AOAPP_Messagelist);
+   /* Process messages from windowmsgs list first, then from windowport */
+   /* GetMsg() is atomic and doesn't require Forbid()/Permit() */
+   while(msg=(struct IntuiMessage *)((msglist && msglist->lh_Head && msglist->lh_Head->ln_Succ) ? REMHEAD(msglist) : GetMsg(windowport)))
    {  win=(struct Awindow *)msg->IDCMPWindow->UserData;
       if(msg->Class==IDCMP_MOUSEMOVE && (msg->Qualifier&IEQUALIFIER_LEFTBUTTON)
       && (win->flags&WINF_DRAGSTART) && (win->flags&WINF_CLIPDRAG))
@@ -1076,74 +1083,86 @@ void Scrolldoc(struct Awindow *win,long newtop)
  * - IDCMP_MENUPICK for MID_BREAKJS.
  * - IDCMP_RAWKEY with R_AMIGA and shortcut for the break JS item.
  */
+/* Look if there is an Intuitionevent queued
+ * - IDCMP_MENUPICK for MID_BREAKJS.
+ * - IDCMP_RAWKEY with R_AMIGA and shortcut for the break JS item.
+ * Scans windowmsgs list instead of directly accessing message port to avoid Forbid()/Permit().
+ */
 BOOL Cancelevent(struct Awindow *win)
 {  BOOL cancel=FALSE;
    struct IntuiMessage *msg;
    struct Menuentry *me;
    struct InputEvent ie;
    UBYTE buffer[8];
-   if(win && win->window && win->window->UserPort)
-   {  Forbid();
-      for(msg=(struct IntuiMessage *)win->window->UserPort->mp_MsgList.lh_Head;
-         !cancel && msg->ln_Succ;
-         msg=(struct IntuiMessage *)msg->ln_Succ)
-      {  switch(msg->Class)
-         {  case IDCMP_MENUPICK:
-               me=Menuentryfromnum(msg->Code);
-               if(me && STRIEQUAL(me->cmd,"@BREAKJS"))
-               {  cancel=TRUE;
-               }
-               break;
-            case IDCMP_RAWKEY:
-               if(!(msg->Code&IECODE_UP_PREFIX))
-               {  if(msg->Qualifier&IEQUALIFIER_RCOMMAND)
-                  {  /* Menu shortcut while RMBTRAP flag on */
-                     memset(&ie,0,sizeof(ie));
-                     ie.ie_Class=IECLASS_RAWKEY;
-                     ie.ie_Code=msg->Code;
-                     ie.ie_Qualifier=msg->Qualifier&~(IEQUALIFIER_CONTROL);
-                     ie.ie_EventAddress=*(APTR *)msg->IAddress;
-                     if(MapRawKey(&ie,buffer,8,NULL)==1)
-                     {  if(me=Menuentryfromkey(buffer[0]))
-                        {  if(STRIEQUAL(me->cmd,"@BREAKJS"))
-                           {  cancel=TRUE;
+   struct List *msglist;
+   if(win)
+   {  msglist=(struct List *)Agetattr(Aweb(),AOAPP_Messagelist);
+      if(msglist)
+      {  for(msg=(struct IntuiMessage *)msglist->lh_Head;
+            !cancel && ((struct Node *)msg)->ln_Succ;
+            msg=(struct IntuiMessage *)((struct Node *)msg)->ln_Succ)
+         {  switch(msg->Class)
+            {  case IDCMP_MENUPICK:
+                  me=Menuentryfromnum(msg->Code);
+                  if(me && STRIEQUAL(me->cmd,"@BREAKJS"))
+                  {  cancel=TRUE;
+                  }
+                  break;
+               case IDCMP_RAWKEY:
+                  if(!(msg->Code&IECODE_UP_PREFIX))
+                  {  if(msg->Qualifier&IEQUALIFIER_RCOMMAND)
+                     {  /* Menu shortcut while RMBTRAP flag on */
+                        memset(&ie,0,sizeof(ie));
+                        ie.ie_Class=IECLASS_RAWKEY;
+                        ie.ie_Code=msg->Code;
+                        ie.ie_Qualifier=msg->Qualifier&~(IEQUALIFIER_CONTROL);
+                        ie.ie_EventAddress=*(APTR *)msg->IAddress;
+                        if(MapRawKey(&ie,buffer,8,NULL)==1)
+                        {  if(me=Menuentryfromkey(buffer[0]))
+                           {  if(STRIEQUAL(me->cmd,"@BREAKJS"))
+                              {  cancel=TRUE;
+                              }
                            }
                         }
                      }
                   }
-               }
-               break;
+                  break;
+            }
          }
       }
-      Permit();
    }
    return cancel;
 }
 
 /* Scan queued Intuition messages for refresh events for browser windows.
- * If found, remove the message, process and reply. */
+ * If found, remove the message, process and reply.
+ * Non-matching messages are saved to windowmsgs list for later processing.
+ * Uses GetMsg() which is atomic and doesn't require Forbid()/Permit(). */
 void Refreshevents(void)
-{  struct IntuiMessage *msg,*nextmsg;
+{  struct IntuiMessage *msg;
    struct Aobject *aobj;
    struct MsgPort *windowport;
+   struct List *msglist;
    windowport=(struct MsgPort *)Agetattr(Aweb(),AOAPP_Windowport);
-   if(windowport)
-   {  Forbid();
-      for(msg=(struct IntuiMessage *)windowport->mp_MsgList.lh_Head;
-         msg->ln_Succ;msg=nextmsg)
-      {  nextmsg=(struct IntuiMessage *)msg->ln_Succ;
-         if(msg->Class==IDCMP_REFRESHWINDOW)
+   msglist=(struct List *)Agetattr(Aweb(),AOAPP_Messagelist);
+   if(windowport && msglist)
+   {  while((msg=(struct IntuiMessage *)GetMsg(windowport)))
+      {  if(msg->Class==IDCMP_REFRESHWINDOW)
          {  aobj=(struct Aobject *)msg->IDCMPWindow->UserData;
             if(aobj && aobj->objecttype==AOTP_WINDOW)
-            {  Remove(msg);
-               Permit();
-               Refreshwindow((struct Awindow *)aobj);
-               ReplyMsg(msg);
-               Forbid();
+            {  Refreshwindow((struct Awindow *)aobj);
+               ReplyMsg((struct Message *)msg);
+            }
+            else
+            {  /* Not for us, save for later */
+               ADDTAIL(msglist,(struct Node *)msg);
             }
          }
+         else
+         {  /* Not a refresh message, save for later */
+            ADDTAIL(msglist,(struct Node *)msg);
+         }
       }
-      Permit();
    }
 }
 

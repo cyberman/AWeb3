@@ -60,6 +60,8 @@ struct Application
    short bgpen,textpen,linkpen,vlinkpen,alinkpen;
    short blackpen,whitepen,tooltippen;
    struct MsgPort *windowport;
+   LIST(IntuiMessage) windowmsgs;     /* Saved unprocessed messages from windowport */
+   struct MsgPort *reactionport;       /* Message port for reaction windows */
    struct MsgPort *appport;            /* App window or App icon port */
    struct DiskObject *appdob;
    struct AppIcon *appicon;
@@ -1100,26 +1102,32 @@ static void Appiconify(struct Application *app,BOOL hide)
 /* Process messages in windowport. Find the first message, and its windows
  * userdata, which is an object. Call the function for that object type.
  * Loop until port is empty, for each application... */
+/* Process messages in reactionport. Find the first message, and its windows
+ * userdata, which is an object. Call the function for that object type.
+ * Loop until port is empty, for each application... */
 static void Processapp(void)
 {  struct Application *app;
    struct IntuiMessage *imsg;
    struct Aobject *obj;
-   for(app=apps.first;app->next;app=app->next)
+   for(app=apps.first;app->object.next;app=app->object.next)
    {  for(;;)
       {  Forbid();
-         imsg=(struct IntuiMessage *)app->windowport->mp_MsgList.lh_Head;
+         imsg=(struct IntuiMessage *)app->reactionport->mp_MsgList.lh_Head;
          Permit();
-         if(imsg && imsg->ln_Succ)
+         if(imsg && imsg->ExecMessage.mn_Node.ln_Succ)
          {  obj=(struct Aobject *)imsg->IDCMPWindow->UserData;
             if(obj && obj->objecttype<128 && app->processfun[obj->objecttype])
             {  app->processfun[obj->objecttype]();
             }
             else
-            {  Remove(imsg);
+            {  /* This really shouldn't happen if it does we have a bug! */
+               Forbid();
+               Remove((struct Node *)imsg);
+               Permit();
 #ifdef DEVELOPER
-               printf("Undeliverable message: %08x(%x)\n",obj,obj?obj->objecttype:0);
+               printf("Undeliverable message: %08lx(%x)\n",(long)obj,obj?obj->objecttype:0);
 #endif
-               ReplyMsg(imsg);
+               ReplyMsg((struct Message *)imsg);
             }
          }
          else break;
@@ -1213,6 +1221,7 @@ static struct Application *Newapplication(struct Amset *ams)
       NEWLIST(&app->usebrowser);
       NEWLIST(&app->useoverlap);
       NEWLIST(&app->wantblink);
+      NEWLIST(&app->windowmsgs);
       InitSemaphore(&app->semaphore);
       app->pubsignum=-1;
       app->bgpen=-1;
@@ -1227,7 +1236,9 @@ static struct Application *Newapplication(struct Amset *ams)
       sysattr.ta_YSize=((struct GfxBase *)GfxBase)->DefaultFont->tf_YSize;
       app->systemfont=OpenFont(&sysattr);
       app->windowport=CreateMsgPort();
-      Setprocessfun(app->windowport->mp_SigBit,Processapp);
+      app->reactionport=CreateMsgPort();
+      Setprocessfun(app->windowport->mp_SigBit,Processwindow);
+      Setprocessfun(app->reactionport->mp_SigBit,Processapp);
       app->savepath=Dupstr(prefs.savepath,-1);
       Setapplication(app,ams);
       Makemenus(app);
@@ -1332,6 +1343,12 @@ static long Getapplication(struct Application *app,struct Amset *ams)
             break;
          case AOAPP_Windowport:
             PUTATTR(tag,app->windowport);
+            break;
+         case AOAPP_Reactionport:
+            PUTATTR(tag,app->reactionport);
+            break;
+         case AOAPP_Messagelist:
+            PUTATTR(tag,&app->windowmsgs);
             break;
          case AOAPP_Savepath:
             PUTATTR(tag,app->savepath);
@@ -1539,6 +1556,7 @@ static long Jsetupapplication(struct Application *app,struct Amjsetup *js)
 
 static void Disposeapplication(struct Application *app)
 {  struct Child *ch;
+   struct Message *msg;
    REMOVE(app);
    if(app->jnavigator) Disposejobject(app->jnavigator);
    if(app->jscreen) Disposejobject(app->jscreen);
@@ -1573,8 +1591,16 @@ static void Disposeapplication(struct Application *app)
    if(app->menus) Freemenus(app);
    if(app->windowport)
    {  Setprocessfun(app->windowport->mp_SigBit,NULL);
+      while((msg = GetMsg(app->windowport))) ReplyMsg(msg);
       DeleteMsgPort(app->windowport);
    }
+   if(app->reactionport)
+   {  Setprocessfun(app->reactionport->mp_SigBit,NULL);
+      while((msg = GetMsg(app->reactionport))) ReplyMsg(msg);
+      DeleteMsgPort(app->reactionport);
+   }
+   /* Clean up any remaining messages in windowmsgs list */
+   while((msg = (struct IntuiMessage *)REMHEAD(&app->windowmsgs))) ReplyMsg((struct Message *)msg);
    if(app->resizehorobj) DisposeObject(app->resizehorobj);
    if(app->resizevertobj) DisposeObject(app->resizevertobj);
    if(app->handobj) DisposeObject(app->handobj);
