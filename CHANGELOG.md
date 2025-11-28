@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6alpha4] - 25-12-01
+
+### Added
+- **about:plugins:** Added about:plugins to about.aweblib module which lists all loaded AWebPlugin and AWebLib modules
+- **file:// Protocol Directory Browsing:** The file:// protocol now supports browsing and navigating directories as well as viewing files unless a file "index.html" is present in the directory. Users can view individual files and navigate into subdirectories
+- **file:/// Root URL:** Added support for file:/// root URL which displays a list of all mounted volumes
+- **NOSTARTUP Command Line Option:** Added new command line option (and corresponding ToolType) "NOSTARTUP/S" to prevent startup.aweblib plugin from running, eliminating the splash screen
+- **Documentation Test Pages:** Added test pages for HTML3.2, HTML4.0 and JavaScript 1.1 to documentation to demonstrate how AWeb handles these standards
+- **theoldnet.com Integration:** Added theoldnet.com as a default bookmark and tested proxy function with theoldnet.com's http proxy service for browsing old versions of websites
+- **Experimental HTTP/1.1 Keep-Alive:** Added experimental HTTP/1.1 keep-alive support to the codebase (not enabled in this build as it requires further testing and appears slower than expected)
+
+### Changed
+- **HTTPS Security:** HTTPS connections now deny use of weak ciphers and TLS versions below 1.2, check CN and SAN name matches with wildcard support, chain validation and Server Name Indication (SNI)
+- **FONT Tag Font Selection:** FONT tags now search first for the named font if it exists on the system, then for the mapped alternative, then for the fallback font for the requested family
+- **about:fonts Page:** Enhanced about:fonts page to illustrate exactly how AWeb will render the defacto standard web safe fonts on your system with the fonts you have installed
+- **FORM Element Font Rendering:** FORM elements such as INPUT, TEXTAREA, SELECT and BUTTON now render using the current font of the element they are contained within, rather than the system font
+
+### Fixed
+- **Entity Rendering:** Entities are now always rendered as actual characters regardless of the HTML compatibility mode
+- **Proxy Settings:** Fixed proxy settings now being saved - this was completely missing in the original AWeb 3.4 source code
+- **PNG Plugin ReadBytes:** Fixed broken ReadBytes function in the PNG plugin that could cause an infinite loop loading assets from HTTPS connections, now fixed following the JPEG version pattern
+
+### Reintegrated from AWeb 3.5
+- **JavaScript Dynamic Garbage Collection:** JavaScript now employs dynamic garbage collection during script execution instead of only at the end, reducing overall memory usage
+- **ETags for Caching:** Implemented ETags for caching
+- **Content-Disposition Parsing:** Implemented Content-Disposition parsing used for setting suggested name for file downloads
+- **302 and 307 Redirects:** Reintegrated support for 302 and 307 redirects
+
 ## [3.6alpha3] - 25-11-22
 
 ### Added

@@ -277,6 +277,16 @@ The main changes in version 3.6 compared to version 3.4 are:
 - Added support for some additional XML entities that have equivalents in Latin-1
 - Fixed a bug where utf-8 encoded characters would be interpreted as single byte characters
 
+**What's New in 3.6 Alpha 4:**
+- **about:plugins:** Added about:plugins to list all loaded AWebPlugin and AWebLib modules
+- **file:// Protocol Directory Browsing:** The file:// protocol now supports browsing directories and viewing mounted volumes
+- **Enhanced HTTPS Security:** HTTPS connections now deny weak ciphers and TLS < 1.2, with improved CN/SAN name matching, wildcard support, chain validation and SNI
+- **Font Selection Improvements:** FONT tags now search for named fonts first, then mapped alternatives, then fallback fonts
+- **FORM Element Font Rendering:** FORM elements now render using the current font of their container element
+- **theoldnet.com Integration:** Added theoldnet.com as default bookmark with tested proxy support for browsing archived websites
+- **Features from AWeb 3.5:** Reintegrated JavaScript dynamic garbage collection, ETags for caching, Content-Disposition parsing, and 302/307 redirect support
+- **Bug Fixes:** Fixed entity rendering in all HTML modes, proxy settings now save correctly, fixed PNG plugin infinite loop bug
+
 **What's New in 3.6 Alpha 3:**
 - **about: Protocol Support:** Added about.aweblib plugin providing special internal URLs (about:home, about:blank, about:fonts, about:version)
 - **Markdown Rendering:** Markdown documents loaded from files or http(s) URLs are now rendered as HTML on the fly
@@ -326,15 +336,33 @@ The release of AWeb as open source was a generous act by its author, and the cod
 
 In this context, finishing the job means both completing support for the final versions of those web standards and, with the benefit of hindsight, the way those features ended up being used in practice. It also means leveraging the AWeb architecture in new ways to extend the Amiga platform to provide reusable services such as HTML rendering and HTTP processing in a way that other platforms have enjoyed in the intervening years and true to the Amiga platform's famous modularity.
 
+### Which features from the various releases of AWeb 3.5 have already been cherry-picked for inclusion in AWeb 3.6?
+
+The following features from AWeb 3.5 have been reintegrated in **AWeb 3.6**:
+- ETags support in the cache
+- Enhanced handling of 302 and 307 redirects 
+- Dynamic Garbage Collection of temporary objects in the JavaScript engine to reduce memory usage
+- Parsing of Content-Disposition headers to suggest filenames for saved downloads
+
+### Are there any features from the various releases of AWeb 3.5 that are not going to be reintegrated into AWeb 3.6?
+
+The implementation of HTTP/1.1, gzip and chunked encoding in AWeb 3.6 is vastly more sophisticated than the simplistic version in AWeb 3.5, it is an all new implementation, so no code from the AWeb 3.5 version has been reintegrated.
+
+3.5 had incomplete changes laying the groundwork for future utf-8 support, as well as the external Charset plugin that did provide a more comprehensive solution build on codesets.library. 3.6 already has more complete builtin utf-8 support in the parser that will cope with the most common 2 byte character to Latin1 encodings, while the Charset plugin should be compatible with 3.6 for those who need more extensive Unicode support.
+
 ### What is amigazen project's plan for the future of AWeb?
 
 The first release 3.6 is designed to be a stable rebuild of version 3.4 updated to build with the latest NDK and relevant third party SDKs such as AmiSSL 5 and RoadShow, still also using SAS/C like the original release. The most important changes from the various beta releases of 3.5 will also be cherry picked for inclusion where they don't break compatibility with classic Amiga.
 
-**AWeb 3.6 Alpha 3** has been released (2025-11-22), featuring enhanced SSL/TLS security, about: protocol support, Markdown rendering, and numerous bug fixes and improvements. See [CHANGELOG.md](CHANGELOG.md) for details.
-
 Later releases will then add new features missing from AWeb's standards support incrementally.
 
 The intention will be to eventually reach a version of AWeb that implements at least some of CSS including CSS2, HTML standards up to XHTML and XMLHttpRequest() in JavaScript, with a DOM, which should give AWeb compatibility up to the equivalent of about 2008 to 2010 era web content, though this may mean by the time the work is finished it is almost an entirely new web browser...
+
+### Does the new AWeb work on Workbench 3.1, 3.5 or 3.9?
+
+The new AWeb is built and tested using the NDK 3.2 but should still be compatible with Workbench 3.1 with ClassAct, or the 3.5 and 3.9 releases with ReAction. Likewise the network support is built with the Roadshow SDK but should work with any bsdsocket.library implementation, and is most heavily tested with the UAE version for obvious reasons.
+
+New features such as system settings for contextual mouse pointers are implemented in progressive upgrade way at runtime wherever possible, for example with branching code paths that check if intuition.library 47 or higher is available.
 
 ### Will AWeb support modern websites?
 
