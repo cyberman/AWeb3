@@ -33,6 +33,18 @@
 
 struct Assl *Assl_initamissl(struct Library *socketbase);
 
+/* Get the AmiSSL master library base from an Assl object */
+/* Returns NULL if assl is NULL or library base is not available */
+struct Library *Assl_getmasterbase(struct Assl *assl);
+
+/* Close AmiSSL libraries for a given Assl object */
+/* This should be called before Assl_cleanup() to properly close libraries */
+void Assl_closelibraries(struct Assl *assl);
+
+/* Close AmiSSL libraries for a given library base pointer */
+/* This is used at application shutdown to close unique library bases */
+void Assl_closelibrarybase(struct Library *library_base);
+
 /* SSL certificate acceptance function */
 BOOL Httpcertaccept(char *hostname, char *certname);
 

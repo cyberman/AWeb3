@@ -48,9 +48,6 @@
 #ifndef SO_SNDTIMEO
 #define SO_SNDTIMEO 0x1005
 #endif
-#ifndef MSG_PEEK
-#define MSG_PEEK 0x02  /* Peek at incoming data without removing it */
-#endif
 
 /* Define SocketBase for setsockopt() from proto/bsdsocket.h */
 /* The proto header declares it as extern, so we need to provide the actual definition */
@@ -90,7 +87,6 @@ struct Httpinfo
    UBYTE *userid;             /* Userid from URL */
    UBYTE *passwd;             /* Password from URL */
    BOOL connection_reused;   /* TRUE if connection was reused from pool */
-   long soft_error_retry_count; /* Retry counter for soft errors (per-connection) */
 };
 
 #define HTTPIF_AUTH        0x0001   /* Tried with a known to be valid auth */
@@ -124,7 +120,7 @@ static UBYTE *fixedheaders=
 
 /* HTTP/1.1 specific headers */
 static UBYTE *connection="Connection: close\r\n";
-static UBYTE *connection_keepalive="Connection: keep-alive\r\n";
+static UBYTE *connection_keepalive="Connection: close\r\n";
 
 static UBYTE *host="Host: %s\r\n";
 
@@ -283,34 +279,6 @@ static void FreeConnectionNode(struct KeepAliveConnection *conn)
    FREE(conn);
 }
 
-/* Clean up HTTP connection resources in correct order */
-/* CRITICAL: Order matters - SSL must be closed before socket, socket before library */
-static void CleanupHttpConnection(struct Httpinfo *hi)
-{  if(!hi) return;
-   
-#ifndef DEMOVERSION
-   /* Step 1: Close SSL connection (must be done while socket is still open) */
-   if(hi->assl)
-   {  Assl_closessl(hi->assl);
-      Assl_cleanup(hi->assl);
-      FREE(hi->assl);
-      hi->assl = NULL;
-   }
-#endif
-   
-   /* Step 2: Close socket (safe now that SSL is closed) */
-   if(hi->sock >= 0 && hi->socketbase)
-   {  a_close(hi->sock, hi->socketbase);
-      hi->sock = -1;
-   }
-   
-   /* Step 3: Close socket library (safe now that socket is closed) */
-   if(hi->socketbase)
-   {  CloseLibrary(hi->socketbase);
-      hi->socketbase = NULL;
-   }
-}
-
 /* Get a connection from the keep-alive pool */
 static struct KeepAliveConnection *GetKeepAliveConnection(UBYTE *hostname, long port, BOOL ssl)
 {  struct KeepAliveConnection *conn;
@@ -358,68 +326,7 @@ static struct KeepAliveConnection *GetKeepAliveConnection(UBYTE *hostname, long 
    }
    
    if(found_conn)
-   {  /* CRITICAL: Validate pooled connection is still alive */
-      /* For SSL connections, MSG_PEEK is unreliable - SSL layer buffers data */
-      /* SSL connections will be validated when used - if they fail, retry logic will create new connection */
-      /* For HTTP connections, use MSG_PEEK to check if connection is still alive */
-      if(found_conn->ssl)
-      {  /* SSL connection - skip MSG_PEEK validation */
-         /* SSL connections will be validated when used - if SSL_write/SSL_read fails, retry logic will create new connection */
-         debug_printf("DEBUG: GetKeepAliveConnection: Reusing pooled SSL connection for %s:%ld (validation deferred to use-time)\n", hostname, port);
-      }
-      else
-      {  /* HTTP connection - validate using MSG_PEEK */
-         long peek_result;
-         long peek_errno = 0;
-         struct Library *saved_socketbase;
-         
-         if(found_conn->sock >= 0 && found_conn->socketbase)
-         {  UBYTE peek_buffer[1];
-            
-            saved_socketbase = SocketBase;
-            SocketBase = found_conn->socketbase;
-            
-            /* Use a_recv() with MSG_PEEK to check if connection is still alive */
-            /* MSG_PEEK doesn't consume data, just checks if data is available or connection is closed */
-            peek_result = a_recv(found_conn->sock, peek_buffer, 1, MSG_PEEK, found_conn->socketbase);
-            peek_errno = Errno();
-            
-            SocketBase = saved_socketbase;
-            
-            if(peek_result == 0)
-            {  /* EOF - server closed the connection */
-               debug_printf("DEBUG: GetKeepAliveConnection: Pooled HTTP connection is dead (EOF from MSG_PEEK), discarding\n");
-               /* Connection is dead - free it and return NULL to create new connection */
-               FreeConnectionNode(found_conn);
-               return NULL;
-            }
-            else if(peek_result < 0)
-            {  /* Check errno to determine if connection is dead */
-               if(peek_errno == EPIPE || peek_errno == ECONNRESET || peek_errno == ENOTCONN)
-               {  debug_printf("DEBUG: GetKeepAliveConnection: Pooled HTTP connection is dead (errno=%ld), discarding\n", peek_errno);
-                  /* Connection is dead - free it and return NULL */
-                  FreeConnectionNode(found_conn);
-                  return NULL;
-               }
-               else if(peek_errno == EAGAIN || peek_errno == EWOULDBLOCK || peek_errno == EINTR)
-               {  /* Connection is alive but no data available or call was interrupted - this is fine */
-                  debug_printf("DEBUG: GetKeepAliveConnection: Pooled HTTP connection is alive (errno=%ld from MSG_PEEK)\n", peek_errno);
-               }
-               else
-               {  debug_printf("DEBUG: GetKeepAliveConnection: MSG_PEEK returned error (errno=%ld), assuming connection is dead\n", peek_errno);
-                  /* Unknown error - assume connection is dead to be safe */
-                  FreeConnectionNode(found_conn);
-                  return NULL;
-               }
-            }
-            else
-            {  /* peek_result > 0 - data available, connection is alive */
-               debug_printf("DEBUG: GetKeepAliveConnection: Pooled HTTP connection is alive (data available)\n");
-            }
-         }
-         
-         debug_printf("DEBUG: GetKeepAliveConnection: Reusing validated HTTP connection for %s:%ld\n", hostname, port);
-      }
+   {  debug_printf("DEBUG: GetKeepAliveConnection: Reusing connection for %s:%ld\n", hostname, port);
    }
    
    return found_conn;
@@ -548,7 +455,7 @@ static void CleanupKeepAlivePool(void)
    GetSysTime(&current_time);
    current_sec = current_time.tv_secs;
    
-   for(conn = (struct KeepAliveConnection *)keepalive_pool.first; conn && conn->next; conn = next)
+   for(conn = (struct KeepAliveConnection *)keepalive_pool.first; conn->next; conn = next)
    {  next = (struct KeepAliveConnection *)conn->next;
       
       if(conn->in_use || ((current_sec - conn->last_used) >= KEEPALIVE_TIMEOUT))
@@ -599,93 +506,48 @@ static BOOL Makehttpaddr(struct Httpinfo *hi,UBYTE *proxy,UBYTE *url,BOOL ssl)
    UBYTE *userid=NULL,*passwd=NULL;
    long l;
    BOOL gotport=FALSE;
-   BOOL result = FALSE;
-   
-   /* Input validation */
-   if(!hi || !url || !*url)
-   {  return FALSE;
-   }
-   
-   /* Validate URL length (RFC 7230: HTTP/1.1 request line max 8000 bytes) */
-   if(strlen((char *)url) > 8000)
-   {  return FALSE;
-   }
-   
-   u = strchr(url, ':');
-   if(u) u++; /* Skip protocol prefix */
-   else u = url;
+   if(u=strchr(url,':')) u++; /* Should always be found */
+   else u=url;
    if(u[0]=='/' && u[1]=='/') u+=2;
    if(proxy)
    {  p=strchr(proxy,':');
       hi->connect=Dupstr(proxy,p?p-proxy:-1);
-      if(!hi->connect) goto cleanup_error;
       hi->port=p?atol(p+1):8080;
-      
-      /* Validate port number */
-      if(hi->port < 1 || hi->port > 65535)
-      {  hi->port = 8080; /* Default proxy port */
-      }
-      
       p=stpbrk(u,":/");
       if(p && *p==':' && (q=strchr(p,'@')) && (!(r=strchr(p,'/')) || q<r))
       {  /* userid:passwd@host[:port][/path] */
          userid=Dupstr(u,p-u);
-         if(!userid) goto cleanup_error;
          passwd=Dupstr(p+1,q-p-1);
-         if(!passwd) goto cleanup_error;
          u=q+1;
          p=stpbrk(u,":/");
       }
       hi->hostname=Dupstr(u,p?p-u:-1);
-      if(!hi->hostname) goto cleanup_error;
-      
-      /* Validate hostname length (RFC 1035: max 253 characters) */
-      if(strlen((char *)hi->hostname) > 253)
-      {  goto cleanup_error;
-      }
-      
       gotport=(p && *p==':');
       p=strchr(u,'/');
       hi->hostport=Dupstr(u,p?p-u:-1);
-      if(!hi->hostport) goto cleanup_error;
-      
       if(ssl)
       {  /* Will be tunneled. Use abspath like with no proxy */
          if(gotport)
          {  hi->tunnel=Dupstr(hi->hostport,-1);
-            if(!hi->tunnel) goto cleanup_error;
          }
          else
-         {  long tunnel_len;
-            tunnel_len = strlen(hi->hostname) + 5;
-            hi->tunnel=ALLOCTYPE(UBYTE, tunnel_len, 0);
+         {  hi->tunnel=ALLOCTYPE(UBYTE,strlen(hi->hostname)+5,0);
             if(hi->tunnel)
-            {  strcpy((char *)hi->tunnel, (char *)hi->hostname);
-               strcat((char *)hi->tunnel, ":443");
-            }
-            else
-            {  goto cleanup_error;
+            {  strcpy(hi->tunnel,hi->hostname);
+               strcat(hi->tunnel,":443");
             }
          }
          hi->abspath=Dupstr(p?p:(UBYTE *)"/",-1);
-         if(!hi->abspath) goto cleanup_error;
          hi->flags|=HTTPIF_SSLTUNNEL;
       }
       else
       {  if(p)
          {  hi->abspath=Dupstr(url,-1);
-            if(!hi->abspath) goto cleanup_error;
          }
          else
          {  /* append '/' */
-            l=strlen((char *)url);
-            hi->abspath=Dupstr(url,l+1);
-            if(hi->abspath)
-            {  hi->abspath[l]='/';
-            }
-            else
-            {  goto cleanup_error;
-            }
+            l=strlen(url);
+            if(hi->abspath=Dupstr(url,l+1)) hi->abspath[l]='/';
          }
       }
    }
@@ -694,71 +556,36 @@ static BOOL Makehttpaddr(struct Httpinfo *hi,UBYTE *proxy,UBYTE *url,BOOL ssl)
       if(p && *p==':' && (q=strchr(p,'@')) && (!(r=strchr(p,'/')) || q<r))
       {  /* userid:password@host[:port][/path] */
          userid=Dupstr(u,p-u);
-         if(!userid) goto cleanup_error;
          passwd=Dupstr(p+1,q-p-1);
-         if(!passwd) goto cleanup_error;
          u=q+1;
          p=stpbrk(u,":/");
       }
       hi->connect=Dupstr(u,p?p-u:-1);
-      if(!hi->connect) goto cleanup_error;
-      
-      /* Validate hostname length */
-      if(strlen((char *)hi->connect) > 253)
-      {  goto cleanup_error;
-      }
-      
       if(p && *p==':')
-      {  hi->port=atol((char *)p+1);
-         /* Validate port number */
-         if(hi->port < 1 || hi->port > 65535)
-         {  hi->port = -1; /* Invalid port, use default */
-         }
+      {  hi->port=atol(p+1);
       }
       else
       {  hi->port=-1;
       }
       p=strchr(u,'/');
       hi->hostport=Dupstr(u,p?p-u:-1);
-      if(!hi->hostport) goto cleanup_error;
       hi->abspath=Dupstr(p?p:(UBYTE *)"/",-1);
-      if(!hi->abspath) goto cleanup_error;
       hi->hostname=Dupstr(hi->connect,-1);
-      if(!hi->hostname) goto cleanup_error;
    }
-   
    if(userid && passwd)
    {  if(hi->auth) Freeauthorize(hi->auth);
-      hi->auth = Newauthorize(hi->hostport,"dummyrealm");
-      if(hi->auth)
+      if(hi->auth=Newauthorize(hi->hostport,"dummyrealm"))
       {  Setauthorize(hi->auth,userid,passwd);
          hi->flags|=HTTPIF_AUTH;
       }
    }
-   
    if(userid) FREE(userid);
    if(passwd) FREE(passwd);
-   
-   result = (BOOL)(hi->connect && hi->hostport && hi->abspath && hi->hostname);
-   if(!result) goto cleanup_error;
-   
-   return TRUE;
-   
-cleanup_error:
-   /* Clean up any allocations made before error */
-   if(hi->connect) { FREE(hi->connect); hi->connect = NULL; }
-   if(hi->hostname) { FREE(hi->hostname); hi->hostname = NULL; }
-   if(hi->hostport) { FREE(hi->hostport); hi->hostport = NULL; }
-   if(hi->abspath) { FREE(hi->abspath); hi->abspath = NULL; }
-   if(hi->tunnel) { FREE(hi->tunnel); hi->tunnel = NULL; }
-   if(userid) FREE(userid);
-   if(passwd) FREE(passwd);
-   return FALSE;
+   return (BOOL)(hi->connect && hi->hostport && hi->abspath && hi->hostname);
 }
 
 /* Build a HTTP request. The length is returned.
- * (*request) is either fd->block or a dynamic string if fd->block was too small
- * NOTE: Caller must free *request if it differs from fd->block (check: request != fd->block) */
+ * (*request) is either fd->block or a dynamic string if fd->block was too small */
 static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **request)
 {  UBYTE *p=fd->block;
    UBYTE *cookies;
@@ -924,183 +751,80 @@ static BOOL Readblock(struct Httpinfo *hi)
    
    debug_printf("DEBUG: Readblock: Receive returned %ld bytes\n", n);
    
-   /* Reset retry counter on successful read */
-   if(n > 0)
-   {  hi->soft_error_retry_count = 0;
-   }
-   
-   if(n < 0)
-   {  long errno_value = 0;
-      UBYTE *hostname_str;  /* Declare at start of block for older C standards */
-      
-      /* Get errno value for error analysis */
-      if(hi->socketbase)
-      {  struct Library *saved_socketbase = SocketBase;
-         SocketBase = hi->socketbase;
-         errno_value = Errno(); /* Get error code from bsdsocket.library */
-         SocketBase = saved_socketbase;
-      }
-      
-      /* DEBUG: Log the specific error state */
-      debug_printf("DEBUG: Readblock error: n=%ld, errno=%ld\n", n, errno_value);
-      
-      /* FIX: If SSL read returned -1 but Socket library says No Error (0), 
-         it means AmiSSL returned -1 for WANT_READ/WRITE. Treat as soft error. */
-      if(errno_value == 0 && (hi->flags & HTTPIF_SSL))
-      {  debug_printf("DEBUG: Readblock: SSL soft error detected (n=-1, errno=0)\n");
-         errno_value = 35; /* Force treat as EAGAIN */
-      }
-      
-      /* CRITICAL: If EINTR, check for task break BEFORE calling WaitSelect */
-      /* This prevents infinite loop on exit signal */
-      if(errno_value == EINTR)
-      {  debug_printf("DEBUG: Readblock: Receive interrupted (EINTR)\n");
-         /* Check if user/system requested abort */
-         if(Checktaskbreak())
-         {  debug_printf("DEBUG: Readblock: Task break detected (EINTR from Receive)\n");
-            return FALSE; /* Return FALSE to stop reading and exit */
-         }
-         /* Harmless signal, treat as soft error and continue to WaitSelect */
-         debug_printf("DEBUG: Readblock: EINTR was harmless signal, proceeding to WaitSelect\n");
-      }
-      
-      /* CRITICAL: Check for SSL "WANT_READ" / "EAGAIN" BEFORE checking for task break */
-      /* If we are just waiting for data, we shouldn't abort even if a signal was seemingly set */
-      /* errno 35 = EAGAIN/EWOULDBLOCK */
-      /* errno 4 = EINTR (interrupted system call - can retry) */
-      /* errno 0 with n=-1 usually means SSL_ERROR_WANT_READ/WRITE handled by Receive but returned as -1 */
-      if(errno_value == EAGAIN || errno_value == EWOULDBLOCK || errno_value == EINTR || errno_value == 0)
-      {  hi->soft_error_retry_count++;
-         debug_printf("DEBUG: Readblock: Soft error (WANT_READ/EAGAIN/EINTR/errno=0), retry count=%ld, waiting for data with WaitSelect\n", hi->soft_error_retry_count);
-         
-         /* CRITICAL: After too many retries, treat as connection failure */
-         if(hi->soft_error_retry_count > 10)
-         {  debug_printf("DEBUG: Readblock: Too many soft error retries (%ld), treating as connection failure\n", hi->soft_error_retry_count);
-            hi->soft_error_retry_count = 0;
-            /* Fall through to hard error handling */
-         }
-         else
-         {  /* CRITICAL: Use WaitSelect() to sleep until data is ready, preventing busy-wait loop */
-            /* This releases CPU cycles for other tasks and prevents 100% CPU usage */
-            if(hi->sock >= 0 && hi->socketbase)
-            {  fd_set readfds;
-            struct timeval timeout;
-            struct Library *saved_socketbase;
-            int select_result;
-            
-            FD_ZERO(&readfds);
-            FD_SET(hi->sock, &readfds);
-            
-            /* Set timeout to 5 seconds - reasonable wait time for data */
-            timeout.tv_sec = 5;
-            timeout.tv_usec = 0;
-            
-            saved_socketbase = SocketBase;
+   if(n<0 || Checktaskbreak())
+   {  
+      /* Check errno to provide more specific error reporting */
+      /* Use Errno() function from bsdsocket.library to get error code */
+      /* Note: Errno() is deprecated per SDK but still works. Modern way is SocketBaseTags() with SBTC_ERRNO */
+      if(n < 0 && !Checktaskbreak())
+      {  long errno_value;
+         UBYTE *hostname_str;  /* Declare at start of block for older C standards */
+         if(hi->socketbase)
+         {  struct Library *saved_socketbase = SocketBase;
             SocketBase = hi->socketbase;
-            
-            /* Wait for socket to become readable or timeout */
-            select_result = WaitSelect(hi->sock + 1, &readfds, NULL, NULL, &timeout, hi->socketbase);
-            
+            errno_value = Errno(); /* Get error code from bsdsocket.library */
             SocketBase = saved_socketbase;
-            
-            if(select_result > 0 && FD_ISSET(hi->sock, &readfds))
-            {  debug_printf("DEBUG: Readblock: Socket is ready for reading, will retry\n");
-               /* Socket is ready - return TRUE to retry the read */
-               return TRUE;
-            }
-            else if(select_result == 0)
-            {  debug_printf("DEBUG: Readblock: WaitSelect timed out, treating as soft error\n");
-               /* Timeout - treat as soft error and retry */
-               return TRUE;
-            }
-            else
-            {  debug_printf("DEBUG: Readblock: WaitSelect failed (result=%d), checking errno\n", select_result);
-               /* WaitSelect failed - usually EINTR */
-               if(hi->socketbase)
-               {  struct Library *saved_socketbase2 = SocketBase;
-                  SocketBase = hi->socketbase;
-                  errno_value = Errno();
-                  SocketBase = saved_socketbase2;
-                  
-                  if(errno_value == EINTR)
-                  {  debug_printf("DEBUG: Readblock: WaitSelect interrupted (EINTR)\n");
-                     /* CRITICAL: Check if this interruption is a user exit/stop command */
-                     if(Checktaskbreak())
-                     {  debug_printf("DEBUG: Readblock: Task break detected during WaitSelect - Aborting\n");
-                        return FALSE; /* Return FALSE so the task can exit */
-                     }
-                     /* If not a break signal, it's a harmless system signal, so retry */
-                     return TRUE;
-                  }
-                  else if(errno_value == EAGAIN)
-                  {  debug_printf("DEBUG: Readblock: WaitSelect EAGAIN, retrying\n");
-                     return TRUE;
-                  }
-               }
-               /* Other errors fall through */
-            }
          }
          else
-         {  debug_printf("DEBUG: Readblock: Invalid socket, cannot use WaitSelect\n");
-            /* No valid socket - return TRUE to allow retry (may succeed on next attempt) */
+         {  errno_value = 0; /* No socketbase - can't get errno */
+         }
+         
+         /* EAGAIN (errno=35) means "Resource temporarily unavailable" - for blocking sockets
+          * with timeouts, this can occur when SSL needs more I/O (WANT_READ/WANT_WRITE).
+          * Treat it as a retry condition - return TRUE to stay in the read loop. */
+         if(errno_value == EAGAIN || errno_value == EWOULDBLOCK)
+         {  debug_printf("DEBUG: Readblock: EAGAIN/EWOULDBLOCK - treating as retry condition (no data yet)\n");
+            /* EAGAIN means "try again" - not an error, just no data available yet */
+            /* Return TRUE to stay in the read loop and try again */
+            /* This handles SSL_ERROR_WANT_READ cases where SSL needs more network I/O */
             return TRUE;
          }
+         
+         /* Report specific error type via Tcperror() for actual errors */
+         hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"unknown";
+         if(errno_value == ETIMEDOUT)
+         {  debug_printf("DEBUG: Readblock: Receive timeout (errno=ETIMEDOUT)\n");
+            /* Timeout during receive - report as timeout error */
+            Tcperror(hi->fd, TCPERR_NOCONNECT_TIMEOUT, hostname_str);
+         }
+         else if(errno_value == ECONNRESET)
+         {  debug_printf("DEBUG: Readblock: Connection reset by peer (errno=ECONNRESET)\n");
+            /* Connection was reset - report as connection error */
+            Tcperror(hi->fd, TCPERR_NOCONNECT_RESET, hostname_str);
+         }
+         else if(errno_value == ECONNREFUSED)
+         {  debug_printf("DEBUG: Readblock: Connection refused (errno=ECONNREFUSED)\n");
+            /* Connection refused - report as connection error */
+            Tcperror(hi->fd, TCPERR_NOCONNECT_REFUSED, hostname_str);
+         }
+         else if(errno_value == ENETUNREACH)
+         {  debug_printf("DEBUG: Readblock: Network unreachable (errno=ENETUNREACH)\n");
+            /* Network unreachable - report as network error */
+            Tcperror(hi->fd, TCPERR_NOCONNECT_UNREACH, hostname_str);
+         }
+         else if(errno_value == EHOSTUNREACH)
+         {  debug_printf("DEBUG: Readblock: Host unreachable (errno=EHOSTUNREACH)\n");
+            /* Host unreachable - report as network error */
+            Tcperror(hi->fd, TCPERR_NOCONNECT_HOSTUNREACH, hostname_str);
+         }
+         else
+         {  debug_printf("DEBUG: Readblock: Network error (errno=%ld), returning FALSE\n", errno_value);
+            /* Other network error - report generic error */
+            Tcperror(hi->fd, TCPERR_NOCONNECT, hostname_str);
+         }
       }
-      }
-      
-      /* Reset retry counter on hard error */
-      hi->soft_error_retry_count = 0;
-      
-      /* Now check for user abort - but only if it's not a soft error */
-      if(Checktaskbreak())
-      {  debug_printf("DEBUG: Readblock: Task break confirmed by user/system\n");
-         return FALSE;
-      }
-      
-      /* Hard Error Handling */
-      hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"unknown";
-      debug_printf("DEBUG: Readblock: Hard error detected (errno=%ld)\n", errno_value);
-      if(errno_value == ETIMEDOUT)
-      {  debug_printf("DEBUG: Readblock: Receive timeout (errno=ETIMEDOUT)\n");
-         /* Timeout during receive - report as timeout error */
-         Tcperror(hi->fd, TCPERR_NOCONNECT_TIMEOUT, hostname_str);
-      }
-      else if(errno_value == ECONNRESET)
-      {  debug_printf("DEBUG: Readblock: Connection reset by peer (errno=ECONNRESET)\n");
-         /* Connection was reset - report as connection error */
-         Tcperror(hi->fd, TCPERR_NOCONNECT_RESET, hostname_str);
-      }
-      else if(errno_value == ECONNREFUSED)
-      {  debug_printf("DEBUG: Readblock: Connection refused (errno=ECONNREFUSED)\n");
-         /* Connection refused - report as connection error */
-         Tcperror(hi->fd, TCPERR_NOCONNECT_REFUSED, hostname_str);
-      }
-      else if(errno_value == ENETUNREACH)
-      {  debug_printf("DEBUG: Readblock: Network unreachable (errno=ENETUNREACH)\n");
-         /* Network unreachable - report as network error */
-         Tcperror(hi->fd, TCPERR_NOCONNECT_UNREACH, hostname_str);
-      }
-      else if(errno_value == EHOSTUNREACH)
-      {  debug_printf("DEBUG: Readblock: Host unreachable (errno=EHOSTUNREACH)\n");
-         /* Host unreachable - report as network error */
-         Tcperror(hi->fd, TCPERR_NOCONNECT_HOSTUNREACH, hostname_str);
+      else if(Checktaskbreak())
+      {  debug_printf("DEBUG: Readblock: Task break detected, returning FALSE\n");
+         /* Task break - don't report error, just return */
       }
       else
-      {  debug_printf("DEBUG: Readblock: Network error (errno=%ld), returning FALSE\n", errno_value);
-         /* Other network error - report generic error */
-         Tcperror(hi->fd, TCPERR_NOCONNECT, hostname_str);
+      {  debug_printf("DEBUG: Readblock: error or task break, returning FALSE\n");
       }
-      return FALSE;
-   }
-   
-   if(n == 0)
-   {  debug_printf("DEBUG: Readblock: EOF (0 bytes) received\n");
-      return FALSE; /* True EOF */
-   }
-   
-   /* Check for task break after successful read */
-   if(Checktaskbreak())
-   {  debug_printf("DEBUG: Readblock: Task break detected after successful read\n");
+/* Don't send error, let source driver keep its partial data if it wants to.
+      Updatetaskattrs(
+         AOURL_Error,TRUE,
+         TAG_END);
+*/
       return FALSE;
    }
    if(n==0) 
@@ -4352,17 +4076,25 @@ static BOOL Readdata(struct Httpinfo *hi)
       debug_printf("DEBUG: Zlib stream cleaned up\n");
    }
    
-   /* CRITICAL: Mark socket for closure if keep-alive NOT active */
-   /* Do NOT clean up Assl/socketbase here - let Httpretrieve handle cleanup to prevent double-free */
-   /* Just mark the socket as invalid so it won't be pooled */
+   /* CRITICAL: Force socket closure if keep-alive NOT active */
+   /* This prevents pooling dead connections that the server has closed */
    if(hi->sock >= 0)
    {  if (!((hi->flags & HTTPIF_KEEPALIVE) && (hi->flags & HTTPIF_KEEPALIVE_REQ)))
-      {  debug_printf("DEBUG: Readdata: Marking non-keepalive socket for closure (sock=%ld)\n", hi->sock);
-         /* Mark socket as invalid - Httpretrieve will handle actual cleanup */
+      {  debug_printf("DEBUG: Readdata cleanup: Closing non-keepalive socket\n");
+#ifndef DEMOVERSION
+         if(hi->assl) Assl_closessl(hi->assl);
+#endif
+         if(hi->socketbase) a_close(hi->sock, hi->socketbase);
          hi->sock = -1;
+         
+         /* Also free the library/assl references now since we won't pool */
+#ifndef DEMOVERSION
+         if(hi->assl) { Assl_cleanup(hi->assl); FREE(hi->assl); hi->assl=NULL; }
+#endif
+         if(hi->socketbase) { CloseLibrary(hi->socketbase); hi->socketbase=NULL; }
       }
       else
-      {  debug_printf("DEBUG: Readdata: Keeping keep-alive socket for pooling (sock=%ld)\n", hi->sock);
+      {  debug_printf("DEBUG: Readdata cleanup: Keeping keep-alive socket for pooling (sock=%ld)\n", hi->sock);
       }
    }
    
@@ -5313,9 +5045,17 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                               sent, reqlen);
                   
                   /* 1. Clean up bad connection */
-                  CleanupHttpConnection(hi);
+#ifndef DEMOVERSION
+                  if(hi->assl)
+                  {  Assl_closessl(hi->assl);
+                  }
+#endif
+                  if(hi->sock >= 0 && hi->socketbase)
+                  {  a_close(hi->sock, hi->socketbase);
+                  }
+                  hi->sock = -1;
                   
-                  /* 3. Mark as not reused so Openlibraries creates fresh */
+                  /* 2. Mark as not reused so Openlibraries creates fresh */
                   hi->connection_reused = FALSE;
                   
                   /* 3. Free request buffer if allocated */
@@ -5487,8 +5227,23 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                }
                else
                {  /* Close connection normally */
-                  debug_printf("DEBUG: Httpretrieve: Closing connection (not keep-alive)\n");
-                  CleanupHttpConnection(hi);
+                  /* Close SSL connection BEFORE closing socket */
+                  /* SSL shutdown needs the socket to still be open */
+#ifndef DEMOVERSION
+                  if(hi->assl)
+                  {  debug_printf("DEBUG: Httpretrieve: Closing SSL connection\n");
+                     Assl_closessl(hi->assl);
+                     /* DON'T set hi->assl to NULL here - Assl_cleanup() will handle it */
+                     /* Assl_closessl() only closes the connection, doesn't free the Assl structure */
+                  }
+#endif
+                  /* Now safe to close socket - SSL has been properly shut down */
+                  if(hi->sock >= 0)
+                  {  debug_printf("DEBUG: Httpretrieve: Closing socket %ld\n", hi->sock);
+                     a_close(hi->sock,hi->socketbase);
+                     hi->sock = -1;
+                     debug_printf("DEBUG: Httpretrieve: Socket closed\n");
+                  }
                }
             }
       }
@@ -5519,10 +5274,34 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
    if(error)
    {  Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
    }
-   /* Final cleanup - ensure all resources are freed */
-   /* Note: If keep-alive is enabled, ReturnKeepAliveConnection() already cleared hi->assl and hi->socketbase */
-   /* But we do a final check to ensure nothing was missed */
-   CleanupHttpConnection(hi);
+#ifndef DEMOVERSION
+   /* Clean up Assl structure */
+   /* Must clean up Assl BEFORE closing socketbase library */
+   /* This ensures SSL operations are fully complete before library is closed */
+   /* Note: If keep-alive is enabled, ReturnKeepAliveConnection() already cleared hi->assl */
+   if(hi->assl)
+   {  debug_printf("DEBUG: Httpretrieve: Cleaning up Assl structure\n");
+      /* Assl_closessl() should have already freed SSL resources */
+      /* Assl_cleanup() will null out library bases to mark the object as dead */
+      Assl_cleanup(hi->assl);
+      /* Free the struct after Assl_cleanup() has cleaned it up */
+      /* Assl_cleanup() no longer frees the struct to prevent use-after-free crashes */
+      FREE(hi->assl);
+      hi->assl=NULL;
+      debug_printf("DEBUG: Httpretrieve: Assl structure cleaned up\n");
+   }
+#endif
+   
+   /* Only close socketbase library after all SSL operations are complete */
+   /* This ensures no concurrent SSL operations are using the library when we close it */
+   /* Must wait until Assl is fully cleaned up before closing socketbase */
+   /* Note: If keep-alive is enabled, ReturnKeepAliveConnection() already cleared hi->socketbase */
+   if(hi->socketbase)
+   {  debug_printf("DEBUG: Httpretrieve: Closing socketbase library\n");
+      CloseLibrary(hi->socketbase);
+      hi->socketbase=NULL;
+      debug_printf("DEBUG: Httpretrieve: Socketbase library closed\n");
+   }
 #ifdef DEVELOPER
    }
 #endif
@@ -5542,9 +5321,6 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
 void Httptask(struct Fetchdriver *fd)
 {  struct Httpinfo hi={0};
    int loop_count=0;
-   
-   /* Initialize per-connection retry counter */
-   hi.soft_error_retry_count = 0;
    
    debug_printf("DEBUG: Httptask: ENTRY - URL=%s, proxy=%s, SSL=%d\n",
           fd ? (char *)fd->name : "(null)", fd && fd->proxy ? (char *)fd->proxy : "(none)",
@@ -5583,10 +5359,18 @@ void Httptask(struct Fetchdriver *fd)
          }
          
          hi.status=0;
-         /* CRITICAL: Clean up any existing connection before next iteration to prevent SSL context reuse */
+         /* CRITICAL: Clean up any existing Assl before next iteration to prevent SSL context reuse */
          /* This prevents wild free defects when redirects cause multiple connections */
-         debug_printf("DEBUG: Httptask: Cleaning up existing connection before redirect iteration\n");
-         CleanupHttpConnection(&hi);
+         if(hi.assl)
+         {  debug_printf("DEBUG: Httptask: Cleaning up existing Assl before redirect iteration\n");
+            Assl_closessl(hi.assl);
+            Assl_cleanup(hi.assl);
+            FREE(hi.assl);
+            hi.assl = NULL;
+         }
+         /* CRITICAL: Reset socket and socketbase to prevent reuse */
+         hi.sock = -1;
+         hi.socketbase = NULL;
          debug_printf("DEBUG: Httptask: Calling Httpretrieve() - status reset to 0\n");
          Httpretrieve(&hi,fd);
          debug_printf("DEBUG: Httptask: Httpretrieve() returned - status=%ld, flags=0x%04X\n",

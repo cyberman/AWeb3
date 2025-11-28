@@ -1530,6 +1530,10 @@ BOOL Initdefprefs(void)
       "OPEN http://www.aminet.net/")) return FALSE;
    if(!Adduserbutton(&defprefs.buttons,"Amiga-News",
       "OPEN http://www.amiga-news.de/en/")) return FALSE;
+   if(!Adduserbutton(&defprefs.buttons,"AmigaWorld",
+      "OPEN https://www.amigaworld.net/")) return FALSE;
+   if(!Adduserbutton(&defprefs.buttons,"The Old Net",
+      "OPEN http://www.theoldnet.com")) return FALSE;
 #endif
 #ifdef OSVERSION
    if(!Adduserbutton(&defprefs.buttons,"Modes",

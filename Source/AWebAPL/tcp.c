@@ -141,13 +141,21 @@ struct Library *Opentcp(struct Library **base,struct Fetchdriver *fd,BOOL autoco
    if(args) FREE(args);
 #endif
    proc->pr_WindowPtr=windowptr;
-   /* Initialize SSL if FDVF_SSL flag is set */
+   /* CRITICAL FIX: Do NOT initialize SSL here for HTTP/HTTPS */
+   /* Openlibraries() in http.c already handles SSL initialization for HTTP/HTTPS */
+   /* Creating SSL here causes double allocation - Opentcp() creates one Assl struct */
+   /* and Openlibraries() creates another, causing memory leaks and "memory header not located" errors */
+   /* The SSL initialization here was only needed for non-HTTP protocols (e.g., Gemini) */
+   /* For HTTP/HTTPS, Openlibraries() will create the Assl object properly */
+   /* DISABLED: SSL initialization moved to Openlibraries() to prevent double allocation */
+   /*
    if(*base && fd && (fd->flags&FDVF_SSL))
    {  struct Assl *assl=Tcpopenssl(*base);
       if(assl)
       {  SetTaskSSLContext(assl,*base);
       }
    }
+   */
    return ((*base)?AwebTcpBase:NULL);
 }
 
