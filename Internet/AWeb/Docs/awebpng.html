@@ -16,27 +16,42 @@ Features include:
 <li>Support for P96 graphics
 </ul>
 
-<h2>Configuration</h2>
-The AWeb PNG plugin is preinstalled with AWeb but needs to be configured before
-use. The plugin file <code>awebpng.awebplugin</code> is located in the
-<code>awebplugins</code> drawer where AWeb is installed.
-<p>
-To configure the plugin:
+<h2>Installation</h2>
+Follow these steps to install the AWeb PNG plugin.
 <ol>
+<li>
+Run the supplied Installer script. It will copy the necessary files to a
+drawer <code>awebplugins</code> in the drawer where the AWeb program is
+located.
+<br><br>
+<li>
+<form action="x-aweb:rexx/AWebPath:Docs/awebpng.awebrx">
+Run the <input type=submit value="Setup script">.
+</form>
+</ol>
+
+<h2>Manual Installation</h2>
+If, for some reason, you don't want to install the plugin automatically, you
+can install it by hand.
+<ol>
+<li>
+Copy the file named <code>awebpng.awebplugin</code> to a location of your
+choice. The recommended location for plugins like this is a drawer
+<code>awebplugins</code> in the drawer where the AWeb program is located.
+<br><br>
 <li>
 Start AWeb, open the browser settings and bring up the <em>Viewers</em> page.
 Select the entry for MIME type <code>IMAGE/PNG</code> and change the following
 settings:
 <ul>
    <li>Action: "AWeb Plugin (A)"
-   <li>Name: the full path to the plugin file (e.g., <code>awebplugins/awebpng.awebplugin</code>)
+   <li>Name: the location where you copied the file <code>awebpng.awebplugin</code>
    <li>Arguments: leave blank or supply optional parameters, see below
 </ul>
 <br><br>
 <li>
 Don't forget to save your settings.
 </ol>
-<p>
 
 <h2><a name=parameters>Parameters</a></h2>
 The awebpng plugin supports two optional parameters. You can type the chosen
@@ -72,7 +87,7 @@ parameters by a comma or space, if you specify more than one.
 </dl>
 
 <h2>Support</h2>
-The AWeb PNG plugin was written by the author of AWeb. Any questions,
+The AWeb PNG plugin was written by the author of AWeb-II. Any questions,
 comments or bug reports can be addressed to
 <a href="mailto:aweb@amigazen.com">amigazen project</a>.
 
