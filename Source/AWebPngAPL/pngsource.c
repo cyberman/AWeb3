@@ -152,47 +152,50 @@ static UBYTE Readbyte(struct Decoder *decoder)
       }
       /* Only continue if we shouldn't stop */
       if(decoder->flags&DECOF_STOP) break;
+      ObtainSemaphore(&decoder->source->sema);
       if(decoder->current)
-      {  if(++decoder->currentbyte>=decoder->current->length)
-         {  /* End of block reached */
-            ObtainSemaphore(&decoder->source->sema);
+      {  if(decoder->currentbyte>=decoder->current->length)
+         {  /* End of block reached, move to next */
             db=decoder->current->next;
-            if(db->next)
-            {  decoder->current=db;
-               decoder->currentbyte=0;
-            }
-            else if(decoder->source->flags&PNGSF_EOF)
-            {  decoder->flags|=DECOF_EOF;
-            }
-            else
-            {  /* No more blocks; wait for next block */
-               wait=TRUE;
-            }
+         }
+         else
+         {  /* Still data in current block */
             ReleaseSemaphore(&decoder->source->sema);
+            if(!(decoder->flags&DECOF_EOF))
+            {  retval=decoder->current->data[decoder->currentbyte];
+               decoder->currentbyte++;
+            }
+            break;
          }
       }
       else
       {  /* No current block yet */
-         ObtainSemaphore(&decoder->source->sema);
          db=decoder->source->data.first;
-         if(db->next)
-         {  decoder->current=db;
-            decoder->currentbyte=0;
+      }
+      if(db && db->next)
+      {  /* We have a valid block */
+         decoder->current=db;
+         decoder->currentbyte=0;
+         ReleaseSemaphore(&decoder->source->sema);
+         if(!(decoder->flags&DECOF_EOF) && decoder->current)
+         {  retval=decoder->current->data[decoder->currentbyte];
+            decoder->currentbyte++;
          }
-         else if(decoder->source->flags&PNGSF_EOF)
-         {  decoder->flags|=DECOF_EOF;
-         }
-         else
-         {  /* No block yet; wait for next block */
-            wait=TRUE;
-         }
+         break;
+      }
+      else if(decoder->source->flags&PNGSF_EOF)
+      {  /* EOF reached */
+         decoder->flags|=DECOF_EOF;
+         ReleaseSemaphore(&decoder->source->sema);
+         break;
+      }
+      else
+      {  /* No more blocks; wait for next block */
+         wait=TRUE;
          ReleaseSemaphore(&decoder->source->sema);
       }
       if(!wait)
-      {  if(!(decoder->flags&DECOF_EOF))
-         {  retval=decoder->current->data[decoder->currentbyte];
-         }
-         break;
+      {  break;
       }
       Waittask(0);
    }
