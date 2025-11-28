@@ -1499,6 +1499,10 @@ static void Copydata(void)
    nwp.restrictimages=Getselected(rstigad);
    nwp.limitproxy=Getselected(lmpxgad);
    nwp.passiveftp=Getselected(pftpgad);
+#ifndef LOCALONLY
+   /* Copy proxy settings from gadgets */
+   Doproxy();
+#endif
    Getstringvalue(&nwp.cachepath,capagad);
    nwp.camemsize=Getvalue(camegad,INTEGER_Number);
    nwp.cadisksize=Getvalue(cadigad,INTEGER_Number);
