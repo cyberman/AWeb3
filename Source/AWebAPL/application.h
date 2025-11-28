@@ -160,12 +160,6 @@
 #define AOAPP_Tooltippen   (AOAPP_Dummy+44)  /* GET */
    /* (long) Pen number for that pale yellow tooltip background */
 
-#define AOAPP_Reactionport (AOAPP_Dummy+45)  /* GET */
-   /* (struct MsgPort *) The shared IDCMP port for reaction windows */
-
-#define AOAPP_Messagelist  (AOAPP_Dummy+46)   /* GET */
-   /* (struct List *) The saved messages list for this APP */
-
 #define AOAPP_    (AOAPP_Dummy+)
 #define AOAPP_    (AOAPP_Dummy+)
 
