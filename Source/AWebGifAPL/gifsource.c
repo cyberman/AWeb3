@@ -1,6 +1,6 @@
 /**********************************************************************
- * 
- * This file is part of the AWeb-II distribution
+ *
+ * This file is part of the AWeb distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2025 amigazen project
@@ -20,8 +20,7 @@
 
 #include "pluginlib.h"
 #include "awebgif.h"
-/* olsen: I need the max() function somewhere down below. */
-#define USE_BUILTIN_MATH
+/* max() macro is defined in awebgif.h */
 #include <string.h>
 #include <stdlib.h>
 #include "ezlists.h"
@@ -39,6 +38,9 @@
 #include <proto/intuition.h>
 #include <proto/alib.h>
 #include <proto/dos.h>
+
+/* External library base */
+extern struct Library *P96Base;
 
 /* Workaround for missing AOSDV_Displayed, not part of plugin API */
 #define AOSRC_Displayed    (AOSRC_Dummy+2)
@@ -143,7 +145,7 @@ struct Decoder
    UBYTE *chunky;                   /* Row of chunky pixels */
    struct RastPort saverp;          /* Accumulating save of previous frames */
    UBYTE *savemask;                 /* Accumulating save of transparent mask */
-   struct RenderInfo renderinfo;    /* Picasso96 render info for pixel operations */
+   struct RenderInfo renderinfo;    /* P96 render info for RGB mode */
 };
 
 /* Decoder flags: */
@@ -151,8 +153,8 @@ struct Decoder
 #define DECOF_EOF          0x0002   /* No more data */
 #define DECOF_TRANSPARENT  0x0004   /* Transparent gif */
 #define DECOF_INTERLACED   0x0008   /* Interlaced gif */
-#define DECOF_CYBERMAP     0x0010   /* Bitmap is Picasso96 */
-#define DECOF_CYBERDEEP    0x0020   /* Bitmap is Picasso96 >8 bits */
+#define DECOF_CYBERMAP     0x0010   /* Bitmap is P96 */
+#define DECOF_CYBERDEEP    0x0020   /* Bitmap is P96 >8 bits */
 #define DECOF_ANIMFRAME    0x0040   /* This is a new animation frame */
 #define DECOF_SAVEPREVIOUS 0x0080   /* Save the previous image's bitmap */
 
@@ -176,7 +178,7 @@ static UBYTE Readbyte(struct Decoder *decoder)
       while(!(decoder->flags&DECOF_STOP) && (tm=Gettaskmsg()))
       {  if(tm->amsg && tm->amsg->method==AOM_SET)
          {  tstate=((struct Amset *)tm->amsg)->tags;
-            while(tag=NextTagItem(&tstate))
+            while((tag=NextTagItem(&tstate)))
             {  switch(tag->ti_Tag)
                {  case AOTSK_Stop:
                      if(tag->ti_Data) decoder->flags|=DECOF_STOP;
@@ -289,11 +291,11 @@ static int Getcode(struct Decoder *d)
 /* Get an uncompressed byte from the input stream */
 static UBYTE Getgifbyte(struct Decoder *d)
 {  int code,curcode;
-   
+
    if(d->outsp > 0)
    {  return d->outstack[--d->outsp];
    }
-   
+
    code=Getcode(d);
    if(d->flags&DECOF_EOF) return 0;
 
@@ -301,7 +303,7 @@ static UBYTE Getgifbyte(struct Decoder *d)
    {  d->flags|=DECOF_EOF;
       return 0;
    }
-   
+
    if(code==d->clearcode)
    {  while(code==d->clearcode)
       {  d->nextcode=d->eofcode+1;
@@ -313,7 +315,7 @@ static UBYTE Getgifbyte(struct Decoder *d)
       d->lastgifbyte=code;
       return (UBYTE)code;
    }
-   
+
    if(code>d->nextcode)
    {  d->flags|=DECOF_STOP;
       return 0;
@@ -406,11 +408,11 @@ static BOOL Skipgifdata(struct Decoder *decoder)
 static BOOL Parsegifgeneral(struct Decoder *decoder)
 {  UBYTE buffer[20];
    int gctsize,i;
-   
+
    /* Check signature */
    if(!Readblock(decoder,buffer,GIFHDR_SIZEOF)) return FALSE;
    if(strncmp(buffer,"GIF87a",6) && strncmp(buffer,"GIF89a",6)) return FALSE;
-   
+
    /* Logical screen descriptor */
    if(!Readblock(decoder,buffer,GIFLSD_SIZEOF)) return FALSE;
    decoder->width=BIGEND(buffer+GIFLSD_WIDTH);
@@ -488,7 +490,7 @@ static BOOL Buildgifimage(struct Decoder *decoder)
          if(gi->mask)
          {  if(!decoder->savemask)
             {  decoder->savemask=(UBYTE *)AllocVec(decoder->maskw*decoder->height,
-                  MEMF_PUBLIC|(decoder->flags&DECOF_CYBERMAP?0:MEMF_CHIP));
+                  MEMF_PUBLIC|(decoder->flags&DECOF_CYBERMAP?0:MEMF_PUBLIC));
             }
             if(decoder->savemask)
             {  memcpy(decoder->savemask,gi->mask,decoder->maskw*decoder->height); /* olsen: replaced CopyMem() with memcpy */
@@ -519,13 +521,21 @@ static BOOL Buildgifimage(struct Decoder *decoder)
       }
       else
       {  if(decoder->flags&DECOF_CYBERDEEP)
-         {  /* Use Picasso96 pixel array functions for deep bitmaps */
-            struct RenderInfo bgrenderinfo;
-            bgrenderinfo.Memory = (UBYTE *)(&decoder->colorrgb[decoder->background]);
-            bgrenderinfo.BytesPerRow = 3;
-            bgrenderinfo.RGBFormat = RGBFB_R8G8B8;
-            p96WritePixelArray(&bgrenderinfo,0,0,
-               &decoder->rp,0,0,decoder->width,decoder->height);
+         {  ULONG bgcolor=decoder->colorrgb[decoder->background]>>8;
+            ULONG *fillbuf;
+            struct RenderInfo fillri;
+            long y;
+            if(fillbuf=(ULONG *)AllocMem(decoder->width*sizeof(ULONG),MEMF_CLEAR))
+            {  for(y=0;y<decoder->width;y++) fillbuf[y]=bgcolor;
+               fillri.Memory=(UBYTE *)fillbuf;
+               fillri.BytesPerRow=decoder->width*sizeof(ULONG);
+               fillri.RGBFormat=RGBFB_R8G8B8;
+               for(y=0;y<decoder->height;y++)
+               {  p96WritePixelArray(&fillri,0,0,
+                     &decoder->rp,0,y,decoder->width,1);
+               }
+               FreeMem(fillbuf,decoder->width*sizeof(ULONG));
+            }
          }
          else
          {  SetRast(&decoder->rp,Allocatepen(decoder,decoder->background));
@@ -536,7 +546,7 @@ static BOOL Buildgifimage(struct Decoder *decoder)
    {  /* Complete image follows */
       decoder->source->ready=0;
    }
-   
+
    y=-8;
    fromrow=0;
    decoder->progress=0;
@@ -559,7 +569,7 @@ static BOOL Buildgifimage(struct Decoder *decoder)
       {  y=yi;
       }
       row=y+decoder->itop;
-      
+
       if(decoder->mask)
       {  trow=decoder->mask+row*decoder->maskw;
          if(mergemask)
@@ -604,7 +614,7 @@ static BOOL Buildgifimage(struct Decoder *decoder)
       {  WritePixelLine8(&decoder->rp,decoder->ileft,row,decoder->iwidth,
             decoder->chunky,&decoder->temprp);
       }
-      
+
       torow=row;
       if((decoder->flags&DECOF_INTERLACED) && !(decoder->flags&DECOF_TRANSPARENT))
       {  for(i=1;i<copy && row+i<decoder->iheight;i*=2)
@@ -618,7 +628,7 @@ static BOOL Buildgifimage(struct Decoder *decoder)
          torow=row+copy-1;
          if(torow>=decoder->iheight) torow=decoder->iheight-1;
       }
-      
+
       if(++decoder->progress==decoder->source->progress
       || yi==decoder->iheight-1 || (phaseready && decoder->source->progress))
       {  Updatetaskattrs(
@@ -645,14 +655,21 @@ static BOOL Buildgifimage(struct Decoder *decoder)
       case 2:  /* restore to background */
          if(decoder->saverp.BitMap)
          {  if(decoder->flags&DECOF_CYBERDEEP)
-            {  /* Use Picasso96 pixel array functions for deep bitmaps */
-               struct RenderInfo saverenderinfo;
-               saverenderinfo.Memory = (UBYTE *)(&decoder->colorrgb[decoder->background]);
-               saverenderinfo.BytesPerRow = 3;
-               saverenderinfo.RGBFormat = RGBFB_R8G8B8;
-               p96WritePixelArray(&saverenderinfo,0,0,
-                  &decoder->saverp,decoder->ileft,decoder->itop,
-                  decoder->iwidth,decoder->iheight);
+            {  ULONG bgcolor=decoder->colorrgb[decoder->background]>>8;
+               ULONG *fillbuf;
+               struct RenderInfo fillri;
+               long y;
+               if(fillbuf=(ULONG *)AllocMem(decoder->iwidth*sizeof(ULONG),MEMF_CLEAR))
+               {  for(y=0;y<decoder->iwidth;y++) fillbuf[y]=bgcolor;
+                  fillri.Memory=(UBYTE *)fillbuf;
+                  fillri.BytesPerRow=decoder->iwidth*sizeof(ULONG);
+                  fillri.RGBFormat=RGBFB_R8G8B8;
+                  for(y=0;y<decoder->iheight;y++)
+                  {  p96WritePixelArray(&fillri,0,0,
+                        &decoder->saverp,decoder->ileft,decoder->itop+y,decoder->iwidth,1);
+                  }
+                  FreeMem(fillbuf,decoder->iwidth*sizeof(ULONG));
+               }
             }
             else
             {  SetAPen(&decoder->saverp,Allocatepen(decoder,decoder->background));
@@ -703,6 +720,7 @@ static BOOL Parsegifimage(struct Decoder *decoder)
  Doesn't really work... if the image already exists, and a new copy is
  created, the animation starts somewhere in the middle and only a half
  loop is played.
+*/
             case 0xff:  /* Application extension */
                c=Readbyte(decoder);
                if(decoder->flags&(DECOF_STOP|DECOF_EOF)) return FALSE;
@@ -728,7 +746,7 @@ static BOOL Parsegifimage(struct Decoder *decoder)
                   }
                }
                break;
-*/
+
 #endif
             default:
                if(!Skipgifdata(decoder)) return FALSE;
@@ -776,7 +794,7 @@ static BOOL Parsegifimage(struct Decoder *decoder)
    decoder->bitmap=NULL;
    decoder->mask=NULL;
    if(P96Base)
-   {  decoder->depth=GetBitMapAttr(decoder->source->friendbitmap,BMA_DEPTH);
+   {  decoder->depth=p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_DEPTH);
       decoder->bitmap=p96AllocBitMap(decoder->width,decoder->height,decoder->depth,
          BMF_MINPLANES|BMF_CLEAR,decoder->source->friendbitmap,RGBFB_NONE);
       if(p96GetBitMapAttr(decoder->bitmap,P96BMA_ISP96))
@@ -799,7 +817,7 @@ static BOOL Parsegifimage(struct Decoder *decoder)
       {  decoder->maskw=decoder->bitmap->BytesPerRow;
       }
       decoder->mask=(UBYTE *)AllocVec(decoder->maskw*decoder->height,
-         MEMF_PUBLIC|MEMF_CLEAR|(decoder->flags&DECOF_CYBERMAP?0:MEMF_CHIP));
+         MEMF_PUBLIC|MEMF_CLEAR|(decoder->flags&DECOF_CYBERMAP?0:MEMF_PUBLIC));
    }
 
    /* Save our bitmap and dimensions. */
@@ -807,7 +825,7 @@ static BOOL Parsegifimage(struct Decoder *decoder)
    gi->bitmap=decoder->bitmap;
    gi->mask=decoder->mask;
    gi->delay=delay;
-   
+
    ObtainSemaphore(&decoder->source->sema);
    ADDTAIL(&decoder->source->images,gi);
    if(!(decoder->source->flags&GIFSF_TIMERWAIT)) decoder->source->current=gi;
@@ -823,12 +841,19 @@ static BOOL Parsegifimage(struct Decoder *decoder)
    InitRastPort(&decoder->rp);
    decoder->rp.BitMap=decoder->bitmap;
    if(decoder->flags&DECOF_CYBERMAP)
-   {  decoder->chunkyw=decoder->width*3;
-      if(decoder->chunky=AllocVec(decoder->chunkyw,MEMF_PUBLIC))
-      {  /* Initialize RenderInfo for Picasso96 pixel operations */
-         decoder->renderinfo.Memory = decoder->chunky;
-         decoder->renderinfo.BytesPerRow = decoder->chunkyw;
-         decoder->renderinfo.RGBFormat = RGBFB_R8G8B8;
+   {  if(decoder->flags&DECOF_CYBERDEEP)
+      {  decoder->chunkyw=decoder->width*3;
+      }
+      else
+      {  decoder->chunkyw=((decoder->width+15)>>4)<<4;
+      }
+      if((decoder->chunky=AllocVec(decoder->chunkyw,MEMF_PUBLIC)))
+      {  if(decoder->flags&DECOF_CYBERDEEP)
+         {  /* Initialize RenderInfo for RGB mode */
+            decoder->renderinfo.Memory=decoder->chunky;
+            decoder->renderinfo.BytesPerRow=decoder->chunkyw;
+            decoder->renderinfo.RGBFormat=RGBFB_R8G8B8;
+         }
          error=!Buildgifimage(decoder);
          FreeVec(decoder->chunky);
       }
@@ -837,10 +862,9 @@ static BOOL Parsegifimage(struct Decoder *decoder)
    {  /* The colour mapping process needs a temporary RastPort plus BitMap
        * for the PixelLine8 functions. */
       InitRastPort(&decoder->temprp);
-      if(decoder->temprp.BitMap=AllocBitMap(
-         8*(((decoder->iwidth+15)>>4)<<1),1,8,0,decoder->bitmap))
+      if( (decoder->temprp.BitMap=AllocBitMap(8*(((decoder->iwidth+15)>>4)<<1),1,8,0,decoder->bitmap)) )
       {  decoder->chunkyw=((decoder->width+15)>>4)<<4;
-         if(decoder->chunky=AllocVec(decoder->chunkyw,MEMF_PUBLIC))
+         if( (decoder->chunky=AllocVec(decoder->chunkyw,MEMF_PUBLIC)) )
          {  error=!Buildgifimage(decoder);
             FreeVec(decoder->chunky);
          }
@@ -858,18 +882,20 @@ static BOOL Parsegifimage(struct Decoder *decoder)
    return (BOOL)!error;
 }
 
+
 /* Main subtask process. */
-static __asm void Decodetask(register __a0 struct Gifsource *is)
-{  struct Decoder decoderdata,*decoder=&decoderdata;
+static void Decodetask(struct Gifsource *is)
+{
+   struct Decoder decoderdata,*decoder=&decoderdata;
    struct Task *task=FindTask(NULL);
-   
+
    memset(&decoderdata,0,sizeof(decoderdata));
    decoder->source=is;
    if(decoder->source->flags&GIFSF_LOWPRI)
-   {  SetTaskPri(task,max(-128,task->ln_Pri-1)); /* olsen: keep this in range */
+   {  SetTaskPri(task,max(-128,task->tc_Node.ln_Pri-1)); /* olsen: keep this in range */
    }
    InitRastPort(&decoder->saverp);
-   
+
    if(!Parsegifgeneral(decoder)) goto err;
    while(!(decoder->flags&DECOF_EOF))
    {  if(!Parsegifimage(decoder)) goto err;
@@ -877,7 +903,7 @@ static __asm void Decodetask(register __a0 struct Gifsource *is)
       if(decoder->source->flags&GIFSF_NOANIMATE) break;
       decoder->flags|=DECOF_ANIMFRAME;
    }
-   
+
    Updatetaskattrs(AOGIF_Decodeready,TRUE,TAG_END);
    if(decoder->saverp.BitMap) FreeBitMap(decoder->saverp.BitMap);
    return;
@@ -988,8 +1014,8 @@ static void Starttimer(struct Gifsource *gs,BOOL inactive)
          gs->flags|=GIFSF_TIMERWAIT;
       }
       else
-      {  if(gs->current->delay) delay=gs->current->delay;
-         else delay=1;
+      {  if(gs->current->delay>5) delay=gs->current->delay;
+         else delay=5;
          Asetattrs(gs->timer,
             AOTIM_Waitseconds,delay/100,
             AOTIM_Waitmicros,(delay%100)*10000,
@@ -1045,7 +1071,7 @@ static void Nextanimation(struct Gifsource *gs)
 static ULONG Setsource(struct Gifsource *gs,struct Amset *amset)
 {  struct TagItem *tag,*tstate;
    UBYTE *arg,*p;
-   Amethodas(AOTP_SOURCEDRIVER,gs,AOM_SET,amset->tags);
+   Amethodas(AOTP_SOURCEDRIVER,(struct Aobject *)gs,AOM_SET,amset->tags);
    tstate=amset->tags;
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
@@ -1137,14 +1163,14 @@ static struct Gifsource *Newsource(struct Amset *amset)
    {  InitSemaphore(&gs->sema);
       NEWLIST(&gs->data);
       NEWLIST(&gs->images);
-      Aaddchild(Aweb(),gs,AOREL_APP_USE_SCREEN);
+      Aaddchild(Aweb(),(struct Aobject *)gs,AOREL_APP_USE_SCREEN);
       gs->progress=4;
       gs->maxloops=-1;
       Setsource(gs,amset);
       /* Workaround for missing AOSDV_Displayed in pre-0.132 */
       if(!(gs->flags&GIFSF_DISPLAYED))
       {  if(Agetattr(gs->source,AOSRC_Displayed))
-         {  Asetattrs(gs,AOSDV_Displayed,TRUE,TAG_END);
+         {  Asetattrs((struct Aobject *)gs, AOSDV_Displayed, TRUE, TAG_END);
          }
       }
    }
@@ -1153,7 +1179,7 @@ static struct Gifsource *Newsource(struct Amset *amset)
 
 static ULONG Getsource(struct Gifsource *gs,struct Amset *amset)
 {  struct TagItem *tag,*tstate;
-   AmethodasA(AOTP_SOURCEDRIVER,gs,amset);
+   AmethodasA(AOTP_SOURCEDRIVER,(struct Aobject *)gs, (struct Amessage *)amset);
    tstate=amset->tags;
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
@@ -1173,7 +1199,7 @@ static ULONG Srcupdatesource(struct Gifsource *gs,struct Amsrcupdate *amsrcupdat
    UBYTE *data=NULL;
    long datalength=0;
    BOOL eof=FALSE;
-   AmethodasA(AOTP_SOURCEDRIVER,gs,amsrcupdate);
+   AmethodasA(AOTP_SOURCEDRIVER,(struct Aobject *)gs,(struct Amessage *)amsrcupdate);
    tstate=amsrcupdate->tags;
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
@@ -1346,38 +1372,42 @@ static void Disposesource(struct Gifsource *gs)
    }
    Releaseimage(gs);
    Releasedata(gs);
-   Aremchild(Aweb(),gs,AOREL_APP_USE_SCREEN);
-   Amethodas(AOTP_SOURCEDRIVER,gs,AOM_DISPOSE);
+   Aremchild(Aweb(), (struct Aobject *)gs, AOREL_APP_USE_SCREEN);
+   Amethodas(AOTP_SOURCEDRIVER, (struct Aobject *)gs, AOM_DISPOSE);
 }
 
-__asm ULONG Dispatchsource(
-   register __a0 struct Gifsource *gs,
-   register __a1 struct Amessage *amsg)
-{  ULONG result=0;
+__asm __saveds ULONG Dispatchsource(register __a0 struct Aobject *obj, register __a1 struct Amessage *amsg)
+{  struct Gifsource *gs=(struct Gifsource *)obj;
+   ULONG result=0;
    switch(amsg->method)
    {  case AOM_NEW:
          result=(ULONG)Newsource((struct Amset *)amsg);
          break;
       case AOM_SET:
          result=Setsource(gs,(struct Amset *)amsg);
+
          break;
       case AOM_GET:
          result=Getsource(gs,(struct Amset *)amsg);
+
          break;
       case AOM_SRCUPDATE:
          result=Srcupdatesource(gs,(struct Amsrcupdate *)amsg);
+
          break;
       case AOM_UPDATE:
          result=Updatesource(gs,(struct Amset *)amsg);
+
          break;
       case AOM_ADDCHILD:
          result=Addchildsource(gs,(struct Amadd *)amsg);
+
          break;
       case AOM_DISPOSE:
          Disposesource(gs);
          break;
       default:
-         result=AmethodasA(AOTP_SOURCEDRIVER,gs,amsg);
+         result=AmethodasA(AOTP_SOURCEDRIVER,(struct Aobject *)gs,amsg);
          break;
    }
    return result;

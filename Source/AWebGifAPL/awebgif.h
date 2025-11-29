@@ -43,6 +43,9 @@ extern __asm ULONG Dispatchcopy(
 /* Declaration of common flags */
 extern BOOL animate;
 
+/* Macro for max function */
+#define max(a,b) ((a) > (b) ? (a) : (b))
+
 /* Definition of attribute IDs that are used internally. */
 
 #define AOGIF_Dummy     AOBJ_DUMMYTAG(AOTP_PLUGIN)

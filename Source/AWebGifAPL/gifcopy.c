@@ -1,6 +1,6 @@
 /**********************************************************************
- * 
- * This file is part of the AWeb-II distribution
+ *
+ * This file is part of the AWeb distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2025 amigazen project
@@ -21,77 +21,18 @@
 #include "pluginlib.h"
 #include "awebgif.h"
 #include <libraries/awebplugin.h>
-#include <exec/types.h>
-#include <exec/libraries.h>
-#include <exec/semaphores.h>
-#include <graphics/gfxbase.h>
-#include <graphics/gfxmacros.h>
-#include <graphics/scale.h>
-#include <intuition/intuition.h>
-#include <intuition/screens.h>
 #include <libraries/Picasso96.h>
-#include <utility/tagitem.h>
-#include <utility/utility.h>
-#include <datatypes/pictureclass.h>
-#include <rexx/storage.h>
-#include <rexx/rxslib.h>
-#include <libraries/iffparse.h>
-#include <libraries/asl.h>
-#include <gadgets/colorwheel.h>
-#include <gadgets/gradientslider.h>
-#include <workbench/startup.h>
-#include <workbench/workbench.h>
-#include <workbench/icon.h>
-#include <devices/audio.h>
-#include <devices/clipboard.h>
-#include <devices/printer.h>
-#include <devices/timer.h>
-#include <dos/dos.h>
-#include <dos/dosextens.h>
-#include <dos/dostags.h>
-#include <dos/stdio.h>
-#include <dos/rdargs.h>
-#include <exec/lists.h>
-#include <exec/ports.h>
 #include <exec/memory.h>
-#include <exec/resident.h>
-#include <graphics/text.h>
-#include <graphics/displayinfo.h>
-#include <intuition/gadgetclass.h>
-#include <intuition/icclass.h>
-#include <intuition/imageclass.h>
-#include <intuition/pointerclass.h>
-#include <intuition/sghooks.h>
-#include <libraries/gadtools.h>
-#include <libraries/iffparse.h>
-#include <libraries/locale.h>
-#include <rexx/rxslib.h>
-#include <rexx/storage.h>
-#include <utility/date.h>
-#include <workbench/startup.h>
-#include <workbench/workbench.h>
-#include <workbench/icon.h>
-#include <reaction/reaction.h>
-#include <reaction/reaction_author.h>
-#include <reaction/reaction_macros.h>
-
+#include <graphics/gfx.h>
+#include <graphics/scale.h>
 #include <proto/awebplugin.h>
 #include <proto/Picasso96.h>
 #include <proto/exec.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>
-#include <proto/intuition.h>
-#include <proto/icon.h>
-#include <proto/colorwheel.h>
-#include <proto/iffparse.h>
-#include <proto/asl.h>
-#include <proto/gadtools.h>
-#include <proto/keymap.h>
-#include <proto/layers.h>
-#include <proto/locale.h>
-#include <proto/timer.h>
-#include <proto/wb.h>
-#include <proto/alib.h> 
+
+/* External library base */
+extern struct Library *P96Base;
 
 /*--------------------------------------------------------------------*/
 /* General data structures                                            */
@@ -144,10 +85,10 @@ static void Renderrows(struct Gifcopy *gc,struct Coords *coo,
 {  long x,y;      /* Resulting rastport x,y to blit to */
    long dx,dy;    /* Offset within bitmap to blit from */
    long w,h;      /* Width and height of portion to blit */
-   coo=Clipcoords(gc->cframe,coo);
+   coo=Clipcoords(gc->copydriver.cframe,coo);
    if(coo && coo->rp)
-   {  x=gc->aox+coo->dx;
-      y=gc->aoy+coo->dy+minrow;
+   {  x=gc->copydriver.aox+coo->dx;
+      y=gc->copydriver.aoy+coo->dy+minrow;
       dx=0;
       dy=minrow;
       w=gc->width;
@@ -166,7 +107,7 @@ static void Renderrows(struct Gifcopy *gc,struct Coords *coo,
       }
    }
    Unclipcoords(coo);
-   
+
    if(gc->flags&GIFCF_JSREADY)
    {  Asetattrs(gc->copy,AOCPY_Onimgload,TRUE,TAG_END);
    }
@@ -192,18 +133,18 @@ static void Renderclearbg(struct Gifcopy *gc)
    struct RastPort temprp={0};
    int depth;
    long x,y,w,h,dx=0,dy=0;
-   coo=Clipcoords(gc->cframe,coo);
+   coo=Clipcoords(gc->copydriver.cframe,coo);
    if(coo && coo->rp && gc->mask)
-   {  x=gc->aox+coo->dx;
-      y=gc->aoy+coo->dy;
+   {  x=gc->copydriver.aox+coo->dx;
+      y=gc->copydriver.aoy+coo->dy;
       w=gc->width;
       h=gc->height;
       Clipcopy(&x,&dx,&w,coo->minx,coo->maxx);
       Clipcopy(&y,&dy,&h,coo->miny,coo->maxy);
       if(w>0 && h>0)
       {  if(!gc->bgrp)
-         {  gc->bgrp=Obtainbgrp(gc->cframe,coo,
-               gc->aox,gc->aoy,gc->aox+gc->width-1,gc->aoy+gc->height-1);
+         {  gc->bgrp=Obtainbgrp(gc->copydriver.cframe,coo,
+               gc->copydriver.aox,gc->copydriver.aoy,gc->copydriver.aox+gc->width-1,gc->copydriver.aoy+gc->height-1);
          }
          if(gc->bgrp)
          {  depth=GetBitMapAttr(gc->bgrp->BitMap,BMA_DEPTH);
@@ -233,7 +174,7 @@ static void Newbitmap(struct Gifcopy *gc,struct BitMap *bitmap,UBYTE *mask)
       if(gc->mask) FreeVec(gc->mask);
       gc->flags&=~GIFCF_OURBITMAP;
    }
-   
+
    if(bitmap)
    {  if(gc->swidth && !gc->sheight)
       {  gc->sheight=gc->srcheight*gc->swidth/gc->srcwidth;
@@ -244,7 +185,7 @@ static void Newbitmap(struct Gifcopy *gc,struct BitMap *bitmap,UBYTE *mask)
          if(gc->swidth<1) gc->swidth=1;
       }
    }
-   
+
    if(bitmap && gc->swidth && gc->sheight
    && (gc->srcwidth!=gc->swidth || gc->srcheight!=gc->sheight))
    {  depth=GetBitMapAttr(bitmap,BMA_DEPTH);
@@ -260,7 +201,7 @@ static void Newbitmap(struct Gifcopy *gc,struct BitMap *bitmap,UBYTE *mask)
          {  if(GetBitMapAttr(bitmap,BMA_FLAGS)&BMF_STANDARD)
             {  width=gc->bitmap->BytesPerRow;
                height=gc->bitmap->Rows;
-               memfchip=MEMF_CHIP;
+               memfchip=MEMF_PUBLIC;
             }
             else if(P96Base && p96GetBitMapAttr(gc->bitmap,P96BMA_ISP96))
             {  width=p96GetBitMapAttr(gc->bitmap,P96BMA_WIDTH)/8;
@@ -273,14 +214,19 @@ static void Newbitmap(struct Gifcopy *gc,struct BitMap *bitmap,UBYTE *mask)
          }
       }
    }
-   
-   if(!(gc->flags&GIFCF_OURBITMAP))
+
+   if(bitmap && !(gc->flags&GIFCF_OURBITMAP))
    {  gc->bitmap=bitmap;
       gc->mask=mask;
       gc->width=gc->srcwidth;
       gc->height=gc->srcheight;
       gc->srcbitmap=bitmap;
       gc->srcmask=mask;
+   }
+   if(!(bitmap))
+   {
+      gc->bitmap=0;
+      gc->mask=0;
    }
 }
 
@@ -347,11 +293,11 @@ static void Scalebitmap(struct Gifcopy *gc,long sfrom,long sheight,long dfrom)
 
 static ULONG Measurecopy(struct Gifcopy *gc,struct Ammeasure *ammeasure)
 {  if(gc->bitmap)
-   {  gc->aow=gc->width;
-      gc->aoh=gc->height;
+   {  gc->copydriver.aow=gc->width;
+      gc->copydriver.aoh=gc->height;
       if(ammeasure->ammr)
-      {  ammeasure->ammr->width=gc->aow;
-         ammeasure->ammr->minwidth=gc->aow;
+      {  ammeasure->ammr->width=gc->copydriver.aow;
+         ammeasure->ammr->minwidth=gc->copydriver.aow;
       }
    }
    return 0;
@@ -359,8 +305,8 @@ static ULONG Measurecopy(struct Gifcopy *gc,struct Ammeasure *ammeasure)
 
 static ULONG Layoutcopy(struct Gifcopy *gc,struct Amlayout *amlayout)
 {  if(gc->bitmap)
-   {  gc->aow=gc->width;
-      gc->aoh=gc->height;
+   {  gc->copydriver.aow=gc->width;
+      gc->copydriver.aoh=gc->height;
    }
    return 0;
 }
@@ -368,14 +314,14 @@ static ULONG Layoutcopy(struct Gifcopy *gc,struct Amlayout *amlayout)
 static ULONG Rendercopy(struct Gifcopy *gc,struct Amrender *amrender)
 {  struct Coords *coo;
    if(gc->bitmap && !(amrender->flags&(AMRF_UPDATESELECTED|AMRF_UPDATENORMAL)))
-   {  coo=Clipcoords(gc->cframe,amrender->coords);
+   {  coo=Clipcoords(gc->copydriver.cframe,amrender->coords);
       if(coo && coo->rp)
       {  if(amrender->flags&AMRF_CLEAR)
-         {  Erasebg(gc->cframe,coo,amrender->minx,amrender->miny,
-               amrender->maxx,amrender->maxy);
+         {  Erasebg(gc->copydriver.cframe,coo,amrender->rect.minx,amrender->rect.miny,
+               amrender->rect.maxx,amrender->rect.maxy);
          }
-         Renderrows(gc,coo,amrender->minx,amrender->miny,
-            amrender->maxx,amrender->maxy,0,gc->ready);
+         Renderrows(gc,coo,amrender->rect.minx,amrender->rect.miny,
+            amrender->rect.maxx,amrender->rect.maxy,0,gc->ready);
       }
       Unclipcoords(coo);
    }
@@ -392,7 +338,7 @@ static ULONG Setcopy(struct Gifcopy *gc,struct Amset *amset)
    long readyfrom=0,readyto=-1;
    struct BitMap *bitmap=NULL;
    UBYTE *mask=NULL;
-   Amethodas(AOTP_COPYDRIVER,gc,AOM_SET,amset->tags);
+   Amethodas(AOTP_COPYDRIVER,(struct Aobject *)gc,AOM_SET,amset->tags);
    tstate=amset->tags;
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
@@ -507,6 +453,10 @@ static ULONG Setcopy(struct Gifcopy *gc,struct Amset *amset)
 
    /* If a new scaling is requested, set magic so that a new bitmap is allocated and
     * scaled into. */
+   /* but don't bother trying to rescale if were not ready */
+
+   rescale &= (gc->flags&GIFCF_READY);
+
    if(rescale)
    {  if(!bitmap) bitmap=gc->srcbitmap;
       if(!mask) mask=gc->srcmask;
@@ -555,7 +505,7 @@ static ULONG Setcopy(struct Gifcopy *gc,struct Amset *amset)
    }
    /* If the bitmap was changed but the dimensions stayed the same,
     * and we are allowed to render ourselves, render the new row(s) now. */
-   else if(chgbitmap && (gc->flags&GIFCF_DISPLAYED) && gc->cframe)
+   else if(chgbitmap && (gc->flags&GIFCF_DISPLAYED) && gc->copydriver.cframe)
    {  if(animframe && gc->mask)
       {  Renderclearbg(gc);
       }
@@ -604,7 +554,7 @@ static struct Gifcopy *Newcopy(struct Amset *amset)
 
 static ULONG Getcopy(struct Gifcopy *gc,struct Amset *amset)
 {  struct TagItem *tag,*tstate;
-   AmethodasA(AOTP_COPYDRIVER,gc,amset);
+   AmethodasA(AOTP_COPYDRIVER,(struct Aobject *)gc,(struct Amessage *)amset);
    tstate=amset->tags;
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
@@ -634,13 +584,12 @@ static void Disposecopy(struct Gifcopy *gc)
       if(gc->mask) FreeVec(gc->mask);
    }
    if(gc->bgrp) Releasebgrp(gc->bgrp);
-   Amethodas(AOTP_COPYDRIVER,gc,AOM_DISPOSE);
+   Amethodas(AOTP_COPYDRIVER,(struct Aobject *)gc,AOM_DISPOSE);
 }
 
-__asm ULONG Dispatchcopy(
-   register __a0 struct Gifcopy *gc,
-   register __a1 struct Amessage *amsg)
-{  ULONG result=0;
+__asm __saveds ULONG Dispatchcopy(register __a0 struct Aobject *obj, register __a1 struct Amessage *amsg)
+{  struct Gifcopy *gc=(struct Gifcopy *)obj;
+  ULONG result=0;
    switch(amsg->method)
    {  case AOM_NEW:
          result=(long)Newcopy((struct Amset *)amsg);
@@ -664,7 +613,7 @@ __asm ULONG Dispatchcopy(
          Disposecopy(gc);
          break;
       default:
-         result=AmethodasA(AOTP_COPYDRIVER,gc,amsg);
+         result=AmethodasA(AOTP_COPYDRIVER,(struct Aobject *)gc,amsg);
          break;
    }
    return result;

@@ -17,8 +17,8 @@
  **********************************************************************/
 
 #define VERSION		1
-#define REVISION	12
-#define DATE		"16.11.2025"
-#define VERS		"awebgif.awebplugin 1.12"
-#define VSTRING		"awebgif.awebplugin 1.12 (16.11.2025)\r\n"
-#define VERSTAG		"\0$VER: awebgif.awebplugin 1.12 (16.11.2025)"
+#define REVISION	13
+#define DATE		"29.11.2025"
+#define VERS		"awebgif.awebplugin 1.13"
+#define VSTRING		"awebgif.awebplugin 1.13 (29.11.2025)\r\n"
+#define VERSTAG		"\0$VER: awebgif.awebplugin 1.13 (29.11.2025)"
