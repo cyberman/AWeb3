@@ -189,7 +189,8 @@ static BOOL Readcachereg(UBYTE *name,long lock)
                {  Asetattrs(url,AOURL_Movedto,p,TAG_END);
                }
                else if(cre.type==COTYPE_TEMPMOVED)
-               {  Asetattrs(url,AOURL_Tempmovedto,p,TAG_END);
+               {  /* Don't restore temporary moves from cache - they should not be cached.
+                    * Clear any existing temporary move state. */
                }
                /* Read ETag if version >= 4 */
                if(crh.version>=4)
@@ -277,9 +278,10 @@ static void Writeregentry(void *fh,struct Cache *cac,BOOL del)
    else if(movedto=(UBYTE *)Agetattr(cac->url,AOURL_Movedto))
    {  cre.type=COTYPE_MOVED;
    }
-   else if(movedto=(UBYTE *)Agetattr(cac->url,AOURL_Tempmovedto))
+   /* Don't write temporary moves to cache - they should not be cached */
+   /* else if(movedto=(UBYTE *)Agetattr(cac->url,AOURL_Tempmovedto))
    {  cre.type=COTYPE_TEMPMOVED;
-   }
+   } */
    if(movedto)
    {  movedsize=strlen(movedto)+1;
    }

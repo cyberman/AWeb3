@@ -492,7 +492,15 @@ static long Loadurl(struct Url *url,struct Aumload *auml)
       url->flags&=~URLF_TEMPMOVED;
    }
    else /* No reload */
-   {  /* Find the resulting (movedto) url. */
+   {  /* If we are temporarily moved, reset our movedto url now.
+        * This ensures that a second request to the original URL will reload. */
+      if(url->flags&URLF_TEMPMOVED)
+      {  /* Clear the cache of the previous destination for correct operation */
+         if(url->movedto) Clearobject(&url->movedto->cache);
+         url->movedto=NULL;
+         url->flags&=~URLF_TEMPMOVED;
+      }
+      /* Find the resulting (movedto) url. */
       url=Finalurl(url);
       /* Only fetch if no fetch is going on */
       if(!url->fetch && !url->rfetch && !url->vfetch)
@@ -758,7 +766,11 @@ static void Moveurl(struct Url *url,UBYTE *newurl,BOOL temp,BOOL seeother,void *
    if(postmsg && strchr(newurl,'?')) postmsg=NULL;
    if(url->movedto=Findurl(url->url,newurl,postmsg?-1:0))
    {  if(!Movedtoloop(url))
-      {  if(temp) url->flags|=URLF_TEMPMOVED;
+      {  if(temp)
+         {  url->flags|=URLF_TEMPMOVED;
+            /* Temporarily moved URLs should not be cached - clear cache */
+            Clearobject(&url->cache);
+         }
          else url->flags&=~URLF_TEMPMOVED;
          if(url->source)
          {  Asetattrs(url->source,

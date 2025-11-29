@@ -54,7 +54,6 @@ struct Source
    struct Library *pluginbase;/* Library base of open plugin */
    void *plugindata;          /* Plugin private data */
    UBYTE *savename;           /* Name to save under */
-   UBYTE *filename;           /* Filename suggested by Content-Disposition */
    ULONG lastmodified;        /* Date */
    void *serverpush;          /* FETCH object to cancel if no longer displayed. */
    UBYTE *cipher;             /* Cipher method used */
@@ -684,9 +683,6 @@ static long Getsource(struct Source *src,struct Amset *ams)
          case AOSRC_Foreign:
             PUTATTR(tag,BOOLVAL(src->flags&SRCF_FOREIGN));
             break;
-         case AOSRC_Filename:
-            PUTATTR(tag,src->filename);
-            break;
       }
    }
    return 0;
@@ -778,15 +774,6 @@ static long Srcupdatesource(struct Source *src,struct Amsrcupdate *ams)
          case AOURL_Ssllibrary:
             if(src->ssllibrary) FREE(src->ssllibrary);
             src->ssllibrary=Dupstr((UBYTE *)tag->ti_Data,-1);
-            break;
-         case AOURL_Filename:
-            if(src->filename) FREE(src->filename);
-            if(tag->ti_Data)
-            {  src->filename=Dupstr((UBYTE *)tag->ti_Data,-1);
-            }
-            else
-            {  src->filename=NULL;
-            }
             break;
       }
    }
@@ -897,7 +884,6 @@ static void Disposesource(struct Source *src)
       CloseLibrary(src->pluginbase);
    }
    if(src->savename) FREE(src->savename);
-   if(src->filename) FREE(src->filename);
    if(src->cipher) FREE(src->cipher);
    if(src->ssllibrary) FREE(src->ssllibrary);
    Amethodas(AOTP_OBJECT,src,AOM_DISPOSE);
