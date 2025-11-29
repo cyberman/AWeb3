@@ -62,12 +62,13 @@ static void Newbitmap(struct Imgcopy *img)
       }
    }
 
-   if(img->source->bitmap && img->swidth && img->sheight && !img->source->mask
+   if(img->source->bitmap && img->swidth && img->sheight
    && (img->swidth!=img->source->width || img->sheight!=img->source->height))
    {  /* Create our own scaled bitmap */
       if(img->bitmap=AllocBitMap(img->swidth,img->sheight,img->source->depth,
          BMF_MINPLANES,img->source->bitmap))
       {  struct BitScaleArgs bsa={0};
+         int memfchip=0;
          bsa.bsa_SrcX=0;
          bsa.bsa_SrcY=0;
          bsa.bsa_SrcWidth=img->source->width;
@@ -86,6 +87,42 @@ static void Newbitmap(struct Imgcopy *img)
          img->mask=NULL;
          img->width=img->swidth;
          img->height=img->sheight;
+
+         if(img->source->mask)
+         {  struct BitMap sbm={0},dbm={0};
+            if(GetBitMapAttr(img->bitmap,BMA_FLAGS)&BMF_STANDARD)
+            {  memfchip=MEMF_CHIP;
+            }
+            sbm.BytesPerRow=GetBitMapAttr(img->source->bitmap,BMA_WIDTH)/8;
+            sbm.Rows=GetBitMapAttr(img->source->bitmap,BMA_HEIGHT);
+            dbm.BytesPerRow=GetBitMapAttr(img->bitmap,BMA_WIDTH)/8;
+            dbm.Rows=GetBitMapAttr(img->bitmap,BMA_HEIGHT);
+
+            if(sbm.BytesPerRow && dbm.BytesPerRow)
+            {  int width=dbm.BytesPerRow;
+               int height=dbm.Rows;
+               if(img->mask=(UBYTE *)AllocVec(width*height,memfchip|MEMF_CLEAR))
+               {  sbm.Depth=1;
+                  sbm.Planes[0]=img->source->mask;
+                  dbm.Depth=1;
+                  dbm.Planes[0]=img->mask;
+                  bsa.bsa_SrcX=0;
+                  bsa.bsa_SrcY=0;
+                  bsa.bsa_SrcWidth=img->source->width;
+                  bsa.bsa_SrcHeight=img->source->height;
+                  bsa.bsa_DestX=0;
+                  bsa.bsa_DestY=0;
+                  bsa.bsa_XSrcFactor=img->source->width;
+                  bsa.bsa_XDestFactor=img->swidth;
+                  bsa.bsa_YSrcFactor=img->source->height;
+                  bsa.bsa_YDestFactor=img->sheight;
+                  bsa.bsa_SrcBitMap=&sbm;
+                  bsa.bsa_DestBitMap=&dbm;
+                  bsa.bsa_Flags=0;
+                  BitMapScale(&bsa);
+               }
+            }
+         }
       }
    }
 

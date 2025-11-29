@@ -142,19 +142,24 @@ static void Makegifmask(struct Imgprocess *imp,long xptcolor)
          TAG_END)
       && bmap)
       {  flags=GetBitMapAttr(imp->bitmap,BMA_FLAGS);
-         bmwidth=imp->bitmap->BytesPerRow;
-         if(flags&BMF_INTERLEAVED) bmwidth/=imp->bitmap->Depth;
+         bmwidth=GetBitMapAttr(imp->bitmap,BMA_WIDTH)/8;
+         if(flags&BMF_INTERLEAVED) bmwidth/=GetBitMapAttr(imp->bitmap,BMA_DEPTH);
          flags=GetBitMapAttr(bmap,BMA_FLAGS);
          if(flags&BMF_STANDARD)
-         {  if(imp->mask=ALLOCTYPE(UBYTE,imp->bitmap->BytesPerRow*bmap->Rows,
+         {  long srcbytesperrow=GetBitMapAttr(imp->bitmap,BMA_WIDTH)/8;
+            long srcrows=GetBitMapAttr(imp->bitmap,BMA_HEIGHT);
+            long dstbytesperrow=GetBitMapAttr(bmap,BMA_WIDTH)/8;
+            long dstrows=GetBitMapAttr(bmap,BMA_HEIGHT);
+            long dstdepth=GetBitMapAttr(bmap,BMA_DEPTH);
+            if(imp->mask=ALLOCTYPE(UBYTE,srcbytesperrow*dstrows,
                MEMF_PUBLIC|MEMF_CHIP|MEMF_CLEAR))
-            {  imp->memsize+=imp->bitmap->BytesPerRow*bmap->Rows;
-               for(d=0;d<bmap->Depth;d++)
+            {  imp->memsize+=srcbytesperrow*dstrows;
+               for(d=0;d<dstdepth;d++)
                {  if(xptcolor&(1<<d)) c=1;
                   else c=0;
-                  for(h=0;h<bmap->Rows;h++)
-                  {  p=bmap->Planes[d]+h*bmap->BytesPerRow;
-                     q=imp->mask+h*imp->bitmap->BytesPerRow;
+                  for(h=0;h<dstrows;h++)
+                  {  p=bmap->Planes[d]+h*dstbytesperrow;
+                     q=imp->mask+h*srcbytesperrow;
                      for(w=0;w<bmwidth;w++)
                      {  if(c) *q++|=~*p++;
                         else *q++|=*p++;
@@ -222,7 +227,7 @@ static BOOL Makebitmapfromicon(struct Imgprocess *imp,struct DiskObject *dob)
    /* Create mask if select image exists */
    if(selimg)
    {  maskrowbytes=(imp->width+7)/8;
-      maskbytesperrow=tempbitmap->BytesPerRow;
+      maskbytesperrow=GetBitMapAttr(tempbitmap,BMA_WIDTH)/8;
       if(maskdata=AllocMem(maskrowbytes*imp->height,MEMF_PUBLIC|MEMF_CLEAR))
       {  struct RastPort maskrp;
          struct BitMap maskbm;
