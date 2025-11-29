@@ -39,9 +39,9 @@
 #include <exec/libraries.h>
 
 #define PLUGIN_VERSION     1
-#define PLUGIN_REVISION    10
+#define PLUGIN_REVISION    11
 #define PLUGIN_LIBNAME     "awebjfif.awebplugin"
-#define PLUGIN_LIBID       "awebjfif 1.10 " __AMIGADATE__
+#define PLUGIN_LIBID       "awebjfif 1.11 " __AMIGADATE__
 #define PLUGIN_SIZE        sizeof(struct AwebJfifBase)
 
 struct AwebJfifBase

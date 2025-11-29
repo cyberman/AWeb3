@@ -9,9 +9,9 @@
 #include <clib/exec_protos.h>
 #include <clib/intuition_protos.h>
 #include <clib/graphics_protos.h>
-#include <pragmas/exec_pragmas.h>
-#include <pragmas/intuition_pragmas.h>
-#include <pragmas/graphics_pragmas.h>
+#include <proto/exec.h>
+#include <proto/intuition.h>
+#include <proto/graphics.h>
 #include <string.h>
 #include <setjmp.h>
 
@@ -41,11 +41,11 @@ void main(int argc,char **argv)
    struct IntuiMessage *msg;
    UBYTE allocated[256];
    struct ColorMap *cmap;
-   
+
    memset(allocated,0,sizeof(allocated));
    if((IntuitionBase=OpenLibrary("intuition.library",0))
    && (GfxBase=OpenLibrary("graphics.library",0)))
-   {  
+   {
       if(argc>1)
       {  if(f=fopen(argv[1],"r"))
          {  if(win=OpenWindowTags(NULL,
@@ -60,7 +60,7 @@ void main(int argc,char **argv)
                WA_Height,400,
                TAG_END))
             {  cmap=win->WScreen->ViewPort.ColorMap;
-               
+
                cinfo.err=jpeg_std_error(&jerr);
                jerr.pub.error_exit=my_error_exit;
                if(!setjmp(jerr.setjmpbuf))
@@ -71,19 +71,19 @@ void main(int argc,char **argv)
                      cinfo.image_width,cinfo.image_height,cinfo.num_components,
                      cinfo.jpeg_color_space);
                   printf("Output color space=%d\n",cinfo.out_color_space);
-                  
+
                   cinfo.quantize_colors=TRUE;
                   cinfo.desired_number_of_colors=16;
                   cinfo.dither_mode=JDITHER_ORDERED;
-               
+
                   jpeg_start_decompress(&cinfo);
-               
+
                   rowsize=cinfo.output_width*cinfo.output_components;
                   buffer=cinfo.mem->alloc_sarray((j_common_ptr)&cinfo,JPOOL_IMAGE,rowsize,1);
-               
+
                   while(cinfo.output_scanline<cinfo.output_height)
                   {  jpeg_read_scanlines(&cinfo,buffer,1);
-                  
+
 /*
                      for(i=0;i<cinfo.output_width;i++)
                      {  UBYTE r,g,b;
@@ -111,17 +111,17 @@ void main(int argc,char **argv)
                         SetAPen(win->RPort,pen);
                         WritePixel(win->RPort,i,cinfo.output_scanline-1);
                      }
-                     
+
                      if(SetSignal(0,0)&SIGBREAKF_CTRL_C)
                      {  abort=TRUE;
                         break;
                      }
                   }
-                  
+
                   if(!abort) jpeg_finish_decompress(&cinfo);
-                  
+
                   jpeg_destroy_decompress(&cinfo);
-                  
+
                   while(!done)
                   {  while(!(msg=(struct IntuiMessage *)GetMsg(win->UserPort)))
                      {  WaitPort(win->UserPort);
@@ -144,7 +144,7 @@ void main(int argc,char **argv)
                for(i=0;i<256;i++)
                {  if(allocated[i]) ReleasePen(cmap,i);
                }
-               
+
             }
             fclose(f);
          }

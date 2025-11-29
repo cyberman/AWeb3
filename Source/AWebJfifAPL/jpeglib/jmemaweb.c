@@ -12,21 +12,23 @@
  * is shoved onto the user.
  */
 
+#define __USE_INLINE__
+#define __USE_BASETYPE__
+
 #include <exec/memory.h>
 #include <exec/semaphores.h>
 #include <dos/dos.h>
-#include <clib/exec_protos.h>
-#include <clib/dos_protos.h>
-#include <pragmas/exec_sysbase_pragmas.h>
-#include <pragmas/dos_pragmas.h>
+#include <proto/exec.h>
+#include <proto/dos.h>
 
 #undef GLOBAL
 #define JPEG_INTERNALS
 #include "jinclude.h"
 #include "jpeglib.h"
-#include "jmemsys.h"		/* import the system-dependent declarations */
+#include "jmemsys.h"            /* import the system-dependent declarations */
 
-extern void *SysBase,*DOSBase;
+extern struct ExecBase *SysBase;
+extern struct DosLibrary  *DOSBase;
 
 /*
  * Selection of a file name for a temporary file.

@@ -1,7 +1,7 @@
 /*
  * jmorecfg.h
  *
- * Copyright (C) 1991-1996, Thomas G. Lane.
+ * Copyright (C) 1991-1997, Thomas G. Lane.
  * This file is part of the Independent JPEG Group's software.
  * For conditions of distribution and use, see the accompanying README file.
  *
@@ -260,9 +260,9 @@ typedef int boolean;
 
 /* Capability options common to encoder and decoder: */
 
-#undef DCT_ISLOW_SUPPORTED	/* slow but accurate integer algorithm */
+#define DCT_ISLOW_SUPPORTED	/* slow but accurate integer algorithm */
 #define DCT_IFAST_SUPPORTED	/* faster, less accurate integer method */
-#undef DCT_FLOAT_SUPPORTED	/* floating-point: accurate, fast on fast HW */
+#define DCT_FLOAT_SUPPORTED	/* floating-point: accurate, fast on fast HW */
 
 /* Encoder capability options: */
 
@@ -285,12 +285,13 @@ typedef int boolean;
 #undef  D_ARITH_CODING_SUPPORTED    /* Arithmetic coding back end? */
 #define D_MULTISCAN_FILES_SUPPORTED /* Multiple-scan JPEG files? */
 #define D_PROGRESSIVE_SUPPORTED	    /* Progressive JPEG? (Requires MULTISCAN)*/
-#undef BLOCK_SMOOTHING_SUPPORTED   /* Block smoothing? (Progressive only) */
-#undef IDCT_SCALING_SUPPORTED	    /* Output rescaling via IDCT? */
+#define SAVE_MARKERS_SUPPORTED	    /* jpeg_save_markers() needed? */
+#define BLOCK_SMOOTHING_SUPPORTED   /* Block smoothing? (Progressive only) */
+#define IDCT_SCALING_SUPPORTED	    /* Output rescaling via IDCT? */
 #undef  UPSAMPLE_SCALING_SUPPORTED  /* Output rescaling at upsample stage? */
 #define UPSAMPLE_MERGING_SUPPORTED  /* Fast path for sloppy upsampling? */
 #define QUANT_1PASS_SUPPORTED	    /* 1-pass color quantization? */
-#undef QUANT_2PASS_SUPPORTED	    /* 2-pass color quantization? */
+#define QUANT_2PASS_SUPPORTED	    /* 2-pass color quantization? */
 
 /* more capability options later, no doubt */
 
