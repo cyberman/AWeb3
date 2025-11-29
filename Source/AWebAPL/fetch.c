@@ -634,7 +634,8 @@ static void Driverfunction(struct Fetch *fch)
             Asetattrs(fch->url,AOURL_Cacheable,FALSE,TAG_END);
          }
          else
-         {  /* No defined result from script, do nothing */
+         {  /* No defined result from script, ensure it's not cached */
+            Asetattrs(fch->url,AOURL_Cacheable,FALSE,TAG_END);
          }
       }
    }
