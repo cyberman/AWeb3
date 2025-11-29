@@ -37,17 +37,53 @@
 
 /* Set HTML, markdown, or plain according to content type */
 static void Sethtmlflag(struct Docsource *dos,UBYTE *type)
-{  if(STRIEQUAL(type,"TEXT/HTML"))
+{  UBYTE *p;
+   UBYTE *type_copy;
+   UBYTE *semicolon;
+   
+   if(!type || !*type)
+   {  dos->flags&=~(DOSF_HTML|DOSF_MD);
+      return;
+   }
+   
+   /* Make a copy to modify (strip charset parameter) */
+   type_copy=Dupstr(type,-1);
+   if(!type_copy)
+   {  dos->flags&=~(DOSF_HTML|DOSF_MD);
+      return;
+   }
+   
+   /* Remove charset parameter (e.g., "text/html; charset=UTF-8" -> "text/html") */
+   semicolon=strchr(type_copy,';');
+   if(semicolon) *semicolon='\0';
+   
+   /* Trim leading whitespace */
+   p=type_copy;
+   while(*p && isspace(*p)) p++;
+   
+   /* Trim trailing whitespace */
+   {  long len;
+      len=strlen(p);
+      while(len > 0 && isspace(p[len-1]))
+      {  p[len-1]='\0';
+         len--;
+      }
+   }
+   
+   /* Case-insensitive comparison for HTML */
+   if(STRNIEQUAL(p,"TEXT/HTML",9))
    {  dos->flags|=DOSF_HTML;
       dos->flags&=~DOSF_MD;
    }
-   else if(STRIEQUAL(type,"TEXT/MARKDOWN"))
+   else if(STRNIEQUAL(p,"TEXT/MARKDOWN",13))
    {  dos->flags|=DOSF_MD;
       dos->flags&=~DOSF_HTML;
    }
    else
    {  dos->flags&=~(DOSF_HTML|DOSF_MD);
    }
+   
+   FREE(type_copy);
 }
 
 /* Save this document's source, but replace all \r by \n */

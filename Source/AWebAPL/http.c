@@ -1368,8 +1368,8 @@ static BOOL Readdata(struct Httpinfo *hi)
                 }
             }
             
-            /* Don't start gzip if we haven't found gzip magic and we have chunked encoding */
-            /* With chunked encoding, we need to wait until we have actual gzip data */
+            /* With chunked+gzip, we need to extract chunks first before looking for gzip magic */
+            /* The gzip stream may span multiple chunks, so magic bytes might not be in first chunk */
             if(gzip_start < 0 && (hi->flags & HTTPIF_CHUNKED))
             {  /* Check if we have enough data after chunk header to potentially contain gzip magic */
                data_after_chunk = hi->blocklength - search_start;
@@ -1388,10 +1388,15 @@ static BOOL Readdata(struct Httpinfo *hi)
                   continue;
                }
                else
-               {  debug_printf("DEBUG: Chunked+gzip: Have %ld bytes after chunk header but no gzip magic, disabling gzip\n", data_after_chunk);
-                  hi->flags &= ~HTTPIF_GZIPENCODED;
-                  hi->flags &= ~HTTPIF_GZIPDECODING;
-                  continue;
+               {  /* We have data but no gzip magic yet - this is OK with chunked encoding */
+                  /* The gzip stream may start in a later chunk, so we should extract chunks */
+                  /* and look for gzip magic in the accumulated data, or trust Content-Encoding header */
+                  debug_printf("DEBUG: Chunked+gzip: Have %ld bytes after chunk header but no gzip magic yet - will extract chunks and look for gzip in accumulated data\n", data_after_chunk);
+                  /* Don't disable gzip - trust Content-Encoding header and process chunks */
+                  /* Set gzip_start to 0 to process all chunks from the beginning */
+                  /* The chunk extraction code will handle finding where gzip data actually starts */
+                  gzip_start = 0;
+                  debug_printf("DEBUG: Chunked+gzip: Setting gzip_start to 0 to process all chunks from beginning\n");
                }
             }
             
@@ -2065,16 +2070,84 @@ static BOOL Readdata(struct Httpinfo *hi)
             }
             
             /* Verify we have valid gzip magic before starting */
-            if(!gzipbuffer || gziplength < 3 || gzipbuffer[0] != 0x1F || gzipbuffer[1] != 0x8B || gzipbuffer[2] != 0x08)
-            {  debug_printf("DEBUG: No valid gzip magic found (first 3 bytes: %02X %02X %02X), disabling gzip\n",
-                      gzipbuffer && gziplength >= 1 ? gzipbuffer[0] : 0,
-                      gzipbuffer && gziplength >= 2 ? gzipbuffer[1] : 0,
-                      gzipbuffer && gziplength >= 3 ? gzipbuffer[2] : 0);
-               if(gzipbuffer) FREE(gzipbuffer);
-               gzipbuffer = NULL;
-               hi->flags &= ~HTTPIF_GZIPENCODED;
-               hi->flags &= ~HTTPIF_GZIPDECODING;
-               continue;
+            /* For chunked encoding, gzip magic might be in a later chunk, so we need to check */
+            /* accumulated data or trust Content-Encoding header */
+            if(!gzipbuffer || gziplength < 3)
+            {  if(hi->flags & HTTPIF_CHUNKED)
+               {  /* Chunked encoding - might need more chunks to find gzip magic */
+                  debug_printf("DEBUG: Chunked+gzip: Only %ld bytes accumulated, need more chunks to find gzip magic\n", gziplength);
+                  /* Don't disable gzip yet - wait for more chunks */
+                  /* Read more data and try again */
+                  if(!Readblock(hi))
+                  {  /* No more data - disable gzip */
+                     debug_printf("DEBUG: Chunked+gzip: No more data available, disabling gzip\n");
+                     if(gzipbuffer) FREE(gzipbuffer);
+                     gzipbuffer = NULL;
+                     hi->flags &= ~HTTPIF_GZIPENCODED;
+                     hi->flags &= ~HTTPIF_GZIPDECODING;
+                     continue;
+                  }
+                  /* More data read, continue loop to process it */
+                  continue;
+               }
+               else
+               {  /* Non-chunked - should have gzip magic by now */
+                  debug_printf("DEBUG: No valid gzip magic found (gziplength=%ld), disabling gzip\n", gziplength);
+                  if(gzipbuffer) FREE(gzipbuffer);
+                  gzipbuffer = NULL;
+                  hi->flags &= ~HTTPIF_GZIPENCODED;
+                  hi->flags &= ~HTTPIF_GZIPDECODING;
+                  continue;
+               }
+            }
+            
+            /* Check for gzip magic in accumulated data */
+            if(gzipbuffer[0] != 0x1F || gzipbuffer[1] != 0x8B || gzipbuffer[2] != 0x08)
+            {  if(hi->flags & HTTPIF_CHUNKED)
+               {  /* Chunked encoding - gzip magic might be in a later chunk */
+                  /* Trust Content-Encoding header and try decompression anyway */
+                  /* Or search for gzip magic in accumulated data */
+                  long i;
+                  BOOL found_magic = FALSE;
+                  for(i = 0; i <= gziplength - 3 && i >= 0; i++)
+                  {  if(gzipbuffer[i] == 0x1F && gzipbuffer[i+1] == 0x8B && gzipbuffer[i+2] == 0x08)
+                     {  debug_printf("DEBUG: Chunked+gzip: Found gzip magic at offset %ld in accumulated data\n", i);
+                        /* Move gzip data to start of buffer, skipping prefix */
+                        if(i > 0 && (gziplength - i) > 0 && (gziplength - i) <= gzip_buffer_size)
+                        {  memmove(gzipbuffer, gzipbuffer + i, gziplength - i);
+                           gziplength -= i;
+                        }
+                        found_magic = TRUE;
+                        break;
+                     }
+                  }
+                  if(!found_magic)
+                  {  /* No gzip magic found yet - might be in later chunks */
+                     debug_printf("DEBUG: Chunked+gzip: No gzip magic in %ld bytes of accumulated data (first 3 bytes: %02X %02X %02X), waiting for more chunks\n",
+                            gziplength,
+                            gzipbuffer[0], gzipbuffer[1], gzipbuffer[2]);
+                     /* Read more data and try again */
+                     if(!Readblock(hi))
+                     {  /* No more data - trust Content-Encoding and try anyway, or disable */
+                        debug_printf("DEBUG: Chunked+gzip: No more data, but Content-Encoding says gzip - trusting header and attempting decompression\n");
+                        /* Trust Content-Encoding header and proceed */
+                     }
+                     else
+                     {  /* More data read, continue loop to process it */
+                        continue;
+                     }
+                  }
+               }
+               else
+               {  /* Non-chunked - should have gzip magic at start */
+                  debug_printf("DEBUG: No valid gzip magic found (first 3 bytes: %02X %02X %02X), disabling gzip\n",
+                         gzipbuffer[0], gzipbuffer[1], gzipbuffer[2]);
+                  if(gzipbuffer) FREE(gzipbuffer);
+                  gzipbuffer = NULL;
+                  hi->flags &= ~HTTPIF_GZIPENCODED;
+                  hi->flags &= ~HTTPIF_GZIPDECODING;
+                  continue;
+               }
             }
             
             hi->flags|=HTTPIF_GZIPDECODING;
@@ -2949,6 +3022,216 @@ static BOOL Readdata(struct Httpinfo *hi)
             continue; /* Skip regular data processing */
          }
 
+         /* Process chunked transfer encoding if present (and not already processed for gzip) */
+         if((hi->flags & HTTPIF_CHUNKED) && !(hi->flags & HTTPIF_GZIPDECODING))
+         {  UBYTE *chunk_p;
+            UBYTE *output_p;
+            long chunk_pos;
+            long chunk_size;
+            long output_pos;
+            long original_blocklength;
+            BOOL final_chunk;
+            BOOL need_more_data;
+            
+            chunk_p = hi->fd->block;
+            output_p = hi->fd->block; /* Reuse same buffer for output */
+            chunk_pos = 0;
+            output_pos = 0;
+            original_blocklength = hi->blocklength; /* Save original length before we modify block */
+            final_chunk = FALSE;
+            need_more_data = FALSE;
+            
+            /* Parse chunked encoding: <size in hex>\r\n<data>\r\n */
+            /* Extract all complete chunks, removing headers */
+            /* Note: We read from original_blocklength positions, but write to output_pos positions */
+            while(chunk_pos < original_blocklength && !final_chunk && !need_more_data)
+            {  long chunk_header_start;
+               long chunk_data_start;
+               long chunk_data_end;
+               
+               chunk_header_start = chunk_pos;
+               
+               /* Skip whitespace before chunk size */
+               while(chunk_pos < original_blocklength && 
+                     (chunk_p[chunk_pos] == ' ' || chunk_p[chunk_pos] == '\t'))
+               {  chunk_pos++;
+               }
+               
+               if(chunk_pos >= original_blocklength)
+               {  need_more_data = TRUE;
+                  break;
+               }
+               
+               /* Parse chunk size (hexadecimal) */
+               chunk_size = 0;
+               while(chunk_pos < original_blocklength)
+               {  UBYTE c;
+                  long digit;
+                  c = chunk_p[chunk_pos];
+                  if(c >= '0' && c <= '9')
+                  {  digit = c - '0';
+                  }
+                  else if(c >= 'A' && c <= 'F')
+                  {  digit = c - 'A' + 10;
+                  }
+                  else if(c >= 'a' && c <= 'f')
+                  {  digit = c - 'a' + 10;
+                  }
+                  else
+                  {  break;
+                  }
+                  chunk_size = chunk_size * 16 + digit;
+                  chunk_pos++;
+               }
+               
+               /* Skip chunk extension and CRLF after chunk size */
+               while(chunk_pos < original_blocklength && 
+                     chunk_p[chunk_pos] != '\r' && chunk_p[chunk_pos] != '\n')
+               {  chunk_pos++;
+               }
+               if(chunk_pos < original_blocklength && chunk_p[chunk_pos] == '\r')
+               {  chunk_pos++;
+               }
+               if(chunk_pos < original_blocklength && chunk_p[chunk_pos] == '\n')
+               {  chunk_pos++;
+               }
+               
+               if(chunk_size == 0)
+               {  /* Final chunk (0) - skip trailing CRLF if present */
+                  final_chunk = TRUE;
+                  if(chunk_pos < original_blocklength && chunk_p[chunk_pos] == '\r')
+                  {  chunk_pos++;
+                  }
+                  if(chunk_pos < original_blocklength && chunk_p[chunk_pos] == '\n')
+                  {  chunk_pos++;
+                  }
+                  break;
+               }
+               
+               /* Calculate where chunk data starts and ends (in original block) */
+               chunk_data_start = chunk_pos;
+               chunk_data_end = chunk_pos + chunk_size;
+               
+               if(chunk_data_end > original_blocklength)
+               {  /* Chunk extends beyond current block - need more data */
+                  /* Move partial chunk header to start of block for next iteration */
+                  if(chunk_header_start < original_blocklength)
+                  {  long remaining;
+                     remaining = original_blocklength - chunk_header_start;
+                     if(remaining > 0 && remaining <= hi->fd->blocksize)
+                     {  memmove(hi->fd->block, chunk_p + chunk_header_start, remaining);
+                        hi->blocklength = remaining;
+                     }
+                     else
+                     {  hi->blocklength = 0;
+                     }
+                  }
+                  else
+                  {  hi->blocklength = 0;
+                  }
+                  need_more_data = TRUE;
+                  break;
+               }
+               
+               /* Copy chunk data to output (removing header) */
+               /* We copy from original block position (chunk_data_start) to output position (output_pos) */
+               /* Since we're removing headers, output_pos should be <= chunk_data_start, so this is safe */
+               /* But we need to validate to prevent memory corruption */
+               if(chunk_data_start < chunk_data_end && chunk_data_end <= original_blocklength 
+                  && output_pos + chunk_size <= hi->fd->blocksize && output_pos >= 0 && chunk_size >= 0
+                  && chunk_data_start + chunk_size <= original_blocklength)
+               {  /* Validate that output_pos <= chunk_data_start to ensure safe in-place copy */
+                  if(output_pos <= chunk_data_start)
+                  {  /* Safe to copy - we're reading from later position, writing to earlier position */
+                     memmove(output_p + output_pos, chunk_p + chunk_data_start, chunk_size);
+                     output_pos += chunk_size;
+                  }
+                  else
+                  {  /* This shouldn't happen - output_pos > chunk_data_start means we've already written past where we're reading */
+                     debug_printf("DEBUG: Chunked encoding: ERROR - output_pos %ld > chunk_data_start %ld, unsafe copy!\n",
+                            output_pos, chunk_data_start);
+                     need_more_data = TRUE;
+                     break;
+                  }
+               }
+               else
+               {  /* Invalid bounds - this shouldn't happen but handle it */
+                  debug_printf("DEBUG: Chunked encoding: WARNING - Invalid bounds (chunk_data_start=%ld, chunk_data_end=%ld, original_blocklength=%ld, output_pos=%ld, chunk_size=%ld, blocksize=%ld)\n",
+                         chunk_data_start, chunk_data_end, original_blocklength, output_pos, chunk_size, hi->fd->blocksize);
+                  need_more_data = TRUE;
+                  break;
+               }
+               
+               /* Skip chunk data and trailing CRLF to find next chunk (in original block) */
+               chunk_pos = chunk_data_end;
+               if(chunk_pos < original_blocklength && chunk_p[chunk_pos] == '\r')
+               {  chunk_pos++;
+               }
+               if(chunk_pos < original_blocklength && chunk_p[chunk_pos] == '\n')
+               {  chunk_pos++;
+               }
+            }
+            
+            if(need_more_data && output_pos == 0)
+            {  /* Need more data to complete chunk - don't process partial data yet */
+               /* blocklength already adjusted above when we moved partial chunk header */
+               debug_printf("DEBUG: Chunked encoding: Need more data to complete chunk, continuing loop\n");
+               /* Continue main loop to read more data */
+               if(!Readblock(hi))
+               {  eof = TRUE;
+                  break;
+               }
+               continue; /* Process new data in next iteration */
+            }
+            
+            if(output_pos > 0 || final_chunk)
+            {  /* Update block with extracted chunk data (headers removed) */
+               hi->blocklength = output_pos;
+               blocklength = output_pos;
+               debug_printf("DEBUG: Processed chunked encoding: extracted %ld bytes of data (final_chunk=%d, need_more=%d)\n", 
+                      output_pos, final_chunk, need_more_data);
+               
+               /* If final chunk found, clear chunked flag */
+               if(final_chunk)
+               {  hi->flags &= ~HTTPIF_CHUNKED;
+                  debug_printf("DEBUG: Chunked encoding complete (final chunk received)\n");
+               }
+               
+               /* If there's more chunked data in this block, move it for next iteration */
+               if(!final_chunk && chunk_pos < original_blocklength)
+               {  /* There's more chunked data starting at chunk_pos in the original block */
+                  long remaining;
+                  remaining = original_blocklength - chunk_pos;
+                  if(remaining > 0 && output_pos + remaining <= hi->fd->blocksize && output_pos >= 0)
+                  {  /* Move remaining chunked data to start, after the extracted data */
+                     memmove(hi->fd->block + output_pos, chunk_p + chunk_pos, remaining);
+                     hi->blocklength = output_pos + remaining;
+                     /* Send extracted data now, process remaining chunks in next iteration */
+                     blocklength = output_pos;
+                  }
+                  else if(remaining > 0)
+                  {  /* Not enough space - this shouldn't happen but handle it */
+                     debug_printf("DEBUG: Chunked encoding: WARNING - Not enough space for remaining data (output_pos=%ld, remaining=%ld, blocksize=%ld)\n",
+                            output_pos, remaining, hi->fd->blocksize);
+                     /* Just send what we have, remaining will be processed in next iteration */
+                     blocklength = output_pos;
+                  }
+               }
+            }
+            else
+            {  /* No data extracted yet - might be empty chunks or need more data */
+               if(hi->blocklength == 0)
+               {  /* No data left - read more */
+                  if(!Readblock(hi))
+                  {  eof = TRUE;
+                     break;
+                  }
+                  continue;
+               }
+               blocklength = hi->blocklength;
+            }
+         }
+         
          /* Boundary detection for multipart data */
          boundary=partial=eof=FALSE;
          if(bdcopy)

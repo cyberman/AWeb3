@@ -160,6 +160,12 @@ UBYTE *Mimetypefromext(UBYTE *name)
 BOOL Checkmimetype(UBYTE *data,long length,UBYTE *type)
 {  UBYTE *p,*end;
    BOOL ok=TRUE;
+   /* APPLICATION/OCTET-STREAM and X-UNKNOWN types are not "reasonable" - 
+    * they indicate unknown content and should trigger content sniffing */
+   if(!type || STRIEQUAL(type,"APPLICATION/OCTET-STREAM") 
+      || STRIEQUAL(type,"X-UNKNOWN/X-UNKNOWN"))
+   {  return FALSE;
+   }
    if(STRNIEQUAL(type,"TEXT/",5))
    {  p=data;
       end=p+length;
@@ -345,10 +351,17 @@ UBYTE *Mimetypefromdata(UBYTE *data,long length,UBYTE *deftype)
                else if(p<=end-6 && STRNIEQUAL(p,"<HTML>",6))
                {  type="TEXT/HTML";
                }
+               else if(p<=end-5 && STRNIEQUAL(p,"<HTML",5))
+               {  /* HTML tag (case-insensitive, may have attributes or be <html>) */
+                  type="TEXT/HTML";
+               }
                else if(p<=end-10 && STRNIEQUAL(p,"<!DOCTYPE",9) && isspace(p[9]))
                {  p+=10;
                   while(p<end && isspace(*p)) p++;
                   if(p<=end-5 && STRNIEQUAL(p,"HTML ",5))
+                  {  type="TEXT/HTML";
+                  }
+                  else if(p<=end-4 && STRNIEQUAL(p,"HTML>",4))
                   {  type="TEXT/HTML";
                   }
                }
