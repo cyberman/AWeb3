@@ -567,7 +567,15 @@ BOOL Initprefs(void)
    Makepatterns(&prefs.noproxy);
    Makepatterns(&prefs.nocache);
    if(!(notifyport=CreateMsgPort())) return FALSE;
-   if(*configname) AddPart(nfname,configname,64);
+   if(*configname)
+   {  AddPart(nfname,configname,64);
+      /* Ensure the config directory exists before setting up notify requests */
+      {  long lock;
+         lock=Lock(nfname,SHARED_LOCK);
+         if(!lock) lock=CreateDir(nfname);
+         if(lock) UnLock(lock);
+      }
+   }
    sprintf(brprefsname,"%s/browser",nfname);
    nfreqbr.nr_Name=brprefsname;
    nfreqbr.nr_Port=notifyport;
@@ -779,8 +787,18 @@ void Loadsettings(UBYTE *path)
    UBYTE *config=(UBYTE *)Agetattr(Aweb(),AOAPP_Configname);
    UBYTE *file[]={ "browser","program","gui","network" };
    short i;
+   long lock;
    if(name1=ALLOCTYPE(UBYTE,2*STRINGBUFSIZE,MEMF_CLEAR))
    {  name2=name1+STRINGBUFSIZE;
+      /* If a custom config name is provided, ensure the directory exists */
+      if(config && *config)
+      {  strcpy(name2,"ENV:" DEFAULTCFG);
+         if(AddPart(name2,config,STRINGBUFSIZE-1))
+         {  lock=Lock(name2,SHARED_LOCK);
+            if(!lock) lock=CreateDir(name2);
+            if(lock) UnLock(lock);
+         }
+      }
       for(i=0;i<4;i++)
       {  strncpy(name1,path,STRINGBUFSIZE-1);
          if(!AddPart(name1,file[i],STRINGBUFSIZE-1)) break;
