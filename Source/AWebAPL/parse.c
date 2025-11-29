@@ -558,24 +558,103 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
    BOOL strict=(doc->htmlmode==HTML_STRICT),lf=(doc->pmode==DPM_TEXTAREA);
    short l;
    while(p<end)
-   {  /* Detect and decode UTF-8 sequences. UTF-8 characters in range 0x80-0x7FF
-       * are encoded as 2 bytes: 0xC0-0xDF followed by 0x80-0xBF.
-       * This handles common cases like copyright (0xC2 0xA9) -> 0xA9.
-       * Format: 110xxxxx 10xxxxxx where xxxxx xxxxxx is the 11-bit code point */
-      if((*p & 0xE0) == 0xC0 && p+1 < end && (p[1] & 0xC0) == 0x80)
-      {  ULONG utf8_char;
-         /* 2-byte UTF-8: extract 11 bits from the two bytes */
+   {  /* Detect and decode UTF-8 sequences.
+       * 2-byte UTF-8: 0xC0-0xDF followed by 0x80-0xBF (range 0x80-0x7FF)
+       * 3-byte UTF-8: 0xE0-0xEF followed by 0x80-0xBF, 0x80-0xBF (range 0x800-0xFFFF)
+       * This handles common Unicode characters like:
+       * - Copyright (0xC2 0xA9) -> 0xA9
+       * - Right single quotation mark (0xE2 0x80 0x99) -> 0x27 (')
+       * - Left single quotation mark (0xE2 0x80 0x98) -> 0x60 (`)
+       * - Em dash (0xE2 0x80 0x94) -> 0x2D (-) */
+      ULONG utf8_char = 0;
+      ULONG utf8_bytes = 0;
+      UBYTE replacement = 0;
+      UBYTE *replacement_str = NULL;
+      
+      /* Check for 3-byte UTF-8 sequence (0xE0-0xEF) */
+      if((*p & 0xF0) == 0xE0 && p+2 < end && (p[1] & 0xC0) == 0x80 && (p[2] & 0xC0) == 0x80)
+      {  /* 3-byte UTF-8: extract 16 bits from the three bytes */
+         utf8_char = ((*p & 0x0F) << 12) | ((p[1] & 0x3F) << 6) | (p[2] & 0x3F);
+         utf8_bytes = 3;
+         
+         /* Map common Unicode characters to Latin-1/ASCII equivalents */
+         switch(utf8_char)
+         {  case 0x2018: replacement = 0x60; break;  /* Left single quotation mark -> ` */
+            case 0x2019: replacement = 0x27; break;  /* Right single quotation mark -> ' */
+            case 0x201A: replacement = 0x27; break;  /* Single low-9 quotation mark -> ' */
+            case 0x201C: replacement = 0x22; break;  /* Left double quotation mark -> " */
+            case 0x201D: replacement = 0x22; break;  /* Right double quotation mark -> " */
+            case 0x201E: replacement = 0x22; break;  /* Double low-9 quotation mark -> " */
+            case 0x2013: replacement = 0x2D; break;  /* En dash -> - */
+            case 0x2014: replacement = 0x2D; break;  /* Em dash -> - */
+            case 0x2022: replacement = 0x95; break;  /* Bullet -> 0x95 */
+            case 0x2026: replacement_str = "..."; break;  /* Horizontal ellipsis -> ... */
+            case 0x2039: replacement = 0x3C; break;  /* Single left-pointing angle quotation mark -> < */
+            case 0x203A: replacement = 0x3E; break;  /* Single right-pointing angle quotation mark -> > */
+            case 0x2122: replacement_str = "TM"; break;  /* Trade mark sign -> TM */
+            case 0x00A0: replacement = 0x20; break;  /* Non-breaking space -> space */
+            case 0x00A9: replacement = 0xA9; break;  /* Copyright sign -> 0xA9 */
+            case 0x00AE: replacement = 0xAE; break;  /* Registered sign -> 0xAE */
+            default:
+               /* For other 3-byte UTF-8 characters, try to map to Latin-1 if possible */
+               if(utf8_char >= 0x80 && utf8_char <= 0xFF)
+               {  replacement = (UBYTE)utf8_char;
+               }
+               else
+               {  /* Character outside Latin-1 range - replace with '?' */
+                  replacement = 0x3F;
+               }
+               break;
+         }
+      }
+      /* Check for 2-byte UTF-8 sequence (0xC0-0xDF) */
+      else if((*p & 0xE0) == 0xC0 && p+1 < end && (p[1] & 0xC0) == 0x80)
+      {  /* 2-byte UTF-8: extract 11 bits from the two bytes */
          utf8_char = ((*p & 0x1F) << 6) | (p[1] & 0x3F);
+         utf8_bytes = 2;
+         
          /* Convert to Latin-1 equivalent if in range 0x80-0xFF */
          if(utf8_char >= 0x80 && utf8_char <= 0xFF)
-         {  *p = (UBYTE)utf8_char;
-            /* Remove the second byte by shifting remaining bytes left */
-            if(p+2 <= end)
-            {  memmove(p+1, p+2, end - (p+2));
+         {  replacement = (UBYTE)utf8_char;
+         }
+         else
+         {  /* Character outside Latin-1 range - replace with '?' */
+            replacement = 0x3F;
+         }
+      }
+      
+      /* If we found a valid UTF-8 sequence, replace it */
+      if(utf8_bytes > 0)
+      {  if(replacement_str)
+         {  /* Multi-character replacement (e.g., "..." or "TM") */
+            long replen = strlen(replacement_str);
+            long pos = p - buf->buffer;
+            if(Insertinbuffer(buf, replacement_str, replen, pos))
+            {  Deleteinbuffer(buf, pos + replen, utf8_bytes);
+               ta->length += (replen - utf8_bytes);
+               end = buf->buffer + buf->length;
+               p = buf->buffer + pos + replen;
             }
-            ta->length--;
-            end--;
-            n=*p;
+            else
+            {  /* Buffer expansion failed - use single char fallback */
+               *p = 0x3F;
+               memmove(p + 1, p + utf8_bytes, end - (p + utf8_bytes));
+               ta->length -= (utf8_bytes - 1);
+               end -= (utf8_bytes - 1);
+               p++;
+            }
+            continue;
+         }
+         else if(replacement > 0)
+         {  /* Single character replacement */
+            *p = replacement;
+            /* Remove the extra UTF-8 bytes by shifting remaining bytes left */
+            if(p + utf8_bytes <= end)
+            {  memmove(p + 1, p + utf8_bytes, end - (p + utf8_bytes));
+            }
+            ta->length -= (utf8_bytes - 1);
+            end -= (utf8_bytes - 1);
+            n = replacement;
             p++;
             continue;
          }
