@@ -2,7 +2,7 @@ AWebPngGPL
 ==========
 
 This distribution contains the sources for the PNG
-image plugin for AWeb 3.4 APL.
+image plugin for AWeb 3.6 APL.
 
 Source files in this distribution are subject to the
 AWeb Public License. See the notice at the start of
@@ -22,6 +22,5 @@ pnglib/libpng.txt for more details.
 
 All files are published without warranty or support.
 
-Yvon Rozijn.
-yrozijn@xs4all.nl
+Yvon Rozijn and amigazen project
 

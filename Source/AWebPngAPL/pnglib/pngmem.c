@@ -1,11 +1,12 @@
+
 /* pngmem.c - stub functions for memory allocation
  *
- * libpng 0.99c
+ * libpng 1.0.0
  * For conditions of distribution and use, see copyright notice in png.h
  * Copyright (c) 1995, 1996 Guy Eric Schalnat, Group 42, Inc.
  * Copyright (c) 1996, 1997 Andreas Dilger
  * Copyright (c) 1998, Glenn Randers-Pehrson
- * February 7, 1998
+ * March 8, 1998
  *
  * This file provides a location for all memory allocation.  Users which
  * need special memory handling are expected to modify the code in this file
@@ -18,11 +19,11 @@
 /* The following "hides" PNG_MALLOC and PNG_FREE thus allowing the pngtest
    application to put a wrapper on top of them. */
 #ifdef PNGTEST_MEMORY_DEBUG
-   #define PNG_MALLOC png_debug_malloc
-   #define PNG_FREE   png_debug_free
+#define PNG_MALLOC png_debug_malloc
+#define PNG_FREE   png_debug_free
 #else
-   #define PNG_MALLOC png_malloc
-   #define PNG_FREE   png_free
+#define PNG_MALLOC png_malloc
+#define PNG_FREE   png_free
 #endif
 
 /* Borland DOS special memory handler */
@@ -282,27 +283,22 @@ png_voidp
 PNG_MALLOC(png_structp png_ptr, png_uint_32 size)
 {
    png_voidp ret;
-   png_size_t length;
 
    if (png_ptr == NULL || size == 0)
       return ((png_voidp)NULL);
 
 #ifdef PNG_MAX_MALLOC_64K
-   if (png_size > (png_uint_32)65536L)
+   if (size > (png_uint_32)65536L)
       png_error(png_ptr, "Cannot Allocate > 64K");
 #endif
 
-   length = (png_size_t)size;
-   if ((png_uint_32)length != size)
-      png_error(png_ptr, "Cannot Allocate > size_t");
-
 #if defined(__TURBOC__) && !defined(__FLAT__)
-   ret = farmalloc(length);
+   ret = farmalloc(size);
 #else
 # if defined(_MSC_VER) && defined(MAXSEG_64K)
-   ret = halloc(length, 1);
+   ret = halloc(size, 1);
 # else
-   ret = malloc(length);
+   ret = malloc((size_t)size);
 # endif
 #endif
 
@@ -336,33 +332,29 @@ PNG_FREE(png_structp png_ptr, png_voidp ptr)
 
 #endif /* Not Borland DOS special memory handler */
 
-void
-png_buffered_memcpy (png_structp png_ptr, png_bytep s1, png_bytep s2,
+png_voidp
+png_memcpy_check (png_structp png_ptr, png_voidp s1, png_voidp s2,
    png_uint_32 length)
 {
-   png_uint_32 i;
-   png_size_t buffer;
-   for (i=0; i<length; i+=65530)
-   {
-      buffer = length - i;
-      if (buffer > (png_size_t)65530L)
-         buffer=(png_size_t)65530L;
-      png_memcpy (s1+i, s2+i, buffer);
-   }
+   png_size_t size;
+
+   size = (png_size_t)length;
+   if ((png_uint_32)size != length)
+      png_error(png_ptr,"Overflow in png_memcpy_check.");
+  
+   return(png_memcpy (s1, s2, size));
 }
 
-void
-png_buffered_memset (png_structp png_ptr, png_bytep s1, int value,
+png_voidp
+png_memset_check (png_structp png_ptr, png_voidp s1, int value,
    png_uint_32 length)
 {
-   png_uint_32 i;
-   png_size_t buffer;
+   png_size_t size;
 
-   for (i=0; i<length; i+=65530)
-   {
-      buffer = length - i;
-      if (buffer > (png_size_t)65530L)
-         buffer=(png_size_t)65530L;
-      png_memset (s1+i, value, buffer);
-   }
+   size = (png_size_t)length;
+   if ((png_uint_32)size != length)
+      png_error(png_ptr,"Overflow in png_memset_check.");
+
+   return (png_memset (s1, value, size));
+
 }

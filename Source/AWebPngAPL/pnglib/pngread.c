@@ -1,12 +1,12 @@
 
 /* pngread.c - read a PNG file
  *
- * libpng 0.99c
+ * libpng 1.0.0
  * For conditions of distribution and use, see copyright notice in png.h
  * Copyright (c) 1995, 1996 Guy Eric Schalnat, Group 42, Inc.
  * Copyright (c) 1996, 1997 Andreas Dilger
  * Copyright (c) 1998, Glenn Randers-Pehrson
- * February 7, 1998
+ * March 8, 1998
  *
  * This file contains routines that an application calls directly to
  * read a PNG file or stream.
@@ -154,7 +154,7 @@ png_read_info(png_structp png_ptr, png_infop info_ptr)
       }
    }
 
-   while (1)
+   for(;;)
    {
       png_byte chunk_length[4];
       png_uint_32 length;
@@ -418,7 +418,7 @@ png_read_row(png_structp png_ptr, png_bytep row, png_bytep dsp_row)
       png_ptr->row_buf + 1, png_ptr->prev_row + 1,
       (int)(png_ptr->row_buf[0]));
 
-   png_buffered_memcpy(png_ptr, png_ptr->prev_row, png_ptr->row_buf,
+   png_memcpy_check(png_ptr, png_ptr->prev_row, png_ptr->row_buf,
       png_ptr->rowbytes + 1);
 
    if (png_ptr->transformations)
@@ -449,6 +449,9 @@ png_read_row(png_structp png_ptr, png_bytep row, png_bytep dsp_row)
          png_combine_row(png_ptr, dsp_row, 0xff);
    }
    png_read_finish_row(png_ptr);
+
+   if (png_ptr->read_row_fn != NULL)
+      (*(png_ptr->read_row_fn))(png_ptr, png_ptr->row_number, png_ptr->pass);
 }
 
 /* Read one or more rows of image data.  If the image is interlaced,
@@ -777,4 +780,10 @@ png_read_destroy(png_structp png_ptr, png_infop info_ptr, png_infop end_info_ptr
    png_ptr->error_ptr = error_ptr;
 
    png_memcpy(png_ptr->jmpbuf, tmp_jmp, sizeof (jmp_buf));
+}
+
+void
+png_set_read_status_fn(png_structp png_ptr, png_read_status_ptr read_row_fn)
+{
+   png_ptr->read_row_fn = read_row_fn;
 }

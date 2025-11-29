@@ -1,12 +1,12 @@
    
 /* pngwrite.c - general routines to write a PNG file
  *
- * libpng 0.99c
+ * libpng 1.0.0
  * For conditions of distribution and use, see copyright notice in png.h
  * Copyright (c) 1995, 1996 Guy Eric Schalnat, Group 42, Inc.
  * Copyright (c) 1996, 1997 Andreas Dilger
  * Copyright (c) 1998, Glenn Randers-Pehrson
- * February 7, 1998
+ * March 8, 1998
  */
 
 /* get internal access to png.h */
@@ -225,8 +225,9 @@ png_write_end(png_structp png_ptr, png_infop info_ptr)
 png_charp
 png_convert_to_rfc1123(png_structp png_ptr, png_timep ptime)
 {
-   const char *short_months[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+   static PNG_CONST char short_months[12][4] =
+	{"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+	 "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 
    if (png_ptr->time_buffer == NULL)
    {
@@ -502,7 +503,7 @@ png_write_row(png_structp png_ptr, png_bytep row)
    png_debug1(3, "row_info->rowbytes = %d\n", png_ptr->row_info.rowbytes);
 
    /* Copy user's row into buffer, leaving room for filter byte. */
-   png_buffered_memcpy(png_ptr, png_ptr->row_buf + 1, row,
+   png_memcpy_check(png_ptr, png_ptr->row_buf + 1, row,
       png_ptr->row_info.rowbytes);
 
 #if defined(PNG_WRITE_INTERLACING_SUPPORTED)
@@ -527,6 +528,9 @@ png_write_row(png_structp png_ptr, png_bytep row)
 
    /* Find a filter if necessary, filter the row and write it out. */
    png_write_find_filter(png_ptr, &(png_ptr->row_info));
+
+   if (png_ptr->write_row_fn != NULL)
+      (*(png_ptr->write_row_fn))(png_ptr, png_ptr->row_number, png_ptr->pass);
 }
 
 #if defined(PNG_WRITE_FLUSH_SUPPORTED)
@@ -831,10 +835,10 @@ png_set_filter_heuristics(png_structp png_ptr, int heuristic_method,
 
       if (png_ptr->filter_weights == NULL)
       {
-         png_ptr->filter_weights = (png_uint_16p)png_malloc(png_ptr,
+         png_ptr->filter_weights = (png_uint_16p) png_malloc(png_ptr,
             (png_uint_32)(sizeof(png_uint_16) * num_weights));
 
-         png_ptr->inv_filter_weights = (png_uint_16p)png_malloc(png_ptr,
+         png_ptr->inv_filter_weights = (png_uint_16p) png_malloc(png_ptr,
             (png_uint_32)(sizeof(png_uint_16) * num_weights));
 
          for (i = 0; i < num_weights; i++)
@@ -866,10 +870,10 @@ png_set_filter_heuristics(png_structp png_ptr, int heuristic_method,
     */
    if (png_ptr->filter_costs == NULL)
    {
-      png_ptr->filter_costs = (png_uint_16p)png_malloc(png_ptr,
+      png_ptr->filter_costs = (png_uint_16p) png_malloc(png_ptr,
          (png_uint_32)(sizeof(png_uint_16) * PNG_FILTER_VALUE_LAST));
 
-      png_ptr->inv_filter_costs = (png_uint_16p)png_malloc(png_ptr,
+      png_ptr->inv_filter_costs = (png_uint_16p) png_malloc(png_ptr,
          (png_uint_32)(sizeof(png_uint_16) * PNG_FILTER_VALUE_LAST));
 
       for (i = 0; i < PNG_FILTER_VALUE_LAST; i++)
@@ -946,4 +950,21 @@ png_set_compression_method(png_structp png_ptr, int method)
    png_ptr->flags |= PNG_FLAG_ZLIB_CUSTOM_METHOD;
    png_ptr->zlib_method = method;
 }
+
+void
+png_set_write_status_fn(png_structp png_ptr, png_write_status_ptr write_row_fn)
+{
+   png_ptr->write_row_fn = write_row_fn;
+}
+
+#if defined(PNG_WRITE_USER_TRANSFORM_SUPPORTED)
+void
+png_set_write_user_transform_fn(png_structp png_ptr, png_user_transform_ptr
+   write_user_transform_fn)
+{
+   png_debug(1, "in png_set_write_user_transform_fn\n");
+   png_ptr->transformations |= PNG_USER_TRANSFORM;
+   png_ptr->write_user_transform_fn = write_user_transform_fn;
+}
+#endif
 

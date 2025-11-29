@@ -1,12 +1,12 @@
 
 /* pngconf.h - machine configurable file for libpng
  *
- * libpng 0.99c
+ * libpng 1.0.0
  * For conditions of distribution and use, see copyright notice in png.h
  * Copyright (c) 1995, 1996 Guy Eric Schalnat, Group 42, Inc.
  * Copyright (c) 1996, 1997 Andreas Dilger
  * Copyright (c) 1998, Glenn Randers-Pehrson
- * February 7, 1998
+ * March 8, 1998
  */
 
 /* Any machine specific code is near the front of this file, so if you
@@ -238,43 +238,54 @@ __dont__ include it again
 
 /* Any transformations you will not be using can be undef'ed here */
 
-/* GR-P, 0.96a: Set "*FULLY_SUPPORTED as default but allow user
-   to turn it off with "*NOT_FULLY_SUPPORTED" on the compile line,
+/* GR-P, 0.96a: Set "*TRANSFORMS_SUPPORTED as default but allow user
+   to turn it off with "*TRANSFORMS_NOT_SUPPORTED" on the compile line,
    then pick and choose which ones to define without having to edit
-   this file.
+   this file. It is safe to use the *TRANSFORMS_NOT_SUPPORTED if you
+   only want to have a png-compliant reader/writer but don't need
+   any of the extra transformations.  This saves about 80 kbytes in a
+   typical installation of the library.
  */
 
-#ifndef PNG_READ_NOT_FULLY_SUPPORTED
-#define PNG_READ_FULLY_SUPPORTED
+
+#ifndef PNG_READ_TRANSFORMS_NOT_SUPPORTED
+#define PNG_READ_TRANSFORMS_SUPPORTED
 #endif
-#ifndef PNG_WRITE_NOT_FULLY_SUPPORTED
-#define PNG_WRITE_FULLY_SUPPORTED
+#ifndef PNG_WRITE_TRANSFORMS_NOT_SUPPORTED
+#define PNG_WRITE_TRANSFORMS_SUPPORTED
 #endif
 
-#ifdef PNG_READ_FULLY_SUPPORTED
-#undef PNG_PROGRESSIVE_READ_SUPPORTED
+#ifdef PNG_READ_TRANSFORMS_SUPPORTED
 #define PNG_READ_EXPAND_SUPPORTED
-#undef PNG_READ_SHIFT_SUPPORTED
+#define PNG_READ_SHIFT_SUPPORTED
 #define PNG_READ_PACK_SUPPORTED
-#undef PNG_READ_BGR_SUPPORTED
-#undef PNG_READ_SWAP_SUPPORTED
-#undef PNG_READ_PACKSWAP_SUPPORTED
-#undef PNG_READ_INVERT_SUPPORTED
-#undef PNG_READ_DITHER_SUPPORTED
-#undef PNG_READ_BACKGROUND_SUPPORTED
+#define PNG_READ_BGR_SUPPORTED
+#define PNG_READ_SWAP_SUPPORTED
+#define PNG_READ_PACKSWAP_SUPPORTED
+#define PNG_READ_INVERT_SUPPORTED
+#define PNG_READ_DITHER_SUPPORTED
+#define PNG_READ_BACKGROUND_SUPPORTED
 #define PNG_READ_16_TO_8_SUPPORTED
-#undef PNG_READ_FILLER_SUPPORTED
+#define PNG_READ_FILLER_SUPPORTED
 #define PNG_READ_GAMMA_SUPPORTED
-#undef PNG_READ_GRAY_TO_RGB_SUPPORTED
-#undef PNG_READ_SWAP_ALPHA_SUPPORTED
-#undef PNG_READ_INVERT_ALPHA_SUPPORTED
-#undef PNG_READ_STRIP_ALPHA_SUPPORTED
-#define PNG_READ_COMPOSITE_NODIV_SUPPORTED        /* well tested on Intel */
-#endif /* PNG_READ_FULLY_SUPPORTED */
+#define PNG_READ_GRAY_TO_RGB_SUPPORTED
+#define PNG_READ_SWAP_ALPHA_SUPPORTED
+#define PNG_READ_INVERT_ALPHA_SUPPORTED
+#define PNG_READ_STRIP_ALPHA_SUPPORTED
+#define PNG_READ_USER_TRANSFORM_SUPPORTED
+/* the following aren't implemented yet
+#define PNG_READ_RGB_TO_GRAY_SUPPORTED
+ */
+#endif /* PNG_READ_TRANSFORMS_SUPPORTED */
 
-#define PNG_READ_INTERLACING_SUPPORTED  /* required for PNG-compliant decoders */
+#ifndef PNG_PROGRESSIVE_READ_NOT_SUPPORTED   /* if you don't do progressive   */
+#define PNG_PROGRESSIVE_READ_SUPPORTED       /* reading.  This is not talking */
+#endif                               /* about interlacing capability!  You'll */
+              /* still have interlacing unless you change the following line: */
+#define PNG_READ_INTERLACING_SUPPORTED /* required for PNG-compliant decoders */
+#define PNG_READ_COMPOSITE_NODIV_SUPPORTED    /* well tested on Intel and SGI */
 
-#ifdef PNG_WRITE_FULLY_SUPPORTED
+#ifdef PNG_WRITE_TRANSFORMS_SUPPORTED
 #define PNG_WRITE_SHIFT_SUPPORTED
 #define PNG_WRITE_PACK_SUPPORTED
 #define PNG_WRITE_BGR_SUPPORTED
@@ -286,10 +297,11 @@ __dont__ include it again
 #define PNG_WRITE_SWAP_ALPHA_SUPPORTED
 #define PNG_WRITE_INVERT_ALPHA_SUPPORTED
 #define PNG_WRITE_WEIGHTED_FILTER_SUPPORTED
-#endif /* PNG_WRITE_FULLY_SUPPORTED */
+#define PNG_WRITE_USER_TRANSFORM_SUPPORTED
+#endif /* PNG_WRITE_TRANSFORMS_SUPPORTED */
 
-#define PNG_WRITE_INTERLACING_SUPPORTED  /* not required for PNG-compliant */
-                                         /* encoders, but can cause trouble
+#define PNG_WRITE_INTERLACING_SUPPORTED  /* not required for PNG-compliant
+                                            encoders, but can cause trouble
                                             if left undefined */
 
 #if !defined(PNG_NO_STDIO)
@@ -320,7 +332,7 @@ __dont__ include it again
 
 /* very little testing */
 /*
-#define PNG_READ_16_TO_8_ACCURATE_SHIFT_SUPPORTED
+#define PNG_READ_16_TO_8_ACCURATE_SCALE_SUPPORTED
 */
 
 /* This is only for PowerPC big-endian and 680x0 systems */
@@ -527,8 +539,8 @@ typedef z_stream FAR *  png_zstreamp;
 /* use this to make far-to-near assignments */
 #   define CHECK   1
 #   define NOCHECK 0
-#   define CVT_PTR(ptr) (far_to_near(png_ptr,ptr,CHECK))
-#   define CVT_PTR_NOCHECK(ptr) (far_to_near(png_ptr,ptr,NOCHECK))
+#   define CVT_PTR(ptr) (png_far_to_near(png_ptr,ptr,CHECK))
+#   define CVT_PTR_NOCHECK(ptr) (png_far_to_near(png_ptr,ptr,NOCHECK))
 #   define png_strlen _fstrlen
 #   define png_memcmp _fmemcmp      /* SJT: added */
 #   define png_memcpy _fmemcpy

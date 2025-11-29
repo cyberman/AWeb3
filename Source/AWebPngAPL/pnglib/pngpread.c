@@ -1,12 +1,12 @@
 
 /* pngpread.c - read a png file in push mode
  *
- * libpng 0.99c
+ * libpng 1.0.0
  * For conditions of distribution and use, see copyright notice in png.h
  * Copyright (c) 1995, 1996 Guy Eric Schalnat, Group 42, Inc.
  * Copyright (c) 1996, 1997 Andreas Dilger
  * Copyright (c) 1998, Glenn Randers-Pehrson
- * February 7, 1998
+ * March 8, 1998
  */
 
 #define PNG_INTERNAL
@@ -591,7 +591,7 @@ png_process_IDAT_data(png_structp png_ptr, png_bytep buffer,
 
    png_ptr->zstream.next_in = buffer;
    png_ptr->zstream.avail_in = (uInt)buffer_length;
-   while(1)
+   for(;;)
    {
       ret = inflate(&png_ptr->zstream, Z_PARTIAL_FLUSH);
       if (ret == Z_STREAM_END)
@@ -638,7 +638,7 @@ png_push_process_row(png_structp png_ptr)
       png_ptr->row_buf + 1, png_ptr->prev_row + 1,
       (int)(png_ptr->row_buf[0]));
 
-   png_buffered_memcpy(png_ptr, png_ptr->prev_row, png_ptr->row_buf,
+   png_memcpy_check(png_ptr, png_ptr->prev_row, png_ptr->row_buf,
       png_ptr->rowbytes + 1);
 
    if (png_ptr->transformations)
@@ -774,8 +774,8 @@ png_read_push_finish_row(png_structp png_ptr)
    if (png_ptr->interlaced)
    {
       png_ptr->row_number = 0;
-      png_buffered_memset(png_ptr, png_ptr->prev_row, 0,
-         (png_size_t)png_ptr->rowbytes + 1);
+      png_memset_check(png_ptr, png_ptr->prev_row, 0,
+         png_ptr->rowbytes + 1);
       do
       {
          png_ptr->pass++;
@@ -785,7 +785,10 @@ png_read_push_finish_row(png_structp png_ptr)
             png_pass_inc[png_ptr->pass] - 1 -
             png_pass_start[png_ptr->pass]) /
             png_pass_inc[png_ptr->pass];
-         png_ptr->irowbytes = ((png_ptr->pixel_depth + 7) >> 3) + 1;
+
+         png_ptr->irowbytes = ((png_ptr->iwidth *
+            png_ptr->pixel_depth + 7) >> 3) + 1;
+
          if (!(png_ptr->transformations & PNG_INTERLACE))
          {
             png_ptr->num_rows = (png_ptr->height +
@@ -806,7 +809,11 @@ void
 png_push_handle_tEXt(png_structp png_ptr, png_infop info_ptr, png_uint_32 length)
 {
    if (png_ptr->mode == PNG_BEFORE_IHDR || png_ptr->mode & PNG_HAVE_IEND)
-      png_error(png_ptr, "Out of place tEXt");
+      {
+         png_error(png_ptr, "Out of place tEXt");
+         /* to quiet some compiler warnings */
+         if(info_ptr == NULL) return;
+      }
 
 #ifdef PNG_MAX_MALLOC_64K
    png_ptr->skip_length = 0;  /* This may not be necessary */
@@ -888,7 +895,11 @@ void
 png_push_handle_zTXt(png_structp png_ptr, png_infop info_ptr, png_uint_32 length)
 {
    if (png_ptr->mode == PNG_BEFORE_IHDR || png_ptr->mode & PNG_HAVE_IEND)
-      png_error(png_ptr, "Out of place zTXt");
+      {
+         png_error(png_ptr, "Out of place zTXt");
+         /* to quiet some compiler warnings */
+         if(info_ptr == NULL) return;
+      }
 
 #ifdef PNG_MAX_MALLOC_64K
    /* We can't handle zTXt chunks > 64K, since we don't have enough space
@@ -970,7 +981,7 @@ png_push_read_zTXt(png_structp png_ptr, png_infop info_ptr)
       png_ptr->zstream.avail_in = (uInt)(png_ptr->current_text_size -
          (text - key));
       png_ptr->zstream.next_out = png_ptr->zbuf;
-      png_ptr->zstream.avail_out = png_ptr->zbuf_size;
+      png_ptr->zstream.avail_out = (uInt)png_ptr->zbuf_size;
 
       key_size = text - key;
       text_size = 0;
@@ -1073,6 +1084,8 @@ png_push_handle_unknown(png_structp png_ptr, png_infop info_ptr, png_uint_32 len
    if (!(png_ptr->chunk_name[0] & 0x20))
    {
       png_chunk_error(png_ptr, "unknown critical chunk");
+      /* to quiet some compiler warnings */
+      if(info_ptr == NULL) return;
    }
 
    png_push_crc_skip(png_ptr, length);

@@ -1,12 +1,12 @@
 
 /* png.c - location for general purpose libpng functions
  *
- * libpng 0.99c
+ * libpng 1.0.0
  * For conditions of distribution and use, see copyright notice in png.h
  * Copyright (c) 1995, 1996 Guy Eric Schalnat, Group 42, Inc.
  * Copyright (c) 1996, 1997 Andreas Dilger
  * Copyright (c) 1998, Glenn Randers-Pehrson
- * February 7, 1998
+ * March 8, 1998
  */
 
 #define PNG_INTERNAL
@@ -16,7 +16,7 @@
 /* Version information for C files.  This had better match the version
  * string defined in png.h.
  */
-char png_libpng_ver[5] = "0.99";
+char png_libpng_ver[6] = "1.0.0";
 
 /* Place to hold the signature string for a PNG file. */
 png_byte FARDATA png_sig[8] = {137, 80, 78, 71, 13, 10, 26, 10};
@@ -185,7 +185,7 @@ png_calculate_crc(png_structp png_ptr, png_bytep ptr, png_size_t length)
    }
 
    if (need_crc)
-      png_ptr->crc = crc32(png_ptr->crc, ptr, length);
+      png_ptr->crc = crc32(png_ptr->crc, ptr, (uInt)length);
 }
 
 /* Allocate the memory for an info_struct for the application.  We don't
@@ -200,6 +200,7 @@ png_create_info_struct(png_structp png_ptr)
    png_infop info_ptr;
 
    png_debug(1, "in png_create_info_struct\n");
+   if(png_ptr == NULL) return (NULL);
    if ((info_ptr = (png_infop)png_create_struct(PNG_STRUCT_INFO)) != NULL)
    {
       png_info_init(info_ptr);
