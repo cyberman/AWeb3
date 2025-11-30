@@ -33,6 +33,10 @@
 
 struct Assl *Assl_initamissl(struct Library *socketbase);
 
+/* Cleanup function to mirror Assl_initamissl() initialization */
+/* Call this at application exit, after all SSL connections are closed */
+void Freeamissl(void);
+
 /* Get the AmiSSL master library base from an Assl object */
 /* Returns NULL if assl is NULL or library base is not available */
 struct Library *Assl_getmasterbase(struct Assl *assl);
@@ -52,5 +56,10 @@ BOOL Httpcertaccept(char *hostname, char *certname);
 #define ASSLCONNECT_OK     0  /* connection ok */
 #define ASSLCONNECT_FAIL   1  /* connection failed */
 #define ASSLCONNECT_DENIED 2  /* connection denied by user */
+
+/* Global AmiSSL library bases (defined in amissl.c) */
+extern struct Library *AmiSSLMasterBase;
+extern struct Library *AmiSSLBase;
+extern struct Library *AmiSSLExtBase;
 
 #endif

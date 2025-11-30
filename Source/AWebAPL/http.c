@@ -36,7 +36,9 @@
 #include "task.h"
 #include "form.h"
 #include "awebtcp.h"
+#include "awebssl.h"
 #include <dos/dosextens.h>
+#include <proto/amisslmaster.h>
 
 #include "/zlib/zconf.h"
 #include "/zlib/zlib.h"

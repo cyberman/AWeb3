@@ -100,7 +100,7 @@ framejs.o:  framejs.c aweb.h frame.h frprivate.h application.h window.h copy.h u
 
 http.o:     http.c aweb.h awebtcp.h tcperr.h fetchdriver.h application.h task.h form.h /zlib/zlib.h
     @echo "        Compiling $*.c..."
-    @sc idir=netinclude: $*.c to $*.o
+    @sc idir=netinclude: idir=sslinclude: $*.c to $*.o
 
 locale.o: aweb.cd
    catcomp aweb.cd cfile locale.h objfile locale.o
@@ -390,10 +390,11 @@ install:
    -copy clone AWebCfg TO //Internet/AWeb/AWebCfg
    -copy clone AWebJS TO //Internet/AWeb/AWebJS
    -copy clone aweblib/arexx.aweblib TO //Internet/AWeb/aweblib/arexx.aweblib
+   -copy clone aweblib/about.aweblib TO //Internet/AWeb/aweblib/about.aweblib
    -copy clone aweblib/authorize.aweblib TO //Internet/AWeb/aweblib/authorize.aweblib
    -copy clone aweblib/cachebrowser.aweblib TO //Internet/AWeb/aweblib/cachebrowser.aweblib
    -copy clone aweblib/ftp.aweblib TO //Internet/AWeb/aweblib/ftp.aweblib
-   -copy clone aweblib/gemini.aweblib TO //Internet/AWeb/aweblib/gemini.aweblib
+#   -copy clone aweblib/gemini.aweblib TO //Internet/AWeb/aweblib/gemini.aweblib
    -copy clone aweblib/gopher.aweblib TO //Internet/AWeb/aweblib/gopher.aweblib
    -copy clone aweblib/history.aweblib TO //Internet/AWeb/aweblib/history.aweblib
    -copy clone aweblib/hotlist.aweblib TO //Internet/AWeb/aweblib/hotlist.aweblib

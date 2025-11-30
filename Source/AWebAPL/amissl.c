@@ -2527,6 +2527,38 @@ __asm void Assl_dummy(void) { return; }
 
 /*-----------------------------------------------------------------------*/
 
+/* Cleanup function to mirror Assl_initamissl() initialization */
+/* This should be called at application exit, after all SSL connections are closed */
+/* Per AmiSSL v5 API: CloseAmiSSL() must be called before closing amisslmaster.library */
+void Freeamissl(void)
+{
+   /* Only cleanup if AmiSSL was successfully initialized */
+   if (AmiSSLMasterBase && AmiSSLBase)
+   {
+      debug_printf("DEBUG: Freeamissl: Cleaning up AmiSSL\n");
+      
+      /* CloseAmiSSL() must be called before closing amisslmaster.library */
+      /* This cleans up AmiSSL internal resources and certificate cache */
+      CloseAmiSSL();
+      
+      /* Close amisslmaster.library - mirrors OpenLibrary() in Assl_initamissl() */
+      CloseLibrary(AmiSSLMasterBase);
+      
+      /* Clear global pointers to prevent use-after-free */
+      AmiSSLMasterBase = NULL;
+      AmiSSLBase = NULL;
+      AmiSSLExtBase = NULL;
+      
+      debug_printf("DEBUG: Freeamissl: AmiSSL cleanup complete\n");
+   }
+   else
+   {
+      debug_printf("DEBUG: Freeamissl: AmiSSL not initialized, nothing to cleanup\n");
+   }
+}
+
+/*-----------------------------------------------------------------------*/
+
 static UBYTE version[] = "AwebAmiSSL.library";
 
 struct Jumptab {

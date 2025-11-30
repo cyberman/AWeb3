@@ -988,6 +988,7 @@ static void Cleanup(void)
    Freearexx();   /* after Freeobject() bcz it waits for scripts to complete */
    Freehttp();    /* after Freeobject() bcz tasks must be stopped */
    Freenameserv();/* after Freeobject() bcz network tasks use hent structures freed here */
+   Freeamissl();  /* after Freehttp() bcz all SSL connections must be closed first */
    Freesupport();
    Freememory();  /* MUST be the very last! */
    if(locale) CloseLocale(locale);

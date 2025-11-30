@@ -820,6 +820,7 @@ extern void Freesupport(void);
 
 extern BOOL Inittcp(void);
 extern void Freetcp(void);
+extern void Freeamissl(void);
 
    // Open TCP library. Returns AwebTcpBase if successful.
    // Doesn't auto connect if (autocon) is FALSE
