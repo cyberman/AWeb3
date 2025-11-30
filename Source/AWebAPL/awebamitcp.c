@@ -255,12 +255,8 @@ __asm int amitcp_setup(register __a0 struct Library *SocketBase)
 }
 
 __asm void amitcp_cleanup(register __a0 struct Library *SocketBase)
-{  /* Cleanup AmiTCP library - automatically clean up task SSL context */
-   /* This ensures SSL cleanup happens when plugins call a_cleanup() */
-   /* The cleanup sequence matches HTTP pattern: a_cleanup() -> ClearTaskSSLContext() -> CloseLibrary() */
-#ifndef LOCALONLY
-   ClearTaskSSLContext();
-#endif
+{  /* Cleanup AmiTCP library */
+   return;
 }
 
 __asm void amitcp_dummy(void)
