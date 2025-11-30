@@ -33,6 +33,7 @@
 /* Forward declarations */
 extern struct Assl *Tcpopenssl(struct Library *socketbase);
 extern void Assl_cleanup(struct Assl *assl);
+extern void Assl_closessl(struct Assl *assl);
 
 /* Forward declarations for SSL task context functions */
 struct Assl *GetTaskSSLContext(void);
@@ -105,6 +106,9 @@ void Freetcp(void)
       }
    }
 #endif
+   /* Cleanup all task SSL contexts at application shutdown */
+   /* This ensures proper cleanup of SSL resources for all tasks */
+   ClearTaskSSLContext();
 }
 
 struct Library *Opentcp(struct Library **base,struct Fetchdriver *fd,BOOL autocon)
@@ -141,21 +145,17 @@ struct Library *Opentcp(struct Library **base,struct Fetchdriver *fd,BOOL autoco
    if(args) FREE(args);
 #endif
    proc->pr_WindowPtr=windowptr;
-   /* CRITICAL FIX: Do NOT initialize SSL here for HTTP/HTTPS */
-   /* Openlibraries() in http.c already handles SSL initialization for HTTP/HTTPS */
-   /* Creating SSL here causes double allocation - Opentcp() creates one Assl struct */
-   /* and Openlibraries() creates another, causing memory leaks and "memory header not located" errors */
-   /* The SSL initialization here was only needed for non-HTTP protocols (e.g., Gemini) */
-   /* For HTTP/HTTPS, Openlibraries() will create the Assl object properly */
-   /* DISABLED: SSL initialization moved to Openlibraries() to prevent double allocation */
-   /*
+   /* Initialize SSL for protocols that need it (e.g., Gemini, HTTPS) */
+   /* HTTP/HTTPS also initializes SSL separately in Openlibraries() and stores it in hi->assl */
+   /* The task SSL context initialized here is used by awebamitcp.c:amitcp_connect() for */
+   /* automatic SSL on non-443 ports (e.g., Gemini on port 1965) */
+   /* HTTP on port 443 uses its own hi->assl and ignores the task SSL context, so no conflict */
    if(*base && fd && (fd->flags&FDVF_SSL))
    {  struct Assl *assl=Tcpopenssl(*base);
       if(assl)
       {  SetTaskSSLContext(assl,*base);
       }
    }
-   */
    return ((*base)?AwebTcpBase:NULL);
 }
 
@@ -203,17 +203,31 @@ void SetTaskSSLContext(struct Assl *assl,struct Library *socketbase)
 
 void ClearTaskSSLContext(void)
 {  struct Task *task=FindTask(NULL);
+   struct Assl *assl_to_cleanup=NULL;
    if(task && task_ssl_sema_init)
    {  ObtainSemaphore(&task_ssl_sema);
       if(task_ssl_task==task)
       {  if(task_ssl_context)
-         {  Assl_cleanup(task_ssl_context);
+         {  /* Save pointer before clearing - we'll cleanup after releasing semaphore */
+            assl_to_cleanup=task_ssl_context;
             task_ssl_context=NULL;
          }
          task_ssl_socketbase=NULL;
          task_ssl_task=NULL;
       }
       ReleaseSemaphore(&task_ssl_sema);
+   }
+   /* Cleanup SSL outside of semaphore to prevent deadlock */
+   /* Follow same pattern as http.c: Assl_cleanup() then FREE() */
+   /* Note: Assl_cleanup() internally calls Assl_closessl(), so we don't call it separately */
+   /* This matches the HTTP pattern where Assl_closessl() is called before socket close, */
+   /* and Assl_cleanup() is called after a_cleanup() but before CloseLibrary() */
+   if(assl_to_cleanup)
+   {  /* 1. Cleanup Assl struct (calls Assl_closessl() internally, decrements task ref count, calls CleanupAmiSSL for subprocesses) */
+      Assl_cleanup(assl_to_cleanup);
+      /* 2. Free the Assl struct itself - must happen after Assl_cleanup() */
+      /* Assl_cleanup() no longer frees the struct to prevent use-after-free crashes */
+      FREE(assl_to_cleanup);
    }
 }
 

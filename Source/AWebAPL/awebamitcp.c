@@ -31,6 +31,7 @@ extern struct Library *GetTaskSSLSocketBase(void);
 extern void Setsslsocket(long sock,struct Assl *assl,struct Library *socketbase,UBYTE *hostname);
 extern struct Assl *Getsslsocket(long sock);
 extern void Clrsslsocket(long sock);
+extern void ClearTaskSSLContext(void);
 extern BOOL Assl_openssl(struct Assl *assl);
 extern void Assl_closessl(struct Assl *assl);
 extern long Assl_connect(struct Assl *assl,long sock,UBYTE *hostname);
@@ -230,12 +231,15 @@ __asm int amitcp_close(register __d0 int a,
    /* Check if SSL is enabled for this socket */
    assl=Getsslsocket(a);
    if(assl)
-   {  /* Close SSL first - but don't free the Assl struct itself */
-      /* The Assl struct is managed per-task, not per-socket */
+   {  /* Close SSL connection BEFORE closing socket */
+      /* SSL shutdown needs the socket to still be open */
+      /* This matches the HTTP cleanup pattern */
       Assl_closessl(assl);
       Clrsslsocket(a);
+      /* DON'T cleanup the Assl struct here - it's managed per-task */
+      /* The task SSL context cleanup will happen at task exit */
    }
-   /* Close TCP socket */
+   /* Close TCP socket - SSL has been properly shut down */
    result=CloseSocket(a);
    return result;
 }
@@ -246,8 +250,10 @@ __asm int amitcp_setup(register __a0 struct Library *SocketBase)
 }
 
 __asm void amitcp_cleanup(register __a0 struct Library *SocketBase)
-{  /* Cleanup AmiTCP library */
-   return;
+{  /* Cleanup AmiTCP library - automatically clean up task SSL context */
+   /* This ensures SSL cleanup happens when plugins call a_cleanup() */
+   /* The cleanup sequence matches HTTP pattern: a_cleanup() -> ClearTaskSSLContext() -> CloseLibrary() */
+   ClearTaskSSLContext();
 }
 
 __asm void amitcp_dummy(void)

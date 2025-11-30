@@ -292,7 +292,14 @@ struct GResponse
    int status_code;
    UBYTE *mime_type;
    BOOL status_parsed;
+   UBYTE in_pre;  /* Flag for preformatted blocks - persists during page processing */
+   UBYTE *base_hostname;  /* Base hostname for resolving relative URLs */
+   long base_port;  /* Base port for resolving relative URLs */
+   UBYTE *base_path;  /* Base path for resolving relative URLs */
 };
+
+/* Forward declarations */
+static BOOL Resolverelativeurl(struct Geminaddr *base,UBYTE *relative,struct Geminaddr *result);
 
 /* Find end of line */
 static UBYTE *Findeol(UBYTE *p,UBYTE *end)
@@ -327,10 +334,12 @@ static BOOL Parsestatusline(struct GResponse *resp,UBYTE *line,long len)
       memmove(temp_mime,meta_start,metalen);
       temp_mime[metalen]='\0';
       resp->status_code=status;
-      if(Addtobuffer(&resp->buf,temp_mime,metalen+1))
-      {  long mime_offset;
-         mime_offset=metalen+1;
-         resp->mime_type=resp->buf.buffer+resp->buf.length-mime_offset;
+      /* Store MIME type in a separate buffer, not in resp->buf */
+      /* resp->buf is for content only, not status line data */
+      resp->mime_type=ALLOCTYPE(UBYTE,metalen+1,0);
+      if(resp->mime_type)
+      {  memmove(resp->mime_type,temp_mime,metalen);
+         resp->mime_type[metalen]='\0';
          resp->status_parsed=TRUE;
          return TRUE;
       }
@@ -343,14 +352,23 @@ static void Convertgeminitohtml(struct Fetchdriver *fd,struct GResponse *resp,lo
 {  UBYTE *p,*end,*line_start;
    UBYTE *out;
    long outlen=0;
-   UBYTE in_pre=0;  /* Flag for preformatted blocks */
-   if(!Addtobuffer(&resp->buf,fd->block,read)) return;
+   /* Add new data to buffer if provided */
+   if(read>0)
+   {  if(!Addtobuffer(&resp->buf,fd->block,read)) return;
+   }
+   /* If read==0, just process existing buffer (for EOF case) */
    if(!resp->headerdone)
-   {  sprintf(fd->block,"<html><head><meta charset=\"utf-8\"></head><body>");
-      outlen=strlen(fd->block);
+   {  /* Send HTML header as separate chunk */
+      sprintf(fd->block,"<html><head><meta charset=\"utf-8\"></head><body>");
+      Updatetaskattrs(
+         AOURL_Data,fd->block,
+         AOURL_Datalength,strlen(fd->block),
+         TAG_END);
       resp->headerdone=TRUE;
    }
-   out=fd->block+outlen;
+   /* Start output at beginning of buffer for content */
+   out=fd->block;
+   outlen=0;
    p=resp->buf.buffer;
    end=p+resp->buf.length;
    while(p<end)
@@ -362,16 +380,16 @@ static void Convertgeminitohtml(struct Fetchdriver *fd,struct GResponse *resp,lo
          UBYTE *line=line_start;
          /* Check for preformatted toggle */
          if(linelen>=3 && line[0]=='`' && line[1]=='`' && line[2]=='`')
-         {  if(in_pre)
+         {  if(resp->in_pre)
             {  outlen+=sprintf(out+outlen,"</pre>");
-               in_pre=0;
+               resp->in_pre=0;
             }
             else
             {  outlen+=sprintf(out+outlen,"<pre>");
-               in_pre=1;
+               resp->in_pre=1;
             }
          }
-         else if(in_pre)
+         else if(resp->in_pre)
          {  /* In preformatted block - pass through */
             if(outlen+linelen+1>INPUTBLOCKSIZE-1000)
             {  Updatetaskattrs(
@@ -387,54 +405,168 @@ static void Convertgeminitohtml(struct Fetchdriver *fd,struct GResponse *resp,lo
          }
          else
          {  /* Regular line - check for Gemini markup */
-            if(linelen>=2 && line[0]=='=' && line[1]=='=')
-            {  /* Heading: ==text== */
-               UBYTE *text=line+2;
-               long textlen=linelen-2;
-               while(textlen>0 && text[textlen-1]=='=') textlen--;
+            /* Gemini headings: # H1, ## H2, ### H3 */
+            if(linelen>=2 && line[0]=='#' && line[1]=='#')
+            {  /* Check for H3: ### */
+               if(linelen>=3 && line[2]=='#')
+               {  UBYTE *text=line+3;
+                  long textlen=linelen-3;
+                  /* Skip leading space if present */
+                  if(textlen>0 && *text==' ') { text++; textlen--; }
+                  /* Trim trailing spaces */
+                  while(textlen>0 && text[textlen-1]==' ') textlen--;
+                  if(textlen>0)
+                  {  outlen+=sprintf(out+outlen,"<h3>%.*s</h3>",textlen,text);
+                  }
+               }
+               else
+               {  /* H2: ## */
+                  UBYTE *text=line+2;
+                  long textlen=linelen-2;
+                  /* Skip leading space if present */
+                  if(textlen>0 && *text==' ') { text++; textlen--; }
+                  /* Trim trailing spaces */
+                  while(textlen>0 && text[textlen-1]==' ') textlen--;
+                  if(textlen>0)
+                  {  outlen+=sprintf(out+outlen,"<h2>%.*s</h2>",textlen,text);
+                  }
+               }
+            }
+            else if(linelen>=1 && line[0]=='#')
+            {  /* H1: # */
+               UBYTE *text=line+1;
+               long textlen=linelen-1;
+               /* Skip leading space if present */
+               if(textlen>0 && *text==' ') { text++; textlen--; }
+               /* Trim trailing spaces */
+               while(textlen>0 && text[textlen-1]==' ') textlen--;
                if(textlen>0)
                {  outlen+=sprintf(out+outlen,"<h1>%.*s</h1>",textlen,text);
                }
             }
-            else if(linelen>=1 && line[0]=='=')
-            {  /* Heading: =text= */
-               UBYTE *text=line+1;
-               long textlen=linelen-1;
-               while(textlen>0 && text[textlen-1]=='=') textlen--;
-               if(textlen>0)
-               {  outlen+=sprintf(out+outlen,"<h2>%.*s</h2>",textlen,text);
-               }
-            }
-            else if(linelen>=2 && line[0]=='=' && line[1]==' ')
+            else if(linelen>=2 && line[0]=='=' && line[1]=='>')
             {  /* Link: => URL Description */
                UBYTE *url_start=line+2;
                UBYTE *desc_start=NULL;
                long urllen=0;
                long desclen=0;
                UBYTE *q;
+               /* Skip whitespace after => */
+               while(url_start<line+linelen && (*url_start==' ' || *url_start=='\t'))
+               {  url_start++;
+               }
                /* Find space separating URL and description */
                for(q=url_start;q<line+linelen;q++)
-               {  if(*q==' ')
+               {  if(*q==' ' || *q=='\t')
                   {  urllen=q-url_start;
+                     /* Skip whitespace before description */
                      desc_start=q+1;
+                     while(desc_start<line+linelen && (*desc_start==' ' || *desc_start=='\t'))
+                     {  desc_start++;
+                     }
                      desclen=(line+linelen)-desc_start;
                      break;
                   }
                }
-               if(!desc_start)
+               if(!desc_start || desclen<=0)
                {  /* No description, URL is entire rest of line */
-                  urllen=linelen-2;
-                  desc_start=url_start+urllen;
+                  urllen=(line+linelen)-url_start;
+                  /* Trim trailing whitespace from URL */
+                  while(urllen>0 && (url_start[urllen-1]==' ' || url_start[urllen-1]=='\t'))
+                  {  urllen--;
+                  }
+                  desc_start=NULL;
                   desclen=0;
                }
                if(urllen>0)
-               {  if(desclen>0)
-                  {  outlen+=sprintf(out+outlen,"<p><a href=\"%.*s\">%.*s</a></p>",
-                        urllen,url_start,desclen,desc_start);
+               {  /* Resolve relative URLs to absolute URLs */
+                  UBYTE link_url[512];
+                  UBYTE *final_url;
+                  long final_urllen;
+                  /* Check if URL is already absolute with a protocol */
+                  if(urllen>=7 && (!strnicmp(url_start,"http://",7) || !strnicmp(url_start,"https://",8) || 
+                     !strnicmp(url_start,"ftp://",6) || !strnicmp(url_start,"gopher://",9) ||
+                     !strnicmp(url_start,"gemini://",9)))
+                  {  /* Already absolute with protocol - use as-is */
+                     final_url=url_start;
+                     final_urllen=urllen;
+                  }
+                  else if(urllen>=9 && !strnicmp(url_start,"gemini://",9))
+                  {  /* Already absolute gemini:// URL */
+                     final_url=url_start;
+                     final_urllen=urllen;
                   }
                   else
+                  {  /* Relative URL - resolve against base */
+                     struct Geminaddr resolved;
+                     struct Geminaddr base;
+                     UBYTE rel_buf[256];
+                     if(urllen>=sizeof(rel_buf)) urllen=sizeof(rel_buf)-1;
+                     memmove(rel_buf,url_start,urllen);
+                     rel_buf[urllen]='\0';
+                     /* Build base address structure for resolution */
+                     base.hostname=resp->base_hostname;
+                     base.port=resp->base_port;
+                     base.path=resp->base_path;
+                     base.buf=NULL;
+                     if(resp->base_hostname && Resolverelativeurl(&base,rel_buf,&resolved))
+                     {  /* Check if resolved URL is on same host as base */
+                        /* If same host, use relative path (AWeb will resolve it) */
+                        /* If different host, use full gemini:// URL */
+                        if(resolved.hostname && !stricmp(resolved.hostname,resp->base_hostname) &&
+                           resolved.port==resp->base_port)
+                        {  /* Same host - use relative path */
+                           UBYTE *path_str;
+                           if(resolved.path && *resolved.path)
+                           {  path_str=resolved.path;
+                              final_urllen=strlen(path_str);
+                              if(final_urllen>=sizeof(link_url)) final_urllen=sizeof(link_url)-1;
+                              memmove(link_url,path_str,final_urllen);
+                              link_url[final_urllen]='\0';
+                           }
+                           else
+                           {  final_urllen=1;
+                              link_url[0]='/';
+                              link_url[1]='\0';
+                           }
+                           final_url=link_url;
+                        }
+                        else
+                        {  /* Different host - use full gemini:// URL */
+                           UBYTE *path_str;
+                           if(resolved.path && *resolved.path)
+                           {  path_str=resolved.path;
+                           }
+                           else
+                           {  path_str=(UBYTE *)"/";
+                           }
+                           if(resolved.port==1965)
+                           {  final_urllen=sprintf(link_url,"gemini://%s%s",
+                                 resolved.hostname,path_str);
+                           }
+                           else
+                           {  final_urllen=sprintf(link_url,"gemini://%s:%ld%s",
+                                 resolved.hostname,resolved.port,path_str);
+                           }
+                           final_url=link_url;
+                        }
+                        if(resolved.buf) FREE(resolved.buf);
+                     }
+                     else
+                     {  /* Resolution failed - use original */
+                        final_url=url_start;
+                        final_urllen=urllen;
+                     }
+                  }
+                  /* Format link - use proper HTML anchor tags */
+                  if(desclen>0 && desc_start)
                   {  outlen+=sprintf(out+outlen,"<p><a href=\"%.*s\">%.*s</a></p>",
-                        urllen,url_start,urllen,url_start);
+                        final_urllen,final_url,desclen,desc_start);
+                  }
+                  else
+                  {  /* No description - use URL as link text */
+                     outlen+=sprintf(out+outlen,"<p><a href=\"%.*s\">%.*s</a></p>",
+                        final_urllen,final_url,final_urllen,final_url);
                   }
                }
             }
@@ -447,15 +579,17 @@ static void Convertgeminitohtml(struct Fetchdriver *fd,struct GResponse *resp,lo
                }
             }
             else if(linelen>=1 && line[0]=='>')
-            {  /* Quote: >text */
+            {  /* Quote: >text (skip space after > if present) */
                UBYTE *text=line+1;
                long textlen=linelen-1;
+               /* Skip leading space if present */
+               if(textlen>0 && *text==' ') { text++; textlen--; }
                if(textlen>0)
-               {  outlen+=sprintf(out+outlen,"<blockquote>%.*s</blockquote>",textlen,text);
+               {  outlen+=sprintf(out+outlen,"<blockquote><p>%.*s</p></blockquote>",textlen,text);
                }
             }
             else if(linelen>0)
-            {  /* Regular paragraph */
+            {  /* Regular paragraph text */
                outlen+=sprintf(out+outlen,"<p>%.*s</p>",linelen,line);
             }
          }
@@ -478,6 +612,33 @@ static void Convertgeminitohtml(struct Fetchdriver *fd,struct GResponse *resp,lo
          end=p+resp->buf.length;
       }
    }
+   /* If read==0 (EOF) and there's remaining incomplete data, process it as a line */
+   if(read==0 && resp->buf.length>0 && p<end)
+   {  /* Process incomplete line at EOF */
+      long linelen=end-p;
+      if(linelen>0)
+      {  if(resp->in_pre)
+         {  /* In preformatted block - pass through */
+            if(outlen+linelen+1>INPUTBLOCKSIZE-1000)
+            {  Updatetaskattrs(
+                  AOURL_Data,fd->block,
+                  AOURL_Datalength,outlen,
+                  TAG_END);
+               outlen=0;
+               out=fd->block;
+            }
+            memmove(out+outlen,p,linelen);
+            outlen+=linelen;
+            out[outlen++]='\n';
+         }
+         else
+         {  /* Regular line - treat as paragraph */
+            outlen+=sprintf(out+outlen,"<p>%.*s</p>",linelen,p);
+         }
+         /* Clear buffer since we've processed everything */
+         Deleteinbuffer(&resp->buf,0,resp->buf.length);
+      }
+   }
    if(outlen)
    {  Updatetaskattrs(
          AOURL_Data,fd->block,
@@ -492,12 +653,13 @@ static void Handlehtml(struct Fetchdriver *fd,struct GResponse *resp,long read)
    if(!resp->headerdone)
    {  resp->headerdone=TRUE;
    }
-   /* Pass through HTML content */
+   /* Pass through HTML content - only output the NEW data we just added */
+   /* Don't output entire buffer each time (would cause infinite loop) */
    Updatetaskattrs(
-      AOURL_Data,resp->buf.buffer,
-      AOURL_Datalength,resp->buf.length,
+      AOURL_Data,fd->block,
+      AOURL_Datalength,read,
       TAG_END);
-   Deleteinbuffer(&resp->buf,0,resp->buf.length);
+   /* Don't delete from buffer - we're just passing through, buffer will be cleared at end */
 }
 
 /* Handle text/plain content */
@@ -539,11 +701,13 @@ static void Handleplaintext(struct Fetchdriver *fd,struct GResponse *resp,long r
 /* Handle other content types - pass through as binary */
 static void Handleother(struct Fetchdriver *fd,struct GResponse *resp,long read)
 {  if(!Addtobuffer(&resp->buf,fd->block,read)) return;
+   /* Pass through content - only output the NEW data we just added */
+   /* Don't output entire buffer each time (would cause infinite loop) */
    Updatetaskattrs(
-      AOURL_Data,resp->buf.buffer,
-      AOURL_Datalength,resp->buf.length,
+      AOURL_Data,fd->block,
+      AOURL_Datalength,read,
       TAG_END);
-   Deleteinbuffer(&resp->buf,0,resp->buf.length);
+   /* Don't delete from buffer - we're just passing through, buffer will be cleared at end */
 }
 
 
@@ -571,19 +735,66 @@ static BOOL Resolverelativeurl(struct Geminaddr *base,UBYTE *relative,struct Gem
       p=relative+9;
       return Makegeminaddr(result,p);
    }
-   /* Simple implementation: if relative starts with /, it's relative to host */
+   /* Resolve relative URL against base */
    if(relative[0]=='/')
-   {  len=strlen(base->hostname)+strlen(relative)+20;
+   {  /* Absolute path - relative to host root */
+      len=strlen(base->hostname)+strlen(relative)+20;
       fullurl=ALLOCTYPE(UBYTE,len,0);
       if(fullurl)
       {  sprintf(fullurl,"%s:%ld%s",
             base->hostname,base->port,relative);
-         return Makegeminaddr(result,fullurl);
+         if(Makegeminaddr(result,fullurl))
+         {  FREE(fullurl);
+            return TRUE;
+         }
+         FREE(fullurl);
       }
    }
    else
-   {  /* Assume absolute URL without scheme */
-      return Makegeminaddr(result,relative);
+   {  /* Relative path - combine with base path */
+      UBYTE *base_path;
+      long base_path_len;
+      UBYTE *combined_path;
+      long combined_len;
+      /* Get base path directory (without filename) */
+      if(base->path && *base->path)
+      {  base_path=base->path;
+         base_path_len=strlen(base_path);
+         /* Find last / in base path to get directory */
+         while(base_path_len>0 && base_path[base_path_len-1]!='/')
+         {  base_path_len--;
+         }
+         /* If no / found, base_path is empty or just filename - use root */
+         if(base_path_len==0)
+         {  base_path=(UBYTE *)"/";
+            base_path_len=1;
+         }
+         /* base_path_len now points to the last /, which is what we want */
+      }
+      else
+      {  /* No base path - use root with trailing slash */
+         base_path=(UBYTE *)"/";
+         base_path_len=1;
+      }
+      /* Combine base directory with relative path */
+      combined_len=base_path_len+strlen(relative)+1;
+      combined_path=ALLOCTYPE(UBYTE,combined_len,0);
+      if(combined_path)
+      {  sprintf(combined_path,"%.*s%s",base_path_len,base_path,relative);
+         len=strlen(base->hostname)+combined_len+20;
+         fullurl=ALLOCTYPE(UBYTE,len,0);
+         if(fullurl)
+         {  sprintf(fullurl,"%s:%ld%s",
+               base->hostname,base->port,combined_path);
+            if(Makegeminaddr(result,fullurl))
+            {  FREE(fullurl);
+               FREE(combined_path);
+               return TRUE;
+            }
+            FREE(fullurl);
+         }
+         FREE(combined_path);
+      }
    }
    return FALSE;
 }
@@ -602,6 +813,9 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
    long request_len;
    long status_line_len;
    UBYTE *redirect_url=NULL;
+   
+   /* Initialize preformatted flag - must be after all declarations (C89 requirement) */
+   resp.in_pre=0;
    
    AwebTcpBase=Opentcp(&SocketBase,fd,!fd->validate);
    if(SocketBase && AwebTcpBase)
@@ -639,57 +853,60 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
                               sock=-1;
                               break;
                            }
-                           /* Build request: path?query<CR><LF> */
-                              request_len=0;
-                              if(ha.path && *ha.path)
-                              {  request_len+=strlen(ha.path);
-                              }
-                              else
-                              {  request_len+=1;  /* "/" */
-                              }
-                              if(ha.query && *ha.query)
-                              {  request_len+=1+strlen(ha.query);  /* "?" + query */
-                              }
-                              request_len+=2;  /* <CR><LF> */
+                           /* Build request: gemini://host:port/path?query<CR><LF> */
+                              /* According to Gemini protocol spec, request must be full URL */
+                              /* AmiGemini reference: sends "gemini://host:port/path\r\n" */
                               request_path=fd->block;
-                              /* Gemini protocol requires absolute path starting with / */
-                              /* CRITICAL: Never send full URL or hostname - only send the path */
-                              /* Format must be: /path?query<CR><LF> */
-                              if(ha.path && *ha.path)
-                              {  /* Path exists - ensure it starts with / and doesn't contain hostname */
-                                 /* Check if path accidentally contains hostname (should never happen) */
-                                 if(strstr(ha.path,"://") || strstr(ha.path,"gemini://"))
-                                 {  /* ERROR: Path contains URL - this should never happen */
-                                    /* Fall back to root path */
-                                    sprintf(request_path,"/");
-                                 }
-                                 else if(ha.path[0]=='/')
-                                 {  /* Already has leading / */
-                                    sprintf(request_path,"%s",ha.path);
+                              if(ha.port==1965)
+                              {  /* Default port - omit port number */
+                                 if(ha.path && *ha.path)
+                                 {  if(ha.query && *ha.query)
+                                    {  sprintf(request_path,"gemini://%s%s?%s\r\n",
+                                          ha.hostname,ha.path,ha.query);
+                                    }
+                                    else
+                                    {  sprintf(request_path,"gemini://%s%s\r\n",
+                                          ha.hostname,ha.path);
+                                    }
                                  }
                                  else
-                                 {  /* Missing leading / - add it */
-                                    sprintf(request_path,"/%s",ha.path);
+                                 {  /* No path - send root */
+                                    if(ha.query && *ha.query)
+                                    {  sprintf(request_path,"gemini://%s/?%s\r\n",
+                                          ha.hostname,ha.query);
+                                    }
+                                    else
+                                    {  sprintf(request_path,"gemini://%s/\r\n",
+                                          ha.hostname);
+                                    }
                                  }
                               }
                               else
-                              {  /* No path - send root */
-                                 sprintf(request_path,"/");
+                              {  /* Non-default port - include port number */
+                                 if(ha.path && *ha.path)
+                                 {  if(ha.query && *ha.query)
+                                    {  sprintf(request_path,"gemini://%s:%ld%s?%s\r\n",
+                                          ha.hostname,ha.port,ha.path,ha.query);
+                                    }
+                                    else
+                                    {  sprintf(request_path,"gemini://%s:%ld%s\r\n",
+                                          ha.hostname,ha.port,ha.path);
+                                    }
+                                 }
+                                 else
+                                 {  /* No path - send root */
+                                    if(ha.query && *ha.query)
+                                    {  sprintf(request_path,"gemini://%s:%ld/?%s\r\n",
+                                          ha.hostname,ha.port,ha.query);
+                                    }
+                                    else
+                                    {  sprintf(request_path,"gemini://%s:%ld/\r\n",
+                                          ha.hostname,ha.port);
+                                    }
+                                 }
                               }
-                              if(ha.query && *ha.query)
-                              {  sprintf(request_path+strlen(request_path),"?%s",ha.query);
-                              }
-                              sprintf(request_path+strlen(request_path),"\r\n");
-                              /* Verify request format is correct before sending */
-                              /* Request should be: /path?query<CR><LF> or just /<CR><LF> */
-                              /* Must NOT contain hostname or gemini:// prefix */
-                              if(request_path[0]!='/')
-                              {  /* ERROR: Request doesn't start with / - fix it */
-                                 request_path[0]='/';
-                                 request_path[1]='\0';
-                                 sprintf(request_path+1,"\r\n");
-                              }
-                              /* Send request - format: /path?query<CR><LF> */
+                              request_len=strlen(request_path);
+                              /* Send request - format: gemini://host:port/path?query<CR><LF> */
                               result=(a_send(sock,request_path,request_len,0,SocketBase)==request_len);
                               if(result)
                               {  Updatetaskattrs(AOURL_Netstatus,NWS_WAIT,TAG_END);
@@ -726,26 +943,77 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
                                     }
                                  }
                                  if(!error && resp.status_parsed)
-                                 {  /* Handle based on status code */
+                                 {  /* Store base URL for resolving relative links */
+                                    resp.base_hostname=ha.hostname;
+                                    resp.base_port=ha.port;
+                                    resp.base_path=ha.path;
+                                    /* Set content type based on MIME type from server */
+                                    if(resp.mime_type && !strncmp(resp.mime_type,"text/gemini",11))
+                                    {  /* Convert to HTML */
+                                       Updatetaskattrs(AOURL_Contenttype,"text/html",TAG_END);
+                                    }
+                                    else if(resp.mime_type)
+                                    {  /* Use server's MIME type */
+                                       Updatetaskattrs(AOURL_Contenttype,resp.mime_type,TAG_END);
+                                    }
+                                    /* Handle based on status code */
                                     if(resp.status_code>=20 && resp.status_code<30)
                                     {  /* Success - process body based on MIME type */
+                                       /* Check if there's any body data already in buffer (after status line) */
+                                       /* This can happen if status line and body came in same recv() packet */
+                                       if(resp.buf.length>0)
+                                       {  /* Copy remaining data from buffer to fd->block for processing */
+                                          /* Handler functions expect data in fd->block and will add it to buffer */
+                                          /* So we need to extract it from buffer first, then let handler add it back */
+                                          long remaining=resp.buf.length;
+                                          if(remaining>INPUTBLOCKSIZE) remaining=INPUTBLOCKSIZE;
+                                          memmove(fd->block,resp.buf.buffer,remaining);
+                                          /* Remove from buffer before calling handler (handler will add it back) */
+                                          Deleteinbuffer(&resp.buf,0,remaining);
+                                          /* Process the remaining data - handler will add it to buffer and process it */
+                                          if(resp.mime_type && !strncmp(resp.mime_type,"text/gemini",11))
+                                          {  Convertgeminitohtml(fd,&resp,remaining);
+                                          }
+                                          else if(resp.mime_type && !strncmp(resp.mime_type,"text/html",9))
+                                          {  Handlehtml(fd,&resp,remaining);
+                                          }
+                                          else if(resp.mime_type && !strncmp(resp.mime_type,"text/plain",10))
+                                          {  Handleplaintext(fd,&resp,remaining);
+                                          }
+                                          else
+                                          {  Handleother(fd,&resp,remaining);
+                                          }
+                                       }
                                        if(resp.mime_type && !strncmp(resp.mime_type,"text/gemini",11))
                                        {  /* text/gemini - convert to HTML */
+                                          BOOL eof_received=FALSE;
                                           for(;;)
                                           {  length=a_recv(sock,fd->block,INPUTBLOCKSIZE,0,SocketBase);
                                              if(length<0 || Checktaskbreak())
                                              {  error=TRUE;
                                                 break;
                                              }
-                                             if(length==0) break;
+                                             if(length==0)
+                                             {  /* EOF received - process any remaining data in buffer */
+                                                eof_received=TRUE;
+                                                /* Process any remaining incomplete line in buffer */
+                                                if(resp.buf.length>0)
+                                                {  /* Force process remaining buffer data */
+                                                   Convertgeminitohtml(fd,&resp,0);  /* 0 means process buffer only */
+                                                }
+                                                break;
+                                             }
+                                             /* Process this chunk of data */
                                              Convertgeminitohtml(fd,&resp,length);
                                           }
                                           /* Close HTML */
-                                          sprintf(fd->block,"</body></html>");
-                                          Updatetaskattrs(
-                                             AOURL_Data,fd->block,
-                                             AOURL_Datalength,strlen(fd->block),
-                                             TAG_END);
+                                          if(!error)
+                                          {  sprintf(fd->block,"</body></html>");
+                                             Updatetaskattrs(
+                                                AOURL_Data,fd->block,
+                                                AOURL_Datalength,strlen(fd->block),
+                                                TAG_END);
+                                          }
                                        }
                                        else if(resp.mime_type && !strncmp(resp.mime_type,"text/html",9))
                                        {  /* text/html - pass through */
@@ -789,6 +1057,8 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
                                              Handleother(fd,&resp,length);
                                           }
                                        }
+                                       /* Successfully processed response - exit redirect loop */
+                                       break;
                                     }
                                     else if(resp.status_code>=30 && resp.status_code<40)
                                     {  /* Redirect */
@@ -826,20 +1096,36 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
                                     }
                                     else if(resp.status_code>=40 && resp.status_code<60)
                                     {  /* Error - display error message */
+                                       /* META field contains the error message */
+                                       UBYTE *error_msg;
+                                       if(resp.mime_type && *resp.mime_type)
+                                       {  error_msg=resp.mime_type;
+                                       }
+                                       else
+                                       {  error_msg=(UBYTE *)"Unknown error";
+                                       }
+                                       /* Set content type for error page */
+                                       Updatetaskattrs(AOURL_Contenttype,"text/html",TAG_END);
                                        sprintf(fd->block,"<html><head><meta charset=\"utf-8\"></head><body><h1>Gemini Error %d</h1><p>%s</p></body></html>",
-                                          resp.status_code,resp.mime_type ? (char *)resp.mime_type : "Unknown error");
+                                          resp.status_code,error_msg);
                                        Updatetaskattrs(
                                           AOURL_Data,fd->block,
                                           AOURL_Datalength,strlen(fd->block),
                                           TAG_END);
+                                       /* Error responses may have a body, but we've displayed the error - break loop */
+                                       break;
                                     }
                                     else if(resp.status_code>=60 && resp.status_code<70)
                                     {  /* Client certificate required - not implemented */
+                                       /* Set content type for error page */
+                                       Updatetaskattrs(AOURL_Contenttype,"text/html",TAG_END);
                                        sprintf(fd->block,"<html><head><meta charset=\"utf-8\"></head><body><h1>Client Certificate Required</h1><p>This Gemini server requires a client certificate, which is not yet supported.</p></body></html>");
                                        Updatetaskattrs(
                                           AOURL_Data,fd->block,
                                           AOURL_Datalength,strlen(fd->block),
                                           TAG_END);
+                                       /* Break loop - can't proceed without client certificate */
+                                       break;
                                     }
                                  }
                                  else if(!error)
@@ -874,11 +1160,14 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
             }
             if(redirect_url) FREE(redirect_url);
             if(ha.buf) FREE(ha.buf);
+            if(resp.mime_type) FREE(resp.mime_type);
          }
          else
          {  /* Makegeminaddr failed */
             error=TRUE;
          }
+      /* Cleanup sequence - a_cleanup() automatically calls ClearTaskSSLContext() */
+      /* This matches HTTP pattern: a_cleanup() -> ClearTaskSSLContext() -> CloseLibrary() */
       if(SocketBase)
       {  a_cleanup(SocketBase);
          CloseLibrary(SocketBase);
