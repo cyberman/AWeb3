@@ -2939,6 +2939,80 @@ static BOOL Doformend(struct Document *doc)
    return TRUE;
 }
 
+/*** <FIELDSET> ***/
+static BOOL Dofieldset(struct Document *doc,struct Tagattr *ta)
+{  short align=-1;
+   struct Colorinfo *bgcolor=NULL;
+   void *bgimg=NULL;
+   void *body;
+   /* Only want break if not inside a table cell */
+   if(ISEMPTY(&doc->tables)) Wantbreak(doc,1);
+   for(;ta->next;ta=ta->next)
+   {  switch(ta->attr)
+      {  case TAGATTR_ALIGN:
+            align=Gethalign(ATTR(doc,ta));
+            break;
+         case TAGATTR_BGCOLOR:
+            if(!Setbodycolor(doc,&bgcolor,ATTR(doc,ta))) return FALSE;
+            break;
+         case TAGATTR_BACKGROUND:
+            if(!STRICT) bgimg=Backgroundimg(doc,ATTR(doc,ta));
+            break;
+      }
+   }
+   if(!Ensurebody(doc)) return FALSE;
+   body=Docbodync(doc);
+   if(body)
+   {  Asetattrs(body,AOBDY_Divalign,align,TAG_END);
+      if(bgcolor && bgcolor->pen>=0)
+      {  Asetattrs(body,AOBDY_Bgcolor,bgcolor->pen,TAG_END);
+      }
+      if(bgimg)
+      {  Asetattrs(body,AOBDY_Bgimage,bgimg,TAG_END);
+      }
+   }
+   Checkid(doc,ta);
+   return TRUE;
+}
+
+/*** </FIELDSET> ***/
+static BOOL Dofieldsetend(struct Document *doc)
+{  void *body;
+   /* Only want break if not inside a table cell */
+   if(ISEMPTY(&doc->tables)) Wantbreak(doc,1);
+   body=Docbodync(doc);
+   if(body)
+   {  Asetattrs(body,AOBDY_Divalign,-1,TAG_END);
+      Asetattrs(body,AOBDY_Bgcolor,-1,TAG_END);
+      Asetattrs(body,AOBDY_Bgimage,NULL,TAG_END);
+   }
+   if(!Ensuresp(doc)) return FALSE;
+   return TRUE;
+}
+
+/*** <LEGEND> ***/
+static BOOL Dolegend(struct Document *doc,struct Tagattr *ta)
+{  short align=-1;
+   for(;ta->next;ta=ta->next)
+   {  switch(ta->attr)
+      {  case TAGATTR_ALIGN:
+            align=Gethalign(ATTR(doc,ta));
+            break;
+      }
+   }
+   if(!Ensurebody(doc)) return FALSE;
+   Asetattrs(Docbodync(doc),AOBDY_Divalign,align,TAG_END);
+   Checkid(doc,ta);
+   return TRUE;
+}
+
+/*** </LEGEND> ***/
+static BOOL Dolegendend(struct Document *doc)
+{  Asetattrs(Docbodync(doc),AOBDY_Divalign,-1,TAG_END);
+   if(!Ensuresp(doc)) return FALSE;
+   return TRUE;
+}
+
 /*** Add a form button */
 static BOOL Addbutton(struct Document *doc,struct Tagattr *ta,BOOL custom)
 {  UBYTE *name=NULL,*value=NULL;
@@ -4314,6 +4388,18 @@ BOOL Processhtml(struct Document *doc,USHORT tagtype,struct Tagattr *ta)
                break;
             case MARKUP_FORM|MARKUP_END:
                result=Doformend(doc);
+               break;
+            case MARKUP_FIELDSET:
+               result=Dofieldset(doc,ta);
+               break;
+            case MARKUP_FIELDSET|MARKUP_END:
+               result=Dofieldsetend(doc);
+               break;
+            case MARKUP_LEGEND:
+               result=Dolegend(doc,ta);
+               break;
+            case MARKUP_LEGEND|MARKUP_END:
+               result=Dolegendend(doc);
                break;
             case MARKUP_BUTTON:
                result=Dobutton(doc,ta);
