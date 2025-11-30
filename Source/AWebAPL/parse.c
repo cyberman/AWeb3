@@ -559,54 +559,105 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
    BOOL valid;
    BOOL strict=(doc->htmlmode==HTML_STRICT),lf=(doc->pmode==DPM_TEXTAREA);
    short l;
+   
+   /* Lookup tables for Latin Extended-A (U+0100-U+017F) and Latin Extended-B (U+0180-U+024F) */
+   /* These map UTF-8 sequences 0xC4 and 0xC5 (Latin Extended-A) and 0xC6 and 0xC7 (Latin Extended-B) */
+   static const UBYTE latin_ext_a_c4[] =
+      "AaAaAaCcCcCcCcDdDdEeEeEeEeEeGgGgGgGgHhHhIiIiIiIiIiiiJjKkkLlLlLlL";
+   static const UBYTE latin_ext_a_c5[] =
+      "lLlNnNnNnnNnOoOoOoOoRrRrRrSsSsSsSsTtTtTtUuUuUuUuUuUuWwYyYZzZzZzs";
+   static const UBYTE latin_ext_b_c6[] =
+      "bBBbbbCCcDDDddEaEFfGGhIIKkllWNnOCoOoPpRS2EetTttUuUVYyZzEEee255?w";
+   static const UBYTE latin_ext_b_c7[] =
+      "||||DDdLLlNNnAaIiOoUuUuUuUuUueAaAaAaGgGgKkOoOoEejDDdGgHWNnAaAaOo";
+   
    while(p<end)
    {  /* Detect and decode UTF-8 sequences.
        * 2-byte UTF-8: 0xC0-0xDF followed by 0x80-0xBF (range 0x80-0x7FF)
        * 3-byte UTF-8: 0xE0-0xEF followed by 0x80-0xBF, 0x80-0xBF (range 0x800-0xFFFF)
+       * 4-byte UTF-8: 0xF0-0xF7 followed by 0x80-0xBF, 0x80-0xBF, 0x80-0xBF (range 0x10000-0x10FFFF)
        * This handles common Unicode characters like:
        * - Copyright (0xC2 0xA9) -> 0xA9
        * - Right single quotation mark (0xE2 0x80 0x99) -> 0x27 (')
        * - Left single quotation mark (0xE2 0x80 0x98) -> 0x60 (`)
-       * - Em dash (0xE2 0x80 0x94) -> 0x2D (-) */
+       * - Em dash (0xE2 0x80 0x94) -> -- (two dashes) */
       ULONG utf8_char = 0;
       ULONG utf8_bytes = 0;
       UBYTE replacement = 0;
       UBYTE *replacement_str = NULL;
+      BOOL skip_char = FALSE;
       
+      /* Check for 4-byte UTF-8 sequence (0xF0-0xF7) */
+      if((*p & 0xF8) == 0xF0 && p+3 < end && 
+         (p[1] & 0xC0) == 0x80 && (p[2] & 0xC0) == 0x80 && (p[3] & 0xC0) == 0x80)
+      {  /* 4-byte UTF-8: characters outside BMP (U+10000-U+10FFFF) */
+         /* Replace with bullet character (0xB7) as these can't be represented in Latin-1 */
+         utf8_bytes = 4;
+         replacement = 0xB7;  /* Bullet character */
+      }
       /* Check for 3-byte UTF-8 sequence (0xE0-0xEF) */
-      if((*p & 0xF0) == 0xE0 && p+2 < end && (p[1] & 0xC0) == 0x80 && (p[2] & 0xC0) == 0x80)
+      else if((*p & 0xF0) == 0xE0 && p+2 < end && (p[1] & 0xC0) == 0x80 && (p[2] & 0xC0) == 0x80)
       {  /* 3-byte UTF-8: extract 16 bits from the three bytes */
          utf8_char = ((*p & 0x0F) << 12) | ((p[1] & 0x3F) << 6) | (p[2] & 0x3F);
          utf8_bytes = 3;
          
-         /* Map common Unicode characters to Latin-1/ASCII equivalents */
-         switch(utf8_char)
-         {  case 0x2018: replacement = 0x60; break;  /* Left single quotation mark -> ` */
-            case 0x2019: replacement = 0x27; break;  /* Right single quotation mark -> ' */
-            case 0x201A: replacement = 0x27; break;  /* Single low-9 quotation mark -> ' */
-            case 0x201C: replacement = 0x22; break;  /* Left double quotation mark -> " */
-            case 0x201D: replacement = 0x22; break;  /* Right double quotation mark -> " */
-            case 0x201E: replacement = 0x22; break;  /* Double low-9 quotation mark -> " */
-            case 0x2013: replacement = 0x2D; break;  /* En dash -> - */
-            case 0x2014: replacement = 0x2D; break;  /* Em dash -> - */
-            case 0x2022: replacement = 0x95; break;  /* Bullet -> 0x95 */
-            case 0x2026: replacement_str = "..."; break;  /* Horizontal ellipsis -> ... */
-            case 0x2039: replacement = 0x3C; break;  /* Single left-pointing angle quotation mark -> < */
-            case 0x203A: replacement = 0x3E; break;  /* Single right-pointing angle quotation mark -> > */
-            case 0x2122: replacement_str = "TM"; break;  /* Trade mark sign -> TM */
-            case 0x00A0: replacement = 0x20; break;  /* Non-breaking space -> space */
-            case 0x00A9: replacement = 0xA9; break;  /* Copyright sign -> 0xA9 */
-            case 0x00AE: replacement = 0xAE; break;  /* Registered sign -> 0xAE */
-            default:
-               /* For other 3-byte UTF-8 characters, try to map to Latin-1 if possible */
-               if(utf8_char >= 0x80 && utf8_char <= 0xFF)
-               {  replacement = (UBYTE)utf8_char;
-               }
-               else
-               {  /* Character outside Latin-1 range - replace with '?' */
-                  replacement = 0x3F;
-               }
-               break;
+         /* Handle specific 3-byte sequences */
+         if(*p == 0xE2 && p[1] == 0x80)
+         {  /* U+2000-U+20FF range (General Punctuation) */
+            switch(p[2])
+            {  case 0x8A: replacement = 0x20; break;  /* Hair space -> space */
+               case 0x93: replacement = 0x2D; break;  /* En dash -> - */
+               case 0x94: replacement_str = "--"; break;  /* Em dash -> -- (two dashes) */
+               case 0x98: replacement = 0x60; break;  /* Left single quotation mark -> ` */
+               case 0x99: replacement = 0x27; break;  /* Right single quotation mark -> ' */
+               case 0x9C: replacement = 0x22; break;  /* Left double quotation mark -> " */
+               case 0x9D: replacement = 0x22; break;  /* Right double quotation mark -> " */
+               case 0xA6: replacement_str = "..."; break;  /* Horizontal ellipsis -> ... */
+               case 0xAF: replacement = 0x20; break;  /* Narrow no-break space -> space */
+               default:
+                  replacement = 0xB7;  /* Bullet character for unmapped */
+                  break;
+            }
+         }
+         else if(*p == 0xE2 && p[1] == 0x96)
+         {  /* U+2500-U+25FF range (Box Drawing) */
+            if(p[2] == 0x88)
+            {  replacement = 0x80;  /* Full block (U+2588) -> 0x80 (Amiga block */
+            }
+            else
+            {  replacement = 0xB7;  /* Bullet character for other box drawing */
+            }
+         }
+         else
+         {  /* Other 3-byte sequences - map common characters */
+            switch(utf8_char)
+            {  case 0x2018: replacement = 0x60; break;  /* Left single quotation mark -> ` */
+               case 0x2019: replacement = 0x27; break;  /* Right single quotation mark -> ' */
+               case 0x201A: replacement = 0x27; break;  /* Single low-9 quotation mark -> ' */
+               case 0x201C: replacement = 0x22; break;  /* Left double quotation mark -> " */
+               case 0x201D: replacement = 0x22; break;  /* Right double quotation mark -> " */
+               case 0x201E: replacement = 0x22; break;  /* Double low-9 quotation mark -> " */
+               case 0x2013: replacement = 0x2D; break;  /* En dash -> - */
+               case 0x2014: replacement_str = "--"; break;  /* Em dash -> -- (two dashes) */
+               case 0x2022: replacement = 0x95; break;  /* Bullet -> 0x95 */
+               case 0x2026: replacement_str = "..."; break;  /* Horizontal ellipsis -> ... */
+               case 0x2039: replacement = 0x3C; break;  /* Single left-pointing angle quotation mark -> < */
+               case 0x203A: replacement = 0x3E; break;  /* Single right-pointing angle quotation mark -> > */
+               case 0x2122: replacement_str = "TM"; break;  /* Trade mark sign -> TM */
+               case 0x00A0: replacement = 0x20; break;  /* Non-breaking space -> space */
+               case 0x00A9: replacement = 0xA9; break;  /* Copyright sign -> 0xA9 */
+               case 0x00AE: replacement = 0xAE; break;  /* Registered sign -> 0xAE */
+               default:
+                  /* For other 3-byte UTF-8 characters, try to map to Latin-1 if possible */
+                  if(utf8_char >= 0x80 && utf8_char <= 0xFF)
+                  {  replacement = (UBYTE)utf8_char;
+                  }
+                  else
+                  {  /* Character outside Latin-1 range - replace with bullet */
+                     replacement = 0xB7;
+                  }
+                  break;
+            }
          }
       }
       /* Check for 2-byte UTF-8 sequence (0xC0-0xDF) */
@@ -615,19 +666,125 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
          utf8_char = ((*p & 0x1F) << 6) | (p[1] & 0x3F);
          utf8_bytes = 2;
          
-         /* Convert to Latin-1 equivalent if in range 0x80-0xFF */
-         if(utf8_char >= 0x80 && utf8_char <= 0xFF)
-         {  replacement = (UBYTE)utf8_char;
+         /* Handle specific 2-byte sequences */
+         if(*p == 0xC2)
+         {  /* U+0080-U+00BF (Latin-1 Supplement, first half) */
+            if((p[1] & 0xE0) == 0xA0)
+            {  /* U+00A0-U+00BF range */
+               if(p[1] == 0xAD)
+               {  /* Soft hyphen (U+00AD) - skip it */
+                  skip_char = TRUE;
+               }
+               else
+               {  /* Map directly to Latin-1 */
+                  replacement = p[1];
+               }
+            }
+            else
+            {  /* Other 0xC2 sequences - map directly if in range */
+               if(utf8_char >= 0x80 && utf8_char <= 0xFF)
+               {  replacement = (UBYTE)utf8_char;
+               }
+               else
+               {  replacement = 0xB7;  /* Bullet character */
+               }
+            }
+         }
+         else if(*p == 0xC3)
+         {  /* U+00C0-U+00FF (Latin-1 Supplement, second half) */
+            /* Add 0x40 offset to map to Latin-1 */
+            replacement = p[1] + 0x40;
+         }
+         else if(*p == 0xC4)
+         {  /* U+0100-U+017F (Latin Extended-A, first half */
+            if(p[1] >= 0x80 && p[1] <= 0xBF)
+            {  UBYTE idx = p[1] - 0x80;
+               if(idx < sizeof(latin_ext_a_c4) - 1)
+               {  replacement = latin_ext_a_c4[idx];
+               }
+               else
+               {  replacement = 0xB7;
+               }
+            }
+            else
+            {  replacement = 0xB7;
+            }
+         }
+         else if(*p == 0xC5)
+         {  /* U+0180-U+01FF (Latin Extended-A, second half) */
+            if(p[1] >= 0x80 && p[1] <= 0xBF)
+            {  UBYTE idx = p[1] - 0x80;
+               if(idx < sizeof(latin_ext_a_c5) - 1)
+               {  replacement = latin_ext_a_c5[idx];
+               }
+               else
+               {  replacement = 0xB7;
+               }
+            }
+            else
+            {  replacement = 0xB7;
+            }
+         }
+         else if(*p == 0xC6)
+         {  /* U+0180-U+01BF (Latin Extended-B, first half) */
+            if(p[1] >= 0x80 && p[1] <= 0xBF)
+            {  UBYTE idx = p[1] - 0x80;
+               if(idx < sizeof(latin_ext_b_c6) - 1)
+               {  replacement = latin_ext_b_c6[idx];
+               }
+               else
+               {  replacement = 0xB7;
+               }
+            }
+            else
+            {  replacement = 0xB7;
+            }
+         }
+         else if(*p == 0xC7)
+         {  /* U+01C0-U+01FF (Latin Extended-B, second half) */
+            if(p[1] >= 0x80 && p[1] <= 0xBF)
+            {  UBYTE idx = p[1] - 0x80;
+               if(idx < sizeof(latin_ext_b_c7) - 1)
+               {  replacement = latin_ext_b_c7[idx];
+               }
+               else
+               {  replacement = 0xB7;
+               }
+            }
+            else
+            {  replacement = 0xB7;
+            }
+         }
+         else if(*p == 0xCC || (*p == 0xCD && p[1] <= 0xAF))
+         {  /* Combining characters (U+0300-U+036F) - skip them */
+            skip_char = TRUE;
          }
          else
-         {  /* Character outside Latin-1 range - replace with '?' */
-            replacement = 0x3F;
+         {  /* Other 2-byte sequences - try to map to Latin-1 if in range */
+            if(utf8_char >= 0x80 && utf8_char <= 0xFF)
+            {  replacement = (UBYTE)utf8_char;
+            }
+            else
+            {  /* Character outside Latin-1 range - replace with bullet */
+               replacement = 0xB7;
+            }
          }
       }
       
       /* If we found a valid UTF-8 sequence, replace it */
       if(utf8_bytes > 0)
-      {  if(replacement_str)
+      {  /* Skip combining characters and soft hyphens */
+         if(skip_char)
+         {  /* Remove the UTF-8 bytes by shifting remaining bytes left */
+            if(p + utf8_bytes <= end)
+            {  memmove(p, p + utf8_bytes, end - (p + utf8_bytes));
+            }
+            ta->length -= utf8_bytes;
+            end -= utf8_bytes;
+            continue;
+         }
+         
+         if(replacement_str)
          {  /* Multi-character replacement (e.g., "..." or "TM") */
             long replen = strlen(replacement_str);
             long pos = p - buf->buffer;
