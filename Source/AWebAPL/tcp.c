@@ -30,6 +30,7 @@
 #include "fetchdriver.h"
 #include <dos/dostags.h>
 
+
 /* Forward declarations */
 extern struct Assl *Tcpopenssl(struct Library *socketbase);
 extern void Assl_cleanup(struct Assl *assl);
@@ -229,6 +230,42 @@ void ClearTaskSSLContext(void)
       /* Assl_cleanup() no longer frees the struct to prevent use-after-free crashes */
       FREE(assl_to_cleanup);
    }
+}
+
+#else /* LOCALONLY */
+
+#include <proto/exec.h>
+#include "aweb.h"
+#include "fetchdriver.h"
+
+/* Stub functions for LOCALONLY build */
+struct Library *Opentcp(struct Library **base,struct Fetchdriver *fd,BOOL autocon)
+{  if(base) *base=0;
+   return 0;
+}
+
+BOOL Inittcp(void)
+{  return 1;
+}
+
+void Freetcp(void)
+{
+}
+
+struct Assl *GetTaskSSLContext(void)
+{  return 0;
+}
+
+struct Library *GetTaskSSLSocketBase(void)
+{  return 0;
+}
+
+void SetTaskSSLContext(struct Assl *assl,struct Library *socketbase)
+{
+}
+
+void ClearTaskSSLContext(void)
+{
 }
 
 #endif /* LOCALONLY */

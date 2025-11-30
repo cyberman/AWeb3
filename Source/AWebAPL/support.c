@@ -231,7 +231,12 @@ __asm __saveds void apsTcpmessageA(register __a0 struct Fetchdriver *fd,
 __asm __saveds struct Library *apsOpentcp(register __a0 struct Library **base,
    register __a1 struct Fetchdriver *fd,
    register __d0 BOOL autocon)
-{  return Opentcp(base,fd,autocon);
+{
+#ifndef LOCALONLY
+   return Opentcp(base,fd,autocon);
+#else
+   return NULL;
+#endif
 }
 
 __asm __saveds struct hostent *apsLookup(register __a0 UBYTE *name,

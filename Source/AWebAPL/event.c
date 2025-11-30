@@ -393,7 +393,9 @@ static void Inputwindocref(void *win,void *url,UBYTE *fragment,UBYTE *frameid,
    if(awin && url)
    {  /* Close idle keep-alive connections when navigating to a new page */
       /* This resets the connection pool for the new page context */
+#ifndef LOCALONLY
       CloseIdleKeepAliveConnections();
+#endif
       
       if(whis=Anewobject(AOTP_WINHIS,
          AOWHS_Copyfrom,awin->whis,

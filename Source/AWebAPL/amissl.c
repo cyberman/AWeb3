@@ -1780,6 +1780,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
           }
 
           /* Prompt user to accept or reject */
+#ifndef LOCALONLY
           if (Httpcertaccept(hostname, cert_subj)) {
             /* User accepted - allow connection */
             debug_printf("DEBUG: Assl_connect: User accepted certificate "
@@ -1791,6 +1792,11 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
             assl->denied = TRUE;
             result = ASSLCONNECT_DENIED;
           }
+#else
+          /* LOCALONLY: Reject certificate (no network access) */
+          assl->denied = TRUE;
+          result = ASSLCONNECT_DENIED;
+#endif
         } else {
           /* Both chain and hostname are valid - connection is good */
           debug_printf("DEBUG: Assl_connect: Certificate chain VALID and "
@@ -1800,9 +1806,10 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
         }
       } else {
         /* No hostname to validate - check chain only */
-        if (!chain_valid) {
+          if (!chain_valid) {
           debug_printf("DEBUG: Assl_connect: Certificate chain INVALID (no "
                        "hostname to validate)\n");
+#ifndef LOCALONLY
           if (Httpcertaccept((UBYTE *)"", cert_subj)) {
             debug_printf("DEBUG: Assl_connect: User accepted certificate "
                          "despite chain validation failure\n");
@@ -1812,6 +1819,11 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
             assl->denied = TRUE;
             result = ASSLCONNECT_DENIED;
           }
+#else
+          /* LOCALONLY: Reject certificate (no network access) */
+          assl->denied = TRUE;
+          result = ASSLCONNECT_DENIED;
+#endif
         } else {
           debug_printf("DEBUG: Assl_connect: Certificate chain VALID (no "
                        "hostname provided)\n");

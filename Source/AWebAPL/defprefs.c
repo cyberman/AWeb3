@@ -178,6 +178,8 @@ struct Prefs defprefs=
       2,                                     /* max disk read */
 #ifdef NETDEMO
       "file:///AWeb:docs/full.html#full",
+#elif defined(LOCALONLY)
+      "file:///",     /* home url */
 #else
       "about:home",     /* home url */
 #endif
@@ -251,7 +253,11 @@ struct Prefs defprefs=
    }
 };
 
+#ifdef LOCALONLY
+UBYTE configname[32]="AWebView";
+#else
 UBYTE configname[32]="";
+#endif
 
 enum SAVEFORMATS
 {  SVF_SHORT=1,SVF_LONG,SVF_COLOR,
@@ -1534,6 +1540,8 @@ BOOL Initdefprefs(void)
       "OPEN https://www.amigaworld.net/")) return FALSE;
    if(!Adduserbutton(&defprefs.buttons,"The Old Net",
       "OPEN http://www.theoldnet.com")) return FALSE;
+#else
+   /* LOCALONLY: No network links in predefined buttons */
 #endif
 #ifdef OSVERSION
    if(!Adduserbutton(&defprefs.buttons,"Modes",

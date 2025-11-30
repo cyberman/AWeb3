@@ -409,6 +409,14 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
       long html_used;
       UBYTE *libname;
       UBYTE *libid;
+#ifdef LOCALONLY
+      UBYTE *known_aweblibs[] = {
+         (UBYTE *)"AWeb:aweblib/arexx.aweblib",
+         (UBYTE *)"AWeb:aweblib/awebjs.aweblib",
+         (UBYTE *)"AWeb:aweblib/print.aweblib",
+         NULL
+      };
+#else
       UBYTE *known_aweblibs[] = {
          (UBYTE *)"AWeb:aweblib/about.aweblib",
          (UBYTE *)"AWeb:aweblib/arexx.aweblib",
@@ -426,6 +434,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
          (UBYTE *)"AWeb:aweblib/awebjs.aweblib",
          NULL
       };
+#endif
       int i;
       
       len = 20480;  /* Large buffer for plugin list and configuration instructions */

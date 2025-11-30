@@ -15,6 +15,7 @@
 #-----------------------------------------------------------------------------
 
 all:        aweb
+all:        awebview
 all:        awebcfg
 all:        aweblib/arexx.aweblib
 all:        aweblib/about.aweblib
@@ -125,6 +126,10 @@ version.o:  version.c aweb.h
     @echo "        Compiling version.c..."
     @sc strsect=code version.c to version.o
 
+versionview.o:  version.c aweb.h
+    @echo "        Compiling version.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY strsect=code version.c OBJNAME=versionview.o
+
 whiswin.o:  whiswin.c aweb.h winhis.h whisprivate.h application.h window.h task.h
 
 window.h:   object.h
@@ -138,6 +143,124 @@ winrexx.o:  aweb.h arexx.h frame.h winhis.h url.h window.h application.h source.
 winrexx.o:  copy.h fetch.h cache.h copydriver.h filereq.h plugin.h
 
 xaweb.o:    xaweb.c aweb.h tcperr.h fetchdriver.h file.h task.h
+
+
+#- AWebView ------------------------------------------------------------------
+
+awebview:       awebview.o locale.o memory.o versionview.o boopsi.o support.o
+awebview:       requestview.o asyncio.o simplerexx.o arexxview.o clip.o tooltip.o
+awebview:       prefs.o defprefsview.o
+#  General objects
+awebview:       object.o task.o scroller.o applicationview.o file.o filereq.o editor.o
+awebview:       timer.o
+#  Display related objects
+awebview:       window.o eventview.o winrexx.o winhis.o frame.o framejs.o
+awebview:       popup.o search.o print.o printwin.o info.o saveiff.o
+#  Secondary window objects
+awebview:       netstat.o hotlist.o whiswin.o cabrowse.o
+#  Url related objects
+awebview:       url.o source.o copy.o copyjs.o cacheview.o cookieview.o fetchview.o mime.o
+awebview:       local.o httpview.o xawebview.o
+#  TCP/SSL drivers (compiled with LOCALONLY)
+awebview:       tcpview.o tcperr.o nameservview.o authorview.o
+awebview:       awebtcpview.o awebamitcpview.o amisslview.o
+#  zlib compression library
+awebview:       /zlib/adler32.o /zlib/crc32.o /zlib/deflate.o /zlib/inflate.o /zlib/inftrees.o /zlib/inffast.o /zlib/trees.o /zlib/zutil.o
+#  Source drivers
+awebview:       sourcedriver.o docsource.o imgsource.o extprog.o saveas.o
+awebview:       soundsource.o docext.o
+#  Copy drivers
+awebview:       copydriver.o document.o docjs.o imgcopy.o soundcopy.o
+#  Document objects
+awebview:       parse.o markdown.o html.o body.o frameset.o link.o map.o area.o form.o
+awebview:       element.o break.o text.o ruler.o bullet.o table.o name.o
+awebview:       field.o input.o checkbox.o radio.o select.o textarea.o button.o
+awebview:       hidden.o filefield.o
+#  Link
+awebview:       awebview.lnk
+    slink with awebview.lnk
+
+#- AWebView specific compilation rules ---------------------------------------
+
+# Compile awebview.c with LOCALONLY defined
+awebview.o:     awebview.c aweb.h url.h application.h window.h profile.h source.h frame.h startup.h task.h
+    @echo "        Compiling awebview.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY awebview.c OBJNAME=awebview.o
+
+# Compile fetch.c with LOCALONLY (network code excluded)
+fetchview.o:    fetch.c aweb.h url.h source.h cache.h fetchdriver.h application.h task.h
+    @echo "        Compiling fetch.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY fetch.c OBJNAME=fetchview.o
+
+# Compile cache.c with LOCALONLY (network cache code excluded)
+cacheview.o:    cache.c aweb.h url.h source.h fetch.h application.h task.h
+    @echo "        Compiling cache.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY cache.c OBJNAME=cacheview.o
+
+# Compile cookie.c with LOCALONLY (network cookie code excluded)
+cookieview.o:   cookie.c aweb.h url.h fetch.h application.h task.h
+    @echo "        Compiling cookie.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY cookie.c OBJNAME=cookieview.o
+
+# Compile application.c with LOCALONLY (no network init)
+applicationview.o: application.c aweb.h object.h application.h url.h window.h task.h
+    @echo "        Compiling application.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY application.c OBJNAME=applicationview.o
+
+# Compile network-related files with LOCALONLY (network code excluded at compile time)
+httpview.o:     http.c aweb.h awebtcp.h tcperr.h fetchdriver.h application.h task.h form.h /zlib/zlib.h
+    @echo "        Compiling http.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY idir=netinclude: idir=sslinclude: http.c OBJNAME=httpview.o
+
+tcpview.o:      tcp.c aweb.h tcperr.h application.h awebtcp.h
+    @echo "        Compiling tcp.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY idir=netinclude: tcp.c OBJNAME=tcpview.o
+
+awebtcpview.o:  awebtcp.c awebtcp.h
+    @echo "        Compiling awebtcp.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 awebtcp.c OBJNAME=awebtcpview.o
+
+awebamitcpview.o: awebamitcp.c
+    @echo "        Compiling awebamitcp.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY idir=netinclude: awebamitcp.c OBJNAME=awebamitcpview.o
+
+amisslview.o:   amissl.c aweb.h task.h awebssl.h
+    @echo "        Compiling amissl.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 IGNORE=101 IGNORE=63 IGNORE=84 amissl.c OBJNAME=amisslview.o
+
+nameservview.o: nameserv.c aweb.h awebtcp.h
+    @echo "        Compiling nameserv.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY idir=netinclude: nameserv.c OBJNAME=nameservview.o
+
+authorview.o:   author.c aweb.h url.h fetch.h application.h task.h fetchdriver.h authorlib.h
+    @echo "        Compiling author.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY idir=netinclude: author.c OBJNAME=authorview.o
+
+xawebview.o:    xaweb.c aweb.h tcperr.h fetchdriver.h file.h task.h
+    @echo "        Compiling xaweb.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY xaweb.c OBJNAME=xawebview.o
+
+eventview.o:    event.c aweb.h frame.h winhis.h url.h window.h winprivate.h application.h filereq.h source.h copy.h
+    @echo "        Compiling event.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY event.c OBJNAME=eventview.o
+
+requestview.o:  request.c aweb.h application.h window.h fetch.h
+    @echo "        Compiling request.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY request.c OBJNAME=requestview.o
+
+arexxview.o:   arexx.c aweb.h arexx.h simplerexx.h application.h
+    @echo "        Compiling arexx.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY arexx.c OBJNAME=arexxview.o
+
+defprefsview.o: defprefs.c awebcfg.h awebprefs.h keyfile.h ezlists.h locale.h
+    @echo "        Compiling defprefs.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY defprefs.c OBJNAME=defprefsview.o
+
+# Note: AWebView uses separate object files (*view.o) for files that differ
+# when LOCALONLY is defined. This allows building both AWeb and AWebView
+# in the same smake run without conflicts. All network code is excluded
+# at compile time via LOCALONLY, but all object files are linked to
+# satisfy symbol dependencies.
 
 
 #- AWebCfg -------------------------------------------------------------------
@@ -387,6 +510,7 @@ jstring.o:  jstring.c awebjs.h
 
 install:
    -copy clone AWeb TO //Internet/AWeb/AWeb
+   -copy clone AWebView TO //Internet/AWeb/AWebView
    -copy clone AWebCfg TO //Internet/AWeb/AWebCfg
    -copy clone AWebJS TO //Internet/AWeb/AWebJS
    -copy clone aweblib/arexx.aweblib TO //Internet/AWeb/aweblib/arexx.aweblib
@@ -394,7 +518,7 @@ install:
    -copy clone aweblib/authorize.aweblib TO //Internet/AWeb/aweblib/authorize.aweblib
    -copy clone aweblib/cachebrowser.aweblib TO //Internet/AWeb/aweblib/cachebrowser.aweblib
    -copy clone aweblib/ftp.aweblib TO //Internet/AWeb/aweblib/ftp.aweblib
-#   -copy clone aweblib/gemini.aweblib TO //Internet/AWeb/aweblib/gemini.aweblib
+   -copy clone aweblib/gemini.aweblib TO //Internet/AWeb/aweblib/gemini.aweblib
    -copy clone aweblib/gopher.aweblib TO //Internet/AWeb/aweblib/gopher.aweblib
    -copy clone aweblib/history.aweblib TO //Internet/AWeb/aweblib/history.aweblib
    -copy clone aweblib/hotlist.aweblib TO //Internet/AWeb/aweblib/hotlist.aweblib

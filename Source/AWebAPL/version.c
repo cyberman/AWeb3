@@ -21,9 +21,17 @@
 #include "aweb.h"
 
 static UBYTE *versionstring=
+#ifdef LOCALONLY
+   "$VER: AWebView " AWEBVERSION RELEASECLASS " " __AMIGADATE__;
+#else
    "$VER: AWeb " AWEBVERSION RELEASECLASS " " __AMIGADATE__;
+#endif
 static UBYTE *internalstring=
+#ifdef LOCALONLY
+   "AWebView " BETARELEASE;
+#else
    "AWeb " BETARELEASE;
+#endif
 
 UBYTE *aboutversion;
 

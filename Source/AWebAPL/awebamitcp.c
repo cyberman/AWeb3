@@ -110,8 +110,13 @@ __asm int amitcp_connect(register __d0 int a,
    result=connect(a, (struct sockaddr *)&sad, sizeof(sad));
    if(!result)
    {  /* TCP connect succeeded - check if SSL is needed */
+#ifndef LOCALONLY
       assl=GetTaskSSLContext();
       ssl_socketbase=GetTaskSSLSocketBase();
+#else
+      assl=NULL;
+      ssl_socketbase=NULL;
+#endif
       if(assl && ssl_socketbase==SocketBase)
       {  /* SSL is enabled for this task */
          /* Route based on port: port 443 = HTTPS (http.c manages SSL), other ports = automatic SSL */
@@ -253,7 +258,9 @@ __asm void amitcp_cleanup(register __a0 struct Library *SocketBase)
 {  /* Cleanup AmiTCP library - automatically clean up task SSL context */
    /* This ensures SSL cleanup happens when plugins call a_cleanup() */
    /* The cleanup sequence matches HTTP pattern: a_cleanup() -> ClearTaskSSLContext() -> CloseLibrary() */
+#ifndef LOCALONLY
    ClearTaskSSLContext();
+#endif
 }
 
 __asm void amitcp_dummy(void)

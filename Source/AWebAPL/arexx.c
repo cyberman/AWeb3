@@ -142,7 +142,11 @@ static struct Arexxport *Newarexxport(LONG windowkey)
 {  struct Arexxport *ap=ALLOCSTRUCT(Arexxport,1,MEMF_CLEAR);
    if(ap)
    {  ADDTAIL(&ports,ap);
+#ifdef LOCALONLY
+      ap->context=InitARexx("AWebView","awebrx");
+#else
       ap->context=InitARexx("AWeb","awebrx");
+#endif
       ap->windowkey=windowkey;
       ap->mask=ARexxSignal(ap->context);
    }

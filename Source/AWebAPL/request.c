@@ -537,7 +537,11 @@ void Aboutreq(UBYTE *portname)
             strcat(buf,AWEBSTR(MSG_ABOUT_TRANSLATOR));
             if(prefs.screentype==SCRTYPE_OWN)
             {  strcat(buf,AWEBSTR(MSG_ABOUT_SCREENNAME));
+#ifdef LOCALONLY
+               strcat(buf,": AWebView\n");
+#else
                strcat(buf,": AWeb\n");
+#endif
             }
             if(portname)
             {  strcat(buf,AWEBSTR(MSG_ABOUT_PORTNAME));

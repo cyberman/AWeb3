@@ -5735,6 +5735,23 @@ void Httptask(struct Fetchdriver *fd)
       TAG_END);
 }
 
+#else /* LOCALONLY */
+
+#include "aweb.h"
+
+/* Stub functions for LOCALONLY build */
+BOOL Inithttp(void)
+{  return 1;
+}
+
+void Freehttp(void)
+{
+}
+
+void CloseIdleKeepAliveConnections(void)
+{
+}
+
 #endif /* LOCALONLY */
 
 /*-----------------------------------------------------------------------*/
