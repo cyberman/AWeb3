@@ -39,7 +39,8 @@
 #define ALLOCSTRUCT(s,n,f) ALLOCTYPE(struct s,n,f)
 #define FREE(p)            FreeVec(p)
 
-extern struct Library *ExecBase,*DOSBase;
+extern struct Library *ExecBase;
+extern struct DosLibrary *DOSBase;
 
 static UBYTE outbuf[1024];
 
