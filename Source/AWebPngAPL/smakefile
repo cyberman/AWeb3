@@ -1,9 +1,10 @@
 ## SAS/C makefile for awebpng aweb plugin module
 
 # Compiler and flags
+# Define STDC so zlib.h OF() macro expands correctly for SAS/C
 CC=sc
 CFLAGS= NOSTKCHK PARMS=REG OPTIMIZE OPTGO OPTPEEP OPTINLOCAL OPTINL\
-        OPTLOOP OPTRDEP=4 OPTDEP=4 OPTCOMP=4 DEFINE=PNG_INTERNAL
+        OPTLOOP OPTRDEP=4 OPTDEP=4 OPTCOMP=4 DEFINE=PNG_INTERNAL DEFINE=STDC
 
 # Linker and flags
 LN=slink
@@ -20,12 +21,6 @@ PNG_OBJS = pnglib/png.o pnglib/pngset.o pnglib/pngget.o pnglib/pngrutil.o \
            pnglib/pngrtran.o pnglib/pngwtran.o pnglib/pngrio.o \
            pnglib/pngwio.o pnglib/pngmem.o
 
-# ZLIB library object files
-ZLIB_OBJS = pnglib/adler32.o pnglib/compress.o pnglib/crc32.o pnglib/gzio.o \
-            pnglib/uncompr.o pnglib/deflate.o pnglib/trees.o pnglib/zutil.o \
-            pnglib/inflate.o pnglib/infblock.o pnglib/inftrees.o \
-            pnglib/infcodes.o pnglib/infutil.o pnglib/inffast.o
-
 # Main plugin object files
 PLUGIN_OBJS = startup.o awebpng.o pngsource.o pngcopy.o
 
@@ -33,16 +28,13 @@ PLUGIN_OBJS = startup.o awebpng.o pngsource.o pngcopy.o
 all: awebpng.awebplugin
 
 # Build the main plugin
-awebpng.awebplugin: $(PLUGIN_OBJS) pnglib/libpng.lib pnglib/libgz.lib awebpng.lnk
+# Note: zlib is now linked from /zlib/z.lib instead of embedded version
+awebpng.awebplugin: $(PLUGIN_OBJS) pnglib/libpng.lib awebpng.lnk
    $(LN) with awebpng.lnk
 
 # Build libpng library
 pnglib/libpng.lib: $(PNG_OBJS)
    $(AR) pnglib/libpng.lib r $(PNG_OBJS)
-
-# Build libgz library
-pnglib/libgz.lib: $(ZLIB_OBJS)
-   $(AR) pnglib/libgz.lib r $(ZLIB_OBJS)
 
 # PNG library object files
 pnglib/png.o: pnglib/png.c pnglib/png.h pnglib/pngconf.h
@@ -90,49 +82,6 @@ pnglib/pngwio.o: pnglib/pngwio.c pnglib/png.h pnglib/pngconf.h
 pnglib/pngmem.o: pnglib/pngmem.c pnglib/png.h pnglib/pngconf.h
    $(CC) pnglib/pngmem.c
 
-# ZLIB library object files
-pnglib/adler32.o: pnglib/adler32.c pnglib/zutil.h pnglib/zlib.h pnglib/zconf.h
-   $(CC) pnglib/adler32.c
-
-pnglib/compress.o: pnglib/compress.c pnglib/zlib.h pnglib/zconf.h
-   $(CC) pnglib/compress.c
-
-pnglib/crc32.o: pnglib/crc32.c pnglib/zutil.h pnglib/zlib.h pnglib/zconf.h
-   $(CC) pnglib/crc32.c
-
-pnglib/gzio.o: pnglib/gzio.c pnglib/zutil.h pnglib/zlib.h pnglib/zconf.h
-   $(CC) pnglib/gzio.c
-
-pnglib/uncompr.o: pnglib/uncompr.c pnglib/zlib.h pnglib/zconf.h
-   $(CC) pnglib/uncompr.c
-
-pnglib/deflate.o: pnglib/deflate.c pnglib/deflate.h pnglib/zutil.h pnglib/zlib.h pnglib/zconf.h
-   $(CC) pnglib/deflate.c
-
-pnglib/trees.o: pnglib/trees.c pnglib/deflate.h pnglib/zutil.h pnglib/zlib.h pnglib/zconf.h
-   $(CC) pnglib/trees.c
-
-pnglib/zutil.o: pnglib/zutil.c pnglib/zutil.h pnglib/zlib.h pnglib/zconf.h
-   $(CC) pnglib/zutil.c
-
-pnglib/inflate.o: pnglib/inflate.c pnglib/zutil.h pnglib/zlib.h pnglib/zconf.h pnglib/infblock.h
-   $(CC) pnglib/inflate.c
-
-pnglib/infblock.o: pnglib/infblock.c pnglib/zutil.h pnglib/zlib.h pnglib/zconf.h pnglib/infblock.h pnglib/inftrees.h pnglib/infcodes.h pnglib/infutil.h
-   $(CC) pnglib/infblock.c
-
-pnglib/inftrees.o: pnglib/inftrees.c pnglib/zutil.h pnglib/zlib.h pnglib/zconf.h pnglib/inftrees.h
-   $(CC) pnglib/inftrees.c
-
-pnglib/infcodes.o: pnglib/infcodes.c pnglib/zutil.h pnglib/zlib.h pnglib/zconf.h pnglib/inftrees.h pnglib/infutil.h pnglib/infcodes.h pnglib/inffast.h
-   $(CC) pnglib/infcodes.c
-
-pnglib/infutil.o: pnglib/infutil.c pnglib/zutil.h pnglib/zlib.h pnglib/zconf.h pnglib/inftrees.h pnglib/infutil.h
-   $(CC) pnglib/infutil.c
-
-pnglib/inffast.o: pnglib/inffast.c pnglib/zutil.h pnglib/zlib.h pnglib/zconf.h pnglib/inftrees.h pnglib/infutil.h pnglib/inffast.h
-   $(CC) pnglib/inffast.c
-
 # Main plugin object files
 .c.o:
    $(CC) "$*.c"
@@ -151,7 +100,7 @@ clean:
 
 # Cleanall target - remove everything
 cleanall: clean
-   $(RM) pnglib/*.lib awebpng.awebplugin
+   $(RM) pnglib/libpng.lib awebpng.awebplugin
 
 # Install target (if needed)
 install: awebpng.awebplugin

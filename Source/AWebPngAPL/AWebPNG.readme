@@ -1,13 +1,13 @@
-Short:    AWeb-II 'official' PNG plugin v1.2
+Short:    AWeb 'official' PNG plugin v1.12
 Uploader: yrozijn@xs4all.nl (Yvon Rozijn)
 Author:   yrozijn@xs4all.nl (Yvon Rozijn)
 Type:     comm/www
-Version:  1.2
+Version:  1.12
 
 AWebPNG plugin
 ==============
 
-The AWebPNG plugin for AWeb-II (version 3.0 or higher) allows you
+The AWebPNG plugin for AWeb (version 3.0 or higher) allows you
 to view all kind of PNG images.
 
 Features include:
@@ -15,9 +15,9 @@ Features include:
  * Optional progressive display of loading images
  * Support for transparent images
  * Support for scaling
- * Support for CyberGraphics
+ * Support for Picasso96
 
-The AWeb PNG plugin is copyright © 1998 by Yvon Rozijn.
+The AWeb PNG plugin is copyright ï¿½ 1998 by Yvon Rozijn.
 It uses code from the PNG library that was written by Guy Eric Schalnat,
 Group 42, Inc., Andreas Dilger, Glenn Randers-Pehrson.
 It also uses the ZLIB general purpose compression library that was

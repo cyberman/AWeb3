@@ -38,6 +38,16 @@
 
 /* AWeb plugin functions are declared in proto/awebplugin.h */
 
+/* Define STDC and OF() macro for SAS/C compatibility with zlib */
+#ifndef STDC
+#define STDC
+#endif
+#ifndef OF
+#define OF(args) args
+#endif
+
+/* Include zconf.h before png.h to ensure OF() macro is defined correctly for SAS/C */
+#include <zconf.h>
 #include "png.h"
 
 /* Alpha values >= THRESHOLD are opaque, < THRESHOLD are transparent */

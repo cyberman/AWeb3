@@ -99,8 +99,18 @@ extern "C" {
  * at the actual function definitions and structure components.
  */
 
+/* Define STDC and OF() macro for SAS/C compatibility with zlib */
+#ifndef STDC
+#define STDC
+#endif
+#ifndef OF
+#define OF(args) args
+#endif
+
+/* Include zconf.h before zlib.h to ensure OF() macro is defined correctly for SAS/C */
+#include <zconf.h>
 /* include the compression library's header */
-#include "zlib.h"
+#include <zlib.h>
 
 /* include all user configurable info */
 #include "pngconf.h"
