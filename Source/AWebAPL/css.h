@@ -65,6 +65,7 @@ void ApplyCSSToElement(struct Document *doc,void *element);
 void FreeCSSStylesheet(struct Document *doc);
 void ApplyInlineCSS(struct Document *doc,void *element,UBYTE *style);
 void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *tagname);
+void ApplyInlineCSSToLink(struct Document *doc,void *link,UBYTE *style);
 
 #endif /* AWEB_CSS_H */
 

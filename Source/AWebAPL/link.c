@@ -397,6 +397,9 @@ static long Setlink(struct Link *lnk,struct Amset *ams)
          case AOLNK_Post:
             SETFLAG(lnk->flags,LNKF_POST,tag->ti_Data);
             break;
+         case AOLNK_NoDecoration:
+            SETFLAG(lnk->flags,LNKF_NODECORATION,tag->ti_Data);
+            break;
          case AOPUP_Inquire:
             Popupinquire(lnk,(void *)tag->ti_Data);
             break;

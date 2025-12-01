@@ -28,6 +28,7 @@
 #include "body.h"
 #include "colours.h"
 #include "html.h"
+#include "link.h"
 
 /* COLOR macro - extract pen number from Colorinfo */
 #define COLOR(ci) ((ci)?((ci)->pen):(-1))
@@ -813,6 +814,16 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                }
             }
          }
+         /* Apply color */
+         else if(stricmp((char *)prop->name,"color") == 0)
+         {  colorrgb = ParseHexColor(prop->value);
+            if(colorrgb != ~0)
+            {  ci = Finddoccolor(doc,colorrgb);
+               if(ci)
+               {  Asetattrs(body,AOBDY_Fontcolor,ci,TAG_END);
+               }
+            }
+         }
          
          /* Free the property */
          if(prop->name) FREE(prop->name);
@@ -934,5 +945,64 @@ static ULONG ParseHexColor(UBYTE *pcolor)
    }
    
    return rgbval;
+}
+
+/* Parse and apply inline CSS to a Link object */
+void ApplyInlineCSSToLink(struct Document *doc,void *link,UBYTE *style)
+{  struct CSSProperty *prop;
+   UBYTE *p;
+   ULONG colorrgb;
+   struct Colorinfo *ci;
+   void *body;
+   
+   if(!doc || !link || !style) return;
+   
+   p = style;
+   while(*p)
+   {  SkipWhitespace(&p);
+      if(!*p) break;
+      
+      /* Parse property */
+      prop = ParseProperty(doc,&p);
+      if(prop && prop->name && prop->value)
+      {  /* Apply text-decoration: none */
+         if(stricmp((char *)prop->name,"text-decoration") == 0)
+         {  if(stricmp((char *)prop->value,"none") == 0)
+            {  Asetattrs(link,AOLNK_NoDecoration,TRUE,TAG_END);
+            }
+         }
+         /* Apply color - apply to body's font color via link's text buffer */
+         else if(stricmp((char *)prop->name,"color") == 0)
+         {  colorrgb = ParseHexColor(prop->value);
+            if(colorrgb != ~0)
+            {  ci = Finddoccolor(doc,colorrgb);
+               if(ci)
+               {  /* Apply color to the document body's font color */
+                  /* The link text will inherit this color */
+                  if(doc->body)
+                  {  Asetattrs(doc->body,AOBDY_Fontcolor,ci,TAG_END);
+                  }
+               }
+            }
+         }
+      }
+      
+      /* Free the property */
+      if(prop)
+      {  if(prop->name) FREE(prop->name);
+         if(prop->value) FREE(prop->value);
+         FreeMem(prop,sizeof(struct CSSProperty));
+      }
+      
+      /* Skip to next semicolon on parse error */
+      if(!prop)
+      {  while(*p && *p != ';')
+         {  p++;
+         }
+      }
+      
+      /* Skip semicolon */
+      if(*p == ';') p++;
+   }
 }
 

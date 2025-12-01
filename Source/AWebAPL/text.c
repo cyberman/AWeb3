@@ -453,16 +453,18 @@ static long Rendertext(struct Text *tx,struct Amrender *amr)
       SetFont(rp,tx->font);
       SetSoftStyle(rp,tx->style,0x0f);
       if(tx->link)
-      {  if(Agetattr(tx->link,AOLNK_Visited))
+      {  BOOL nodecoration;
+         nodecoration = Agetattr(tx->link,AOLNK_NoDecoration);
+         if(Agetattr(tx->link,AOLNK_Visited))
          {  pen=coo->vlinkcolor;
-            if(prefs.ullink)
+            if(prefs.ullink && !nodecoration)
             {  pattern=0xcccc;
                clearpattern=TRUE;
             }
          }
          else
          {  pen=coo->linkcolor;
-            if(prefs.ullink) pattern=0xffff;
+            if(prefs.ullink && !nodecoration) pattern=0xffff;
          }
          if(Agetattr(tx->link,AOLNK_Selected))
          {  pen=coo->alinkcolor;

@@ -56,6 +56,9 @@
 #define AOLNK_Post         (AOLNK_Dummy+11)  /* NEW */
    /* (BOOL) Do a POST request instead of GET */
 
+#define AOLNK_NoDecoration  (AOLNK_Dummy+12)  /* NEW */
+   /* (BOOL) Disable text decoration (underline) for this link */
+
 #define AOLNK_    (AOLNK_Dummy+)
 #define AOLNK_    (AOLNK_Dummy+)
 

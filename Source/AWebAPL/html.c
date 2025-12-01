@@ -34,6 +34,7 @@
 #include "link.h"
 #include "frame.h"
 #include "copy.h"
+#include "css.h"
 #include "bullet.h"
 #include "table.h"
 #include "map.h"
@@ -50,18 +51,6 @@
 #include "url.h"
 #include "css.h"
 #include "window.h"
-
-struct Number  /* number or percentage */
-{  long n;     /* value */
-   short type; /* see below */
-};
-
-#define NUMBER_NONE     0
-#define NUMBER_NUMBER   1
-#define NUMBER_PERCENT  2
-#define NUMBER_SIGNED   3
-#define NUMBER_RELATIVE 4
-
 
 #define ATTR(doc,ta)          ((doc)->args.buffer+(ta)->valuepos)
 #define ATTREQUAL(doc,ta,v)   STRIEQUAL(ATTR(doc,ta),v)
@@ -1931,6 +1920,7 @@ static BOOL Doanchor(struct Document *doc,struct Tagattr *ta)
 {  UBYTE *href=NULL,*name=NULL,*title=NULL;
    UBYTE *target=doc->target;
    UBYTE *onclick=NULL,*onmouseover=NULL,*onmouseout=NULL;
+   UBYTE *styleAttr=NULL;
    BOOL post=FALSE,targetset=FALSE;
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
@@ -1961,6 +1951,9 @@ static BOOL Doanchor(struct Document *doc,struct Tagattr *ta)
             if(!STRICT && STRIEQUAL(ATTR(doc,ta),"POST"))
             {  post=TRUE;
             }
+            break;
+         case TAGATTR_STYLE:
+            styleAttr=ATTR(doc,ta);
             break;
       }
    }
@@ -2000,6 +1993,10 @@ static BOOL Doanchor(struct Document *doc,struct Tagattr *ta)
          TAG_END))) return FALSE;
       ADDTAIL(&doc->links,link);
       Asetattrs(Docbody(doc),AOBDY_Link,link,TAG_END);
+      /* Apply inline CSS if present */
+      if(styleAttr)
+      {  ApplyInlineCSSToLink(doc,link,styleAttr);
+      }
    }
    if(name && doc->doctype==DOCTP_BODY)
    {  void *elt;

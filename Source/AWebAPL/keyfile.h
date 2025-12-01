@@ -23,7 +23,7 @@
 #define BETARELEASENR "200APL"
 #define BETALIBREVISION 200
 
-#define FULLRELEASE "3.6APL"
+#define FULLRELEASE "3.6"
 #define FULLLIBVERSION 3
 #define FULLLIBREVISION 6
 
@@ -109,6 +109,10 @@
  #define DEMOVERSION
  #define NETDEMO
  #define NEED35
+#endif
+
+#ifdef LOCALONLY
+ #define DEFAULTCFG "AWebView"
 #endif
 
 #ifdef BETAVERSION
