@@ -510,46 +510,33 @@ static void Convertgeminitohtml(struct Fetchdriver *fd,struct GResponse *resp,lo
                      base.path=resp->base_path;
                      base.buf=NULL;
                      if(resp->base_hostname && Resolverelativeurl(&base,rel_buf,&resolved))
-                     {  /* Check if resolved URL is on same host as base */
-                        /* If same host, use relative path (AWeb will resolve it) */
-                        /* If different host, use full gemini:// URL */
-                        if(resolved.hostname && !stricmp(resolved.hostname,resp->base_hostname) &&
-                           resolved.port==resp->base_port)
-                        {  /* Same host - use relative path */
-                           UBYTE *path_str;
+                     {  /* Always use full gemini:// URL so AWeb recognizes it as Gemini protocol */
+                        /* AWeb's Hasprotocol() function requires gemini:// prefix to route to Gemini plugin */
+                        /* CRITICAL: resolved.path does NOT include leading / (it's stripped in Makegeminaddr line 247) */
+                        /* So we must always add / before the path when building the URL */
+                        if(resolved.port==1965)
+                        {  /* Default port - omit port number */
                            if(resolved.path && *resolved.path)
-                           {  path_str=resolved.path;
-                              final_urllen=strlen(path_str);
-                              if(final_urllen>=sizeof(link_url)) final_urllen=sizeof(link_url)-1;
-                              memmove(link_url,path_str,final_urllen);
-                              link_url[final_urllen]='\0';
+                           {  final_urllen=sprintf(link_url,"gemini://%s/%s",
+                                 resolved.hostname,resolved.path);
                            }
                            else
-                           {  final_urllen=1;
-                              link_url[0]='/';
-                              link_url[1]='\0';
+                           {  final_urllen=sprintf(link_url,"gemini://%s/",
+                                 resolved.hostname);
                            }
-                           final_url=link_url;
                         }
                         else
-                        {  /* Different host - use full gemini:// URL */
-                           UBYTE *path_str;
+                        {  /* Non-default port - include port number */
                            if(resolved.path && *resolved.path)
-                           {  path_str=resolved.path;
+                           {  final_urllen=sprintf(link_url,"gemini://%s:%ld/%s",
+                                 resolved.hostname,resolved.port,resolved.path);
                            }
                            else
-                           {  path_str=(UBYTE *)"/";
+                           {  final_urllen=sprintf(link_url,"gemini://%s:%ld/",
+                                 resolved.hostname,resolved.port);
                            }
-                           if(resolved.port==1965)
-                           {  final_urllen=sprintf(link_url,"gemini://%s%s",
-                                 resolved.hostname,path_str);
-                           }
-                           else
-                           {  final_urllen=sprintf(link_url,"gemini://%s:%ld%s",
-                                 resolved.hostname,resolved.port,path_str);
-                           }
-                           final_url=link_url;
                         }
+                        final_url=link_url;
                         if(resolved.buf) FREE(resolved.buf);
                      }
                      else
