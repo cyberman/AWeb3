@@ -115,6 +115,7 @@ void Freetcp(void)
 struct Library *Opentcp(struct Library **base,struct Fetchdriver *fd,BOOL autocon)
 {  BOOL started=FALSE;
    UBYTE *cmd=NULL,*args=NULL;
+   struct Assl *assl=NULL;
    struct Process *proc=(struct Process *)FindTask(NULL);
    APTR windowptr=proc->pr_WindowPtr;
    proc->pr_WindowPtr=(APTR)-1;
@@ -146,15 +147,32 @@ struct Library *Opentcp(struct Library **base,struct Fetchdriver *fd,BOOL autoco
    if(args) FREE(args);
 #endif
    proc->pr_WindowPtr=windowptr;
-   /* Initialize SSL for protocols that need it (e.g., Gemini, HTTPS) */
-   /* HTTP/HTTPS also initializes SSL separately in Openlibraries() and stores it in hi->assl */
-   /* The task SSL context initialized here is used by awebamitcp.c:amitcp_connect() for */
-   /* automatic SSL on non-443 ports (e.g., Gemini on port 1965) */
-   /* HTTP on port 443 uses its own hi->assl and ignores the task SSL context, so no conflict */
+   /* Initialize SSL if FDVF_SSL flag is set, BUT NOT for HTTP/HTTPS connections */
+   /* HTTP/HTTPS (ports 80, 8080, 443, 4443) are handled entirely by http.c */
+   /* The task SSL context should persist across multiple connections in the same task */
+   /* SSL objects (SSL_CTX and SSL) are created per connection in Assl_openssl() */
+   /* We only create a new task SSL context if one doesn't already exist */
    if(*base && fd && (fd->flags&FDVF_SSL))
-   {  struct Assl *assl=Tcpopenssl(*base);
-      if(assl)
-      {  SetTaskSSLContext(assl,*base);
+   {  /* Check if this is an HTTP/HTTPS connection - if so, http.c handles SSL */
+      /* http.c manages its own SSL context (hi->assl) and doesn't use the task SSL context */
+      if(fd->name && (STRNIEQUAL(fd->name,"HTTP://",7) || STRNIEQUAL(fd->name,"HTTPS://",8)))
+      {  /* HTTP/HTTPS connection - http.c will handle SSL, don't create task SSL context */
+      }
+      else
+      {  /* Non-HTTP SSL connection (e.g., Gemini) - create task SSL context */
+         /* Check if task SSL context already exists - reuse it if it does */
+         assl=GetTaskSSLContext();
+         if(!assl)
+         {  /* No existing SSL context for this task - create a new one */
+            assl=Tcpopenssl(*base);
+            if(assl)
+            {  SetTaskSSLContext(assl,*base);
+            }
+         }
+         else
+         {  /* Task SSL context already exists - reuse it */
+            /* Assl_openssl() will clean up any existing SSL objects before creating new ones */
+         }
       }
    }
    return ((*base)?AwebTcpBase:NULL);

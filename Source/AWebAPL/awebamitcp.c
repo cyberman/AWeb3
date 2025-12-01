@@ -119,17 +119,16 @@ __asm int amitcp_connect(register __d0 int a,
 #endif
       if(assl && ssl_socketbase==SocketBase)
       {  /* SSL is enabled for this task */
-         /* Route based on port: port 443 = HTTPS (http.c manages SSL), other ports = automatic SSL */
+         /* HTTP/HTTPS ports (80, 8080, 443, 4443) are handled entirely by http.c */
          /* http.c calls Assl_openssl() in Opensocket() before a_connect() for HTTPS */
          /* For Gemini (port 1965) and other protocols, SSL objects don't exist yet */
-         /* So we do automatic SSL for non-443 ports */
-         if(port != 443)
-         {  /* Not HTTPS - do automatic SSL (e.g., Gemini on port 1965) */
+         /* So we do automatic SSL for non-HTTP/HTTPS ports */
+         if(port != 80 && port != 8080 && port != 443 && port != 4443)
+         {  /* Not HTTP/HTTPS - do automatic SSL (e.g., Gemini on port 1965) */
             hostname=hent->h_name ? (UBYTE *)hent->h_name : NULL;
-            /* Clean up any existing SSL objects before creating new ones */
-            /* This ensures we start with a clean state for each connection */
-            Assl_closessl(assl);
             /* Create SSL objects for this connection */
+            /* Assl_openssl() will automatically clean up any existing SSL objects before creating new ones */
+            /* No need to call Assl_closessl() here - Assl_openssl() handles cleanup internally */
             if(Assl_openssl(assl))
             {  connect_result=Assl_connect(assl,a,hostname);
                if(connect_result==ASSLCONNECT_OK)
