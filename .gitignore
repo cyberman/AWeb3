@@ -49,7 +49,6 @@ awebgst
 
 # Compressed archives
 *.tar
-*.tar.gz
 *.tgz
 *.zip
 *.rar

@@ -55,6 +55,35 @@
 #define THRESHOLD 0x01
 
 /*--------------------------------------------------------------------*/
+/* Helper functions                                                   */
+/*--------------------------------------------------------------------*/
+
+/* Stub function for _XCEXIT to avoid stdio dependency */
+/* This is called by SAS/C when stdio functions are used, even if we've disabled them */
+void __stdargs _XCEXIT(long x)
+{
+   /* No-op stub - we don't use stdio */
+}
+
+/* Case-insensitive string comparison (replacement for strnicmp to avoid stdio dependency) */
+static int mystrnicmp(const char *s1, const char *s2, int n)
+{  int i;
+   char c1, c2;
+   if(!s1 || !s2 || n <= 0) return 0;
+   for(i = 0; i < n && *s1 && *s2; i++, s1++, s2++)
+   {  c1 = (*s1 >= 'A' && *s1 <= 'Z') ? (*s1 + 32) : *s1;
+      c2 = (*s2 >= 'A' && *s2 <= 'Z') ? (*s2 + 32) : *s2;
+      if(c1 != c2) return (c1 < c2) ? -1 : 1;
+   }
+   if(i < n && *s1 != *s2)
+   {  c1 = (*s1 >= 'A' && *s1 <= 'Z') ? (*s1 + 32) : *s1;
+      c2 = (*s2 >= 'A' && *s2 <= 'Z') ? (*s2 + 32) : *s2;
+      return (c1 < c2) ? -1 : 1;
+   }
+   return 0;
+}
+
+/*--------------------------------------------------------------------*/
 /* General data structures                                            */
 /*--------------------------------------------------------------------*/
 
@@ -207,7 +236,53 @@ static UBYTE Readbyte(struct Decoder *decoder)
       if(!wait)
       {  break;
       }
+      /* Check for EOF again before waiting - network might have finished */
+      ObtainSemaphore(&decoder->source->sema);
+      if(decoder->source->flags&PNGSF_EOF)
+      {  /* EOF reached while waiting */
+         decoder->flags|=DECOF_EOF;
+         ReleaseSemaphore(&decoder->source->sema);
+         break;
+      }
+      /* Check if new data arrived - need to check the right place based on current state */
+      if(decoder->current)
+      {  /* We have a current block - check if there's a next one */
+         db=decoder->current->next;
+      }
+      else
+      {  /* No current block - check if there's any data at all */
+         db=decoder->source->data.first;
+      }
+      if(db && db->next)
+      {  /* New data available - don't wait */
+         ReleaseSemaphore(&decoder->source->sema);
+         continue; /* Loop back to process the new data */
+      }
+      ReleaseSemaphore(&decoder->source->sema);
       Waittask(0);
+      /* Check for EOF and new data again after waiting */
+      ObtainSemaphore(&decoder->source->sema);
+      if(decoder->source->flags&PNGSF_EOF)
+      {  /* EOF reached while we were waiting */
+         decoder->flags|=DECOF_EOF;
+         ReleaseSemaphore(&decoder->source->sema);
+         break;
+      }
+      /* Check if new data arrived while we were waiting */
+      if(decoder->current)
+      {  /* We have a current block - check if there's a next one */
+         db=decoder->current->next;
+      }
+      else
+      {  /* No current block - check if there's any data at all */
+         db=decoder->source->data.first;
+      }
+      if(db && db->next)
+      {  /* New data available */
+         ReleaseSemaphore(&decoder->source->sema);
+         continue; /* Loop back to process the new data */
+      }
+      ReleaseSemaphore(&decoder->source->sema);
    }
    return retval;
 }
@@ -772,15 +847,15 @@ static ULONG Setsource(struct Pngsource *ps,struct Amset *amset)
             arg=(UBYTE *)tag->ti_Data;
             if(arg)
             {  for(p=arg;*p;p++)
-               {  if(!strnicmp(p,"PROGRESS=",9))
+               {  if(!mystrnicmp(p,"PROGRESS=",9))
                   {  ps->progress=atoi(p+9);
                      p+=9;
                   }
-                  else if(!strnicmp(p,"GAMMA=",6))
+                  else if(!mystrnicmp(p,"GAMMA=",6))
                   {  ps->gamma=atof(p+6);
                      p+=6;
                   }
-                  else if(!strnicmp(p,"LOWPRI",6))
+                  else if(!mystrnicmp(p,"LOWPRI",6))
                   {  ps->flags|=PNGSF_LOWPRI;
                      p+=6;
                   }
