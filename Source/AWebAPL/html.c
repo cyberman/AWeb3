@@ -3244,11 +3244,23 @@ static BOOL Dotd(struct Document *doc,struct Tagattr *ta,BOOL heading)
       
       /* Apply inline CSS if present */
       if(styleAttr)
-      {  Agetattrs(doc->tables.first->table,
+      {  struct Colorinfo *cssBgcolor;
+         void *table;
+         
+         Agetattrs(doc->tables.first->table,
             AOTAB_Bodync,&cellBody,
             TAG_END);
          if(cellBody)
-         {  ApplyInlineCSSToBody(doc,cellBody,styleAttr,(UBYTE *)(heading?"TH":"TD"));
+         {  /* Apply CSS to body */
+            ApplyInlineCSSToBody(doc,cellBody,styleAttr,(UBYTE *)(heading?"TH":"TD"));
+            
+            /* For table cells, also apply background-color to table cell structure */
+            /* This matches the behavior of the HTML BGCOLOR attribute */
+            cssBgcolor = ExtractBackgroundColorFromStyle(doc,styleAttr);
+            if(cssBgcolor)
+            {  table = doc->tables.first->table;
+               Asetattrs(table,AOTAB_Bgcolor,cssBgcolor,TAG_END);
+            }
          }
       }
    }

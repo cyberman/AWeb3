@@ -41,6 +41,7 @@ struct Link
 #define LNKF_SELECTED      0x0001   /* In selected state */
 #define LNKF_CLIPDRAG      0x0002   /* Current component supports clipdrag */
 #define LNKF_POST          0x0004   /* Use POST method */
+#define LNKF_NODECORATION  0x0008   /* Disable text decoration (underline) */
 
 struct Component
 {  NODE(Component);

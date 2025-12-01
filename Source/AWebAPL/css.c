@@ -1006,3 +1006,45 @@ void ApplyInlineCSSToLink(struct Document *doc,void *link,UBYTE *style)
    }
 }
 
+/* Extract background-color from a style string and return Colorinfo */
+struct Colorinfo *ExtractBackgroundColorFromStyle(struct Document *doc,UBYTE *style)
+{  struct CSSProperty *prop;
+   UBYTE *p;
+   ULONG colorrgb;
+   struct Colorinfo *ci;
+   
+   if(!doc || !style) return NULL;
+   
+   ci = NULL;
+   p = style;
+   while(*p)
+   {  SkipWhitespace(&p);
+      if(!*p) break;
+      
+      /* Parse property */
+      prop = ParseProperty(doc,&p);
+      if(prop && prop->name && prop->value)
+      {  if(stricmp((char *)prop->name,"background-color") == 0)
+         {  colorrgb = ParseHexColor(prop->value);
+            if(colorrgb != ~0)
+            {  ci = Finddoccolor(doc,colorrgb);
+            }
+         }
+         if(prop->name) FREE(prop->name);
+         if(prop->value) FREE(prop->value);
+         FreeMem(prop,sizeof(struct CSSProperty));
+      }
+      else
+      {  /* Skip to next semicolon on parse error */
+         while(*p && *p != ';')
+         {  p++;
+         }
+      }
+      
+      /* Skip semicolon */
+      if(*p == ';') p++;
+   }
+   
+   return ci;
+}
+
