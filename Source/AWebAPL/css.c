@@ -29,6 +29,8 @@
 #include "colours.h"
 #include "html.h"
 #include "link.h"
+#include "table.h"
+#include "copy.h"
 
 /* COLOR macro - extract pen number from Colorinfo */
 #define COLOR(ci) ((ci)?((ci)->pen):(-1))
@@ -703,11 +705,12 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                }
             }
          }
-         /* Apply border (simplified - just width for now) */
+         /* Apply border - parse width from "2px solid #color" or "2px" format */
          else if(stricmp((char *)prop->name,"border") == 0)
-         {  /* Parse "2px solid #E8E0D8" format */
-            /* For now, just note that border is set */
-            /* TODO: Parse border width, style, and color */
+         {  /* Parse border width from value like "2px solid #E8E0D8" or just "2px" */
+            /* Extract the numeric value and unit */
+            /* Note: Full border rendering not yet implemented, but we parse it */
+            ParseCSSLengthValue(prop->value,&num);
          }
          /* Apply border-radius (CSS3 - not implemented, but parse to avoid errors) */
          else if(stricmp((char *)prop->name,"border-radius") == 0)
@@ -728,15 +731,20 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             {  align = -1;
             }
             if(align >= 0)
-            {  if(tagname && stricmp((char *)tagname,"DIV") == 0)
+            {  /* Apply text-align to various elements that support align attribute */
+               if(tagname && stricmp((char *)tagname,"DIV") == 0)
                {  Asetattrs(body,AOBDY_Divalign,align,TAG_END);
                }
                else if(tagname && stricmp((char *)tagname,"P") == 0)
                {  Asetattrs(body,AOBDY_Align,align,TAG_END);
                }
                else if(tagname && (stricmp((char *)tagname,"TD") == 0 || stricmp((char *)tagname,"TH") == 0))
-               {  /* For table cells, alignment is handled via table attributes */
-                  /* But we can set it on the body */
+               {  /* For table cells, alignment is handled via table attributes in ApplyCSSToTableCell */
+                  /* But we can also set it on the body */
+                  Asetattrs(body,AOBDY_Divalign,align,TAG_END);
+               }
+               else
+               {  /* Default: apply to div align for other block elements */
                   Asetattrs(body,AOBDY_Divalign,align,TAG_END);
                }
             }
@@ -824,6 +832,8 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                }
             }
          }
+         /* Note: width, height, and vertical-align for table cells are handled
+          * separately in ApplyCSSToTableCell() */
          
          /* Free the property */
          if(prop->name) FREE(prop->name);
@@ -948,12 +958,11 @@ static ULONG ParseHexColor(UBYTE *pcolor)
 }
 
 /* Parse and apply inline CSS to a Link object */
-void ApplyInlineCSSToLink(struct Document *doc,void *link,UBYTE *style)
+void ApplyInlineCSSToLink(struct Document *doc,void *link,void *body,UBYTE *style)
 {  struct CSSProperty *prop;
    UBYTE *p;
    ULONG colorrgb;
    struct Colorinfo *ci;
-   void *body;
    
    if(!doc || !link || !style) return;
    
@@ -971,17 +980,13 @@ void ApplyInlineCSSToLink(struct Document *doc,void *link,UBYTE *style)
             {  Asetattrs(link,AOLNK_NoDecoration,TRUE,TAG_END);
             }
          }
-         /* Apply color - apply to body's font color via link's text buffer */
+         /* Apply color - apply to body's font color */
          else if(stricmp((char *)prop->name,"color") == 0)
          {  colorrgb = ParseHexColor(prop->value);
             if(colorrgb != ~0)
             {  ci = Finddoccolor(doc,colorrgb);
-               if(ci)
-               {  /* Apply color to the document body's font color */
-                  /* The link text will inherit this color */
-                  if(doc->body)
-                  {  Asetattrs(doc->body,AOBDY_Fontcolor,ci,TAG_END);
-                  }
+               if(ci && body)
+               {  Asetattrs(body,AOBDY_Fontcolor,ci,TAG_END);
                }
             }
          }
@@ -1046,5 +1051,323 @@ struct Colorinfo *ExtractBackgroundColorFromStyle(struct Document *doc,UBYTE *st
    }
    
    return ci;
+}
+
+/* Apply CSS properties specific to table cells (width, height, vertical-align) */
+void ApplyCSSToTableCell(struct Document *doc,void *table,UBYTE *style)
+{  struct CSSProperty *prop;
+   struct Number num;
+   UBYTE *p;
+   long widthValue;
+   long heightValue;
+   short valign;
+   ULONG wtag;
+   ULONG htag;
+   
+   if(!doc || !table || !style) return;
+   
+   p = style;
+   wtag = TAG_IGNORE;
+   htag = TAG_IGNORE;
+   widthValue = -1;
+   heightValue = -1;
+   valign = -1;
+   
+   while(*p)
+   {  SkipWhitespace(&p);
+      if(!*p) break;
+      
+      /* Parse property */
+      prop = ParseProperty(doc,&p);
+      if(prop && prop->name && prop->value)
+      {  /* Extract width */
+         if(stricmp((char *)prop->name,"width") == 0)
+         {  widthValue = ParseCSSLengthValue(prop->value,&num);
+            if(widthValue > 0)
+            {  if(num.type == NUMBER_PERCENT)
+               {  wtag = AOTAB_Percentwidth;
+               }
+               else
+               {  wtag = AOTAB_Pixelwidth;
+               }
+            }
+         }
+         /* Extract height */
+         else if(stricmp((char *)prop->name,"height") == 0)
+         {  heightValue = ParseCSSLengthValue(prop->value,&num);
+            if(heightValue > 0)
+            {  if(num.type == NUMBER_PERCENT)
+               {  htag = AOTAB_Percentheight;
+               }
+               else
+               {  htag = AOTAB_Pixelheight;
+               }
+            }
+         }
+         /* Extract vertical-align */
+         else if(stricmp((char *)prop->name,"vertical-align") == 0)
+         {  if(stricmp((char *)prop->value,"top") == 0)
+            {  valign = VALIGN_TOP;
+            }
+            else if(stricmp((char *)prop->value,"middle") == 0)
+            {  valign = VALIGN_MIDDLE;
+            }
+            else if(stricmp((char *)prop->value,"bottom") == 0)
+            {  valign = VALIGN_BOTTOM;
+            }
+            else if(stricmp((char *)prop->value,"baseline") == 0)
+            {  valign = VALIGN_BASELINE;
+            }
+         }
+         /* Extract text-align for horizontal alignment */
+         else if(stricmp((char *)prop->name,"text-align") == 0)
+         {  short halign;
+            halign = -1;
+            if(stricmp((char *)prop->value,"center") == 0)
+            {  halign = HALIGN_CENTER;
+            }
+            else if(stricmp((char *)prop->value,"left") == 0)
+            {  halign = HALIGN_LEFT;
+            }
+            else if(stricmp((char *)prop->value,"right") == 0)
+            {  halign = HALIGN_RIGHT;
+            }
+            if(halign >= 0)
+            {  Asetattrs(table,AOTAB_Halign,halign,TAG_END);
+            }
+         }
+         
+         if(prop->name) FREE(prop->name);
+         if(prop->value) FREE(prop->value);
+         FreeMem(prop,sizeof(struct CSSProperty));
+      }
+      else
+      {  /* Skip to next semicolon on parse error */
+         while(*p && *p != ';')
+         {  p++;
+         }
+      }
+      
+      /* Skip semicolon */
+      if(*p == ';') p++;
+   }
+   
+   /* Apply extracted values to table cell */
+   if(wtag != TAG_IGNORE && widthValue > 0)
+   {  Asetattrs(table,wtag,widthValue,TAG_END);
+   }
+   if(htag != TAG_IGNORE && heightValue > 0)
+   {  Asetattrs(table,htag,heightValue,TAG_END);
+   }
+   if(valign >= 0)
+   {  Asetattrs(table,AOTAB_Valign,valign,TAG_END);
+   }
+}
+
+/* Apply CSS properties to an image (IMG tag) */
+void ApplyCSSToImage(struct Document *doc,void *copy,UBYTE *style)
+{  struct CSSProperty *prop;
+   struct Number num;
+   UBYTE *p;
+   long borderValue;
+   long widthValue;
+   long heightValue;
+   long hspaceValue;
+   long vspaceValue;
+   ULONG wtag;
+   ULONG htag;
+   
+   if(!doc || !copy || !style) return;
+   
+   p = style;
+   wtag = TAG_IGNORE;
+   htag = TAG_IGNORE;
+   borderValue = -1;
+   widthValue = -1;
+   heightValue = -1;
+   hspaceValue = -1;
+   vspaceValue = -1;
+   
+   while(*p)
+   {  SkipWhitespace(&p);
+      if(!*p) break;
+      
+      /* Parse property */
+      prop = ParseProperty(doc,&p);
+      if(prop && prop->name && prop->value)
+      {  /* Extract border */
+         if(stricmp((char *)prop->name,"border") == 0)
+         {  borderValue = ParseCSSLengthValue(prop->value,&num);
+            if(borderValue < 0) borderValue = 0;
+         }
+         /* Extract width */
+         else if(stricmp((char *)prop->name,"width") == 0)
+         {  widthValue = ParseCSSLengthValue(prop->value,&num);
+            if(widthValue > 0)
+            {  if(num.type == NUMBER_PERCENT)
+               {  wtag = AOCPY_Percentwidth;
+               }
+               else
+               {  wtag = AOCPY_Width;
+               }
+            }
+         }
+         /* Extract height */
+         else if(stricmp((char *)prop->name,"height") == 0)
+         {  heightValue = ParseCSSLengthValue(prop->value,&num);
+            if(heightValue > 0)
+            {  if(num.type == NUMBER_PERCENT)
+               {  htag = AOCPY_Percentheight;
+               }
+               else
+               {  htag = AOCPY_Height;
+               }
+            }
+         }
+         /* Extract hspace via margin-left and margin-right */
+         else if(stricmp((char *)prop->name,"margin-left") == 0 || stricmp((char *)prop->name,"margin-right") == 0)
+         {  long marginValue;
+            marginValue = ParseCSSLengthValue(prop->value,&num);
+            if(marginValue > 0 && num.type == NUMBER_NUMBER)
+            {  if(hspaceValue < 0) hspaceValue = marginValue;
+               else hspaceValue = (hspaceValue + marginValue) / 2; /* Average if both set */
+            }
+         }
+         /* Extract vspace via margin-top and margin-bottom */
+         else if(stricmp((char *)prop->name,"margin-top") == 0 || stricmp((char *)prop->name,"margin-bottom") == 0)
+         {  long marginValue;
+            marginValue = ParseCSSLengthValue(prop->value,&num);
+            if(marginValue > 0 && num.type == NUMBER_NUMBER)
+            {  if(vspaceValue < 0) vspaceValue = marginValue;
+               else vspaceValue = (vspaceValue + marginValue) / 2; /* Average if both set */
+            }
+         }
+         
+         if(prop->name) FREE(prop->name);
+         if(prop->value) FREE(prop->value);
+         FreeMem(prop,sizeof(struct CSSProperty));
+      }
+      else
+      {  /* Skip to next semicolon on parse error */
+         while(*p && *p != ';')
+         {  p++;
+         }
+      }
+      
+      /* Skip semicolon */
+      if(*p == ';') p++;
+   }
+   
+   /* Apply extracted values to image */
+   if(borderValue >= 0)
+   {  Asetattrs(copy,AOCPY_Border,borderValue,TAG_END);
+   }
+   if(wtag != TAG_IGNORE && widthValue > 0)
+   {  Asetattrs(copy,wtag,widthValue,TAG_END);
+   }
+   if(htag != TAG_IGNORE && heightValue > 0)
+   {  Asetattrs(copy,htag,heightValue,TAG_END);
+   }
+   if(hspaceValue >= 0)
+   {  Asetattrs(copy,AOCPY_Hspace,hspaceValue,TAG_END);
+   }
+   if(vspaceValue >= 0)
+   {  Asetattrs(copy,AOCPY_Vspace,vspaceValue,TAG_END);
+   }
+}
+
+/* Apply CSS properties to a table (TABLE tag) */
+void ApplyCSSToTable(struct Document *doc,void *table,UBYTE *style)
+{  struct CSSProperty *prop;
+   struct Number num;
+   UBYTE *p;
+   long borderValue;
+   long widthValue;
+   long cellpaddingValue;
+   long cellspacingValue;
+   ULONG wtag;
+   struct Colorinfo *cssBgcolor;
+   
+   if(!doc || !table || !style) return;
+   
+   p = style;
+   wtag = TAG_IGNORE;
+   borderValue = -1;
+   widthValue = -1;
+   cellpaddingValue = -1;
+   cellspacingValue = -1;
+   cssBgcolor = NULL;
+   
+   while(*p)
+   {  SkipWhitespace(&p);
+      if(!*p) break;
+      
+      /* Parse property */
+      prop = ParseProperty(doc,&p);
+      if(prop && prop->name && prop->value)
+      {  /* Extract border */
+         if(stricmp((char *)prop->name,"border") == 0)
+         {  borderValue = ParseCSSLengthValue(prop->value,&num);
+            if(borderValue < 0) borderValue = 0;
+         }
+         /* Extract width */
+         else if(stricmp((char *)prop->name,"width") == 0)
+         {  widthValue = ParseCSSLengthValue(prop->value,&num);
+            if(widthValue > 0)
+            {  if(num.type == NUMBER_PERCENT)
+               {  wtag = AOTAB_Percentwidth;
+               }
+               else
+               {  wtag = AOTAB_Pixelwidth;
+               }
+            }
+         }
+         /* Extract cellpadding via padding */
+         else if(stricmp((char *)prop->name,"padding") == 0)
+         {  cellpaddingValue = ParseCSSLengthValue(prop->value,&num);
+            if(cellpaddingValue < 0) cellpaddingValue = 0;
+         }
+         /* Extract cellspacing - no direct CSS equivalent, but we can parse it if needed */
+         /* Note: CSS border-spacing is CSS2 and not yet supported */
+         /* Extract background-color */
+         else if(stricmp((char *)prop->name,"background-color") == 0)
+         {  ULONG colorrgb;
+            colorrgb = ParseHexColor(prop->value);
+            if(colorrgb != ~0)
+            {  cssBgcolor = Finddoccolor(doc,colorrgb);
+            }
+         }
+         
+         if(prop->name) FREE(prop->name);
+         if(prop->value) FREE(prop->value);
+         FreeMem(prop,sizeof(struct CSSProperty));
+      }
+      else
+      {  /* Skip to next semicolon on parse error */
+         while(*p && *p != ';')
+         {  p++;
+         }
+      }
+      
+      /* Skip semicolon */
+      if(*p == ';') p++;
+   }
+   
+   /* Apply extracted values to table */
+   if(borderValue >= 0)
+   {  Asetattrs(table,AOTAB_Border,borderValue,TAG_END);
+   }
+   if(wtag != TAG_IGNORE && widthValue > 0)
+   {  Asetattrs(table,wtag,widthValue,TAG_END);
+   }
+   if(cellpaddingValue >= 0)
+   {  Asetattrs(table,AOTAB_Cellpadding,cellpaddingValue,TAG_END);
+   }
+   if(cellspacingValue >= 0)
+   {  Asetattrs(table,AOTAB_Cellspacing,cellspacingValue,TAG_END);
+   }
+   if(cssBgcolor)
+   {  Asetattrs(table,AOTAB_Bgcolor,cssBgcolor,TAG_END);
+   }
 }
 

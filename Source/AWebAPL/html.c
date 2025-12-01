@@ -1393,11 +1393,24 @@ static BOOL Docenter(struct Document *doc,struct Tagattr *ta)
 static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
 {  short align=-1;
    void *body;
+   UBYTE *styleAttr=NULL;
+   UBYTE *class=NULL;
+   UBYTE *id=NULL;
+   struct Tagattr *attr;
    Wantbreak(doc,1);
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
       {  case TAGATTR_ALIGN:
             align=Gethalign(ATTR(doc,ta));
+            break;
+         case TAGATTR_STYLE:
+            styleAttr=ATTR(doc,ta);
+            break;
+         case TAGATTR_CLASS:
+            class=ATTR(doc,ta);
+            break;
+         case TAGATTR_ID:
+            id=ATTR(doc,ta);
             break;
       }
    }
@@ -1406,18 +1419,10 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
    Asetattrs(body,AOBDY_Divalign,align,TAG_END);
    Checkid(doc,ta);
    /* Apply CSS to body based on class/ID */
-   {  struct Tagattr *attr;
-      UBYTE *class = NULL;
-      UBYTE *id = NULL;
-      for(attr = ta; attr && attr->next; attr = attr->next)
-      {  if(attr->attr == TAGATTR_CLASS)
-         {  class = ATTR(doc,attr);
-         }
-         else if(attr->attr == TAGATTR_ID)
-         {  id = ATTR(doc,attr);
-         }
-      }
-      ApplyCSSToBody(doc,body,class,id,"DIV");
+   ApplyCSSToBody(doc,body,class,id,"DIV");
+   /* Apply inline CSS if present */
+   if(styleAttr)
+   {  ApplyInlineCSSToBody(doc,body,styleAttr,(UBYTE *)"DIV");
    }
    return TRUE;
 }
@@ -1452,11 +1457,24 @@ static BOOL Donobrend(struct Document *doc)
 static BOOL Dopara(struct Document *doc,struct Tagattr *ta)
 {  short align=-1;
    void *body;
+   UBYTE *styleAttr=NULL;
+   UBYTE *class=NULL;
+   UBYTE *id=NULL;
+   struct Tagattr *attr;
    Wantbreak(doc,2);
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
       {  case TAGATTR_ALIGN:
             align=Gethalign(ATTR(doc,ta));
+            break;
+         case TAGATTR_STYLE:
+            styleAttr=ATTR(doc,ta);
+            break;
+         case TAGATTR_CLASS:
+            class=ATTR(doc,ta);
+            break;
+         case TAGATTR_ID:
+            id=ATTR(doc,ta);
             break;
       }
    }
@@ -1466,18 +1484,10 @@ static BOOL Dopara(struct Document *doc,struct Tagattr *ta)
    if(!Ensuresp(doc)) return FALSE;
    Checkid(doc,ta);
    /* Apply CSS to body based on class/ID */
-   {  struct Tagattr *attr;
-      UBYTE *class = NULL;
-      UBYTE *id = NULL;
-      for(attr = ta; attr && attr->next; attr = attr->next)
-      {  if(attr->attr == TAGATTR_CLASS)
-         {  class = ATTR(doc,attr);
-         }
-         else if(attr->attr == TAGATTR_ID)
-         {  id = ATTR(doc,attr);
-         }
-      }
-      ApplyCSSToBody(doc,body,class,id,"P");
+   ApplyCSSToBody(doc,body,class,id,"P");
+   /* Apply inline CSS if present */
+   if(styleAttr)
+   {  ApplyInlineCSSToBody(doc,body,styleAttr,(UBYTE *)"P");
    }
    return TRUE;
 }
@@ -1995,7 +2005,7 @@ static BOOL Doanchor(struct Document *doc,struct Tagattr *ta)
       Asetattrs(Docbody(doc),AOBDY_Link,link,TAG_END);
       /* Apply inline CSS if present */
       if(styleAttr)
-      {  ApplyInlineCSSToLink(doc,link,styleAttr);
+      {  ApplyInlineCSSToLink(doc,link,Docbody(doc),styleAttr);
       }
    }
    if(name && doc->doctype==DOCTP_BODY)
@@ -2325,12 +2335,16 @@ static BOOL Doimg(struct Document *doc,struct Tagattr *ta)
    struct Number num;
    UBYTE *src=NULL,*mapname,*name=NULL;
    UBYTE *onload=NULL,*onerror=NULL,*onabort=NULL;
+   UBYTE *styleAttr=NULL;
    BOOL ismap=FALSE,wasspace=FALSE;
    void *elt,*url,*referer,*jform=NULL;
    Checkid(doc,ta);
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
-      {  case TAGATTR_SRC:
+      {  case TAGATTR_STYLE:
+            styleAttr=ATTR(doc,ta);
+            break;
+         case TAGATTR_SRC:
             src=ATTR(doc,ta);
             break;
          case TAGATTR_ALIGN:
@@ -2433,6 +2447,10 @@ static BOOL Doimg(struct Document *doc,struct Tagattr *ta)
          CONDTAG(AOCPY_Vspace,vspace),
          TAG_END))) return FALSE;
       if(!Addelement(doc,elt)) return FALSE;
+      /* Apply inline CSS if present */
+      if(styleAttr)
+      {  ApplyCSSToImage(doc,elt,styleAttr);
+      }
       if(flalign<0)
       {  if(!Ensurenosp(doc)) return FALSE;
       }
@@ -2797,10 +2815,14 @@ static BOOL Dotable(struct Document *doc,struct Tagattr *ta)
    struct Colorinfo *bgcolor=NULL,*bordercolor=NULL,*borderdark=NULL,*borderlight=NULL;
    struct Number num;
    void *elt,*bgimg=NULL;
+   UBYTE *styleAttr=NULL;
    Checkid(doc,ta);
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
-      {  case TAGATTR_ALIGN:
+      {  case TAGATTR_STYLE:
+            styleAttr=ATTR(doc,ta);
+            break;
+         case TAGATTR_ALIGN:
             flalign=Getflalign(ATTR(doc,ta));
             if(STRIEQUAL(ATTR(doc,ta),"CENTER")) align=HALIGN_CENTER;
             break;
@@ -2888,6 +2910,10 @@ static BOOL Dotable(struct Document *doc,struct Tagattr *ta)
          TAG_END))) return FALSE;
       if(!Addelement(doc,elt)) return FALSE;
       if(!Pushtable(doc,elt)) return FALSE;
+      /* Apply inline CSS if present */
+      if(styleAttr)
+      {  ApplyCSSToTable(doc,elt,styleAttr);
+      }
       if(!Ensuresp(doc)) return FALSE;
    }
    doc->pflags&=~DPF_BLINK;
@@ -3247,20 +3273,23 @@ static BOOL Dotd(struct Document *doc,struct Tagattr *ta,BOOL heading)
       {  struct Colorinfo *cssBgcolor;
          void *table;
          
-         Agetattrs(doc->tables.first->table,
+         table = doc->tables.first->table;
+         Agetattrs(table,
             AOTAB_Bodync,&cellBody,
             TAG_END);
          if(cellBody)
          {  /* Apply CSS to body */
             ApplyInlineCSSToBody(doc,cellBody,styleAttr,(UBYTE *)(heading?"TH":"TD"));
-            
-            /* For table cells, also apply background-color to table cell structure */
-            /* This matches the behavior of the HTML BGCOLOR attribute */
-            cssBgcolor = ExtractBackgroundColorFromStyle(doc,styleAttr);
-            if(cssBgcolor)
-            {  table = doc->tables.first->table;
-               Asetattrs(table,AOTAB_Bgcolor,cssBgcolor,TAG_END);
-            }
+         }
+         
+         /* Apply table-cell-specific CSS properties (width, height, vertical-align, background-color) */
+         ApplyCSSToTableCell(doc,table,styleAttr);
+         
+         /* Also apply background-color to table cell structure */
+         /* This matches the behavior of the HTML BGCOLOR attribute */
+         cssBgcolor = ExtractBackgroundColorFromStyle(doc,styleAttr);
+         if(cssBgcolor)
+         {  Asetattrs(table,AOTAB_Bgcolor,cssBgcolor,TAG_END);
          }
       }
    }
