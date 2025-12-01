@@ -106,6 +106,18 @@ static long Setelement(struct Element *elt,struct Amset *ams)
          case AOELT_Nobr:
             SETFLAG(elt->eltflags,ELTF_NOBR,tag->ti_Data);
             break;
+         case AOELT_TagName:
+            if(elt->tagname) FREE(elt->tagname);
+            elt->tagname = (UBYTE *)tag->ti_Data;
+            break;
+         case AOELT_Class:
+            if(elt->class) FREE(elt->class);
+            elt->class = (UBYTE *)tag->ti_Data;
+            break;
+         case AOELT_Id:
+            if(elt->id) FREE(elt->id);
+            elt->id = (UBYTE *)tag->ti_Data;
+            break;
       }
    }
    if(elt->halign&HALIGN_FLOATLEFT) elt->valign=VALIGN_TOP;
@@ -169,6 +181,15 @@ static long Getelement(struct Element *elt,struct Amset *ams)
             break;
          case AOELT_Nobr:
             PUTATTR(tag,BOOLVAL(elt->eltflags&ELTF_NOBR));
+            break;
+         case AOELT_TagName:
+            PUTATTR(tag,elt->tagname);
+            break;
+         case AOELT_Class:
+            PUTATTR(tag,elt->class);
+            break;
+         case AOELT_Id:
+            PUTATTR(tag,elt->id);
             break;
       }
    }
@@ -289,6 +310,9 @@ static long Hittestelement(struct Element *elt,struct Amhittest *amh)
 
 static void Disposeelement(struct Element *elt)
 {  if(elt->link) Aremchild(elt->link,elt,0);
+   if(elt->tagname) FREE(elt->tagname);
+   if(elt->class) FREE(elt->class);
+   if(elt->id) FREE(elt->id);
    Amethodas(AOTP_OBJECT,elt,AOM_DISPOSE);
 }
 

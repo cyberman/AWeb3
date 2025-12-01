@@ -18,6 +18,9 @@
 
 /* docprivate.h - AWeb document drivers private */
 
+#ifndef AWEB_DOCPRIVATE_H
+#define AWEB_DOCPRIVATE_H
+
 #include "copydriver.h"
 
 /*--- Document source driver ---*/
@@ -72,6 +75,7 @@ struct Document
    struct Buffer args;        /* tag arguments, reused */
    struct Buffer jsrc;        /* Javascript source */
    struct Buffer jout;        /* Javascript output */
+   struct Buffer csssrc;      /* CSS source from <style> tags */
    long srcpos;               /* first nonprocessed position in source buffer */
    long joutpos;              /* idem, in javascript output buffer */
    long jsrcline;             /* Starting source line # for javascript */
@@ -126,6 +130,7 @@ struct Document
    UBYTE *onfocus;
    UBYTE *onblur;
    UBYTE *jdomain;            /* JS domain property */
+   void *cssstylesheet;       /* CSS stylesheet for this document */
 };
 
 #define DPF_PREFORMAT      0x00000001  /* doing PRE */
@@ -276,3 +281,5 @@ extern void Remwaitingdoc(struct Document *doc);
 /* from docsource.c: */
 
 extern long Docslinenrfrompos(struct Docsource *dos,long pos);
+
+#endif /* AWEB_DOCPRIVATE_H */

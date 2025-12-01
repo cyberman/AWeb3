@@ -84,8 +84,14 @@
     * element supports incremental display. Default 0 = entire element.
     * Up to subclasses to implement. */
 
-#define AOELT_   (AOELT_Dummy+)
-#define AOELT_   (AOELT_Dummy+)
+#define AOELT_TagName      (AOELT_Dummy+21)  /* SET,GET */
+   /* (UBYTE *) HTML tag name (e.g. "DIV", "P") */
+
+#define AOELT_Class        (AOELT_Dummy+22)  /* SET,GET */
+   /* (UBYTE *) CSS class name(s) */
+
+#define AOELT_Id           (AOELT_Dummy+23)  /* SET,GET */
+   /* (UBYTE *) Element ID */
 
 
 /* Horizontal alignments */
@@ -122,6 +128,9 @@ struct Element
    void *link;
    UBYTE leftindent,rightindent;
                            /* Left and right indentation level */
+   UBYTE *tagname;         /* HTML tag name for CSS matching */
+   UBYTE *class;           /* CSS class name(s) */
+   UBYTE *id;              /* Element ID */
 };
 
 #define ELTF_MEASURED   0x0001   /* Gone through AOM_MEASURE */

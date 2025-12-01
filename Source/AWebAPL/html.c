@@ -48,6 +48,7 @@
 #include "textarea.h"
 #include "filefield.h"
 #include "url.h"
+#include "css.h"
 #include "window.h"
 
 struct Number  /* number or percentage */
@@ -197,6 +198,372 @@ static BOOL Addelement(struct Document *doc,void *elt)
       return FALSE;
    }
    return TRUE;
+}
+
+
+/* Forward declaration */
+static long Getnumber(struct Number *num,UBYTE *p);
+
+/* Apply CSS to a Body object based on class/ID attributes */
+static void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE *tagname)
+{  struct CSSRule *rule;
+   struct CSSSelector *sel;
+   struct CSSProperty *prop;
+   struct CSSStylesheet *sheet;
+   UBYTE *classPtr;
+   short align;
+   struct Number num;
+   long posValue;
+   BOOL isAbsolute;
+   UBYTE *topValue;
+   UBYTE *leftValue;
+   UBYTE *marginRightValue;
+   BOOL matches;
+   UBYTE *comma;
+   UBYTE *fontFace;
+   short fontSize;
+   BOOL isRelative;
+   
+   if(!doc || !body || !doc->cssstylesheet) return;
+   
+   isAbsolute = FALSE;
+   topValue = NULL;
+   leftValue = NULL;
+   marginRightValue = NULL;
+   
+   sheet = (struct CSSStylesheet *)doc->cssstylesheet;
+   
+   /* First pass: Find matching CSS rules and determine position type */
+   for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
+       (struct MinNode *)rule->node.mln_Succ;
+       rule = (struct CSSRule *)rule->node.mln_Succ)
+   {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
+         (struct MinNode *)sel->node.mln_Succ;
+         sel = (struct CSSSelector *)sel->node.mln_Succ)
+      {  matches = TRUE;
+         
+         /* Match element name */
+         if(sel->type & CSS_SEL_ELEMENT && sel->name)
+         {  if(!tagname || stricmp((char *)sel->name,(char *)tagname) != 0)
+            {  matches = FALSE;
+            }
+         }
+         
+         /* Match class */
+         if(matches && sel->type & CSS_SEL_CLASS && sel->class)
+         {  if(!class)
+            {  matches = FALSE;
+            }
+            else
+            {  classPtr = (UBYTE *)strstr((char *)class,(char *)sel->class);
+               if(!classPtr)
+               {  matches = FALSE;
+               }
+               else
+               {  /* Make sure it's a complete word match */
+                  if(classPtr != class && !isspace(classPtr[-1]))
+                  {  matches = FALSE;
+                  }
+                  else if(classPtr[strlen((char *)sel->class)] != '\0' && 
+                          !isspace(classPtr[strlen((char *)sel->class)]))
+                  {  matches = FALSE;
+                  }
+               }
+            }
+         }
+         
+         /* Match ID */
+         if(matches && sel->type & CSS_SEL_ID && sel->id)
+         {  if(!id || stricmp((char *)sel->id,(char *)id) != 0)
+            {  matches = FALSE;
+            }
+         }
+         
+         /* If selector matches, collect position-related properties */
+         if(matches)
+         {  for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
+               (struct MinNode *)prop->node.mln_Succ;
+               prop = (struct CSSProperty *)prop->node.mln_Succ)
+            {  if(prop->name && prop->value)
+               {  /* Check position property first */
+                  if(stricmp((char *)prop->name,"position") == 0)
+                  {  if(stricmp((char *)prop->value,"absolute") == 0)
+                     {  isAbsolute = TRUE;
+                     }
+                  }
+                  /* Store top, left, margin-right for later processing */
+                  else if(stricmp((char *)prop->name,"top") == 0)
+                  {  topValue = prop->value;
+                  }
+                  else if(stricmp((char *)prop->name,"left") == 0)
+                  {  leftValue = prop->value;
+                  }
+                  else if(stricmp((char *)prop->name,"margin-right") == 0)
+                  {  marginRightValue = prop->value;
+                  }
+               }
+            }
+         }
+      }
+   }
+   
+   /* Second pass: Apply all properties */
+   for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
+       (struct MinNode *)rule->node.mln_Succ;
+       rule = (struct CSSRule *)rule->node.mln_Succ)
+   {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
+         (struct MinNode *)sel->node.mln_Succ;
+         sel = (struct CSSSelector *)sel->node.mln_Succ)
+      {  matches = TRUE;
+         
+         /* Match element name */
+         if(sel->type & CSS_SEL_ELEMENT && sel->name)
+         {  if(!tagname || stricmp((char *)sel->name,(char *)tagname) != 0)
+            {  matches = FALSE;
+            }
+         }
+         
+         /* Match class */
+         if(matches && sel->type & CSS_SEL_CLASS && sel->class)
+         {  if(!class)
+            {  matches = FALSE;
+            }
+            else
+            {  classPtr = (UBYTE *)strstr((char *)class,(char *)sel->class);
+               if(!classPtr)
+               {  matches = FALSE;
+               }
+               else
+               {  /* Make sure it's a complete word match */
+                  if(classPtr != class && !isspace(classPtr[-1]))
+                  {  matches = FALSE;
+                  }
+                  else if(classPtr[strlen((char *)sel->class)] != '\0' && 
+                          !isspace(classPtr[strlen((char *)sel->class)]))
+                  {  matches = FALSE;
+                  }
+               }
+            }
+         }
+         
+         /* Match ID */
+         if(matches && sel->type & CSS_SEL_ID && sel->id)
+         {  if(!id || stricmp((char *)sel->id,(char *)id) != 0)
+            {  matches = FALSE;
+            }
+         }
+         
+         /* If selector matches, apply properties */
+         if(matches)
+         {  for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
+               (struct MinNode *)prop->node.mln_Succ;
+               prop = (struct CSSProperty *)prop->node.mln_Succ)
+            {  if(prop->name && prop->value)
+               {  /* Apply text-align to body alignment */
+                  if(stricmp((char *)prop->name,"text-align") == 0)
+                  {  if(stricmp((char *)prop->value,"center") == 0)
+                     {  align = HALIGN_CENTER;
+                     }
+                     else if(stricmp((char *)prop->value,"left") == 0)
+                     {  align = HALIGN_LEFT;
+                     }
+                     else if(stricmp((char *)prop->value,"right") == 0)
+                     {  align = HALIGN_RIGHT;
+                     }
+                     else
+                     {  continue;
+                     }
+                     /* Apply to body's divalign (for DIV) or align (for P) */
+                     if(tagname && stricmp((char *)tagname,"DIV") == 0)
+                     {  Asetattrs(body,AOBDY_Divalign,align,TAG_END);
+                     }
+                     else if(tagname && stricmp((char *)tagname,"P") == 0)
+                     {  Asetattrs(body,AOBDY_Align,align,TAG_END);
+                     }
+                  }
+                  /* Apply font-family */
+                  else if(stricmp((char *)prop->name,"font-family") == 0)
+                  {  fontFace = NULL;
+                     
+                     /* Parse font family list (comma-separated) */
+                     /* Find first font name (before comma) */
+                     comma = (UBYTE *)strchr((char *)prop->value,',');
+                     if(comma)
+                     {  long len = comma - prop->value;
+                        fontFace = AllocMem(len + 1,MEMF_CLEAR);
+                        if(fontFace)
+                        {  strncpy((char *)fontFace,(char *)prop->value,len);
+                           fontFace[len] = '\0';
+                           /* Trim whitespace */
+                           while(len > 0 && isspace(fontFace[len - 1]))
+                           {  fontFace[--len] = '\0';
+                           }
+                        }
+                     }
+                     else
+                     {  fontFace = Dupstr(prop->value,-1);
+                     }
+                     
+                     if(fontFace)
+                     {  /* Apply font face to body */
+                        Asetattrs(body,AOBDY_Fontface,fontFace,TAG_END);
+                     }
+                  }
+                  /* Apply font-size */
+                  else if(stricmp((char *)prop->name,"font-size") == 0)
+                  {  fontSize = 0;
+                     isRelative = FALSE;
+                     
+                     /* Map CSS font-size keywords to AWeb sizes (1-7) */
+                     if(stricmp((char *)prop->value,"xx-small") == 0)
+                     {  fontSize = 1; /* Smallest */
+                     }
+                     else if(stricmp((char *)prop->value,"x-small") == 0)
+                     {  fontSize = 2;
+                     }
+                     else if(stricmp((char *)prop->value,"small") == 0)
+                     {  fontSize = 3;
+                     }
+                     else if(stricmp((char *)prop->value,"medium") == 0)
+                     {  fontSize = 4; /* Default */
+                     }
+                     else if(stricmp((char *)prop->value,"large") == 0)
+                     {  fontSize = 5;
+                     }
+                     else if(stricmp((char *)prop->value,"x-large") == 0)
+                     {  fontSize = 6;
+                     }
+                     else if(stricmp((char *)prop->value,"xx-large") == 0)
+                     {  fontSize = 7; /* Largest */
+                     }
+                     else if(stricmp((char *)prop->value,"smaller") == 0)
+                     {  fontSize = -1; /* Relative: one size smaller */
+                        isRelative = TRUE;
+                     }
+                     else if(stricmp((char *)prop->value,"larger") == 0)
+                     {  fontSize = 1; /* Relative: one size larger */
+                        isRelative = TRUE;
+                     }
+                     
+                     if(fontSize != 0)
+                     {  /* Apply font size to body */
+                        if(isRelative)
+                        {  Asetattrs(body,AOBDY_Fontsizerel,fontSize,TAG_END);
+                        }
+                        else
+                        {  Asetattrs(body,AOBDY_Fontsize,fontSize,TAG_END);
+                        }
+                     }
+                  }
+                  /* CSS2: position property */
+                  else if(stricmp((char *)prop->name,"position") == 0)
+                  {  if(stricmp((char *)prop->value,"absolute") == 0)
+                     {  isAbsolute = TRUE;
+                        /* Note: Full absolute positioning requires layout engine changes */
+                     }
+                     else if(stricmp((char *)prop->value,"relative") == 0)
+                     {  /* Relative positioning - not yet implemented */
+                     }
+                     else if(stricmp((char *)prop->value,"static") == 0)
+                     {  /* Static positioning (default) */
+                     }
+                     else if(stricmp((char *)prop->value,"fixed") == 0)
+                     {  /* Fixed positioning - not yet implemented */
+                     }
+                  }
+                  /* CSS2: top property */
+                  else if(stricmp((char *)prop->name,"top") == 0)
+                  {  posValue = Getnumber(&num,prop->value);
+                     if(isAbsolute && num.type == NUMBER_PERCENT)
+                     {  /* Percentage-based top positioning */
+                        /* Note: Full percentage positioning requires layout engine changes */
+                        /* For now, we parse but don't apply percentage-based positioning */
+                     }
+                     else if(isAbsolute && num.type == NUMBER_NUMBER)
+                     {  /* Pixel-based top positioning */
+                        Asetattrs(body,AOBJ_Top,posValue,TAG_END);
+                     }
+                  }
+                  /* CSS2: left property */
+                  else if(stricmp((char *)prop->name,"left") == 0)
+                  {  posValue = Getnumber(&num,prop->value);
+                     if(isAbsolute && num.type == NUMBER_PERCENT)
+                     {  /* Percentage-based left positioning */
+                        /* Note: Full percentage positioning requires layout engine changes */
+                        /* For now, we parse but don't apply percentage-based positioning */
+                     }
+                     else if(isAbsolute && num.type == NUMBER_NUMBER)
+                     {  /* Pixel-based left positioning */
+                        Asetattrs(body,AOBJ_Left,posValue,TAG_END);
+                     }
+                  }
+                  /* CSS1: margin-right property */
+                  else if(stricmp((char *)prop->name,"margin-right") == 0)
+                  {  posValue = Getnumber(&num,prop->value);
+                     if(num.type == NUMBER_PERCENT)
+                     {  /* Percentage-based margin */
+                        /* Note: Percentage and negative margins require layout calculation */
+                        /* For now, we parse but don't apply percentage-based margins */
+                     }
+                     else if(num.type == NUMBER_NUMBER)
+                     {  /* Pixel-based margin */
+                        /* Note: margin-right would need new attribute or layout changes */
+                        /* For now, we parse but don't apply */
+                     }
+                  }
+                  /* CSS1: margin-left, margin-top, margin-bottom */
+                  else if(stricmp((char *)prop->name,"margin-left") == 0 ||
+                          stricmp((char *)prop->name,"margin-top") == 0 ||
+                          stricmp((char *)prop->name,"margin-bottom") == 0)
+                  {  posValue = Getnumber(&num,prop->value);
+                     if(num.type == NUMBER_NUMBER)
+                     {  /* Pixel-based margin */
+                        if(stricmp((char *)prop->name,"margin-left") == 0)
+                        {  /* Apply to left margin */
+                           Asetattrs(body,AOBDY_Leftmargin,posValue,TAG_END);
+                        }
+                        else if(stricmp((char *)prop->name,"margin-top") == 0)
+                        {  /* Apply to top margin */
+                           Asetattrs(body,AOBDY_Topmargin,posValue,TAG_END);
+                        }
+                        /* margin-bottom would need new attribute */
+                     }
+                  }
+                  /* Note: transform is CSS3 and is not implemented (CSS1/CSS2 only) */
+               }
+            }
+         }
+      }
+   }
+   
+   /* Apply position properties after all other properties are processed */
+   if(isAbsolute)
+   {  /* Process top and left with percentage support */
+      if(topValue)
+      {  posValue = Getnumber(&num,topValue);
+         if(num.type == NUMBER_PERCENT)
+         {  /* Percentage-based top: requires containing block height */
+            /* Note: This requires layout engine integration */
+         }
+         else if(num.type == NUMBER_NUMBER)
+         {  Asetattrs(body,AOBJ_Top,posValue,TAG_END);
+         }
+      }
+      if(leftValue)
+      {  posValue = Getnumber(&num,leftValue);
+         if(num.type == NUMBER_PERCENT)
+         {  /* Percentage-based left: requires containing block width */
+            /* Note: This requires layout engine integration */
+         }
+         else if(num.type == NUMBER_NUMBER)
+         {  Asetattrs(body,AOBJ_Left,posValue,TAG_END);
+         }
+      }
+      if(marginRightValue)
+      {  posValue = Getnumber(&num,marginRightValue);
+         /* Note: margin-right with percentage/negative values requires layout calculation */
+      }
+   }
 }
 
 /* Check for ID attribute. Scan ta list both ways since this function can be
@@ -810,6 +1177,32 @@ static BOOL Dojsource(struct Document *doc,struct Tagattr *ta)
    return TRUE;
 }
 
+/*** CSS source ***/
+static BOOL Docsssource(struct Document *doc,struct Tagattr *ta)
+{  if(ta->length>0)
+   if(!Addtobuffer(&doc->csssrc,ATTR(doc,ta),ta->length)) return FALSE;
+   ta=ta->next;
+   if(ta && ta->next && ta->attr==TAGATTR_BR)
+   {  if(!Addtobuffer(&doc->csssrc,"\n",1)) return FALSE;
+   }
+   return TRUE;
+}
+
+/*** </STYLE> - Process CSS ***/
+static BOOL Docssend(struct Document *doc)
+{  UBYTE *css;
+   if(doc->csssrc.length>0)
+   {  if(!Addtobuffer(&doc->csssrc,"",1)) return FALSE; /* null terminate */
+      css=doc->csssrc.buffer;
+      if(css)
+      {  /* Parse and apply CSS stylesheet */
+         ParseCSSStylesheet(doc,css);
+      }
+      Freebuffer(&doc->csssrc);
+   }
+   return TRUE;
+}
+
 /*** </SCRIPT> ***/
 /* Only called while processing JavaScript, not other scripts */
 static BOOL Doscriptend(struct Document *doc)
@@ -1010,6 +1403,7 @@ static BOOL Docenter(struct Document *doc,struct Tagattr *ta)
 /*** <DIV> ***/
 static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
 {  short align=-1;
+   void *body;
    Wantbreak(doc,1);
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
@@ -1019,8 +1413,23 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
       }
    }
    if(!Ensurebody(doc)) return FALSE;
-   Asetattrs(Docbodync(doc),AOBDY_Divalign,align,TAG_END);
+   body = Docbodync(doc);
+   Asetattrs(body,AOBDY_Divalign,align,TAG_END);
    Checkid(doc,ta);
+   /* Apply CSS to body based on class/ID */
+   {  struct Tagattr *attr;
+      UBYTE *class = NULL;
+      UBYTE *id = NULL;
+      for(attr = ta; attr && attr->next; attr = attr->next)
+      {  if(attr->attr == TAGATTR_CLASS)
+         {  class = ATTR(doc,attr);
+         }
+         else if(attr->attr == TAGATTR_ID)
+         {  id = ATTR(doc,attr);
+         }
+      }
+      ApplyCSSToBody(doc,body,class,id,"DIV");
+   }
    return TRUE;
 }
 
@@ -1053,6 +1462,7 @@ static BOOL Donobrend(struct Document *doc)
 /*** <P> ***/
 static BOOL Dopara(struct Document *doc,struct Tagattr *ta)
 {  short align=-1;
+   void *body;
    Wantbreak(doc,2);
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
@@ -1062,9 +1472,24 @@ static BOOL Dopara(struct Document *doc,struct Tagattr *ta)
       }
    }
    if(!Ensurebody(doc)) return FALSE;
-   Asetattrs(Docbodync(doc),AOBDY_Align,align,TAG_END);
+   body = Docbodync(doc);
+   Asetattrs(body,AOBDY_Align,align,TAG_END);
    if(!Ensuresp(doc)) return FALSE;
    Checkid(doc,ta);
+   /* Apply CSS to body based on class/ID */
+   {  struct Tagattr *attr;
+      UBYTE *class = NULL;
+      UBYTE *id = NULL;
+      for(attr = ta; attr && attr->next; attr = attr->next)
+      {  if(attr->attr == TAGATTR_CLASS)
+         {  class = ATTR(doc,attr);
+         }
+         else if(attr->attr == TAGATTR_ID)
+         {  id = ATTR(doc,attr);
+         }
+      }
+      ApplyCSSToBody(doc,body,class,id,"P");
+   }
    return TRUE;
 }
 
@@ -1391,9 +1816,13 @@ static BOOL Dofont(struct Document *doc,struct Tagattr *ta)
    ULONG colorrgb=~0;
    struct Colorinfo *ci=NULL;
    UBYTE *face=NULL;
+   UBYTE *styleAttr=NULL;
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
-      {  case TAGATTR_SIZE:
+      {  case TAGATTR_STYLE:
+            styleAttr=ATTR(doc,ta);
+            break;
+         case TAGATTR_SIZE:
             size=Getnumber(&num,ATTR(doc,ta));
             if(num.type==NUMBER_SIGNED) sizetag=AOBDY_Fontsizerel;
             else sizetag=AOBDY_Fontsize;
@@ -1419,6 +1848,10 @@ static BOOL Dofont(struct Document *doc,struct Tagattr *ta)
             (face?AOBDY_Fontface:TAG_IGNORE),face,
             TAG_END);
       }
+   }
+   /* Apply inline CSS if present */
+   if(styleAttr && doc->doctype==DOCTP_BODY)
+   {  ApplyInlineCSSToBody(doc,Docbody(doc),styleAttr,(UBYTE *)"FONT");
    }
    Checkid(doc,ta);
    return TRUE;
@@ -2728,9 +3161,14 @@ static BOOL Dotd(struct Document *doc,struct Tagattr *ta,BOOL heading)
    struct Number num;
    struct Colorinfo *bgcolor=NULL,*bordercolor=NULL,*borderdark=NULL,*borderlight=NULL;
    void *bgimg=NULL;
+   UBYTE *styleAttr=NULL;
+   void *cellBody=NULL;
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
-      {  case TAGATTR_ALIGN:
+      {  case TAGATTR_STYLE:
+            styleAttr=ATTR(doc,ta);
+            break;
+         case TAGATTR_ALIGN:
             halign=Gethalign(ATTR(doc,ta));
             break;
          case TAGATTR_VALIGN:
@@ -2806,6 +3244,16 @@ static BOOL Dotd(struct Document *doc,struct Tagattr *ta,BOOL heading)
       doc->gotbreak=2;
       doc->wantbreak=0;
       if(Agetattr(Docbodync(doc),AOBDY_Style)!=STYLE_PRE) doc->pflags&=~DPF_PREFORMAT;
+      
+      /* Apply inline CSS if present */
+      if(styleAttr)
+      {  Agetattrs(doc->tables.first->table,
+            AOTAB_Bodync,&cellBody,
+            TAG_END);
+         if(cellBody)
+         {  ApplyInlineCSSToBody(doc,cellBody,styleAttr,(UBYTE *)(heading?"TH":"TD"));
+         }
+      }
    }
    if(!Ensuresp(doc)) return FALSE;
    doc->pflags&=~DPF_BLINK;
@@ -3936,17 +4384,23 @@ BOOL Processhtml(struct Document *doc,USHORT tagtype,struct Tagattr *ta)
          break;
       case DPM_STYLE:
          switch(tagtype)
-         {  case MARKUP_STYLE|MARKUP_END:
+         {  case MARKUP_TEXT:
+               result=Docsssource(doc,ta);
+               break;
+            case MARKUP_STYLE|MARKUP_END:
+               result=Docssend(doc);
                doc->pmode=DPM_BODY;
                break;
             case MARKUP_HEAD|MARKUP_END:
                if(doc->htmlmode==HTML_COMPATIBLE)
-               {  doc->pmode=DPM_BODY;
+               {  result=Docssend(doc);
+                  doc->pmode=DPM_BODY;
                }
                break;
             case MARKUP_BODY:
                if(doc->htmlmode==HTML_COMPATIBLE)
-               {  doc->pmode=DPM_BODY;
+               {  result=Docssend(doc);
+                  doc->pmode=DPM_BODY;
                   result=Dobody(doc,ta);
                }
                break;
@@ -4075,6 +4529,7 @@ BOOL Processhtml(struct Document *doc,USHORT tagtype,struct Tagattr *ta)
                result=Dotitle(doc);
                break;
             case MARKUP_STYLE:
+               Freebuffer(&doc->csssrc);
                doc->pmode=DPM_STYLE;
                break;
             case MARKUP_SCRIPT:

@@ -62,7 +62,7 @@ aweb:       soundsource.o docext.o
 aweb:       copydriver.o document.o imgcopy.o soundcopy.o docjs.o
 #  Document objects
 aweb:       parse.o markdown.o html.o frameset.o body.o link.o map.o area.o form.o
-aweb:       element.o break.o text.o ruler.o bullet.o table.o name.o
+aweb:       element.o break.o text.o ruler.o bullet.o table.o name.o css.o
 aweb:       field.o input.o checkbox.o radio.o select.o textarea.o button.o
 aweb:       hidden.o filefield.o
 #  Link
