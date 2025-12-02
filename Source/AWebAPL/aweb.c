@@ -984,11 +984,11 @@ static void Cleanup(void)
    Freeprefs();
    Freeobject();  /* MUST be called before Freesupport(), Freeapplication() */
 
-   Freeapplication();   /* after Freeobject bcz it frees the JS context */
-   Freearexx();   /* after Freeobject() bcz it waits for scripts to complete */
-   Freehttp();    /* after Freeobject() bcz tasks must be stopped */
-   Freenameserv();/* after Freeobject() bcz network tasks use hent structures freed here */
-   Freeamissl();  /* after Freehttp() bcz all SSL connections must be closed first */
+   Freeapplication();   /* after Freeobject because it frees the JS context */
+   Freearexx();   /* after Freeobject() because it waits for scripts to complete */
+   Freehttp();    /* after Freeobject() because tasks must be stopped */
+   Freenameserv();/* after Freeobject() because network tasks use hent structures freed here */
+   Freeamissl();  /* after Freehttp() because all SSL connections must be closed first */
    Freesupport();
    Freememory();  /* MUST be the very last! */
    if(locale) CloseLocale(locale);
@@ -1274,6 +1274,7 @@ static BOOL Hasprotocol(UBYTE *url)
    if(STRNIEQUAL(url,"FTP://",6)) return TRUE;
    if(STRNIEQUAL(url,"GOPHER://",9)) return TRUE;
    if(STRNIEQUAL(url,"GEMINI://",9)) return TRUE;
+   if(STRNIEQUAL(url,"SPARTAN://",10)) return TRUE;
    if(STRNIEQUAL(url,"FILE://",7)) return TRUE;
    if(STRNIEQUAL(url,"NNTP://",7)) return TRUE;
    if(STRNIEQUAL(url,"TELNET://",9)) return TRUE;

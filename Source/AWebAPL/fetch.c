@@ -555,6 +555,19 @@ static void Driverfunction(struct Fetch *fch)
          fch->fd->validate=MSG_EPART_NOAWEBLIB;
       }
    }
+   else if(STRNIEQUAL(fch->name,"SPARTAN://",10))
+   {  if(fch->fdbase=Openaweblib("AWeb:aweblib/gemini.aweblib"))
+      {  fch->driverfun=AWEBLIBENTRY(fch->fdbase,0);
+         fch->fd->name=Unescape(fch->name+10);
+         /* Spartan does NOT use SSL - do not set FDVF_SSL flag */
+         fch->flags|=FCHF_NETSLOT;
+      }
+      else
+      {  fch->driverfun=Errorschemetask;
+         fch->fd->name=fch->name;
+         fch->fd->validate=MSG_EPART_NOAWEBLIB;
+      }
+   }
    /* Legacy protocols removed - Telnet support discontinued */
    else if(STRNIEQUAL(fch->name,"TELNET:",7))
    {  fch->driverfun=Errorschemetask;

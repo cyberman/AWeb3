@@ -17,6 +17,7 @@
  **********************************************************************/
 
 /* awebview.c AWebView main - local file viewer */
+/* Forked from aweb.c */
 
 #include "aweb.h"
 #include "url.h"
@@ -1286,6 +1287,7 @@ static BOOL Hasprotocol(UBYTE *url)
    if(STRNIEQUAL(url,"FTP://",6)) return TRUE;
    if(STRNIEQUAL(url,"GOPHER://",9)) return TRUE;
    if(STRNIEQUAL(url,"GEMINI://",9)) return TRUE;
+   if(STRNIEQUAL(url,"SPARTAN://",10)) return TRUE;
    if(STRNIEQUAL(url,"FILE://",7)) return TRUE;
    if(STRNIEQUAL(url,"NNTP://",7)) return TRUE;
    if(STRNIEQUAL(url,"TELNET://",9)) return TRUE;

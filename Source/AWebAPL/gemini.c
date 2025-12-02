@@ -214,19 +214,25 @@ static void Urldecode(UBYTE *string)
    *q='\0';
 }
 
-/* Parse gemini://host:port/path?query URL */
-/* Note: name should NOT include gemini:// prefix (it's stripped in fetch.c) */
-static BOOL Makegeminaddr(struct Geminaddr *ha,UBYTE *name)
+/* Parse gemini://host:port/path?query or spartan://host:port/path?query URL */
+/* Note: name should NOT include gemini:// or spartan:// prefix (it's stripped in fetch.c) */
+/* Returns TRUE if successful, FALSE on error */
+/* Sets default port based on protocol: 1965 for Gemini, 300 for Spartan */
+static BOOL Makegeminaddr(struct Geminaddr *ha,UBYTE *name,BOOL is_spartan)
 {  long len=strlen(name);
    UBYTE *p,*q,*query_start;
    ha->buf=ALLOCTYPE(UBYTE,len+2,0);
    if(!ha->buf) return FALSE;
    p=name;
-   /* CRITICAL: Ensure name doesn't contain gemini:// prefix */
+   /* CRITICAL: Ensure name doesn't contain gemini:// or spartan:// prefix */
    /* This should never happen, but check to prevent error 53 */
    if(!strnicmp(p,"gemini://",9))
    {  /* Skip gemini:// prefix if present (shouldn't happen) */
       p+=9;
+   }
+   else if(!strnicmp(p,"spartan://",10))
+   {  /* Skip spartan:// prefix if present (shouldn't happen) */
+      p+=10;
    }
    ha->hostname=q=ha->buf;
    /* Extract hostname */
@@ -241,21 +247,22 @@ static BOOL Makegeminaddr(struct Geminaddr *ha,UBYTE *name)
          p++;
       }
    }
-   else ha->port=1965;  /* Default Gemini port */
-   /* Extract path - p now points to either /, ?, or \0 */
-   /* Skip to the path part (after the /) */
-   if(*p=='/') p++;  /* skip leading / */
-   else if(*p && *p!='?')
-   {  /* No / found, but there's more data - this shouldn't happen with gemini:// URLs */
-      /* Skip any remaining characters until / or ? */
-      while(*p && *p!='/' && *p!='?') p++;
-      if(*p=='/') p++;  /* skip / if found */
+   else
+   {  /* Default port based on protocol */
+      if(is_spartan)
+      {  ha->port=300;  /* Default Spartan port */
+      }
+      else
+      {  ha->port=1965;  /* Default Gemini port */
+      }
    }
+   /* Extract path - p now points to either /, ?, or \0 */
+
    query_start=strchr(p,'?');
    if(query_start)
    {  /* Has query string */
       ha->path=q;
-      while(p<query_start) *q++=*p++;
+      while(p<=query_start) *q++=*p++;
       *q++='\0';
       ha->query=q;
       p++;  /* skip ? */
@@ -264,17 +271,26 @@ static BOOL Makegeminaddr(struct Geminaddr *ha,UBYTE *name)
    else
    {  /* No query string */
       ha->path=q;
-      if(*p)
-      {  strcpy(q,p);
+      if(*p=='/')
+      {  /* Path starts with / - include it */
+         strcpy(q,p);
+      }
+      else if(*p)
+      {  /* No leading / but has path - shouldn't happen, but add / */
+         *q++='/';
+         strcpy(q,p);
       }
       else
-      {  *q='\0';
+      {  /* No path - use root / */
+         *q++='/';
+         *q='\0';
       }
       ha->query=NULL;
    }
+   /* Decode hostname (needed for DNS lookup) */
    Urldecode(ha->hostname);
-   Urldecode(ha->path);
-   if(ha->query) Urldecode(ha->query);
+   /* CRITICAL: Do NOT decode path or query - they must remain percent-encoded */
+   /* Decoding breaks URLs with encoded characters like spaces, special chars, etc. */
    /* Validate hostname is not empty */
    if(!ha->hostname || !*ha->hostname)
    {  FREE(ha->buf);
@@ -296,10 +312,110 @@ struct GResponse
    UBYTE *base_hostname;  /* Base hostname for resolving relative URLs */
    long base_port;  /* Base port for resolving relative URLs */
    UBYTE *base_path;  /* Base path for resolving relative URLs */
+   BOOL is_spartan;  /* TRUE if this is a Spartan page (affects link URL generation) */
 };
 
 /* Forward declarations */
-static BOOL Resolverelativeurl(struct Geminaddr *base,UBYTE *relative,struct Geminaddr *result);
+static BOOL Resolverelativeurl(struct Geminaddr *base,UBYTE *relative,struct Geminaddr *result,BOOL is_spartan);
+static void Removedotsegments(UBYTE *path);
+
+/* Remove dot segments from path (RFC 3986 section 5.2.4) */
+static void Removedotsegments(UBYTE *path)
+{  UBYTE output[1024];
+   UBYTE *in,*out;
+   long seglen;
+   long inlen;
+   UBYTE *slash_pos;
+   if(!path || !*path) return;
+   output[0]='\0';
+   in=path;
+   out=output;
+   while(*in)
+   {  /* A: Remove "../" and "./" at start */
+      if(!strncmp((char *)in,"../",3))
+      {  in+=3;
+      }
+      else if(!strncmp((char *)in,"./",2))
+      {  in+=2;
+      }
+      /* C: Remove "/../" and "/.." - go up one directory */
+      else if(!strncmp((char *)in,"/../",4))
+      {  in+=3;
+         /* Remove last segment from output */
+         {  UBYTE *last_slash;
+            last_slash=(UBYTE *)strrchr((char *)output,'/');
+            if(last_slash)
+            {  *last_slash='\0';
+               out=last_slash;
+            }
+         }
+      }
+      else if(!strncmp((char *)in,"/..",3) && (in[3]=='\0' || in[3]=='?'))
+      {  in+=2;
+         if(*in=='?') *in='/';
+         /* Remove last segment from output */
+         {  UBYTE *last_slash;
+            last_slash=(UBYTE *)strrchr((char *)output,'/');
+            if(last_slash)
+            {  *last_slash='\0';
+               out=last_slash;
+            }
+         }
+      }
+      /* B: Remove "/./" and "/." */
+      else if(!strncmp((char *)in,"/./",3))
+      {  in+=2;
+      }
+      else if(!strncmp((char *)in,"/.",2) && (in[2]=='\0' || in[2]=='?'))
+      {  in++;
+         if(*in=='?') *in='/';
+      }
+      /* D: Remove "." and ".." at end */
+      else if(in[0]=='.' && (in[1]=='\0' || in[1]=='?'))
+      {  in++;
+      }
+      else if(!strncmp((char *)in,"..",2) && (in[2]=='\0' || in[2]=='?'))
+      {  in+=2;
+      }
+      /* E: Copy normal segment */
+      else
+      {  inlen=strlen((char *)in);
+         /* Find slash marking end of first segment */
+         if(inlen>1)
+         {  slash_pos=(UBYTE *)strchr((char *)(in+1),'/');
+            if(slash_pos)
+            {  seglen=slash_pos-in+1;
+            }
+            else
+            {  /* Check for query string */
+               slash_pos=(UBYTE *)strchr((char *)(in+1),'?');
+               if(slash_pos)
+               {  seglen=slash_pos-in;
+               }
+               else
+               {  seglen=inlen;
+               }
+            }
+         }
+         else
+         {  seglen=inlen;
+         }
+         /* Copy segment to output */
+         if(out-output+seglen<sizeof(output)-1)
+         {  memcpy(out,in,seglen);
+            out[seglen]='\0';
+            in+=seglen;
+            out+=seglen;
+         }
+         else
+         {  /* Buffer overflow - stop processing */
+            break;
+         }
+      }
+   }
+   /* Copy result back to path */
+   strcpy((char *)path,(char *)output);
+}
 
 /* Find end of line */
 static UBYTE *Findeol(UBYTE *p,UBYTE *end)
@@ -309,18 +425,32 @@ static UBYTE *Findeol(UBYTE *p,UBYTE *end)
 }
 
 /* Parse status line: STATUS<SPACE>META<CR><LF> */
-static BOOL Parsestatusline(struct GResponse *resp,UBYTE *line,long len)
+/* Supports both Gemini (2-digit status: "20 ", "30 ", etc.) and Spartan (1-digit status: "2 ", "3 ", etc.) */
+static BOOL Parsestatusline(struct GResponse *resp,UBYTE *line,long len,BOOL is_spartan)
 {  UBYTE *p,*end,*meta_start;
    int status;
    long metalen=0;
    UBYTE temp_mime[256];
-   if(len<3) return FALSE;  /* Minimum: "20 " */
-   p=line;
-   end=line+len;
-   /* Parse status code (2 digits) */
-   if(!isdigit(*p) || !isdigit(*(p+1))) return FALSE;
-   status=(*p-'0')*10+(*(p+1)-'0');
-   p+=2;
+   if(is_spartan)
+   {  /* Spartan format: single digit status code (e.g., "2 ", "3 ", "4 ", "5 ") */
+      if(len<2) return FALSE;  /* Minimum: "2 " */
+      p=line;
+      end=line+len;
+      /* Parse status code (1 digit) */
+      if(!isdigit(*p)) return FALSE;
+      status=*p-'0';
+      p++;
+   }
+   else
+   {  /* Gemini format: two digit status code (e.g., "20 ", "30 ", "40 ", "50 ") */
+      if(len<3) return FALSE;  /* Minimum: "20 " */
+      p=line;
+      end=line+len;
+      /* Parse status code (2 digits) */
+      if(!isdigit(*p) || !isdigit(*(p+1))) return FALSE;
+      status=(*p-'0')*10+(*(p+1)-'0');
+      p+=2;
+   }
    /* Skip space */
    if(p>=end || *p!=' ') return FALSE;
    p++;
@@ -333,6 +463,16 @@ static BOOL Parsestatusline(struct GResponse *resp,UBYTE *line,long len)
       if(metalen>=sizeof(temp_mime)) metalen=sizeof(temp_mime)-1;
       memmove(temp_mime,meta_start,metalen);
       temp_mime[metalen]='\0';
+      /* Normalize Spartan status codes to Gemini format for unified handling */
+      /* Spartan: 2=success, 3=redirect, 4=client error, 5=server error */
+      /* Gemini: 20-29=success, 30-39=redirect, 40-59=client/server error */
+      if(is_spartan)
+      {  /* Convert single-digit Spartan codes to two-digit Gemini format */
+         if(status==2) status=20;  /* Success */
+         else if(status==3) status=30;  /* Redirect */
+         else if(status==4) status=40;  /* Client error */
+         else if(status==5) status=50;  /* Server error */
+      }
       resp->status_code=status;
       /* Store MIME type in a separate buffer, not in resp->buf */
       /* resp->buf is for content only, not status line data */
@@ -347,8 +487,9 @@ static BOOL Parsestatusline(struct GResponse *resp,UBYTE *line,long len)
    return FALSE;
 }
 
-/* Convert text/gemini markup to HTML */
-static void Convertgeminitohtml(struct Fetchdriver *fd,struct GResponse *resp,long read)
+/* Convert text/gemini or text/spartan markup to HTML */
+/* is_spartan: TRUE if this is a Spartan page (affects link URL generation) */
+static void Convertgeminitohtml(struct Fetchdriver *fd,struct GResponse *resp,long read,BOOL is_spartan)
 {  UBYTE *p,*end,*line_start;
    UBYTE *out;
    long outlen=0;
@@ -486,13 +627,13 @@ static void Convertgeminitohtml(struct Fetchdriver *fd,struct GResponse *resp,lo
                   /* Check if URL is already absolute with a protocol */
                   if(urllen>=7 && (!strnicmp(url_start,"http://",7) || !strnicmp(url_start,"https://",8) || 
                      !strnicmp(url_start,"ftp://",6) || !strnicmp(url_start,"gopher://",9) ||
-                     !strnicmp(url_start,"gemini://",9)))
+                     !strnicmp(url_start,"gemini://",9) || !strnicmp(url_start,"spartan://",10)))
                   {  /* Already absolute with protocol - use as-is */
                      final_url=url_start;
                      final_urllen=urllen;
                   }
-                  else if(urllen>=9 && !strnicmp(url_start,"gemini://",9))
-                  {  /* Already absolute gemini:// URL */
+                  else if(urllen>=9 && (!strnicmp(url_start,"gemini://",9) || !strnicmp(url_start,"spartan://",10)))
+                  {  /* Already absolute gemini:// or spartan:// URL */
                      final_url=url_start;
                      final_urllen=urllen;
                   }
@@ -509,31 +650,59 @@ static void Convertgeminitohtml(struct Fetchdriver *fd,struct GResponse *resp,lo
                      base.port=resp->base_port;
                      base.path=resp->base_path;
                      base.buf=NULL;
-                     if(resp->base_hostname && Resolverelativeurl(&base,rel_buf,&resolved))
-                     {  /* Always use full gemini:// URL so AWeb recognizes it as Gemini protocol */
-                        /* AWeb's Hasprotocol() function requires gemini:// prefix to route to Gemini plugin */
+                     if(resp->base_hostname && Resolverelativeurl(&base,rel_buf,&resolved,resp->is_spartan))
+                     {  /* Always use full gemini:// or spartan:// URL so AWeb recognizes the protocol */
+                        /* AWeb's Hasprotocol() function requires protocol prefix to route to plugin */
                         /* CRITICAL: resolved.path does NOT include leading / (it's stripped in Makegeminaddr line 247) */
                         /* So we must always add / before the path when building the URL */
-                        if(resolved.port==1965)
-                        {  /* Default port - omit port number */
-                           if(resolved.path && *resolved.path)
-                           {  final_urllen=sprintf(link_url,"gemini://%s/%s",
-                                 resolved.hostname,resolved.path);
+                        if(resp->is_spartan)
+                        {  /* Generate spartan:// URLs for Spartan pages */
+                           if(resolved.port==300)
+                           {  /* Default port - omit port number */
+                              if(resolved.path && *resolved.path)
+                              {  final_urllen=sprintf(link_url,"spartan://%s%s",
+                                    resolved.hostname,resolved.path);
+                              }
+                              else
+                              {  final_urllen=sprintf(link_url,"spartan://%s/",
+                                    resolved.hostname);
+                              }
                            }
                            else
-                           {  final_urllen=sprintf(link_url,"gemini://%s/",
-                                 resolved.hostname);
+                           {  /* Non-default port - include port number */
+                              if(resolved.path && *resolved.path)
+                              {  final_urllen=sprintf(link_url,"spartan://%s:%ld%s",
+                                    resolved.hostname,resolved.port,resolved.path);
+                              }
+                              else
+                              {  final_urllen=sprintf(link_url,"spartan://%s:%ld/",
+                                    resolved.hostname,resolved.port);
+                              }
                            }
                         }
                         else
-                        {  /* Non-default port - include port number */
-                           if(resolved.path && *resolved.path)
-                           {  final_urllen=sprintf(link_url,"gemini://%s:%ld/%s",
-                                 resolved.hostname,resolved.port,resolved.path);
+                        {  /* Generate gemini:// URLs for Gemini pages */
+                           if(resolved.port==1965)
+                           {  /* Default port - omit port number */
+                              if(resolved.path && *resolved.path)
+                              {  final_urllen=sprintf(link_url,"gemini://%s%s",
+                                    resolved.hostname,resolved.path);
+                              }
+                              else
+                              {  final_urllen=sprintf(link_url,"gemini://%s/",
+                                    resolved.hostname);
+                              }
                            }
                            else
-                           {  final_urllen=sprintf(link_url,"gemini://%s:%ld/",
-                                 resolved.hostname,resolved.port);
+                           {  /* Non-default port - include port number */
+                              if(resolved.path && *resolved.path)
+                              {  final_urllen=sprintf(link_url,"gemini://%s:%ld%s",
+                                    resolved.hostname,resolved.port,resolved.path);
+                              }
+                              else
+                              {  final_urllen=sprintf(link_url,"gemini://%s:%ld/",
+                                    resolved.hostname,resolved.port);
+                              }
                            }
                         }
                         final_url=link_url;
@@ -712,78 +881,117 @@ static UBYTE *Extractredirecturl(struct Geminaddr *ha,UBYTE *meta)
 }
 
 /* Resolve relative URL against base URL */
-static BOOL Resolverelativeurl(struct Geminaddr *base,UBYTE *relative,struct Geminaddr *result)
-{  UBYTE *fullurl;
-   long len;
-   UBYTE *p;
-   /* Check if absolute URL (starts with gemini://) */
+static BOOL Resolverelativeurl(struct Geminaddr *base,UBYTE *relative,struct Geminaddr *result,BOOL is_spartan)
+{  UBYTE *p;
+   UBYTE *base_path;
+   long base_path_len;
+   long combined_len;
+   UBYTE *combined_path;
+   UBYTE *query_start;
+   /* Check if absolute URL (starts with gemini:// or spartan://) */
    if(!strnicmp(relative,"gemini://",9))
    {  /* Skip gemini:// prefix */
       p=relative+9;
-      return Makegeminaddr(result,p);
+      return Makegeminaddr(result,p,FALSE);  /* FALSE = not spartan */
    }
-   /* Resolve relative URL against base */
+   else if(!strnicmp(relative,"spartan://",10))
+   {  /* Skip spartan:// prefix */
+      p=relative+10;
+      return Makegeminaddr(result,p,TRUE);  /* TRUE = spartan */
+   }
+   /* CRITICAL: base->hostname should be just the hostname (no protocol, no port) */
+   /* Validate base->hostname doesn't contain ':' or '/' (would indicate it already has port/path) */
+   if(!base->hostname || !*base->hostname || strchr(base->hostname,':') || strchr(base->hostname,'/'))
+   {  /* Invalid base hostname - cannot resolve relative URL */
+      return FALSE;
+   }
+   /* Allocate buffer for hostname, path, and query */
+   combined_len=strlen(base->hostname)+strlen(relative)+256;  /* Extra space for path and query */
+   result->buf=ALLOCTYPE(UBYTE,combined_len,0);
+   if(!result->buf) return FALSE;
+   /* Copy hostname directly from base (no parsing needed) */
+   result->hostname=result->buf;
+   strcpy((char *)result->hostname,(char *)base->hostname);
+   /* Use base port */
+   result->port=base->port;
+   /* Extract query string from relative URL before processing path (RFC 3986) */
+   query_start=strchr(relative,'?');
    if(relative[0]=='/')
    {  /* Absolute path - relative to host root */
-      len=strlen(base->hostname)+strlen(relative)+20;
-      fullurl=ALLOCTYPE(UBYTE,len,0);
-      if(fullurl)
-      {  sprintf(fullurl,"%s:%ld%s",
-            base->hostname,base->port,relative);
-         if(Makegeminaddr(result,fullurl))
-         {  FREE(fullurl);
-            return TRUE;
-         }
-         FREE(fullurl);
-      }
-   }
-   else
-   {  /* Relative path - combine with base path */
-      UBYTE *base_path;
-      long base_path_len;
-      UBYTE *combined_path;
-      long combined_len;
-      /* Get base path directory (without filename) */
-      if(base->path && *base->path)
-      {  base_path=base->path;
-         base_path_len=strlen(base_path);
-         /* Find last / in base path to get directory */
-         while(base_path_len>0 && base_path[base_path_len-1]!='/')
-         {  base_path_len--;
-         }
-         /* If no / found, base_path is empty or just filename - use root */
-         if(base_path_len==0)
-         {  base_path=(UBYTE *)"/";
-            base_path_len=1;
-         }
-         /* base_path_len now points to the last /, which is what we want */
+      /* Path is just the relative path (without query) */
+      result->path=result->buf+strlen((char *)result->hostname)+1;
+      if(query_start)
+      {  /* Copy path part only (before ?) */
+         long path_len=query_start-relative;
+         memcpy(result->path,relative,path_len);
+         result->path[path_len]='\0';
       }
       else
-      {  /* No base path - use root with trailing slash */
-         base_path=(UBYTE *)"/";
+      {  strcpy((char *)result->path,(char *)relative);
+      }
+      /* RFC 3986: remove dot segments from absolute path */
+      Removedotsegments(result->path);
+   }
+   else
+   {  /* Relative path - combine with base path directory */
+      base_path_len=0;
+      if(base->path && *base->path)
+      {  UBYTE *last_slash;
+         last_slash=strrchr(base->path,'/');
+         if(last_slash)
+         {  base_path_len=last_slash-base->path+1;  /* Include the / */
+         }
+         else
+         {  /* No / found - use root */
+            base_path_len=1;
+         }
+      }
+      else
+      {  /* No base path - use root */
          base_path_len=1;
       }
-      /* Combine base directory with relative path */
-      combined_len=base_path_len+strlen(relative)+1;
-      combined_path=ALLOCTYPE(UBYTE,combined_len,0);
-      if(combined_path)
-      {  sprintf(combined_path,"%.*s%s",base_path_len,base_path,relative);
-         len=strlen(base->hostname)+combined_len+20;
-         fullurl=ALLOCTYPE(UBYTE,len,0);
-         if(fullurl)
-         {  sprintf(fullurl,"%s:%ld%s",
-               base->hostname,base->port,combined_path);
-            if(Makegeminaddr(result,fullurl))
-            {  FREE(fullurl);
-               FREE(combined_path);
-               return TRUE;
-            }
-            FREE(fullurl);
+      /* Build combined path: base directory + relative path (without query) */
+      result->path=result->buf+strlen((char *)result->hostname)+1;
+      if(base_path_len>0 && base->path)
+      {  /* Copy base path directory (up to last /) + relative path (without query) */
+         if(query_start)
+         {  long rel_path_len=query_start-relative;
+            sprintf((char *)result->path,"%.*s%.*s",(int)base_path_len,base->path,(int)rel_path_len,relative);
          }
-         FREE(combined_path);
+         else
+         {  sprintf((char *)result->path,"%.*s%s",(int)base_path_len,base->path,relative);
+         }
       }
+      else
+      {  /* No base path - relative path becomes the path (without query) */
+         if(query_start)
+         {  long rel_path_len=query_start-relative;
+            memcpy(result->path,relative,rel_path_len);
+            result->path[rel_path_len]='\0';
+         }
+         else
+         {  strcpy((char *)result->path,(char *)relative);
+         }
+      }
+      /* RFC 3986: remove dot segments from merged path */
+      Removedotsegments(result->path);
    }
-   return FALSE;
+   /* Store query string if present */
+   if(query_start)
+   {  result->query=result->buf+strlen((char *)result->hostname)+1+strlen((char *)result->path)+1;
+      strcpy((char *)result->query,query_start+1);
+   }
+   else
+   {  /* No query string */
+      result->query=NULL;
+   }
+   /* Validate result */
+   if(!result->hostname || !*result->hostname || !result->path)
+   {  FREE(result->buf);
+      result->buf=NULL;
+      return FALSE;
+   }
+   return TRUE;
 }
 
 /* Main fetch driver task */
@@ -793,6 +1001,7 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
    struct hostent *hent;
    struct GResponse resp={0};
    BOOL error=FALSE;
+   BOOL is_spartan;  /* C89: Declare at start of block */
    long sock=-1;
    long result,length;
    int redirect_count=0;
@@ -804,9 +1013,14 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
    /* Initialize preformatted flag - must be after all declarations (C89 requirement) */
    resp.in_pre=0;
    
+   /* Detect protocol: Spartan if FDVF_SSL is NOT set, Gemini if it is set */
+   /* fetch.c sets FDVF_SSL for Gemini but not for Spartan */
+   is_spartan=(fd->flags&FDVF_SSL)?FALSE:TRUE;
+   resp.is_spartan=is_spartan;  /* Store in response structure for use in link generation */
+   
    AwebTcpBase=Opentcp(&SocketBase,fd,!fd->validate);
    if(SocketBase && AwebTcpBase)
-   {  if(Makegeminaddr(&ha,fd->name))
+   {  if(Makegeminaddr(&ha,fd->name,is_spartan))
       {  /* Follow redirects up to 5 times */
             while(redirect_count<5 && !error)
             {  if(Checktaskbreak())
@@ -832,7 +1046,12 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
                            break;
                         }
                         Updatetaskattrs(AOURL_Netstatus,NWS_CONNECT,TAG_END);
-                        Tcpmessage(fd,TCPMSG_CONNECT,"Gemini",hent->h_name);
+                        if(is_spartan)
+                        {  Tcpmessage(fd,TCPMSG_CONNECT,"Spartan",hent->h_name);
+                        }
+                        else
+                        {  Tcpmessage(fd,TCPMSG_CONNECT,"Gemini",hent->h_name);
+                        }
                         if(!a_connect(sock,hent,ha.port,SocketBase))
                         {  if(Checktaskbreak())
                            {  error=TRUE;
@@ -840,10 +1059,37 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
                               sock=-1;
                               break;
                            }
-                           /* Build request: gemini://host:port/path?query<CR><LF> */
+                           /* Build request based on protocol */
+                           request_path=fd->block;
+                           if(is_spartan)
+                           {  /* Spartan request format: host path length\r\n */
+                              /* If port is not 300, use: host:port path length\r\n */
+                              /* length is 0 for normal requests (no input data) */
+                              /* ha.path includes leading / */
+                              /* For Spartan, query parameters are NOT included in path */
+                              /* They are sent separately in the spartanData structure */
+                              UBYTE *path_str;
+                              long input_length=0;  /* No input data for normal requests */
+                              if(!ha.path || !*ha.path)
+                              {  path_str=(UBYTE *)"/";
+                              }
+                              else
+                              {  path_str=ha.path;  /* Already includes leading / */
+                              }
+                              if(ha.port==300)
+                              {  /* Default port - omit port number */
+                                 sprintf(request_path,"%s %s %ld\r\n",
+                                    ha.hostname,path_str,input_length);
+                              }
+                              else
+                              {  /* Non-default port - include port number */
+                                 sprintf(request_path,"%s:%ld %s %ld\r\n",
+                                    ha.hostname,ha.port,path_str,input_length);
+                              }
+                           }
+                           else
+                           {  /* Gemini request format: gemini://host:port/path?query<CR><LF> */
                               /* According to Gemini protocol spec, request must be full URL */
-                              /* AmiGemini reference: sends "gemini://host:port/path\r\n" */
-                              request_path=fd->block;
                               if(ha.port==1965)
                               {  /* Default port - omit port number */
                                  if(ha.path && *ha.path)
@@ -892,12 +1138,25 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
                                     }
                                  }
                               }
-                              request_len=strlen(request_path);
-                              /* Send request - format: gemini://host:port/path?query<CR><LF> */
-                              result=(a_send(sock,request_path,request_len,0,SocketBase)==request_len);
+                           }
+                           request_len=strlen(request_path);
+                           /* Send request - validate socket is still open */
+                           if(sock>=0)
+                           {  result=(a_send(sock,request_path,request_len,0,SocketBase)==request_len);
+                           }
+                           else
+                           {  /* Socket was closed - cannot send request */
+                              error=TRUE;
+                              result=FALSE;
+                           }
                               if(result)
                               {  Updatetaskattrs(AOURL_Netstatus,NWS_WAIT,TAG_END);
-                                 Tcpmessage(fd,TCPMSG_WAITING,"Gemini");
+                                 if(is_spartan)
+                                 {  Tcpmessage(fd,TCPMSG_WAITING,"Spartan");
+                                 }
+                                 else
+                                 {  Tcpmessage(fd,TCPMSG_WAITING,"Gemini");
+                                 }
                                  /* Read status line (max 1024 bytes) */
                                  /* Use response buffer to store status line */
                                  status_line_len=0;
@@ -918,7 +1177,7 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
                                        eol=Findeol(resp.buf.buffer,resp.buf.buffer+resp.buf.length);
                                        if(eol)
                                        {  /* Found end of status line */
-                                          if(Parsestatusline(&resp,resp.buf.buffer,eol-resp.buf.buffer))
+                                          if(Parsestatusline(&resp,resp.buf.buffer,eol-resp.buf.buffer,is_spartan))
                                           {  /* Status parsed successfully */
                                              /* Skip status line from buffer */
                                              eol++;
@@ -935,7 +1194,9 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
                                     resp.base_port=ha.port;
                                     resp.base_path=ha.path;
                                     /* Set content type based on MIME type from server */
-                                    if(resp.mime_type && !strncmp(resp.mime_type,"text/gemini",11))
+                                    /* Both Gemini and Spartan use text/gemini or text/ MIME types */
+                                    if(resp.mime_type && (!strncmp(resp.mime_type,"text/gemini",11) || 
+                                       (resp.is_spartan && !strncmp(resp.mime_type,"text/",5))))
                                     {  /* Convert to HTML */
                                        Updatetaskattrs(AOURL_Contenttype,"text/html",TAG_END);
                                     }
@@ -958,8 +1219,10 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
                                           /* Remove from buffer before calling handler (handler will add it back) */
                                           Deleteinbuffer(&resp.buf,0,remaining);
                                           /* Process the remaining data - handler will add it to buffer and process it */
-                                          if(resp.mime_type && !strncmp(resp.mime_type,"text/gemini",11))
-                                          {  Convertgeminitohtml(fd,&resp,remaining);
+                                          /* Both Gemini and Spartan use text/gemini or text/ MIME types */
+                                          if(resp.mime_type && (!strncmp(resp.mime_type,"text/gemini",11) || 
+                                             (resp.is_spartan && !strncmp(resp.mime_type,"text/",5))))
+                                          {  Convertgeminitohtml(fd,&resp,remaining,resp.is_spartan);
                                           }
                                           else if(resp.mime_type && !strncmp(resp.mime_type,"text/html",9))
                                           {  Handlehtml(fd,&resp,remaining);
@@ -971,8 +1234,10 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
                                           {  Handleother(fd,&resp,remaining);
                                           }
                                        }
-                                       if(resp.mime_type && !strncmp(resp.mime_type,"text/gemini",11))
-                                       {  /* text/gemini - convert to HTML */
+                                       /* Both Gemini and Spartan use text/gemini or text/ MIME types */
+                                       if(resp.mime_type && (!strncmp(resp.mime_type,"text/gemini",11) || 
+                                          (resp.is_spartan && !strncmp(resp.mime_type,"text/",5))))
+                                       {  /* text/gemini or text/anything - convert to HTML */
                                           BOOL eof_received=FALSE;
                                           for(;;)
                                           {  length=a_recv(sock,fd->block,INPUTBLOCKSIZE,0,SocketBase);
@@ -986,12 +1251,12 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
                                                 /* Process any remaining incomplete line in buffer */
                                                 if(resp.buf.length>0)
                                                 {  /* Force process remaining buffer data */
-                                                   Convertgeminitohtml(fd,&resp,0);  /* 0 means process buffer only */
+                                                   Convertgeminitohtml(fd,&resp,0,resp.is_spartan);  /* 0 means process buffer only */
                                                 }
                                                 break;
                                              }
                                              /* Process this chunk of data */
-                                             Convertgeminitohtml(fd,&resp,length);
+                                             Convertgeminitohtml(fd,&resp,length,resp.is_spartan);
                                           }
                                           /* Close HTML */
                                           if(!error)
@@ -1045,6 +1310,11 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
                                           }
                                        }
                                        /* Successfully processed response - exit redirect loop */
+                                       /* Close socket immediately to prevent reuse after EOF */
+                                       if(sock>=0)
+                                       {  a_close(sock,SocketBase);
+                                          sock=-1;
+                                       }
                                        break;
                                     }
                                     else if(resp.status_code>=30 && resp.status_code<40)
@@ -1058,7 +1328,7 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
                                              /* Free old address */
                                              FREE(ha.buf);
                                              /* Resolve redirect URL */
-                                             if(Resolverelativeurl(&ha,redirect_url,&ha))
+                                             if(Resolverelativeurl(&ha,redirect_url,&ha,is_spartan))
                                              {  redirect_count++;
                                                   FREE(redirect_url);
                                                   redirect_url=NULL;
