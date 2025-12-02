@@ -21,6 +21,7 @@
 #include <proto/utility.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdio.h>
 #include "aweb.h"
 #include "css.h"
 #include "docprivate.h"
@@ -673,6 +674,20 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
    short fontSize;
    BOOL isRelative;
    long paddingValue;
+   long marginTop;
+   long marginRight;
+   long marginBottom;
+   long marginLeft;
+   UBYTE *marginValue;
+   UBYTE *marginTokens[4];
+   long marginCount;
+   long i;
+   float lineHeightValue;
+   UBYTE *lineHeightStr;
+   UBYTE *displayValue;
+   
+   /* Initialize margin tokens array */
+   for(i = 0; i < 4; i++) marginTokens[i] = NULL;
    
    if(!doc || !body || !style) return;
    
@@ -756,7 +771,6 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             long borderWidth;
             struct Number num;
             ULONG borderColor;
-            struct Colorinfo *ci;
             
             pval = prop->value;
             borderWidth = -1;
@@ -999,6 +1013,115 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                {  Asetattrs(body,AOBDY_Fontcolor,ci,TAG_END);
                }
             }
+         }
+         /* Apply margin shorthand */
+         else if(stricmp((char *)prop->name,"margin") == 0)
+         {  UBYTE *marginP;
+            UBYTE *tokenStart;
+            UBYTE *tokenEnd;
+            long tokenLen;
+            UBYTE *tokenBuf;
+            marginValue = prop->value;
+            marginCount = 0;
+            marginTop = marginRight = marginBottom = marginLeft = 0;
+            
+            /* Parse margin values - can be 1, 2, 3, or 4 values */
+            marginP = marginValue;
+            for(i = 0; i < 4 && marginP && *marginP; i++)
+            {  /* Skip whitespace */
+               while(*marginP && isspace(*marginP)) marginP++;
+               if(!*marginP) break;
+               tokenStart = marginP;
+               /* Find end of token */
+               while(*marginP && !isspace(*marginP)) marginP++;
+               tokenEnd = marginP;
+               tokenLen = tokenEnd - tokenStart;
+               if(tokenLen > 0)
+               {  /* Copy token to temporary buffer */
+                  tokenBuf = ALLOCTYPE(UBYTE,tokenLen + 1,0);
+                  if(tokenBuf)
+                  {  memmove(tokenBuf,tokenStart,tokenLen);
+                     tokenBuf[tokenLen] = '\0';
+                     marginTokens[marginCount] = tokenBuf;
+                     marginCount++;
+                  }
+               }
+            }
+            
+            /* Apply margin values based on count */
+            if(marginCount >= 1)
+            {  marginTop = ParseCSSLengthValue(marginTokens[0],&num);
+               if(marginCount == 1)
+               {  /* All sides same */
+                  marginRight = marginBottom = marginLeft = marginTop;
+               }
+               else if(marginCount == 2)
+               {  /* Top/bottom, left/right */
+                  marginBottom = marginTop;
+                  marginRight = ParseCSSLengthValue(marginTokens[1],&num);
+                  marginLeft = marginRight;
+               }
+               else if(marginCount == 3)
+               {  /* Top, left/right, bottom */
+                  marginRight = ParseCSSLengthValue(marginTokens[1],&num);
+                  marginLeft = marginRight;
+                  marginBottom = ParseCSSLengthValue(marginTokens[2],&num);
+               }
+               else if(marginCount == 4)
+               {  /* Top, right, bottom, left */
+                  marginRight = ParseCSSLengthValue(marginTokens[1],&num);
+                  marginBottom = ParseCSSLengthValue(marginTokens[2],&num);
+                  marginLeft = ParseCSSLengthValue(marginTokens[3],&num);
+               }
+               
+               /* Apply margins */
+               if(marginTop >= 0) Asetattrs(body,AOBDY_Topmargin,marginTop,TAG_END);
+               if(marginLeft >= 0) Asetattrs(body,AOBDY_Leftmargin,marginLeft,TAG_END);
+               /* Note: margin-right and margin-bottom are not directly supported
+                * by AWeb's body attributes, but we parse them for future use */
+            }
+            
+            /* Free temporary token buffers */
+            for(i = 0; i < marginCount; i++)
+            {  if(marginTokens[i]) FREE(marginTokens[i]);
+            }
+         }
+         /* Apply line-height */
+         else if(stricmp((char *)prop->name,"line-height") == 0)
+         {  lineHeightStr = prop->value;
+            /* Skip whitespace */
+            while(*lineHeightStr && isspace(*lineHeightStr)) lineHeightStr++;
+            /* Parse unitless value (e.g., 1.42857143) or pixel value (e.g., 20px) */
+            if(sscanf((char *)lineHeightStr,"%f",&lineHeightValue) == 1)
+            {  /* Store line-height in document for potential future use */
+               doc->lineheight = lineHeightValue;
+               /* Note: AWeb's layout engine doesn't directly support line-height,
+                * but we parse and store it for potential future implementation */
+            }
+         }
+         /* Apply display */
+         else if(stricmp((char *)prop->name,"display") == 0)
+         {  displayValue = prop->value;
+            /* Skip whitespace */
+            while(*displayValue && isspace(*displayValue)) displayValue++;
+            /* Parse display values */
+            if(stricmp((char *)displayValue,"none") == 0)
+            {  /* Hide element - not directly supported, but parsed */
+               /* Note: Would require element visibility control */
+            }
+            else if(stricmp((char *)displayValue,"inline") == 0)
+            {  /* Inline display - default for many elements */
+               /* Note: AWeb handles this automatically based on element type */
+            }
+            else if(stricmp((char *)displayValue,"block") == 0)
+            {  /* Block display - default for div, p, etc. */
+               /* Note: AWeb handles this automatically based on element type */
+            }
+            else if(stricmp((char *)displayValue,"grid") == 0)
+            {  /* CSS Grid - not yet implemented */
+               /* Note: CSS Grid requires major architectural changes */
+            }
+            /* Other display values (flex, table, etc.) not yet supported */
          }
          /* Note: width, height, and vertical-align for table cells are handled
           * separately in ApplyCSSToTableCell() */
