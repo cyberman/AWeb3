@@ -245,6 +245,7 @@ static void Reloaddocument(struct Document *doc)
    doc->pmode=0;
    if(doc->currentlistclass) FREE(doc->currentlistclass);
    doc->currentlistclass=NULL;
+   doc->gridcolgap=0;
    doc->charcount=0;
    doc->frameseqnr=0;
    doc->select=NULL;

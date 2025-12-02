@@ -1011,7 +1011,47 @@ struct Fontprefs *Matchfont(UBYTE *face,short size,BOOL fixed)
          return &prefs.font[0][size];
       }
       else if(STRIEQUAL(genericfamily,"sans-serif"))
-      {  /* Use default sans-serif font (normal, not fixed) */
+      {  /* For sans-serif, try to find a sans-serif alias (e.g., "Arial,Helvetica,sans-serif") */
+         /* Check alias list for sans-serif fonts */
+         for(fa=prefs.aliaslist.first;fa->next;fa=fa->next)
+         {  nba.list=nba.current=fa->alias;
+            while(Nextname(&nba))
+            {  if(STRIEQUAL(nba.buffer,"sans-serif") || STRIEQUAL(nba.buffer,"Arial") || STRIEQUAL(nba.buffer,"Helvetica"))
+               {  if(!fa->fp[size].font)
+                  {  Opennewfont(&fa->fp[size]);
+                  }
+                  if(fa->fp[size].font
+                  && !(fixed && (fa->fp[size].font->tf_Flags&FPF_PROPORTIONAL)))
+                  {  return &fa->fp[size];
+                  }
+               }
+            }
+         }
+         /* If no alias found, try to open CGTriumvirate.font directly (default sans-serif font) */
+         directfont=Tryopenfontdirect((UBYTE *)"CGTriumvirate",fontsize,actualfontname,sizeof(actualfontname));
+         if(directfont)
+         {  if(!(fixed && (directfont->tf_Flags&FPF_PROPORTIONAL)))
+            {  fa=Addfontalias(&prefs.aliaslist,(UBYTE *)"CGTriumvirate");
+               if(fa)
+               {  if(!fa->fp[size].font)
+                  {  fa->fp[size].fontname=Dupstr(actualfontname,-1);
+                     fa->fp[size].fontsize=fontsize;
+                     fa->fp[size].font=directfont;
+                  }
+                  else
+                  {  CloseFont(directfont);
+                  }
+                  return &fa->fp[size];
+               }
+               else
+               {  CloseFont(directfont);
+               }
+            }
+            else
+            {  CloseFont(directfont);
+            }
+         }
+         /* Final fallback: use default font (may be serif, but better than nothing) */
          return &prefs.font[0][size];
       }
       else if(STRIEQUAL(genericfamily,"monospace"))

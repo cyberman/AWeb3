@@ -226,15 +226,15 @@ static void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *i
    BOOL isRelative;
    
    if(!doc || !body || !doc->cssstylesheet)
-   {  debug_printf("CSS: ApplyCSSToBody skipped - doc=%p body=%p stylesheet=%p\n",
-                   doc, body, (doc ? doc->cssstylesheet : NULL));
+   {  /* debug_printf("CSS: ApplyCSSToBody skipped - doc=%p body=%p stylesheet=%p\n",
+                   doc, body, (doc ? doc->cssstylesheet : NULL)); */
       return;
    }
    
-   debug_printf("CSS: ApplyCSSToBody called - tagname=%s class=%s id=%s\n",
+   /* debug_printf("CSS: ApplyCSSToBody called - tagname=%s class=%s id=%s\n",
                 (tagname ? (char *)tagname : "NULL"),
                 (class ? (char *)class : "NULL"),
-                (id ? (char *)id : "NULL"));
+                (id ? (char *)id : "NULL")); */
    
    isAbsolute = FALSE;
    topValue = NULL;
@@ -377,10 +377,10 @@ static void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *i
          
          /* If selector matches, apply properties */
          if(matches)
-         {  debug_printf("CSS: Selector matched! Element=%s class=%s id=%s\n",
+         {  /* debug_printf("CSS: Selector matched! Element=%s class=%s id=%s\n",
                          (sel->name ? (char *)sel->name : "any"),
                          (sel->class ? (char *)sel->class : "none"),
-                         (sel->id ? (char *)sel->id : "none"));
+                         (sel->id ? (char *)sel->id : "none")); */
             for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
                (struct MinNode *)prop->node.mln_Succ;
                prop = (struct CSSProperty *)prop->node.mln_Succ)
@@ -418,6 +418,9 @@ static void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *i
                      
                      fontFace = NULL;
                      fontValue = prop->value;
+                     /* debug_printf("CSS: font-family property value='%s' (length=%ld)\n",
+                                  fontValue ? (char *)fontValue : "NULL",
+                                  fontValue ? strlen((char *)fontValue) : 0); */
                      p = fontValue;
                      
                      /* Try each font in the comma-separated list */
@@ -460,49 +463,81 @@ static void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *i
                         /* Trim trailing whitespace */
                         while(len > 0 && isspace(start[len - 1])) len--;
                         
-                        /* Skip generic families - they're handled by Matchfont */
-                        if(len > 0)
-                        {  UBYTE testName[32];
-                           long testLen = (len < 31) ? len : 31;
-                           memmove(testName,start,testLen);
-                           testName[testLen] = '\0';
-                           if(stricmp((char *)testName,"serif") != 0 &&
-                              stricmp((char *)testName,"sans-serif") != 0 &&
-                              stricmp((char *)testName,"monospace") != 0 &&
-                              stricmp((char *)testName,"cursive") != 0 &&
-                              stricmp((char *)testName,"fantasy") != 0)
-                           {  /* Not a generic family - use this font */
-                              fontFace = ALLOCTYPE(UBYTE,len + 1,0);
-                              if(fontFace)
-                              {  memmove(fontFace,start,len);
-                                 fontFace[len] = '\0';
-                                 debug_printf("CSS: Applying font-family='%s' to body (tagname=%s)\n",
-                                              fontFace, (tagname ? (char *)tagname : "NULL"));
-                                 /* Apply font face to body */
-                                 Asetattrs(body,AOBDY_Fontface,fontFace,TAG_END);
-                                 FREE(fontFace);
-                                 debug_printf("CSS: font-family applied successfully\n");
-                                 found = TRUE;
-                              }
-                           }
-                        }
-                        
                         /* Skip comma and whitespace */
                         while(*p && (isspace(*p) || *p == ',')) p++;
                      }
                      
-                     /* If no specific font found, apply the full font list (including generic families) */
-                     if(!found)
-                     {  fontFace = ALLOCTYPE(UBYTE,strlen((char *)prop->value) + 1,0);
+                     /* Apply the full font list so Matchfont can handle fallbacks properly */
+                     /* Strip quotes from font names before passing to Matchfont */
+                     if(fontValue && *fontValue)
+                     {  UBYTE *p;
+                        UBYTE *q;
+                        long len;
+                        BOOL inQuotes;
+                        UBYTE quote;
+                        
+                        /* Calculate length needed (without quotes) */
+                        len = 0;
+                        p = fontValue;
+                        inQuotes = FALSE;
+                        quote = 0;
+                        while(*p)
+                        {  if((*p == '"' || *p == '\'') && !inQuotes)
+                           {  quote = *p;
+                              inQuotes = TRUE;
+                              p++;
+                           }
+                           else if(inQuotes && *p == quote)
+                           {  inQuotes = FALSE;
+                              quote = 0;
+                              p++;
+                           }
+                           else
+                           {  len++;
+                              p++;
+                           }
+                        }
+                        
+                        fontFace = ALLOCTYPE(UBYTE,len + 1,0);
                         if(fontFace)
-                        {  strcpy((char *)fontFace,(char *)prop->value);
-                           debug_printf("CSS: Applying font-family='%s' (full list with fallbacks) to body\n",fontFace);
+                        {  /* Copy font value, stripping quotes */
+                           p = fontValue;
+                           q = fontFace;
+                           inQuotes = FALSE;
+                           quote = 0;
+                           while(*p)
+                           {  if((*p == '"' || *p == '\'') && !inQuotes)
+                              {  quote = *p;
+                                 inQuotes = TRUE;
+                                 p++;
+                              }
+                              else if(inQuotes && *p == quote)
+                              {  inQuotes = FALSE;
+                                 quote = 0;
+                                 p++;
+                              }
+                              else
+                              {  *q++ = *p++;
+                              }
+                           }
+                           *q = '\0';
+                           
+                           /* debug_printf("CSS: Applying full font-family='%s' to body (tagname=%s, length=%ld)\n",
+                                        fontFace, (tagname ? (char *)tagname : "NULL"),
+                                        strlen((char *)fontFace)); */
+                           /* Apply font face to body - Matchfont will handle the comma-separated list and generic families */
+                           /* Note: We need to ensure the font is actually used - Matchfont should find Helvetica or Arial from the alias list */
                            Asetattrs(body,AOBDY_Fontface,fontFace,TAG_END);
+                           /* debug_printf("CSS: font-family applied to body, fontFace='%s'\n", fontFace); */
                            FREE(fontFace);
+                           /* debug_printf("CSS: font-family applied successfully\n"); */
                         }
                         else
-                        {  debug_printf("CSS: font-family allocation failed for '%s'\n",prop->value);
+                        {  /* debug_printf("CSS: font-family allocation failed for '%s'\n",fontValue); */
                         }
+                     }
+                     else
+                     {  /* debug_printf("CSS: font-family value is empty or NULL\n"); */
                      }
                   }
                   /* Apply font-size */
@@ -755,6 +790,148 @@ static void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *i
                      else if(stricmp((char *)prop->value,"none") == 0)
                      {  Asetattrs(body,AOBDY_Unsethardstyle,FSF_STRIKE,TAG_END);
                      }
+                  }
+                  /* Apply display property */
+                  else if(stricmp((char *)prop->name,"display") == 0)
+                  {  /* Parse display values: inline, block, none, grid, etc. */
+                     /* For grid, we'll apply grid-gap as spacing if available */
+                     if(stricmp((char *)prop->value,"grid") == 0)
+                     {  /* display: grid - will be handled by grid-gap property */
+                        /* debug_printf("CSS: display=grid applied to %s\n",
+                                     tagname ? (char *)tagname : "element"); */
+                     }
+                     else if(stricmp((char *)prop->value,"none") == 0)
+                     {  /* display: none - not fully implemented, but parse it */
+                        /* debug_printf("CSS: display=none applied to %s\n",
+                                     tagname ? (char *)tagname : "element"); */
+                     }
+                  }
+                  /* Apply grid-gap (row-gap column-gap) */
+                  else if(stricmp((char *)prop->name,"grid-gap") == 0)
+                  {  UBYTE *gapP;
+                     UBYTE *tokenStart;
+                     UBYTE *tokenEnd;
+                     long tokenLen;
+                     long rowGap;
+                     long colGap;
+                     struct Number num;
+                     
+                     gapP = prop->value;
+                     rowGap = -1;
+                     colGap = -1;
+                     
+                     /* Parse first value (row gap) */
+                     SkipWhitespace(&gapP);
+                     tokenStart = gapP;
+                     while(*gapP && !isspace(*gapP)) gapP++;
+                     tokenLen = gapP - tokenStart;
+                     if(tokenLen > 0)
+                     {  UBYTE *tokenBuf;
+                        tokenBuf = ALLOCTYPE(UBYTE,tokenLen + 1,0);
+                        if(tokenBuf)
+                        {  memmove(tokenBuf,tokenStart,tokenLen);
+                           tokenBuf[tokenLen] = '\0';
+                           rowGap = ParseCSSLengthValue(tokenBuf,&num);
+                           FREE(tokenBuf);
+                        }
+                     }
+                     
+                     /* Parse second value (column gap) if present */
+                     SkipWhitespace(&gapP);
+                     if(*gapP)
+                     {  tokenStart = gapP;
+                        while(*gapP && !isspace(*gapP)) gapP++;
+                        tokenLen = gapP - tokenStart;
+                        if(tokenLen > 0)
+                        {  UBYTE *tokenBuf;
+                           tokenBuf = ALLOCTYPE(UBYTE,tokenLen + 1,0);
+                           if(tokenBuf)
+                           {  memmove(tokenBuf,tokenStart,tokenLen);
+                              tokenBuf[tokenLen] = '\0';
+                              colGap = ParseCSSLengthValue(tokenBuf,&num);
+                              FREE(tokenBuf);
+                           }
+                        }
+                     }
+                     else
+                     {  /* If only one value, use it for both */
+                        colGap = rowGap;
+                     }
+                     
+                     /* Apply gaps as margins for grid layout */
+                     if(rowGap >= 0)
+                     {  /* Apply row gap as top margin for child elements */
+                        /* This is a simplified grid implementation */
+                        /* debug_printf("CSS: grid-gap applied - row=%ld col=%ld\n",rowGap,colGap); */
+                     }
+                     if(colGap >= 0)
+                     {  /* Store column gap for use by child elements with grid-column-start */
+                        doc->gridcolgap = colGap;
+                        /* debug_printf("CSS: grid-gap column gap=%ld stored\n",colGap); */
+                     }
+                  }
+                  /* Apply grid-template-columns (not fully implemented, but parse it) */
+                  else if(stricmp((char *)prop->name,"grid-template-columns") == 0)
+                  {  /* Parse grid template - for now just log it */
+                     /* debug_printf("CSS: grid-template-columns='%s' (parsed but not fully implemented)\n",
+                                  prop->value ? (char *)prop->value : "NULL"); */
+                  }
+                  /* Apply grid-column-start (for grid layout positioning) */
+                  else if(stricmp((char *)prop->name,"grid-column-start") == 0)
+                  {  long gridColStart;
+                     long leftMargin;
+                     UBYTE *p;
+                     
+                     /* Parse grid-column-start value - can be a number (e.g., "2") or a length */
+                     p = prop->value;
+                     SkipWhitespace(&p);
+                     if(isdigit(*p))
+                     {  /* Parse as integer */
+                        gridColStart = strtol((char *)p,NULL,10);
+                     }
+                     else
+                     {  /* Try parsing as length value */
+                        struct Number num;
+                        gridColStart = ParseCSSLengthValue(prop->value,&num);
+                        /* If it's a length, convert to column number (approximate) */
+                        if(gridColStart > 0)
+                        {  /* Assume each column is at least 100px wide */
+                           gridColStart = (gridColStart / 100) + 1;
+                        }
+                     }
+                     
+                     if(gridColStart >= 2)
+                     {  /* For grid-column-start >= 2, apply left margin to push to second column */
+                        /* Use column gap from parent dl element if available */
+                        if(doc->gridcolgap > 0)
+                        {  leftMargin = doc->gridcolgap;
+                        }
+                        else
+                        {  /* Default column gap if not specified */
+                           leftMargin = 16;
+                        }
+                        Asetattrs(body,AOBDY_Leftmargin,leftMargin,TAG_END);
+                        /* debug_printf("CSS: grid-column-start=%ld applied, left margin=%ld (colgap=%ld)\n",
+                                     gridColStart,leftMargin,doc->gridcolgap); */
+                     }
+                  }
+                  /* Apply grid-column-end (for grid layout positioning) */
+                  else if(stricmp((char *)prop->name,"grid-column-end") == 0)
+                  {  /* Parse but not fully implemented */
+                     /* debug_printf("CSS: grid-column-end='%s' (parsed but not fully implemented)\n",
+                                  prop->value ? (char *)prop->value : "NULL"); */
+                  }
+                  /* Apply grid-row-start (for grid layout positioning) */
+                  else if(stricmp((char *)prop->name,"grid-row-start") == 0)
+                  {  /* Parse but not fully implemented */
+                     /* debug_printf("CSS: grid-row-start='%s' (parsed but not fully implemented)\n",
+                                  prop->value ? (char *)prop->value : "NULL"); */
+                  }
+                  /* Apply grid-row-end (for grid layout positioning) */
+                  else if(stricmp((char *)prop->name,"grid-row-end") == 0)
+                  {  /* Parse but not fully implemented */
+                     /* debug_printf("CSS: grid-row-end='%s' (parsed but not fully implemented)\n",
+                                  prop->value ? (char *)prop->value : "NULL"); */
                   }
                   /* Note: transform is CSS3 and is not implemented (CSS1/CSS2 only) */
                }
@@ -1422,16 +1599,16 @@ static BOOL Docssend(struct Document *doc)
    {  if(!Addtobuffer(&doc->csssrc,"",1)) return FALSE; /* null terminate */
       css=doc->csssrc.buffer;
       if(css)
-      {  debug_printf("CSS: Parsing stylesheet, length=%ld\n",doc->csssrc.length);
+      {  /* debug_printf("CSS: Parsing stylesheet, length=%ld\n",doc->csssrc.length); */
          /* Parse and apply CSS stylesheet */
          ParseCSSStylesheet(doc,css);
-         debug_printf("CSS: Stylesheet parsed, body exists=%d, stylesheet=%p\n",
-                      (doc->body != NULL), doc->cssstylesheet);
+         /* debug_printf("CSS: Stylesheet parsed, body exists=%d, stylesheet=%p\n",
+                      (doc->body != NULL), doc->cssstylesheet); */
          /* Apply link colors from CSS (a:link, a:visited) */
          ApplyCSSToLinkColors(doc);
          /* Apply CSS to body if it already exists */
          if(doc->body && doc->cssstylesheet)
-         {  debug_printf("CSS: Applying stylesheet CSS to body\n");
+         {  /* debug_printf("CSS: Applying stylesheet CSS to body\n"); */
             ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
          }
       }
@@ -1570,16 +1747,18 @@ static BOOL Dobody(struct Document *doc,struct Tagattr *ta)
    }
    /* Apply CSS from stylesheet to body element */
    if(doc->body)
-   {  debug_printf("CSS: Dobody called, applying CSS to body, stylesheet=%p\n",doc->cssstylesheet);
+   {  /* debug_printf("CSS: Dobody called, applying CSS to body, stylesheet=%p\n",doc->cssstylesheet); */
       ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
    }
    if(gotcolor && !gotbg)
    {  /* Set bg to white if no bg is defined but other colors are. */
       Setbodycolor(doc,&doc->bgcolor,"#ffffff");
    }
-   /* Register colours with our frame */
+   /* Register colours with our frame - this ensures CSS link colors are applied */
    if(doc->win && doc->frame)
    {  Registerdoccolors(doc);
+      /* debug_printf("CSS: Dobody registered document colors (linkcolor=%p vlinkcolor=%p)\n",
+                   doc->linkcolor, doc->vlinkcolor); */
    }
    Checkid(doc,ta);
    return TRUE;
@@ -2857,8 +3036,37 @@ static BOOL Domap(struct Document *doc,struct Tagattr *ta)
 
 /*** <DD> ***/
 static BOOL Dodd(struct Document *doc,struct Tagattr *ta)
-{  Wantbreak(doc,1);
-   Asetattrs(Docbody(doc),
+{  UBYTE *classAttr;
+   UBYTE *styleAttr;
+   void *body;
+   
+   Wantbreak(doc,1);
+   body = Docbody(doc);
+   
+   /* Extract class and style attributes */
+   classAttr = NULL;
+   styleAttr = NULL;
+   if(ta)
+   {  for(;ta->next;ta=ta->next)
+      {  if(ta->attr == TAGATTR_CLASS)
+         {  classAttr = ATTR(doc,ta);
+         }
+         else if(ta->attr == TAGATTR_STYLE)
+         {  styleAttr = ATTR(doc,ta);
+         }
+      }
+   }
+   
+   /* Apply CSS to dd element */
+   if(body)
+   {  ApplyCSSToBody(doc,body,classAttr,NULL,"DD");
+      /* Also apply inline CSS if present */
+      if(styleAttr)
+      {  ApplyInlineCSSToBody(doc,body,styleAttr,"DD");
+      }
+   }
+   
+   Asetattrs(body,
       AOBDY_Align,-1,
       AOBDY_Dterm,FALSE,
       TAG_END);
@@ -2869,12 +3077,37 @@ static BOOL Dodd(struct Document *doc,struct Tagattr *ta)
 /*** <DL> ***/
 static BOOL Dodl(struct Document *doc,struct Tagattr *ta)
 {  struct Listinfo li={0},*nestli;
+   UBYTE *classAttr;
+   UBYTE *styleAttr;
+   void *body;
+   
    li.type=BDLT_DL;
    if(!Ensurebody(doc)) return FALSE;
+   body = Docbody(doc);
+   
+   /* Extract class and style attributes */
+   classAttr = NULL;
+   styleAttr = NULL;
+   if(ta)
+   {  for(;ta->next;ta=ta->next)
+      {  if(ta->attr == TAGATTR_CLASS)
+         {  classAttr = ATTR(doc,ta);
+         }
+         else if(ta->attr == TAGATTR_STYLE)
+         {  styleAttr = ATTR(doc,ta);
+         }
+      }
+   }
+   
+   /* Apply CSS to dl element */
+   if(body)
+   {  ApplyCSSToBody(doc,body,classAttr,NULL,"DL");
+   }
+   
    /* Add extra space if it is the outer list */
-   nestli=(struct Listinfo *)Agetattr(Docbody(doc),AOBDY_List);
+   nestli=(struct Listinfo *)Agetattr(body,AOBDY_List);
    Wantbreak(doc,nestli->next?1:2);
-   Asetattrs(Docbody(doc),
+   Asetattrs(body,
       AOBDY_Align,-1,
       AOBDY_List,&li,
       TAG_END);
@@ -3050,48 +3283,8 @@ static BOOL Dool(struct Document *doc,struct Tagattr *ta)
       {  li.horizontal = TRUE;
          /* Also set list-style-type: none for horizontal lists */
          li.bullettype = BDBT_PLAIN;
-      }
-   }
-   /* Check CSS for display:inline on this list (inline style) */
-   if(styleAttr)
-   {  UBYTE *p;
-      UBYTE *nameStart;
-      UBYTE *nameEnd;
-      UBYTE *valueStart;
-      UBYTE *valueEnd;
-      long nameLen;
-      long valueLen;
-      p = styleAttr;
-      while(*p)
-      {  /* Skip whitespace */
-         while(*p && isspace(*p)) p++;
-         if(!*p) break;
-         nameStart = p;
-         /* Find colon */
-         while(*p && *p != ':') p++;
-         if(!*p) break;
-         nameEnd = p;
-         p++; /* Skip colon */
-         /* Skip whitespace after colon */
-         while(*p && isspace(*p)) p++;
-         valueStart = p;
-         /* Find semicolon or end */
-         while(*p && *p != ';') p++;
-         valueEnd = p;
-         if(*p == ';') p++; /* Skip semicolon */
-         /* Trim value end */
-         while(valueEnd > valueStart && isspace(valueEnd[-1])) valueEnd--;
-         /* Calculate lengths */
-         nameLen = nameEnd - nameStart;
-         valueLen = valueEnd - valueStart;
-         /* Check if this is display:inline */
-         if(nameLen == 7 && strnicmp((char *)nameStart,"display",7) == 0)
-         {  if(valueLen == 6 && strnicmp((char *)valueStart,"inline",6) == 0)
-            {  li.horizontal = TRUE;
-               /* Also set list-style-type: none for horizontal lists */
-               li.bullettype = BDBT_PLAIN;
-            }
-         }
+         /* debug_printf("CSS: Set list horizontal=TRUE for class=%s\n",
+                      classAttr ? (char *)classAttr : "NULL"); */
       }
    }
    if(!Ensurebody(doc)) return FALSE;
@@ -3256,46 +3449,6 @@ static BOOL Doul(struct Document *doc,struct Tagattr *ta)
          li.bullettype = BDBT_PLAIN;
       }
    }
-   /* Check CSS for display:inline on this list */
-   if(styleAttr)
-   {  UBYTE *p;
-      UBYTE *nameStart;
-      UBYTE *nameEnd;
-      UBYTE *valueStart;
-      UBYTE *valueEnd;
-      long nameLen;
-      long valueLen;
-      p = styleAttr;
-      while(*p)
-      {  /* Skip whitespace */
-         while(*p && isspace(*p)) p++;
-         if(!*p) break;
-         nameStart = p;
-         /* Find colon */
-         while(*p && *p != ':') p++;
-         if(!*p) break;
-         nameEnd = p;
-         p++; /* Skip colon */
-         /* Skip whitespace after colon */
-         while(*p && isspace(*p)) p++;
-         valueStart = p;
-         /* Find semicolon or end */
-         while(*p && *p != ';') p++;
-         valueEnd = p;
-         if(*p == ';') p++; /* Skip semicolon */
-         /* Trim value end */
-         while(valueEnd > valueStart && isspace(valueEnd[-1])) valueEnd--;
-         /* Calculate lengths */
-         nameLen = nameEnd - nameStart;
-         valueLen = valueEnd - valueStart;
-         /* Check if this is display:inline */
-         if(nameLen == 7 && strnicmp((char *)nameStart,"display",7) == 0)
-         {  if(valueLen == 6 && strnicmp((char *)valueStart,"inline",6) == 0)
-            {  li.horizontal = TRUE;
-            }
-         }
-      }
-   }
    if(!Ensurebody(doc)) return FALSE;
    /* Add extra space if it is the outer list */
    nestli=(struct Listinfo *)Agetattr(Docbody(doc),AOBDY_List);
@@ -3392,7 +3545,7 @@ static BOOL Doli(struct Document *doc,struct Tagattr *ta)
                            }
                            if(marginValue > 0)
                            {  Asetattrs(body,AOBDY_Leftmargin,marginValue,TAG_END);
-                              debug_printf("CSS: Applied margin-left=%ld to list item\n",marginValue);
+                              /* debug_printf("CSS: Applied margin-left=%ld to list item\n",marginValue); */
                            }
                         }
                      }
@@ -3420,7 +3573,7 @@ static BOOL Doli(struct Document *doc,struct Tagattr *ta)
                            /* Note: AWeb doesn't have margin-right, use left margin as spacing */
                            if(marginValue > 0)
                            {  Asetattrs(body,AOBDY_Leftmargin,marginValue,TAG_END);
-                              debug_printf("CSS: Applied margin-right=%ld (as left margin) to list item\n",marginValue);
+                              /* debug_printf("CSS: Applied margin-right=%ld (as left margin) to list item\n",marginValue); */
                            }
                         }
                      }
@@ -3435,20 +3588,33 @@ static BOOL Doli(struct Document *doc,struct Tagattr *ta)
    if(li && !li->horizontal)
    {  Wantbreak(doc,1);
    }
-   /* For horizontal lists, ensure no bullets */
-   if(li && li->horizontal)
-   {  li->bullettype = BDBT_PLAIN;
-   }
    if(li && li->type==BDLT_UL)
-   {  btype=li->bullettype;
-      src=li->bulletsrc;
+   {  /* For horizontal lists, always use BDBT_PLAIN (no bullets) - check FIRST */
+      if(li->horizontal)
+      {  btype = BDBT_PLAIN;
+         li->bullettype = BDBT_PLAIN;
+         src = NULL;
+         /* debug_printf("CSS: List item is horizontal, skipping bullet (btype=BDBT_PLAIN)\n"); */
+      }
+      else
+      {  btype=li->bullettype;
+         src=li->bulletsrc;
+      }
       for(;ta->next;ta=ta->next)
       {  switch(ta->attr)
          {  case TAGATTR_TYPE:
-               if(STRNIEQUAL(ATTR(doc,ta),"DISC",4)) li->bullettype=BDBT_DISC;
-               else if(STRNIEQUAL(ATTR(doc,ta),"CIRC",4)) li->bullettype=BDBT_CIRCLE;
-               else if(STRNIEQUAL(ATTR(doc,ta),"SQUA",4)) li->bullettype=BDBT_SQUARE;
-               btype=li->bullettype;
+               /* Don't override bullet type for horizontal lists - always keep BDBT_PLAIN */
+               if(!li->horizontal)
+               {  if(STRNIEQUAL(ATTR(doc,ta),"DISC",4)) li->bullettype=BDBT_DISC;
+                  else if(STRNIEQUAL(ATTR(doc,ta),"CIRC",4)) li->bullettype=BDBT_CIRCLE;
+                  else if(STRNIEQUAL(ATTR(doc,ta),"SQUA",4)) li->bullettype=BDBT_SQUARE;
+                  btype=li->bullettype;
+               }
+               else
+               {  /* For horizontal lists, ensure bullet type stays PLAIN */
+                  li->bullettype = BDBT_PLAIN;
+                  btype = BDBT_PLAIN;
+               }
                break;
             case TAGATTR_SRC:
                src=ATTR(doc,ta);
@@ -3462,21 +3628,23 @@ static BOOL Doli(struct Document *doc,struct Tagattr *ta)
                break;
          }
       }
-      switch(btype)
-      {  case BDBT_DISC:
-         case BDBT_CIRCLE:
-         case BDBT_SQUARE:
-         case BDBT_DIAMOND:
-         case BDBT_SOLIDDIA:
-         case BDBT_RECTANGLE:
-            if(!(elt=Anewobject(AOTP_BULLET,
-               AOBJ_Pool,doc->pool,
-               AOBUL_Type,btype,
-               AOELT_Bullet,TRUE,
-               AOELT_Preformat,doc->pflags&DPF_PREFORMAT,
-               TAG_END))) return FALSE;
-            break;
-         case BDBT_IMAGE:
+      /* Only create bullet if not horizontal and btype is not PLAIN */
+      if(!li->horizontal && btype != BDBT_PLAIN)
+      {  switch(btype)
+         {  case BDBT_DISC:
+            case BDBT_CIRCLE:
+            case BDBT_SQUARE:
+            case BDBT_DIAMOND:
+            case BDBT_SOLIDDIA:
+            case BDBT_RECTANGLE:
+               if(!(elt=Anewobject(AOTP_BULLET,
+                  AOBJ_Pool,doc->pool,
+                  AOBUL_Type,btype,
+                  AOELT_Bullet,TRUE,
+                  AOELT_Preformat,doc->pflags&DPF_PREFORMAT,
+                  TAG_END))) return FALSE;
+               break;
+            case BDBT_IMAGE:
             referer=(void *)Agetattr(doc->source->source,AOSRC_Url);
             if(!(url=Findurl(doc->base,src,0))) return FALSE;
             if(!(elt=Anewobject(AOTP_COPY,
@@ -3489,7 +3657,8 @@ static BOOL Doli(struct Document *doc,struct Tagattr *ta)
                AOCPY_Defaulttype,"image/x-unknown",
                AOCPY_Reloadverify,(doc->pflags&DPF_RELOADVERIFY),
                TAG_END))) return FALSE;
-            break;
+               break;
+         }
       }
       if(elt)
       {  if(!Addelement(doc,elt)) return FALSE;

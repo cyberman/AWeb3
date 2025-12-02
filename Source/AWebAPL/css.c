@@ -42,14 +42,14 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css);
 static struct CSSRule* ParseRule(struct Document *doc,UBYTE **p);
 static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p);
 static struct CSSProperty* ParseProperty(struct Document *doc,UBYTE **p);
-static void SkipWhitespace(UBYTE **p);
 static void SkipComment(UBYTE **p);
 static UBYTE* ParseIdentifier(UBYTE **p);
 static UBYTE* ParseValue(UBYTE **p);
 static BOOL MatchSelector(struct CSSSelector *sel,void *element);
 static void ApplyProperty(void *element,struct CSSProperty *prop);
 static void FreeCSSStylesheetInternal(struct CSSStylesheet *sheet);
-static long ParseCSSLengthValue(UBYTE *value,struct Number *num);
+void SkipWhitespace(UBYTE **p);
+long ParseCSSLengthValue(UBYTE *value,struct Number *num);
 ULONG ParseHexColor(UBYTE *pcolor);
 
 /* Simple debug printf */
@@ -65,7 +65,7 @@ void ParseCSSStylesheet(struct Document *doc,UBYTE *css)
 {  struct CSSStylesheet *sheet;
    if(!doc || !css) return;
    
-   debug_printf("CSS: ParseCSSStylesheet called, css length=%ld\n",strlen((char *)css));
+   /* debug_printf("CSS: ParseCSSStylesheet called, css length=%ld\n",strlen((char *)css)); */
    
    /* Free existing stylesheet if any */
    if(doc->cssstylesheet)
@@ -85,10 +85,10 @@ void ParseCSSStylesheet(struct Document *doc,UBYTE *css)
           rule = (struct CSSRule *)rule->node.mln_Succ)
       {  ruleCount++;
       }
-      debug_printf("CSS: Stylesheet parsed successfully, %ld rules\n",ruleCount);
+      /* debug_printf("CSS: Stylesheet parsed successfully, %ld rules\n",ruleCount); */
    }
    else
-   {  debug_printf("CSS: Stylesheet parsing failed\n");
+   {  /* debug_printf("CSS: Stylesheet parsing failed\n"); */
    }
 }
 
@@ -231,6 +231,17 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
       {  FREE(sel);
          return NULL;
       }
+      
+      /* Check for descendant element after class (e.g., ".menubar li") */
+      SkipWhitespace(p);
+      if(**p && **p != ':' && **p != ',' && **p != '{' && **p != '}')
+      {  name = ParseIdentifier(p);
+         if(name)
+         {  sel->type |= CSS_SEL_ELEMENT;
+            sel->name = Dupstr(name,-1);
+            sel->specificity += 1; /* Element adds to specificity */
+         }
+      }
    }
    else if(**p == '#')
    {  /* ID selector */
@@ -343,7 +354,7 @@ static struct CSSProperty* ParseProperty(struct Document *doc,UBYTE **p)
 }
 
 /* Skip whitespace */
-static void SkipWhitespace(UBYTE **p)
+void SkipWhitespace(UBYTE **p)
 {  if(!p || !*p) return;
    while(**p && (isspace(**p) || **p == '\n' || **p == '\r' || **p == '\t'))
    {  (*p)++;
@@ -412,33 +423,35 @@ static UBYTE* ParseValue(UBYTE **p)
    SkipWhitespace(p);
    start = *p;
    
-   /* Handle quoted strings */
-   if(**p == '"' || **p == '\'')
-   {  quote = **p;
-      inString = TRUE;
-      (*p)++;
-      start = *p;
-      while(**p && **p != quote)
-      {  if(**p == '\\' && (*p)[1])
-         {  (*p) += 2; /* Skip escaped character */
+   /* Parse until semicolon, closing brace, or newline */
+   /* Handle quoted strings within the value (e.g., font-family: "Open Sans", "Helvetica Neue", ...) */
+   while(**p && **p != ';' && **p != '}' && **p != '\n' && **p != '\r')
+   {  if((**p == '"' || **p == '\'') && !inString)
+      {  quote = **p;
+         inString = TRUE;
+         (*p)++;
+         /* Skip to closing quote */
+         while(**p && **p != quote)
+         {  if(**p == '\\' && (*p)[1])
+            {  (*p) += 2; /* Skip escaped character */
+            }
+            else
+            {  (*p)++;
+            }
          }
-         else
-         {  (*p)++;
+         if(**p == quote)
+         {  (*p)++; /* Skip closing quote */
+            inString = FALSE;
          }
       }
-      len = *p - start;
-      if(**p == quote) (*p)++;
-   }
-   else
-   {  /* Parse until semicolon, closing brace, or newline */
-      while(**p && **p != ';' && **p != '}' && **p != '\n' && **p != '\r')
+      else
       {  (*p)++;
       }
-      len = *p - start;
-      /* Trim trailing whitespace */
-      while(len > 0 && isspace(start[len - 1]))
-      {  len--;
-      }
+   }
+   len = *p - start;
+   /* Trim trailing whitespace */
+   while(len > 0 && isspace(start[len - 1]))
+   {  len--;
    }
    
    if(len == 0) return NULL;
@@ -1160,6 +1173,55 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
             /* Other display values (flex, table, etc.) not yet supported */
          }
+         /* Apply grid-column-start (for grid layout positioning) */
+         else if(stricmp((char *)prop->name,"grid-column-start") == 0)
+         {  long gridColStart;
+            long leftMargin;
+            UBYTE *pval;
+            
+            /* Parse grid-column-start value - can be a number (e.g., "2") or a length */
+            pval = prop->value;
+            SkipWhitespace(&pval);
+            if(isdigit(*pval))
+            {  /* Parse as integer */
+               gridColStart = strtol((char *)pval,NULL,10);
+            }
+            else
+            {  /* Try parsing as length value */
+               struct Number num;
+               gridColStart = ParseCSSLengthValue(prop->value,&num);
+               /* If it's a length, convert to column number (approximate) */
+               if(gridColStart > 0)
+               {  /* Assume each column is at least 100px wide */
+                  gridColStart = (gridColStart / 100) + 1;
+               }
+            }
+            
+            if(gridColStart >= 2)
+            {  /* For grid-column-start >= 2, apply left margin to push to second column */
+               /* Use column gap from parent dl element if available */
+               if(doc->gridcolgap > 0)
+               {  leftMargin = doc->gridcolgap;
+               }
+               else
+               {  /* Default column gap if not specified */
+                  leftMargin = 16;
+               }
+               Asetattrs(body,AOBDY_Leftmargin,leftMargin,TAG_END);
+            }
+         }
+         /* Apply grid-column-end (for grid layout positioning) */
+         else if(stricmp((char *)prop->name,"grid-column-end") == 0)
+         {  /* Parse but not fully implemented */
+         }
+         /* Apply grid-row-start (for grid layout positioning) */
+         else if(stricmp((char *)prop->name,"grid-row-start") == 0)
+         {  /* Parse but not fully implemented */
+         }
+         /* Apply grid-row-end (for grid layout positioning) */
+         else if(stricmp((char *)prop->name,"grid-row-end") == 0)
+         {  /* Parse but not fully implemented */
+         }
          /* Note: width, height, and vertical-align for table cells are handled
           * separately in ApplyCSSToTableCell() */
          
@@ -1181,7 +1243,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
 }
 
 /* Parse CSS length value (pixels, percentages, etc.) */
-static long ParseCSSLengthValue(UBYTE *value,struct Number *num)
+long ParseCSSLengthValue(UBYTE *value,struct Number *num)
 {  UBYTE *pval;
    char c = '\0';
    short m;
@@ -1412,13 +1474,22 @@ void ApplyCSSToLinkColors(struct Document *doc)
                    prop = (struct CSSProperty *)prop->node.mln_Succ)
                {  if(prop->name && prop->value && stricmp((char *)prop->name,"color") == 0)
                   {  colorrgb = ParseHexColor(prop->value);
+                     /* debug_printf("CSS: Parsing a:link color='%s', rgb=0x%08lx\n",
+                                  prop->value ? (char *)prop->value : "NULL", colorrgb); */
                      if(colorrgb != ~0)
                      {  ci = Finddoccolor(doc,colorrgb);
                         if(ci)
                         {  doc->linkcolor = ci;
                            linkColorSet = TRUE;
-                           debug_printf("CSS: Set doc->linkcolor from a:link\n");
+                           /* debug_printf("CSS: Set doc->linkcolor from a:link (color=0x%08lx)\n", colorrgb); */
                         }
+                        else
+                        {  /* debug_printf("CSS: Failed to find/create color for a:link (rgb=0x%08lx)\n", colorrgb); */
+                        }
+                     }
+                     else
+                     {  /* debug_printf("CSS: Failed to parse a:link color='%s'\n",
+                                      prop->value ? (char *)prop->value : "NULL"); */
                      }
                   }
                }
@@ -1435,7 +1506,7 @@ void ApplyCSSToLinkColors(struct Document *doc)
                         if(ci)
                         {  doc->vlinkcolor = ci;
                            visitedColorSet = TRUE;
-                           debug_printf("CSS: Set doc->vlinkcolor from a:visited\n");
+                           /* debug_printf("CSS: Set doc->vlinkcolor from a:visited\n"); */
                         }
                      }
                   }
@@ -1479,7 +1550,7 @@ void ApplyCSSToLinkColors(struct Document *doc)
                         if(ci)
                         {  doc->linkcolor = ci;
                            linkColorSet = TRUE;
-                           debug_printf("CSS: Set doc->linkcolor from 'a' (default fallback)\n");
+                           /* debug_printf("CSS: Set doc->linkcolor from 'a' (default fallback)\n"); */
                            break;
                         }
                      }
@@ -1491,8 +1562,16 @@ void ApplyCSSToLinkColors(struct Document *doc)
    }
    
    /* Register colors if they were set */
-   if((linkColorSet || visitedColorSet) && doc->frame)
-   {  Registerdoccolors(doc);
+   if(linkColorSet || visitedColorSet)
+   {  /* debug_printf("CSS: Link colors set - linkColorSet=%d visitedColorSet=%d frame=%p\n",
+                   linkColorSet, visitedColorSet, doc->frame); */
+      if(doc->frame)
+      {  Registerdoccolors(doc);
+         /* debug_printf("CSS: Registered link colors with frame\n"); */
+      }
+      else
+      {  /* debug_printf("CSS: Frame not ready yet, colors will be registered when frame is created\n"); */
+      }
    }
 }
 
@@ -1506,12 +1585,12 @@ void ApplyCSSToLink(struct Document *doc,void *link,void *body)
    BOOL isVisited;
    
    if(!doc || !link || !doc->cssstylesheet)
-   {  debug_printf("CSS: ApplyCSSToLink skipped - doc=%p link=%p stylesheet=%p\n",
-                   doc, link, (doc ? doc->cssstylesheet : NULL));
+   {  /* debug_printf("CSS: ApplyCSSToLink skipped - doc=%p link=%p stylesheet=%p\n",
+                   doc, link, (doc ? doc->cssstylesheet : NULL)); */
       return;
    }
    
-   debug_printf("CSS: ApplyCSSToLink called\n");
+   /* debug_printf("CSS: ApplyCSSToLink called\n"); */
    
    sheet = (struct CSSStylesheet *)doc->cssstylesheet;
    isVisited = (BOOL)Agetattr(link,AOLNK_Visited);
@@ -1548,21 +1627,22 @@ void ApplyCSSToLink(struct Document *doc,void *link,void *body)
          
          /* Apply properties if selector matches */
          if(matches)
-         {  debug_printf("CSS: Link selector matched! Element=%s pseudo=%s\n",
+         {  /* debug_printf("CSS: Link selector matched! Element=%s pseudo=%s\n",
                          (sel->name ? (char *)sel->name : "any"),
-                         (sel->pseudo ? (char *)sel->pseudo : "none"));
+                         (sel->pseudo ? (char *)sel->pseudo : "none")); */
             for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
                (struct MinNode *)prop->node.mln_Succ;
                prop = (struct CSSProperty *)prop->node.mln_Succ)
             {  if(prop->name && prop->value)
                {                    /* Apply text-decoration: none */
                   if(stricmp((char *)prop->name,"text-decoration") == 0)
-                  {  debug_printf("CSS: Link property text-decoration=%s\n",prop->value);
+                  {  /* debug_printf("CSS: Link property text-decoration=%s\n",prop->value); */
                      if(stricmp((char *)prop->value,"none") == 0)
-                     {  debug_printf("CSS: Setting link NoDecoration=TRUE\n");
+                     {  /* debug_printf("CSS: Setting link NoDecoration=TRUE\n"); */
                         Asetattrs(link,AOLNK_NoDecoration,TRUE,TAG_END);
                      }
                   }
+                  /* Note: font-family is inherited from parent elements, not set on links */
                   /* Note: color is handled by ApplyCSSToLinkColors for document-level colors */
                }
             }

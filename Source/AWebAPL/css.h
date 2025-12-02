@@ -74,6 +74,8 @@ void ApplyCSSToTable(struct Document *doc,void *table,UBYTE *style);
 ULONG ParseHexColor(UBYTE *pcolor);
 void ApplyCSSToLink(struct Document *doc,void *link,void *body);
 void ApplyCSSToLinkColors(struct Document *doc);
+void SkipWhitespace(UBYTE **p);
+long ParseCSSLengthValue(UBYTE *value,struct Number *num);
 
 #endif /* AWEB_CSS_H */
 

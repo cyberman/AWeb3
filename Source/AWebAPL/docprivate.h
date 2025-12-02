@@ -135,6 +135,7 @@ struct Document
    short texttransform;       /* Text transform: 0=none, 1=uppercase, 2=lowercase, 3=capitalize */
    float lineheight;          /* Line height multiplier (from CSS line-height) */
    UBYTE *currentlistclass;   /* Class of current list (for descendant selector support) */
+   long gridcolgap;           /* Grid column gap from parent dl element (for grid-column-start) */
 };
 
 #define DPF_PREFORMAT      0x00000001  /* doing PRE */

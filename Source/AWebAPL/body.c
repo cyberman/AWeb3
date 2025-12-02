@@ -318,6 +318,7 @@ static void Addlist(struct Body *bd,struct Listinfo *lis)
       {  if(lis->bulletsrc) li->bulletsrc=Dupstr(lis->bulletsrc,-1);
       }
       li->bulletnr=lis->bulletnr;
+      li->horizontal=lis->horizontal;  /* Copy horizontal flag for CSS display:inline support */
       if(ISEMPTY(&bd->bld->list))
       {  li->level=1;
       }
