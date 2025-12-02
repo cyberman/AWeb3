@@ -51,6 +51,19 @@
 #include "url.h"
 #include "css.h"
 #include "window.h"
+#include <stdio.h>
+#include <stdarg.h>
+
+/* COLOR macro - extract pen number from Colorinfo */
+#define COLOR(ci) ((ci)?((ci)->pen):(-1))
+
+/* Simple debug printf - can be enabled/disabled */
+static void debug_printf(const char *format, ...)
+{  va_list args;
+   va_start(args, format);
+   vprintf(format, args);
+   va_end(args);
+}
 
 #define ATTR(doc,ta)          ((doc)->args.buffer+(ta)->valuepos)
 #define ATTREQUAL(doc,ta,v)   STRIEQUAL(ATTR(doc,ta),v)
@@ -210,10 +223,27 @@ static void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *i
    BOOL matches;
    UBYTE *comma;
    UBYTE *fontFace;
+   UBYTE *fontValue;
+   UBYTE *start;
+   UBYTE *end;
+   long len;
    short fontSize;
    BOOL isRelative;
+   ULONG colorrgb;
+   struct Colorinfo *ci;
+   float lineHeightValue;
+   UBYTE *lineHeightStr;
    
-   if(!doc || !body || !doc->cssstylesheet) return;
+   if(!doc || !body || !doc->cssstylesheet)
+   {  debug_printf("CSS: ApplyCSSToBody skipped - doc=%p body=%p stylesheet=%p\n",
+                   doc, body, (doc ? doc->cssstylesheet : NULL));
+      return;
+   }
+   
+   debug_printf("CSS: ApplyCSSToBody called - tagname=%s class=%s id=%s\n",
+                (tagname ? (char *)tagname : "NULL"),
+                (class ? (char *)class : "NULL"),
+                (id ? (char *)id : "NULL"));
    
    isAbsolute = FALSE;
    topValue = NULL;
@@ -233,7 +263,13 @@ static void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *i
          
          /* Match element name */
          if(sel->type & CSS_SEL_ELEMENT && sel->name)
-         {  if(!tagname || stricmp((char *)sel->name,(char *)tagname) != 0)
+         {  /* For body selector, tagname can be "BODY" or NULL (for document body) */
+            if(stricmp((char *)sel->name,"body") == 0)
+            {  if(tagname && stricmp((char *)tagname,"BODY") != 0)
+               {  matches = FALSE;
+               }
+            }
+            else if(!tagname || stricmp((char *)sel->name,(char *)tagname) != 0)
             {  matches = FALSE;
             }
          }
@@ -307,7 +343,13 @@ static void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *i
          
          /* Match element name */
          if(sel->type & CSS_SEL_ELEMENT && sel->name)
-         {  if(!tagname || stricmp((char *)sel->name,(char *)tagname) != 0)
+         {  /* For body selector, tagname can be "BODY" or NULL (for document body) */
+            if(stricmp((char *)sel->name,"body") == 0)
+            {  if(tagname && stricmp((char *)tagname,"BODY") != 0)
+               {  matches = FALSE;
+               }
+            }
+            else if(!tagname || stricmp((char *)sel->name,(char *)tagname) != 0)
             {  matches = FALSE;
             }
          }
@@ -344,7 +386,11 @@ static void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *i
          
          /* If selector matches, apply properties */
          if(matches)
-         {  for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
+         {  debug_printf("CSS: Selector matched! Element=%s class=%s id=%s\n",
+                         (sel->name ? (char *)sel->name : "any"),
+                         (sel->class ? (char *)sel->class : "none"),
+                         (sel->id ? (char *)sel->id : "none"));
+            for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
                (struct MinNode *)prop->node.mln_Succ;
                prop = (struct CSSProperty *)prop->node.mln_Succ)
             {  if(prop->name && prop->value)
@@ -370,33 +416,105 @@ static void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *i
                      {  Asetattrs(body,AOBDY_Align,align,TAG_END);
                      }
                   }
-                  /* Apply font-family */
+                  /* Apply font-family - handle comma-separated list */
                   else if(stricmp((char *)prop->name,"font-family") == 0)
-                  {  fontFace = NULL;
+                  {  UBYTE *fontValue;
+                     UBYTE *p;
+                     UBYTE *start;
+                     UBYTE *end;
+                     long len;
+                     BOOL found = FALSE;
                      
-                     /* Parse font family list (comma-separated) */
-                     /* Find first font name (before comma) */
-                     comma = (UBYTE *)strchr((char *)prop->value,',');
-                     if(comma)
-                     {  long len = comma - prop->value;
-                        fontFace = ALLOCTYPE(UBYTE,len + 1,0);
-                        if(fontFace)
-                        {  memmove(fontFace,prop->value,len);
-                           fontFace[len] = '\0';
-                           /* Trim whitespace */
-                           while(len > 0 && isspace(fontFace[len - 1]))
-                           {  fontFace[--len] = '\0';
+                     fontFace = NULL;
+                     fontValue = prop->value;
+                     p = fontValue;
+                     
+                     /* Try each font in the comma-separated list */
+                     while(*p && !found)
+                     {  /* Skip leading whitespace */
+                        while(*p && isspace(*p)) p++;
+                        if(!*p) break;
+                        
+                        start = p;
+                        
+                        /* Check if font name is quoted */
+                        if(*p == '"' || *p == '\'')
+                        {  UBYTE quote = *p;
+                           start = p + 1;
+                           /* Find closing quote */
+                           end = (UBYTE *)strchr((char *)start,quote);
+                           if(end)
+                           {  len = end - start;
+                              p = end + 1;
+                           }
+                           else
+                           {  /* No closing quote, use rest of string */
+                              len = strlen((char *)start);
+                              p = start + len;
                            }
                         }
-                     }
-                     else
-                     {  fontFace = Dupstr(prop->value,-1);
+                        else
+                        {  /* Find comma or end */
+                           end = (UBYTE *)strchr((char *)start,',');
+                           if(end)
+                           {  len = end - start;
+                              p = end + 1;
+                           }
+                           else
+                           {  len = strlen((char *)start);
+                              p = start + len;
+                           }
+                        }
+                        
+                        /* Trim trailing whitespace */
+                        while(len > 0 && isspace(start[len - 1])) len--;
+                        
+                        /* Skip generic families - they're handled by Matchfont */
+                        if(len > 0)
+                        {  UBYTE testName[32];
+                           long testLen = (len < 31) ? len : 31;
+                           memmove(testName,start,testLen);
+                           testName[testLen] = '\0';
+                           if(stricmp((char *)testName,"serif") != 0 &&
+                              stricmp((char *)testName,"sans-serif") != 0 &&
+                              stricmp((char *)testName,"monospace") != 0 &&
+                              stricmp((char *)testName,"cursive") != 0 &&
+                              stricmp((char *)testName,"fantasy") != 0)
+                           {  /* Not a generic family - use this font */
+                              fontFace = ALLOCTYPE(UBYTE,len + 1,0);
+                              if(fontFace)
+                              {  memmove(fontFace,start,len);
+                                 fontFace[len] = '\0';
+                                 debug_printf("CSS: Applying font-family='%s' to body (tagname=%s)\n",
+                                              fontFace, (tagname ? (char *)tagname : "NULL"));
+                                 /* Apply font face to body */
+                                 Asetattrs(body,AOBDY_Fontface,fontFace,TAG_END);
+                                 FREE(fontFace);
+                                 debug_printf("CSS: font-family applied successfully\n");
+                                 found = TRUE;
+                              }
+                           }
+                           else
+                           {  /* Generic family - pass the full list to Matchfont */
+                              if(!found)
+                              {  fontFace = ALLOCTYPE(UBYTE,strlen((char *)prop->value) + 1,0);
+                                 if(fontFace)
+                                 {  strcpy((char *)fontFace,(char *)prop->value);
+                                    debug_printf("CSS: Applying font-family='%s' (generic) to body\n",fontFace);
+                                    Asetattrs(body,AOBDY_Fontface,fontFace,TAG_END);
+                                    FREE(fontFace);
+                                    found = TRUE;
+                                 }
+                              }
+                           }
+                        }
+                        
+                        /* Skip comma and whitespace */
+                        while(*p && (isspace(*p) || *p == ',')) p++;
                      }
                      
-                     if(fontFace)
-                     {  /* Apply font face to body */
-                        Asetattrs(body,AOBDY_Fontface,fontFace,TAG_END);
-                        FREE(fontFace);
+                     if(!found)
+                     {  debug_printf("CSS: font-family parsing failed for '%s'\n",prop->value);
                      }
                   }
                   /* Apply font-size */
@@ -517,6 +635,137 @@ static void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *i
                            Asetattrs(body,AOBDY_Topmargin,posValue,TAG_END);
                         }
                         /* margin-bottom would need new attribute */
+                     }
+                  }
+                  /* Apply color */
+                  else if(stricmp((char *)prop->name,"color") == 0)
+                  {  ULONG colorrgb;
+                     struct Colorinfo *ci;
+                     colorrgb = ParseHexColor(prop->value);
+                     if(colorrgb != ~0)
+                     {  ci = Finddoccolor(doc,colorrgb);
+                        if(ci)
+                        {  Asetattrs(body,AOBDY_Fontcolor,ci,TAG_END);
+                        }
+                     }
+                  }
+                  /* Apply background-color */
+                  else if(stricmp((char *)prop->name,"background-color") == 0)
+                  {  ULONG colorrgb;
+                     struct Colorinfo *ci;
+                     colorrgb = ParseHexColor(prop->value);
+                     if(colorrgb != ~0)
+                     {  ci = Finddoccolor(doc,colorrgb);
+                        if(ci)
+                        {  Asetattrs(body,AOBDY_Bgcolor,COLOR(ci),TAG_END);
+                        }
+                     }
+                  }
+                  /* Apply margin shorthand */
+                  else if(stricmp((char *)prop->name,"margin") == 0)
+                  {  UBYTE *marginP;
+                     UBYTE *tokenStart;
+                     UBYTE *tokenEnd;
+                     long tokenLen;
+                     UBYTE *tokenBuf;
+                     UBYTE *marginTokens[4];
+                     long marginCount;
+                     long marginTop;
+                     long marginRight;
+                     long marginBottom;
+                     long marginLeft;
+                     long j;
+                     marginP = prop->value;
+                     marginCount = 0;
+                     marginTop = marginRight = marginBottom = marginLeft = 0;
+                     for(j = 0; j < 4; j++) marginTokens[j] = NULL;
+                     
+                     /* Parse margin values - can be 1, 2, 3, or 4 values */
+                     for(j = 0; j < 4 && marginP && *marginP; j++)
+                     {  while(*marginP && isspace(*marginP)) marginP++;
+                        if(!*marginP) break;
+                        tokenStart = marginP;
+                        while(*marginP && !isspace(*marginP)) marginP++;
+                        tokenEnd = marginP;
+                        tokenLen = tokenEnd - tokenStart;
+                        if(tokenLen > 0)
+                        {  tokenBuf = ALLOCTYPE(UBYTE,tokenLen + 1,0);
+                           if(tokenBuf)
+                           {  memmove(tokenBuf,tokenStart,tokenLen);
+                              tokenBuf[tokenLen] = '\0';
+                              marginTokens[marginCount] = tokenBuf;
+                              marginCount++;
+                           }
+                        }
+                     }
+                     
+                     /* Apply margin values based on count */
+                     if(marginCount >= 1)
+                     {  marginTop = Getnumber(&num,marginTokens[0]);
+                        if(marginCount == 1)
+                        {  marginRight = marginBottom = marginLeft = marginTop;
+                        }
+                        else if(marginCount == 2)
+                        {  marginBottom = marginTop;
+                           marginRight = Getnumber(&num,marginTokens[1]);
+                           marginLeft = marginRight;
+                        }
+                        else if(marginCount == 3)
+                        {  marginRight = Getnumber(&num,marginTokens[1]);
+                           marginLeft = marginRight;
+                           marginBottom = Getnumber(&num,marginTokens[2]);
+                        }
+                        else if(marginCount == 4)
+                        {  marginRight = Getnumber(&num,marginTokens[1]);
+                           marginBottom = Getnumber(&num,marginTokens[2]);
+                           marginLeft = Getnumber(&num,marginTokens[3]);
+                        }
+                        
+                        /* Apply margins */
+                        if(marginTop >= 0 && num.type == NUMBER_NUMBER) Asetattrs(body,AOBDY_Topmargin,marginTop,TAG_END);
+                        if(marginLeft >= 0 && num.type == NUMBER_NUMBER) Asetattrs(body,AOBDY_Leftmargin,marginLeft,TAG_END);
+                     }
+                     
+                     /* Free temporary token buffers */
+                     for(j = 0; j < marginCount; j++)
+                     {  if(marginTokens[j]) FREE(marginTokens[j]);
+                     }
+                  }
+                  /* Apply line-height */
+                  else if(stricmp((char *)prop->name,"line-height") == 0)
+                  {  float lineHeightValue;
+                     UBYTE *lineHeightStr;
+                     lineHeightStr = prop->value;
+                     while(*lineHeightStr && isspace(*lineHeightStr)) lineHeightStr++;
+                     if(sscanf((char *)lineHeightStr,"%f",&lineHeightValue) == 1)
+                     {  doc->lineheight = lineHeightValue;
+                     }
+                  }
+                  /* Apply font-weight */
+                  else if(stricmp((char *)prop->name,"font-weight") == 0)
+                  {  if(stricmp((char *)prop->value,"bold") == 0 || stricmp((char *)prop->value,"700") == 0)
+                     {  Asetattrs(body,AOBDY_Sethardstyle,FSF_BOLD,TAG_END);
+                     }
+                     else if(stricmp((char *)prop->value,"normal") == 0 || stricmp((char *)prop->value,"400") == 0)
+                     {  Asetattrs(body,AOBDY_Unsethardstyle,FSF_BOLD,TAG_END);
+                     }
+                  }
+                  /* Apply font-style */
+                  else if(stricmp((char *)prop->name,"font-style") == 0)
+                  {  if(stricmp((char *)prop->value,"italic") == 0)
+                     {  Asetattrs(body,AOBDY_Sethardstyle,FSF_ITALIC,TAG_END);
+                     }
+                     else if(stricmp((char *)prop->value,"normal") == 0)
+                     {  Asetattrs(body,AOBDY_Unsethardstyle,FSF_ITALIC,TAG_END);
+                     }
+                  }
+                  /* Apply text-decoration */
+                  else if(stricmp((char *)prop->name,"text-decoration") == 0)
+                  {  if(stricmp((char *)prop->value,"line-through") == 0)
+                     {  Asetattrs(body,AOBDY_Sethardstyle,FSF_STRIKE,TAG_END);
+                     }
+                     else if(stricmp((char *)prop->value,"none") == 0)
+                     {  Asetattrs(body,AOBDY_Unsethardstyle,FSF_STRIKE,TAG_END);
                      }
                   }
                   /* Note: transform is CSS3 and is not implemented (CSS1/CSS2 only) */
@@ -1185,8 +1434,18 @@ static BOOL Docssend(struct Document *doc)
    {  if(!Addtobuffer(&doc->csssrc,"",1)) return FALSE; /* null terminate */
       css=doc->csssrc.buffer;
       if(css)
-      {  /* Parse and apply CSS stylesheet */
+      {  debug_printf("CSS: Parsing stylesheet, length=%ld\n",doc->csssrc.length);
+         /* Parse and apply CSS stylesheet */
          ParseCSSStylesheet(doc,css);
+         debug_printf("CSS: Stylesheet parsed, body exists=%d, stylesheet=%p\n",
+                      (doc->body != NULL), doc->cssstylesheet);
+         /* Apply link colors from CSS (a:link, a:visited) */
+         ApplyCSSToLinkColors(doc);
+         /* Apply CSS to body if it already exists */
+         if(doc->body && doc->cssstylesheet)
+         {  debug_printf("CSS: Applying stylesheet CSS to body\n");
+            ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
+         }
       }
       Freebuffer(&doc->csssrc);
    }
@@ -1320,6 +1579,11 @@ static BOOL Dobody(struct Document *doc,struct Tagattr *ta)
             if(doc->frame) Asetattrs(doc->frame,AOFRM_Onblur,doc->onblur,TAG_END);
             break;
       }
+   }
+   /* Apply CSS from stylesheet to body element */
+   if(doc->body)
+   {  debug_printf("CSS: Dobody called, applying CSS to body, stylesheet=%p\n",doc->cssstylesheet);
+      ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
    }
    if(gotcolor && !gotbg)
    {  /* Set bg to white if no bg is defined but other colors are. */
@@ -2086,7 +2350,9 @@ static BOOL Doanchor(struct Document *doc,struct Tagattr *ta)
          TAG_END))) return FALSE;
       ADDTAIL(&doc->links,link);
       Asetattrs(Docbody(doc),AOBDY_Link,link,TAG_END);
-      /* Apply inline CSS if present */
+      /* Apply CSS from stylesheet to link */
+      ApplyCSSToLink(doc,link,Docbody(doc));
+      /* Apply inline CSS if present (overrides stylesheet) */
       if(styleAttr)
       {  ApplyInlineCSSToLink(doc,link,Docbody(doc),styleAttr);
       }
@@ -2656,12 +2922,20 @@ static BOOL Dodt(struct Document *doc,struct Tagattr *ta)
 static BOOL Dool(struct Document *doc,struct Tagattr *ta)
 {  struct Listinfo li={0},*nestli;
    UBYTE *styleAttr;
+   UBYTE *classAttr;
    styleAttr = NULL;
+   classAttr = NULL;
    li.type=BDLT_OL;
+   /* Clear previous list class */
+   if(doc->currentlistclass) FREE(doc->currentlistclass);
+   doc->currentlistclass = NULL;
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
       {  case TAGATTR_STYLE:
             styleAttr=ATTR(doc,ta);
+            break;
+         case TAGATTR_CLASS:
+            classAttr=ATTR(doc,ta);
             break;
          case TAGATTR_CONTINUE:
             break;
@@ -2743,6 +3017,54 @@ static BOOL Dool(struct Document *doc,struct Tagattr *ta)
          }
       }
    }
+   /* Store list class for descendant selector support */
+   if(classAttr)
+   {  doc->currentlistclass = Dupstr(classAttr,-1);
+      /* Check if this list should be horizontal (menubar with display:inline) */
+      if(stricmp((char *)classAttr,"menubar") == 0)
+      {  li.horizontal = TRUE;
+      }
+   }
+   /* Check CSS for display:inline on this list */
+   if(styleAttr)
+   {  UBYTE *p;
+      UBYTE *nameStart;
+      UBYTE *nameEnd;
+      UBYTE *valueStart;
+      UBYTE *valueEnd;
+      long nameLen;
+      long valueLen;
+      p = styleAttr;
+      while(*p)
+      {  /* Skip whitespace */
+         while(*p && isspace(*p)) p++;
+         if(!*p) break;
+         nameStart = p;
+         /* Find colon */
+         while(*p && *p != ':') p++;
+         if(!*p) break;
+         nameEnd = p;
+         p++; /* Skip colon */
+         /* Skip whitespace after colon */
+         while(*p && isspace(*p)) p++;
+         valueStart = p;
+         /* Find semicolon or end */
+         while(*p && *p != ';') p++;
+         valueEnd = p;
+         if(*p == ';') p++; /* Skip semicolon */
+         /* Trim value end */
+         while(valueEnd > valueStart && isspace(valueEnd[-1])) valueEnd--;
+         /* Calculate lengths */
+         nameLen = nameEnd - nameStart;
+         valueLen = valueEnd - valueStart;
+         /* Check if this is display:inline */
+         if(nameLen == 7 && strnicmp((char *)nameStart,"display",7) == 0)
+         {  if(valueLen == 6 && strnicmp((char *)valueStart,"inline",6) == 0)
+            {  li.horizontal = TRUE;
+            }
+         }
+      }
+   }
    if(!Ensurebody(doc)) return FALSE;
    /* Add extra space if it is the outer list */
    nestli=(struct Listinfo *)Agetattr(Docbody(doc),AOBDY_List);
@@ -2758,6 +3080,9 @@ static BOOL Dool(struct Document *doc,struct Tagattr *ta)
 /*** </OL> ***/
 static BOOL Doolend(struct Document *doc)
 {  struct Listinfo *nestli;
+   /* Clear list class when list ends */
+   if(doc->currentlistclass) FREE(doc->currentlistclass);
+   doc->currentlistclass = NULL;
    Asetattrs(Docbody(doc),
       AOBDY_Align,-1,
       AOBDY_List,NULL,
@@ -2774,12 +3099,20 @@ static BOOL Doul(struct Document *doc,struct Tagattr *ta)
 {  UBYTE dingbat[sizeof(DINGBATPATH)+40]="";
    struct Listinfo li={0},*nestli;
    UBYTE *styleAttr;
+   UBYTE *classAttr;
    styleAttr = NULL;
+   classAttr = NULL;
    li.type=BDLT_UL;
+   /* Clear previous list class */
+   if(doc->currentlistclass) FREE(doc->currentlistclass);
+   doc->currentlistclass = NULL;
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
       {  case TAGATTR_STYLE:
             styleAttr=ATTR(doc,ta);
+            break;
+         case TAGATTR_CLASS:
+            classAttr=ATTR(doc,ta);
             break;
          case TAGATTR_TYPE:
             if(STRNIEQUAL(ATTR(doc,ta),"DISC",4)) li.bullettype=BDBT_DISC;
@@ -2847,6 +3180,54 @@ static BOOL Doul(struct Document *doc,struct Tagattr *ta)
          }
       }
    }
+   /* Store list class for descendant selector support */
+   if(classAttr)
+   {  doc->currentlistclass = Dupstr(classAttr,-1);
+      /* Check if this list should be horizontal (menubar with display:inline) */
+      if(stricmp((char *)classAttr,"menubar") == 0)
+      {  li.horizontal = TRUE;
+      }
+   }
+   /* Check CSS for display:inline on this list */
+   if(styleAttr)
+   {  UBYTE *p;
+      UBYTE *nameStart;
+      UBYTE *nameEnd;
+      UBYTE *valueStart;
+      UBYTE *valueEnd;
+      long nameLen;
+      long valueLen;
+      p = styleAttr;
+      while(*p)
+      {  /* Skip whitespace */
+         while(*p && isspace(*p)) p++;
+         if(!*p) break;
+         nameStart = p;
+         /* Find colon */
+         while(*p && *p != ':') p++;
+         if(!*p) break;
+         nameEnd = p;
+         p++; /* Skip colon */
+         /* Skip whitespace after colon */
+         while(*p && isspace(*p)) p++;
+         valueStart = p;
+         /* Find semicolon or end */
+         while(*p && *p != ';') p++;
+         valueEnd = p;
+         if(*p == ';') p++; /* Skip semicolon */
+         /* Trim value end */
+         while(valueEnd > valueStart && isspace(valueEnd[-1])) valueEnd--;
+         /* Calculate lengths */
+         nameLen = nameEnd - nameStart;
+         valueLen = valueEnd - valueStart;
+         /* Check if this is display:inline */
+         if(nameLen == 7 && strnicmp((char *)nameStart,"display",7) == 0)
+         {  if(valueLen == 6 && strnicmp((char *)valueStart,"inline",6) == 0)
+            {  li.horizontal = TRUE;
+            }
+         }
+      }
+   }
    if(!Ensurebody(doc)) return FALSE;
    /* Add extra space if it is the outer list */
    nestli=(struct Listinfo *)Agetattr(Docbody(doc),AOBDY_List);
@@ -2862,6 +3243,9 @@ static BOOL Doul(struct Document *doc,struct Tagattr *ta)
 /*** </UL> ***/
 static BOOL Doulend(struct Document *doc)
 {  struct Listinfo *nestli;
+   /* Clear list class when list ends */
+   if(doc->currentlistclass) FREE(doc->currentlistclass);
+   doc->currentlistclass = NULL;
    Asetattrs(Docbody(doc),
       AOBDY_Align,-1,
       AOBDY_List,NULL,
@@ -2883,12 +3267,15 @@ static BOOL Doli(struct Document *doc,struct Tagattr *ta)
    void *elt=NULL,*url,*referer;
    short btype;
    if(doc->pflags&DPF_BULLET) doc->gotbreak=0;
-   Wantbreak(doc,1);
    Asetattrs(Docbody(doc),AOBDY_Align,-1,TAG_END);
    li=(struct Listinfo *)Agetattr(Docbody(doc),AOBDY_List);
    if(!li || !li->type)
    {  if(!Doul(doc,&dummyta)) return FALSE;
       li=(struct Listinfo *)Agetattr(Docbody(doc),AOBDY_List);
+   }
+   /* For horizontal lists, don't add line breaks between items */
+   if(li && !li->horizontal)
+   {  Wantbreak(doc,1);
    }
    if(li && li->type==BDLT_UL)
    {  btype=li->bullettype;

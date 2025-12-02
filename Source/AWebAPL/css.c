@@ -22,16 +22,17 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include "aweb.h"
 #include "css.h"
 #include "docprivate.h"
 #include "element.h"
 #include "body.h"
-#include "colours.h"
 #include "html.h"
 #include "link.h"
 #include "table.h"
 #include "copy.h"
+#include "colours.h"
 
 /* COLOR macro - extract pen number from Colorinfo */
 #define COLOR(ci) ((ci)?((ci)->pen):(-1))
@@ -49,12 +50,22 @@ static BOOL MatchSelector(struct CSSSelector *sel,void *element);
 static void ApplyProperty(void *element,struct CSSProperty *prop);
 static void FreeCSSStylesheetInternal(struct CSSStylesheet *sheet);
 static long ParseCSSLengthValue(UBYTE *value,struct Number *num);
-static ULONG ParseHexColor(UBYTE *pcolor);
+ULONG ParseHexColor(UBYTE *pcolor);
+
+/* Simple debug printf */
+static void debug_printf(const char *format, ...)
+{  va_list args;
+   va_start(args, format);
+   vprintf(format, args);
+   va_end(args);
+}
 
 /* Parse a CSS stylesheet */
 void ParseCSSStylesheet(struct Document *doc,UBYTE *css)
 {  struct CSSStylesheet *sheet;
    if(!doc || !css) return;
+   
+   debug_printf("CSS: ParseCSSStylesheet called, css length=%ld\n",strlen((char *)css));
    
    /* Free existing stylesheet if any */
    if(doc->cssstylesheet)
@@ -65,7 +76,19 @@ void ParseCSSStylesheet(struct Document *doc,UBYTE *css)
    /* Parse CSS */
    sheet = ParseCSS(doc,css);
    if(sheet)
-   {  doc->cssstylesheet = (void *)sheet;
+   {  struct CSSRule *rule;
+      long ruleCount = 0;
+      doc->cssstylesheet = (void *)sheet;
+      /* Count rules */
+      for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
+          (struct MinNode *)rule->node.mln_Succ;
+          rule = (struct CSSRule *)rule->node.mln_Succ)
+      {  ruleCount++;
+      }
+      debug_printf("CSS: Stylesheet parsed successfully, %ld rules\n",ruleCount);
+   }
+   else
+   {  debug_printf("CSS: Stylesheet parsing failed\n");
    }
 }
 
@@ -185,6 +208,7 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
    UBYTE *name;
    UBYTE *id;
    UBYTE *class;
+   UBYTE *pseudoName;
    
    if(!doc || !p || !*p) return NULL;
    
@@ -255,6 +279,18 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
             sel->id = Dupstr(id,-1);
             sel->specificity += 100;
          }
+      }
+   }
+   
+   /* Check for pseudo-class (e.g., :link, :visited, :hover) */
+   SkipWhitespace(p);
+   if(**p == ':')
+   {  (*p)++;
+      pseudoName = ParseIdentifier(p);
+      if(pseudoName)
+      {  sel->type |= CSS_SEL_PSEUDO;
+         sel->pseudo = Dupstr(pseudoName,-1);
+         sel->specificity += 10; /* Pseudo-class adds to specificity */
       }
    }
    
@@ -616,6 +652,7 @@ static void FreeCSSStylesheetInternal(struct CSSStylesheet *sheet)
       {  if(sel->name) FREE(sel->name);
          if(sel->class) FREE(sel->class);
          if(sel->id) FREE(sel->id);
+         if(sel->pseudo) FREE(sel->pseudo);
       }
       for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
          (struct MinNode *)prop->node.mln_Succ;
@@ -1179,7 +1216,7 @@ static long ParseCSSLengthValue(UBYTE *value,struct Number *num)
 }
 
 /* Parse hex color value */
-static ULONG ParseHexColor(UBYTE *pcolor)
+ULONG ParseHexColor(UBYTE *pcolor)
 {  ULONG rgbval = ~0;
    ULONG rgb = 0;
    long len;
@@ -1245,6 +1282,37 @@ static ULONG ParseHexColor(UBYTE *pcolor)
       rgbval = rgb;
    }
    
+   /* If hex parsing failed, try color name lookup */
+   if(rgbval == ~0)
+   {  UBYTE buf[32];
+      UBYTE *q;
+      long bufLen;
+      short a = 0;
+      short b = NR_COLORNAMES - 1;
+      short mid;
+      long c;
+      
+      /* Copy color name to buffer, removing whitespace */
+      q = pcolor;
+      bufLen = 0;
+      while(*q && bufLen < 31 && !isspace(*q))
+      {  buf[bufLen++] = *q++;
+      }
+      buf[bufLen] = '\0';
+      
+      /* Binary search for color name */
+      while(a <= b)
+      {  mid = (a + b) / 2;
+         c = stricmp((char *)colornames[mid].name, (char *)buf);
+         if(c == 0)
+         {  rgbval = colornames[mid].color;
+            break;
+         }
+         if(c < 0) a = mid + 1;
+         else b = mid - 1;
+      }
+   }
+   
    return rgbval;
 }
 
@@ -1299,6 +1367,182 @@ void ApplyInlineCSSToLink(struct Document *doc,void *link,void *body,UBYTE *styl
       
       /* Skip semicolon */
       if(*p == ';') p++;
+   }
+}
+
+/* Apply CSS from stylesheet to document link colors (a:link, a:visited) */
+void ApplyCSSToLinkColors(struct Document *doc)
+{  struct CSSRule *rule;
+   struct CSSSelector *sel;
+   struct CSSProperty *prop;
+   struct CSSStylesheet *sheet;
+   BOOL matches;
+   ULONG colorrgb;
+   struct Colorinfo *ci;
+   BOOL linkColorSet = FALSE;
+   BOOL visitedColorSet = FALSE;
+   
+   if(!doc || !doc->cssstylesheet) return;
+   
+   sheet = (struct CSSStylesheet *)doc->cssstylesheet;
+   
+   /* Find a:link and a:visited rules to set document link colors */
+   /* Also handle 'a' without pseudo-class as default link color */
+   for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
+       (struct MinNode *)rule->node.mln_Succ;
+       rule = (struct CSSRule *)rule->node.mln_Succ)
+   {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
+         (struct MinNode *)sel->node.mln_Succ;
+         sel = (struct CSSSelector *)sel->node.mln_Succ)
+      {  matches = TRUE;
+         
+         /* Match element name - must be 'a' */
+         if(sel->type & CSS_SEL_ELEMENT && sel->name)
+         {  if(stricmp((char *)sel->name,"a") != 0)
+            {  matches = FALSE;
+            }
+         }
+         
+         /* Match pseudo-class - :link, :visited, or none (for default 'a' rule) */
+         if(matches)
+         {  if(!(sel->type & CSS_SEL_PSEUDO) || !sel->pseudo)
+            {  /* 'a' without pseudo-class - use as default link color if no :link rule found */
+               if(!linkColorSet)
+               {  for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
+                      (struct MinNode *)prop->node.mln_Succ;
+                      prop = (struct CSSProperty *)prop->node.mln_Succ)
+                  {  if(prop->name && prop->value && stricmp((char *)prop->name,"color") == 0)
+                     {  colorrgb = ParseHexColor(prop->value);
+                        if(colorrgb != ~0)
+                        {  ci = Finddoccolor(doc,colorrgb);
+                           if(ci)
+                           {  doc->linkcolor = ci;
+                              linkColorSet = TRUE;
+                              debug_printf("CSS: Set doc->linkcolor from 'a' (default)\n");
+                           }
+                        }
+                     }
+                  }
+               }
+            }
+            else if(stricmp((char *)sel->pseudo,"link") == 0)
+            {  /* Apply a:link color to doc->linkcolor */
+               for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
+                   (struct MinNode *)prop->node.mln_Succ;
+                   prop = (struct CSSProperty *)prop->node.mln_Succ)
+               {  if(prop->name && prop->value && stricmp((char *)prop->name,"color") == 0)
+                  {  colorrgb = ParseHexColor(prop->value);
+                     if(colorrgb != ~0)
+                     {  ci = Finddoccolor(doc,colorrgb);
+                        if(ci)
+                        {  doc->linkcolor = ci;
+                           linkColorSet = TRUE;
+                           debug_printf("CSS: Set doc->linkcolor from a:link\n");
+                        }
+                     }
+                  }
+               }
+            }
+            else if(stricmp((char *)sel->pseudo,"visited") == 0)
+            {  /* Apply a:visited color to doc->vlinkcolor */
+               for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
+                   (struct MinNode *)prop->node.mln_Succ;
+                   prop = (struct CSSProperty *)prop->node.mln_Succ)
+               {  if(prop->name && prop->value && stricmp((char *)prop->name,"color") == 0)
+                  {  colorrgb = ParseHexColor(prop->value);
+                     if(colorrgb != ~0)
+                     {  ci = Finddoccolor(doc,colorrgb);
+                        if(ci)
+                        {  doc->vlinkcolor = ci;
+                           visitedColorSet = TRUE;
+                           debug_printf("CSS: Set doc->vlinkcolor from a:visited\n");
+                        }
+                     }
+                  }
+               }
+            }
+         }
+      }
+   }
+   
+   /* Register colors if they were set */
+   if((linkColorSet || visitedColorSet) && doc->frame)
+   {  Registerdoccolors(doc);
+   }
+}
+
+/* Apply CSS from stylesheet to a Link object with pseudo-class matching */
+void ApplyCSSToLink(struct Document *doc,void *link,void *body)
+{  struct CSSRule *rule;
+   struct CSSSelector *sel;
+   struct CSSProperty *prop;
+   struct CSSStylesheet *sheet;
+   BOOL matches;
+   BOOL isVisited;
+   
+   if(!doc || !link || !doc->cssstylesheet)
+   {  debug_printf("CSS: ApplyCSSToLink skipped - doc=%p link=%p stylesheet=%p\n",
+                   doc, link, (doc ? doc->cssstylesheet : NULL));
+      return;
+   }
+   
+   debug_printf("CSS: ApplyCSSToLink called\n");
+   
+   sheet = (struct CSSStylesheet *)doc->cssstylesheet;
+   isVisited = (BOOL)Agetattr(link,AOLNK_Visited);
+   
+   /* Find matching rules for 'a' element with pseudo-classes */
+   for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
+       (struct MinNode *)rule->node.mln_Succ;
+       rule = (struct CSSRule *)rule->node.mln_Succ)
+   {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
+         (struct MinNode *)sel->node.mln_Succ;
+         sel = (struct CSSSelector *)sel->node.mln_Succ)
+      {  matches = TRUE;
+         
+         /* Match element name - must be 'a' */
+         if(sel->type & CSS_SEL_ELEMENT && sel->name)
+         {  if(stricmp((char *)sel->name,"a") != 0)
+            {  matches = FALSE;
+            }
+         }
+         
+         /* Match pseudo-class */
+         if(matches && (sel->type & CSS_SEL_PSEUDO) && sel->pseudo)
+         {  if(stricmp((char *)sel->pseudo,"link") == 0)
+            {  if(isVisited) matches = FALSE;
+            }
+            else if(stricmp((char *)sel->pseudo,"visited") == 0)
+            {  if(!isVisited) matches = FALSE;
+            }
+            else if(stricmp((char *)sel->pseudo,"hover") == 0)
+            {  /* Hover state - not yet implemented, skip for now */
+               matches = FALSE;
+            }
+         }
+         
+         /* Apply properties if selector matches */
+         if(matches)
+         {  debug_printf("CSS: Link selector matched! Element=%s pseudo=%s\n",
+                         (sel->name ? (char *)sel->name : "any"),
+                         (sel->pseudo ? (char *)sel->pseudo : "none"));
+            for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
+               (struct MinNode *)prop->node.mln_Succ;
+               prop = (struct CSSProperty *)prop->node.mln_Succ)
+            {  if(prop->name && prop->value)
+               {                    /* Apply text-decoration: none */
+                  if(stricmp((char *)prop->name,"text-decoration") == 0)
+                  {  debug_printf("CSS: Link property text-decoration=%s\n",prop->value);
+                     if(stricmp((char *)prop->value,"none") == 0)
+                     {  debug_printf("CSS: Setting link NoDecoration=TRUE\n");
+                        Asetattrs(link,AOLNK_NoDecoration,TRUE,TAG_END);
+                     }
+                  }
+                  /* Note: color is handled by ApplyCSSToLinkColors for document-level colors */
+               }
+            }
+         }
+      }
    }
 }
 

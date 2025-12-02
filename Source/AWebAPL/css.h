@@ -36,6 +36,7 @@ struct CSSSelector
    UBYTE *name;              /* Element name (NULL = any) */
    UBYTE *class;             /* Class name */
    UBYTE *id;                /* ID name */
+   UBYTE *pseudo;            /* Pseudo-class name (e.g., "link", "visited", "hover") */
    USHORT specificity;      /* Selector specificity for cascade */
 };
 
@@ -70,6 +71,9 @@ struct Colorinfo *ExtractBackgroundColorFromStyle(struct Document *doc,UBYTE *st
 void ApplyCSSToTableCell(struct Document *doc,void *table,UBYTE *style);
 void ApplyCSSToImage(struct Document *doc,void *copy,UBYTE *style);
 void ApplyCSSToTable(struct Document *doc,void *table,UBYTE *style);
+ULONG ParseHexColor(UBYTE *pcolor);
+void ApplyCSSToLink(struct Document *doc,void *link,void *body);
+void ApplyCSSToLinkColors(struct Document *doc);
 
 #endif /* AWEB_CSS_H */
 

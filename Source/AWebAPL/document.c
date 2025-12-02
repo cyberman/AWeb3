@@ -32,6 +32,7 @@
 #include "info.h"
 #include "map.h"
 #include "jslib.h"
+#include "css.h"
 #include <proto/exec.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>
@@ -242,6 +243,8 @@ static void Reloaddocument(struct Document *doc)
    doc->htmlmode=prefs.htmlmode;
    doc->pflags=0;
    doc->pmode=0;
+   if(doc->currentlistclass) FREE(doc->currentlistclass);
+   doc->currentlistclass=NULL;
    doc->charcount=0;
    doc->frameseqnr=0;
    doc->select=NULL;
@@ -632,11 +635,13 @@ static void Disposedocument(struct Document *doc)
    Queuesetmsg(doc,0);
    Remwaitingdoc(doc);
    if(!doc->source || (doc->dflags&(DDF_ISSPARE|DDF_MAPDOCUMENT|DDF_NOSPARE)))
-   {  Freebuffer(&doc->text);
+   {        Freebuffer(&doc->text);
       Freebuffer(&doc->args);
       Freebuffer(&doc->jsrc);
       Freebuffer(&doc->jout);
+      Freebuffer(&doc->csssrc);
       if(doc->base) FREE(doc->base);
+      FreeCSSStylesheet(doc);
       if(doc->body) Adisposeobject(doc->body);
       while(p=REMHEAD(&doc->tables)) FREE(p);
       while(p=REMHEAD(&doc->framesets)) FREE(p);

@@ -127,6 +127,7 @@ struct Listinfo
    long bulletnr;          /* Last used OL bullet number */
    short level;            /* Current nesting level */
    short indent;           /* Current indent level (same as level except when <DT>) */
+   BOOL horizontal;        /* TRUE if list items should be horizontal (inline) */
 };
 
 /* List types */

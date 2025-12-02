@@ -16,6 +16,9 @@
  *
  **********************************************************************/
 
+#ifndef COLOURS_H
+#define COLOURS_H
+
 struct Colorname
 {  UBYTE *name;
    ULONG color;
@@ -761,3 +764,5 @@ static struct Colorname colornames[]=
    "yellowgreen",          0x9acd32,   FALSE,
 };
 #define NR_COLORNAMES   (sizeof(colornames)/sizeof(struct Colorname))
+
+#endif /* COLOURS_H */
