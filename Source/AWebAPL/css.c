@@ -1083,7 +1083,7 @@ void ApplyCSSToTableCell(struct Document *doc,void *table,UBYTE *style)
       {  /* Extract width */
          if(stricmp((char *)prop->name,"width") == 0)
          {  widthValue = ParseCSSLengthValue(prop->value,&num);
-            if(widthValue > 0)
+            if(widthValue >= 0 && num.type != NUMBER_NONE)
             {  if(num.type == NUMBER_PERCENT)
                {  wtag = AOTAB_Percentwidth;
                }
@@ -1095,7 +1095,7 @@ void ApplyCSSToTableCell(struct Document *doc,void *table,UBYTE *style)
          /* Extract height */
          else if(stricmp((char *)prop->name,"height") == 0)
          {  heightValue = ParseCSSLengthValue(prop->value,&num);
-            if(heightValue > 0)
+            if(heightValue >= 0 && num.type != NUMBER_NONE)
             {  if(num.type == NUMBER_PERCENT)
                {  htag = AOTAB_Percentheight;
                }
@@ -1153,11 +1153,24 @@ void ApplyCSSToTableCell(struct Document *doc,void *table,UBYTE *style)
    }
    
    /* Apply extracted values to table cell */
-   if(wtag != TAG_IGNORE && widthValue > 0)
-   {  Asetattrs(table,wtag,widthValue,TAG_END);
+   /* CSS should override HTML attributes, so always apply if found */
+   if(wtag != TAG_IGNORE)
+   {  if(widthValue > 0)
+      {  Asetattrs(table,wtag,widthValue,TAG_END);
+      }
+      else if(widthValue == 0)
+      {  /* Explicit 0 width - clear width */
+         Asetattrs(table,AOTAB_Pixelwidth,0,TAG_END);
+      }
    }
-   if(htag != TAG_IGNORE && heightValue > 0)
-   {  Asetattrs(table,htag,heightValue,TAG_END);
+   if(htag != TAG_IGNORE)
+   {  if(heightValue > 0)
+      {  Asetattrs(table,htag,heightValue,TAG_END);
+      }
+      else if(heightValue == 0)
+      {  /* Explicit 0 height - clear height */
+         Asetattrs(table,AOTAB_Pixelheight,0,TAG_END);
+      }
    }
    if(valign >= 0)
    {  Asetattrs(table,AOTAB_Valign,valign,TAG_END);

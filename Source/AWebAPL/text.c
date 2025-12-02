@@ -35,6 +35,7 @@ struct Text
    struct Tsection *sections,*lastsection;
    long height;            /* Text (font) height */
    struct Colorinfo *color;
+   struct Colorinfo *bgcolor;  /* Background color for text highlight */
    struct TextFont *supfont;
    long histart,hilength;  /* Highlighted section. */
    USHORT flags;
@@ -506,6 +507,16 @@ static long Rendertext(struct Text *tx,struct Amrender *amr)
             if(blinkoff || (amr->flags&AMRF_CLEAR))
             {  Erasebg(tx->cframe,coo,ts->x,ts->y,ts->x+ts->w-1,ts->y+tx->height-1);
             }
+            /* Draw background color if set (like a text highlight) */
+            if(tx->bgcolor && tx->bgcolor->pen >= 0 && !blinkoff && !(amr->flags&AMRF_CLEAR))
+            {  short oldpen;
+               oldpen = GetAPen(rp);
+               SetAPen(rp,tx->bgcolor->pen);
+               RectFill(rp,
+                  ts->x+coo->dx,ts->y+coo->dy,
+                  ts->x+ts->w-1+coo->dx,ts->y+tx->height-1+coo->dy);
+               SetAPen(rp,oldpen);
+            }
             if(!blinkoff)
             {  Move(rp,ts->x+coo->dx,ts->y+tx->font->tf_Baseline+coo->dy);
                Text(rp,tx->text->buffer+ts->textpos,ts->length);
@@ -573,6 +584,9 @@ static long Settext(struct Text *tx,struct Amset *ams)
             break;
          case AOTXT_Text:
             tx->text=(struct Buffer *)tag->ti_Data;
+            break;
+         case AOTXT_Bgcolor:
+            tx->bgcolor=(struct Colorinfo *)tag->ti_Data;
             break;
          case AOAPP_Blink:
             SETFLAG(tx->flags,TXTF_BLINKON,tag->ti_Data);

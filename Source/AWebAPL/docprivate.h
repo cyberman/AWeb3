@@ -131,6 +131,7 @@ struct Document
    UBYTE *onblur;
    UBYTE *jdomain;            /* JS domain property */
    void *cssstylesheet;       /* CSS stylesheet for this document */
+   struct Colorinfo *parabgcolor;  /* Background color for current paragraph (from CSS) */
 };
 
 #define DPF_PREFORMAT      0x00000001  /* doing PRE */

@@ -33,6 +33,9 @@
 #define AOTXT_Text         (AOTXT_Dummy+2)   /* NEW */
    /* (struct Buffer *) Text buffer of parent, to use when rendering */
 
+#define AOTXT_Bgcolor      (AOTXT_Dummy+3)   /* NEW */
+   /* (struct Colorinfo *) Background color for text highlight */
+
 #define AOTXT_    (AOTXT_Dummy+)
 #define AOTXT_    (AOTXT_Dummy+)
 

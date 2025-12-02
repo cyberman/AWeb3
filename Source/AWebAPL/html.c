@@ -1422,7 +1422,14 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
    ApplyCSSToBody(doc,body,class,id,"DIV");
    /* Apply inline CSS if present */
    if(styleAttr)
-   {  ApplyInlineCSSToBody(doc,body,styleAttr,(UBYTE *)"DIV");
+   {  struct Colorinfo *cssBgcolor;
+      ApplyInlineCSSToBody(doc,body,styleAttr,(UBYTE *)"DIV");
+      /* Extract background-color for text elements in this div */
+      cssBgcolor = ExtractBackgroundColorFromStyle(doc,styleAttr);
+      doc->parabgcolor = cssBgcolor;
+   }
+   else
+   {  doc->parabgcolor = NULL;
    }
    return TRUE;
 }
@@ -1431,6 +1438,8 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
 static BOOL Dodivend(struct Document *doc)
 {  Wantbreak(doc,1);
    Asetattrs(Docbodync(doc),AOBDY_Divalign,-1,TAG_END);
+   /* Clear paragraph background color */
+   doc->parabgcolor = NULL;
    if(!Ensuresp(doc)) return FALSE;
    return TRUE;
 }
@@ -1487,7 +1496,14 @@ static BOOL Dopara(struct Document *doc,struct Tagattr *ta)
    ApplyCSSToBody(doc,body,class,id,"P");
    /* Apply inline CSS if present */
    if(styleAttr)
-   {  ApplyInlineCSSToBody(doc,body,styleAttr,(UBYTE *)"P");
+   {  struct Colorinfo *cssBgcolor;
+      ApplyInlineCSSToBody(doc,body,styleAttr,(UBYTE *)"P");
+      /* Extract background-color for text elements in this paragraph */
+      cssBgcolor = ExtractBackgroundColorFromStyle(doc,styleAttr);
+      doc->parabgcolor = cssBgcolor;
+   }
+   else
+   {  doc->parabgcolor = NULL;
    }
    return TRUE;
 }
@@ -1496,6 +1512,8 @@ static BOOL Dopara(struct Document *doc,struct Tagattr *ta)
 static BOOL Doparaend(struct Document *doc)
 {  Wantbreak(doc,2);
    Asetattrs(Docbodync(doc),AOBDY_Align,-1,TAG_END);
+   /* Clear paragraph background color */
+   doc->parabgcolor = NULL;
    if(!Ensuresp(doc)) return FALSE;
    return TRUE;
 }
@@ -1511,6 +1529,7 @@ static BOOL Dotext(struct Document *doc,struct Tagattr *ta)
          AOELT_Preformat,doc->pflags&DPF_PREFORMAT,
          AOTXT_Blink,doc->pflags&DPF_BLINK,
          AOTXT_Text,&doc->text,
+         CONDTAG(AOTXT_Bgcolor,doc->parabgcolor),
          TAG_END))) return FALSE;
       if(!Addelement(doc,elt)) return FALSE;
       if(!Addtotextbuf(doc,ATTR(doc,ta),ta->length)) return FALSE;
@@ -3282,15 +3301,16 @@ static BOOL Dotd(struct Document *doc,struct Tagattr *ta,BOOL heading)
             ApplyInlineCSSToBody(doc,cellBody,styleAttr,(UBYTE *)(heading?"TH":"TD"));
          }
          
-         /* Apply table-cell-specific CSS properties (width, height, vertical-align, background-color) */
-         ApplyCSSToTableCell(doc,table,styleAttr);
-         
-         /* Also apply background-color to table cell structure */
+         /* Extract background-color first before other CSS properties */
+         /* This ensures it's applied to the table cell structure */
          /* This matches the behavior of the HTML BGCOLOR attribute */
          cssBgcolor = ExtractBackgroundColorFromStyle(doc,styleAttr);
          if(cssBgcolor)
          {  Asetattrs(table,AOTAB_Bgcolor,cssBgcolor,TAG_END);
          }
+         
+         /* Apply table-cell-specific CSS properties (width, height, vertical-align, text-align) */
+         ApplyCSSToTableCell(doc,table,styleAttr);
       }
    }
    if(!Ensuresp(doc)) return FALSE;
