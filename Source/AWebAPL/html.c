@@ -379,9 +379,9 @@ static void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *i
                      comma = (UBYTE *)strchr((char *)prop->value,',');
                      if(comma)
                      {  long len = comma - prop->value;
-                        fontFace = AllocMem(len + 1,MEMF_CLEAR);
+                        fontFace = ALLOCTYPE(UBYTE,len + 1,0);
                         if(fontFace)
-                        {  strncpy((char *)fontFace,(char *)prop->value,len);
+                        {  memmove(fontFace,prop->value,len);
                            fontFace[len] = '\0';
                            /* Trim whitespace */
                            while(len > 0 && isspace(fontFace[len - 1]))
@@ -396,6 +396,7 @@ static void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *i
                      if(fontFace)
                      {  /* Apply font face to body */
                         Asetattrs(body,AOBDY_Fontface,fontFace,TAG_END);
+                        FREE(fontFace);
                      }
                   }
                   /* Apply font-size */
@@ -879,7 +880,7 @@ static void *Externalmap(struct Document *doc,UBYTE *urlname)
 }
 
 /* Create the background image with this url */
-static void *Backgroundimg(struct Document *doc,UBYTE *urlname)
+void *Backgroundimg(struct Document *doc,UBYTE *urlname)
 {  void *url,*referer,*elt=NULL;
    struct Bgimage *bgi;
    if(!(url=Findurl(doc->base,urlname,0))) return NULL;
@@ -1438,8 +1439,9 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
 static BOOL Dodivend(struct Document *doc)
 {  Wantbreak(doc,1);
    Asetattrs(Docbodync(doc),AOBDY_Divalign,-1,TAG_END);
-   /* Clear paragraph background color */
+   /* Clear paragraph background color and text transform */
    doc->parabgcolor = NULL;
+   doc->texttransform = 0;
    if(!Ensuresp(doc)) return FALSE;
    return TRUE;
 }
@@ -1512,8 +1514,9 @@ static BOOL Dopara(struct Document *doc,struct Tagattr *ta)
 static BOOL Doparaend(struct Document *doc)
 {  Wantbreak(doc,2);
    Asetattrs(Docbodync(doc),AOBDY_Align,-1,TAG_END);
-   /* Clear paragraph background color */
+   /* Clear paragraph background color and text transform */
    doc->parabgcolor = NULL;
+   doc->texttransform = 0;
    if(!Ensuresp(doc)) return FALSE;
    return TRUE;
 }
@@ -1521,8 +1524,59 @@ static BOOL Doparaend(struct Document *doc)
 /*** text ***/
 static BOOL Dotext(struct Document *doc,struct Tagattr *ta)
 {  void *elt;
+   UBYTE *text;
+   UBYTE *transformed;
+   long i;
+   BOOL needTransform;
+   
    if(ta->length>0)
-   {  if(!(elt=Anewobject(AOTP_TEXT,
+   {  text = ATTR(doc,ta);
+      transformed = NULL;
+      needTransform = FALSE;
+      
+      /* Apply text-transform if set */
+      if(doc->texttransform > 0)
+      {  transformed = ALLOCTYPE(UBYTE,ta->length + 1,0);
+         if(transformed)
+         {  needTransform = TRUE;
+            if(doc->texttransform == 1)
+            {  /* uppercase */
+               for(i = 0; i < ta->length; i++)
+               {  transformed[i] = (UBYTE)toupper(text[i]);
+               }
+            }
+            else if(doc->texttransform == 2)
+            {  /* lowercase */
+               for(i = 0; i < ta->length; i++)
+               {  transformed[i] = (UBYTE)tolower(text[i]);
+               }
+            }
+            else if(doc->texttransform == 3)
+            {  /* capitalize - capitalize first letter of each word */
+               BOOL capitalizeNext;
+               capitalizeNext = TRUE;
+               for(i = 0; i < ta->length; i++)
+               {  if(isspace(text[i]))
+                  {  transformed[i] = text[i];
+                     capitalizeNext = TRUE;
+                  }
+                  else
+                  {  if(capitalizeNext)
+                     {  transformed[i] = (UBYTE)toupper(text[i]);
+                        capitalizeNext = FALSE;
+                     }
+                     else
+                     {  transformed[i] = (UBYTE)tolower(text[i]);
+                     }
+                  }
+               }
+            }
+            transformed[ta->length] = '\0';
+            text = transformed;
+         }
+      }
+      
+      if(!(elt=Anewobject(AOTP_TEXT,
          AOBJ_Pool,doc->pool,
          AOELT_Textpos,doc->text.length,
          AOELT_Textlength,ta->length,
@@ -1530,9 +1584,19 @@ static BOOL Dotext(struct Document *doc,struct Tagattr *ta)
          AOTXT_Blink,doc->pflags&DPF_BLINK,
          AOTXT_Text,&doc->text,
          CONDTAG(AOTXT_Bgcolor,doc->parabgcolor),
-         TAG_END))) return FALSE;
-      if(!Addelement(doc,elt)) return FALSE;
-      if(!Addtotextbuf(doc,ATTR(doc,ta),ta->length)) return FALSE;
+         TAG_END))) 
+      {  if(transformed) FREE(transformed);
+         return FALSE;
+      }
+      if(!Addelement(doc,elt)) 
+      {  if(transformed) FREE(transformed);
+         return FALSE;
+      }
+      if(!Addtotextbuf(doc,text,ta->length)) 
+      {  if(transformed) FREE(transformed);
+         return FALSE;
+      }
+      if(transformed) FREE(transformed);
    }
    ta=ta->next;
    if(ta && ta->next && ta->attr==TAGATTR_BR)
@@ -2591,10 +2655,15 @@ static BOOL Dodt(struct Document *doc,struct Tagattr *ta)
 /*** <OL> ***/
 static BOOL Dool(struct Document *doc,struct Tagattr *ta)
 {  struct Listinfo li={0},*nestli;
+   UBYTE *styleAttr;
+   styleAttr = NULL;
    li.type=BDLT_OL;
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
-      {  case TAGATTR_CONTINUE:
+      {  case TAGATTR_STYLE:
+            styleAttr=ATTR(doc,ta);
+            break;
+         case TAGATTR_CONTINUE:
             break;
          case TAGATTR_SEQNUM:
             if(!STRICT) li.bulletnr=Getposnumber(ATTR(doc,ta))-1;
@@ -2611,6 +2680,67 @@ static BOOL Dool(struct Document *doc,struct Tagattr *ta)
                case 'i':   li.bullettype=BDBT_ROMANLOW;break;
             }
             break;
+      }
+   }
+   /* Apply CSS list-style-type if present */
+   if(styleAttr)
+   {  UBYTE *p;
+      UBYTE *nameStart;
+      UBYTE *nameEnd;
+      UBYTE *valueStart;
+      UBYTE *valueEnd;
+      long nameLen;
+      long valueLen;
+      p = styleAttr;
+      while(*p)
+      {  /* Skip whitespace */
+         while(*p && isspace(*p)) p++;
+         if(!*p) break;
+         nameStart = p;
+         /* Find colon */
+         while(*p && *p != ':') p++;
+         if(!*p) break;
+         nameEnd = p;
+         p++; /* Skip colon */
+         /* Skip whitespace after colon */
+         while(*p && isspace(*p)) p++;
+         valueStart = p;
+         /* Find semicolon or end */
+         while(*p && *p != ';') p++;
+         valueEnd = p;
+         if(*p == ';') p++; /* Skip semicolon */
+         /* Trim value end */
+         while(valueEnd > valueStart && isspace(valueEnd[-1])) valueEnd--;
+         /* Calculate lengths */
+         nameLen = nameEnd - nameStart;
+         valueLen = valueEnd - valueStart;
+         /* Check if this is list-style-type */
+         if(nameLen == 15 && strnicmp((char *)nameStart,"list-style-type",15) == 0)
+         {  if(valueLen == 7 && strnicmp((char *)valueStart,"decimal",7) == 0)
+            {  li.bullettype = BDBT_NUMBER;
+            }
+            else if(valueLen == 11 && strnicmp((char *)valueStart,"lower-alpha",11) == 0)
+            {  li.bullettype = BDBT_ALPHALOW;
+            }
+            else if(valueLen == 11 && strnicmp((char *)valueStart,"lower-latin",11) == 0)
+            {  li.bullettype = BDBT_ALPHALOW;
+            }
+            else if(valueLen == 11 && strnicmp((char *)valueStart,"upper-alpha",11) == 0)
+            {  li.bullettype = BDBT_ALPHA;
+            }
+            else if(valueLen == 11 && strnicmp((char *)valueStart,"upper-latin",11) == 0)
+            {  li.bullettype = BDBT_ALPHA;
+            }
+            else if(valueLen == 11 && strnicmp((char *)valueStart,"lower-roman",11) == 0)
+            {  li.bullettype = BDBT_ROMANLOW;
+            }
+            else if(valueLen == 11 && strnicmp((char *)valueStart,"upper-roman",11) == 0)
+            {  li.bullettype = BDBT_ROMAN;
+            }
+            else if(valueLen == 4 && strnicmp((char *)valueStart,"none",4) == 0)
+            {  li.bullettype = BDBT_PLAIN;
+            }
+         }
       }
    }
    if(!Ensurebody(doc)) return FALSE;
@@ -2643,10 +2773,15 @@ static BOOL Doolend(struct Document *doc)
 static BOOL Doul(struct Document *doc,struct Tagattr *ta)
 {  UBYTE dingbat[sizeof(DINGBATPATH)+40]="";
    struct Listinfo li={0},*nestli;
+   UBYTE *styleAttr;
+   styleAttr = NULL;
    li.type=BDLT_UL;
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
-      {  case TAGATTR_TYPE:
+      {  case TAGATTR_STYLE:
+            styleAttr=ATTR(doc,ta);
+            break;
+         case TAGATTR_TYPE:
             if(STRNIEQUAL(ATTR(doc,ta),"DISC",4)) li.bullettype=BDBT_DISC;
             else if(STRNIEQUAL(ATTR(doc,ta),"CIRC",4)) li.bullettype=BDBT_CIRCLE;
             else if(STRNIEQUAL(ATTR(doc,ta),"SQUA",4)) li.bullettype=BDBT_SQUARE;
@@ -2661,6 +2796,55 @@ static BOOL Doul(struct Document *doc,struct Tagattr *ta)
             li.bulletsrc=dingbat;
             li.bullettype=BDBT_IMAGE;
          break;
+      }
+   }
+   /* Apply CSS list-style-type if present */
+   if(styleAttr)
+   {  UBYTE *p;
+      UBYTE *nameStart;
+      UBYTE *nameEnd;
+      UBYTE *valueStart;
+      UBYTE *valueEnd;
+      long nameLen;
+      long valueLen;
+      p = styleAttr;
+      while(*p)
+      {  /* Skip whitespace */
+         while(*p && isspace(*p)) p++;
+         if(!*p) break;
+         nameStart = p;
+         /* Find colon */
+         while(*p && *p != ':') p++;
+         if(!*p) break;
+         nameEnd = p;
+         p++; /* Skip colon */
+         /* Skip whitespace after colon */
+         while(*p && isspace(*p)) p++;
+         valueStart = p;
+         /* Find semicolon or end */
+         while(*p && *p != ';') p++;
+         valueEnd = p;
+         if(*p == ';') p++; /* Skip semicolon */
+         /* Trim value end */
+         while(valueEnd > valueStart && isspace(valueEnd[-1])) valueEnd--;
+         /* Calculate lengths */
+         nameLen = nameEnd - nameStart;
+         valueLen = valueEnd - valueStart;
+         /* Check if this is list-style-type */
+         if(nameLen == 15 && strnicmp((char *)nameStart,"list-style-type",15) == 0)
+         {  if(valueLen == 4 && strnicmp((char *)valueStart,"disc",4) == 0)
+            {  li.bullettype = BDBT_DISC;
+            }
+            else if(valueLen == 6 && strnicmp((char *)valueStart,"circle",6) == 0)
+            {  li.bullettype = BDBT_CIRCLE;
+            }
+            else if(valueLen == 6 && strnicmp((char *)valueStart,"square",6) == 0)
+            {  li.bullettype = BDBT_SQUARE;
+            }
+            else if(valueLen == 4 && strnicmp((char *)valueStart,"none",4) == 0)
+            {  li.bullettype = BDBT_PLAIN;
+            }
+         }
       }
    }
    if(!Ensurebody(doc)) return FALSE;

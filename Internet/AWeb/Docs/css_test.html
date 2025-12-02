@@ -28,7 +28,7 @@
 
 <H1>CSS1/CSS2 Compatibility Test</H1>
 
-<P>This page tests AWeb's support for <STRONG>CSS1 and CSS2</STRONG> properties via inline styles (STYLE attribute). Each section demonstrates supported CSS properties with explanatory text describing what you should see.</P>
+<P>This page tests AWeb's support for <STRONG>CSS1 and CSS2</STRONG> properties via inline styles (STYLE attribute). Each section demonstrates supported CSS properties with explanatory text describing what you should see. Note that some properties have limitations due to AWeb's layout engine architecture - see the Summary section for details.</P>
 
 <HR>
 
@@ -40,6 +40,7 @@
 <A HREF="#layout" STYLE="text-decoration: none; color: #0000ff;">Layout & Positioning</A> |
 <A HREF="#tables" STYLE="text-decoration: none; color: #0000ff;">Table Cell Styles</A> |
 <A HREF="#links" STYLE="text-decoration: none; color: #0000ff;">Link Styles</A> |
+<A HREF="#lists" STYLE="text-decoration: none; color: #0000ff;">List Styles</A> |
 <A HREF="#summary" STYLE="text-decoration: none; color: #0000ff;">Summary</A>
 </CENTER>
 
@@ -105,6 +106,59 @@
 <STRONG>Test:</STRONG><BR>
 <P STYLE="font-style: normal; padding: 10px; background-color: #e8e8e8;">This text should be in normal (non-italic) style.</P>
 <P STYLE="font-style: italic; padding: 10px; background-color: #e8e8e8;">This text should be in italic style. The font should appear slanted.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>font-weight</H3>
+<P><STRONG>What you should see:</STRONG> Normal and bold text weights.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="font-weight: normal; padding: 10px; background-color: #e8e8e8;">This text should be in normal weight (not bold).</P>
+<P STYLE="font-weight: bold; padding: 10px; background-color: #e8e8e8;">This text should be in bold weight. The text should appear thicker.</P>
+<P STYLE="font-weight: 700; padding: 10px; background-color: #e8e8e8;">This text uses font-weight: 700 (equivalent to bold).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>text-decoration</H3>
+<P><STRONG>What you should see:</STRONG> Text with line-through decoration.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="text-decoration: line-through; padding: 10px; background-color: #e8e8e8;">This text should have a line through it (strikethrough).</P>
+<P STYLE="text-decoration: none; padding: 10px; background-color: #e8e8e8;">This text should have no decoration.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>text-transform</H3>
+<P><STRONG>What you should see:</STRONG> Text transformed to uppercase, lowercase, and capitalize.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="text-transform: uppercase; padding: 10px; background-color: #e8e8e8;">this text should be in uppercase</P>
+<P STYLE="text-transform: lowercase; padding: 10px; background-color: #e8e8e8;">THIS TEXT SHOULD BE IN LOWERCASE</P>
+<P STYLE="text-transform: capitalize; padding: 10px; background-color: #e8e8e8;">this text should have the first letter of each word capitalized</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>white-space</H3>
+<P><STRONG>What you should see:</STRONG> Text with nowrap preventing line breaks.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="white-space: nowrap; padding: 10px; background-color: #e8e8e8;">This is a very long line of text that should not wrap to multiple lines even if it extends beyond the container width because white-space is set to nowrap.</P>
 </TD>
 </TR>
 </TABLE>
@@ -195,6 +249,19 @@
 <P STYLE="margin-left: 50px; background-color: #e8e8e8; padding: 10px;">This paragraph has margin-left: 50px. There should be extra space on the left side.</P>
 <P STYLE="margin-top: 30px; background-color: #e8e8e8; padding: 10px;">This paragraph has margin-top: 30px. There should be extra space above.</P>
 <P STYLE="margin-bottom: 30px; background-color: #e8e8e8; padding: 10px;">This paragraph has margin-bottom: 30px. There should be extra space below.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>background-image</H3>
+<P><STRONG>What you should see:</STRONG> Elements with background images. Note: Requires a valid image URL to test.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="background-image: url('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'); padding: 20px; background-color: #e8e8e8;">This paragraph has a background image (1x1 transparent GIF). If the image loads, you should see it tiled behind the text.</P>
+<P STYLE="padding: 20px; background-color: #e8e8e8;">This paragraph has no background image for comparison.</P>
 </TD>
 </TR>
 </TABLE>
@@ -307,6 +374,28 @@
 </TR>
 </TABLE>
 
+<H3>border-color</H3>
+<P><STRONG>What you should see:</STRONG> Tables with different border colors specified via CSS.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="3" STYLE="border-color: #ff0000;" CELLPADDING="5">
+<TR>
+<TD>Table with red border color</TD>
+</TR>
+</TABLE>
+<BR>
+<TABLE BORDER="3" STYLE="border-color: #00ff00;" CELLPADDING="5">
+<TR>
+<TD>Table with green border color</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
 <P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
 
 <HR>
@@ -347,6 +436,75 @@
 
 <HR>
 
+<A NAME="lists"></A>
+<H2>List Styles</H2>
+
+<H3>list-style-type for unordered lists</H3>
+<P><STRONG>What you should see:</STRONG> Unordered lists with different bullet styles - disc, circle, square, and none.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<UL STYLE="list-style-type: disc;">
+<LI>Disc bullet (default for UL)</LI>
+<LI>Second item with disc</LI>
+</UL>
+<UL STYLE="list-style-type: circle;">
+<LI>Circle bullet</LI>
+<LI>Second item with circle</LI>
+</UL>
+<UL STYLE="list-style-type: square;">
+<LI>Square bullet</LI>
+<LI>Second item with square</LI>
+</UL>
+<UL STYLE="list-style-type: none;">
+<LI>No bullet (none)</LI>
+<LI>Second item with no bullet</LI>
+</UL>
+</TD>
+</TR>
+</TABLE>
+
+<H3>list-style-type for ordered lists</H3>
+<P><STRONG>What you should see:</STRONG> Ordered lists with different numbering styles - decimal, lower-alpha, upper-alpha, lower-roman, upper-roman, and none.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<OL STYLE="list-style-type: decimal;">
+<LI>Decimal numbering (1, 2, 3...)</LI>
+<LI>Second item</LI>
+</OL>
+<OL STYLE="list-style-type: lower-alpha;">
+<LI>Lower alpha (a, b, c...)</LI>
+<LI>Second item</LI>
+</OL>
+<OL STYLE="list-style-type: upper-alpha;">
+<LI>Upper alpha (A, B, C...)</LI>
+<LI>Second item</LI>
+</OL>
+<OL STYLE="list-style-type: lower-roman;">
+<LI>Lower roman (i, ii, iii...)</LI>
+<LI>Second item</LI>
+</OL>
+<OL STYLE="list-style-type: upper-roman;">
+<LI>Upper roman (I, II, III...)</LI>
+<LI>Second item</LI>
+</OL>
+<OL STYLE="list-style-type: none;">
+<LI>No numbering (none)</LI>
+<LI>Second item with no number</LI>
+</OL>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
+
+<HR>
+
 <A NAME="summary"></A>
 <H2>CSS Support Summary</H2>
 
@@ -356,31 +514,50 @@
 <LI><STRONG>font-family</STRONG> - comma-separated font lists with generic families (serif, sans-serif, monospace)</LI>
 <LI><STRONG>font-size</STRONG> - absolute sizes (xx-small to xx-large) and relative sizes (smaller, larger)</LI>
 <LI><STRONG>font-style</STRONG> - italic, normal</LI>
+<LI><STRONG>font-weight</STRONG> - bold, normal, and numeric values (100-900)</LI>
 <LI><STRONG>color</STRONG> - hex color values (#RRGGBB format)</LI>
-<LI><STRONG>text-decoration</STRONG> - none (for links to remove underlines)</LI>
-<LI><STRONG>padding</STRONG> - pixel values</LI>
-<LI><STRONG>background-color</STRONG> - hex color values (#RRGGBB format)</LI>
-<LI><STRONG>position</STRONG> - absolute, relative, static, fixed (parsed, rendering may be limited)</LI>
-<LI><STRONG>top, left</STRONG> - pixel and percentage values (parsed, rendering may be limited)</LI>
-<LI><STRONG>margin-right, margin-left, margin-top, margin-bottom</STRONG> - pixel and percentage values</LI>
-<LI><STRONG>width, height</STRONG> - pixel and percentage values (for table cells)</LI>
+<LI><STRONG>text-decoration</STRONG> - none, line-through (strikethrough)</LI>
+<LI><STRONG>text-transform</STRONG> - uppercase, lowercase, capitalize, none</LI>
+<LI><STRONG>white-space</STRONG> - nowrap, normal</LI>
+<LI><STRONG>padding</STRONG> - pixel values (applied to left and top margins; see limitations below)</LI>
+<LI><STRONG>background-color</STRONG> - hex color values (#RRGGBB format), applied as text highlight for paragraphs</LI>
+<LI><STRONG>background-image</STRONG> - url() format for background images</LI>
+<LI><STRONG>border</STRONG> - border width parsing (full rendering may be limited)</LI>
+<LI><STRONG>border-color</STRONG> - hex color values for table borders</LI>
+<LI><STRONG>border-style</STRONG> - parsed (solid, dashed, dotted, etc.)</LI>
+<LI><STRONG>list-style-type</STRONG> - disc, circle, square, none (for UL), decimal, lower-alpha, upper-alpha, lower-roman, upper-roman, none (for OL)</LI>
+<LI><STRONG>position</STRONG> - absolute, relative, static, fixed (parsed, rendering limited - see limitations below)</LI>
+<LI><STRONG>top, left</STRONG> - pixel and percentage values (parsed, rendering limited - see limitations below)</LI>
+<LI><STRONG>margin-left, margin-top</STRONG> - pixel and percentage values (fully supported)</LI>
+<LI><STRONG>margin-right, margin-bottom</STRONG> - pixel and percentage values (parsed but rendering limited - see limitations below)</LI>
+<LI><STRONG>width, height</STRONG> - pixel and percentage values (for table cells and images)</LI>
 <LI><STRONG>vertical-align</STRONG> - top, middle, bottom, baseline (for table cells)</LI>
 </UL>
 
-<H3>Partially Supported</H3>
+<H3>Partially Supported / Limitations</H3>
 <UL>
-<LI><STRONG>border</STRONG> - parsed but full rendering not implemented</LI>
-<LI><STRONG>border-radius</STRONG> - parsed but not applied (CSS3 feature)</LI>
+<LI><STRONG>padding</STRONG> - Applied to left and top margins only; subsequent lines of wrapped text may not show padding on all sides</LI>
+<LI><STRONG>position, top, left</STRONG> - Parsed but rendering is limited, especially within table contexts</LI>
+<LI><STRONG>margin-right, margin-bottom</STRONG> - Parsed but not fully applied; AWeb's layout engine has limited support for right and bottom margins on generic body elements</LI>
+<LI><STRONG>border</STRONG> - Width, style, and color are parsed but full border rendering may be limited</LI>
+<LI><STRONG>border-radius</STRONG> - Parsed but not applied (CSS3 feature)</LI>
+<LI><STRONG>float</STRONG> - Not yet implemented (would require element-level changes to AWeb's layout engine)</LI>
 </UL>
 
 <H3>Implementation Notes</H3>
 <UL>
-<LI>All CSS properties are supported via inline styles (STYLE attribute)</LI>
-<LI>CSS properties can be combined in a single STYLE attribute</LI>
-<LI>Table cell styles (width, height, vertical-align, background-color) are applied to both the cell body and table cell structure</LI>
-<LI>Link styles (text-decoration: none, color) are properly applied to anchor elements</LI>
-<LI>Font properties (font-family, font-size, font-style) work on body elements and table cells</LI>
-<LI>Color properties (color, background-color) support hex color codes in #RRGGBB format</LI>
+<LI>All CSS properties are supported via inline styles (STYLE attribute) only</LI>
+<LI>CSS properties can be combined in a single STYLE attribute, separated by semicolons</LI>
+<LI>Table cell styles (width, height, vertical-align, background-color, border-color) are applied to both the cell body and table cell structure, ensuring CSS overrides HTML attributes</LI>
+<LI>Link styles (text-decoration: none, color) are properly applied to anchor elements, with text-decoration: none removing the underline pattern</LI>
+<LI>Font properties (font-family, font-size, font-style, font-weight) work on body elements, paragraphs, divs, and table cells</LI>
+<LI>Text properties (text-decoration, text-transform, white-space) are applied to body elements and affect text rendering</LI>
+<LI>Background-color for paragraphs is implemented as a text highlight, allowing each paragraph to have its own distinct background color even when sharing the same body element within table cells</LI>
+<LI>Background-image supports url() format with optional quotes and is applied to body elements</LI>
+<LI>List-style-type is applied to UL and OL elements via inline styles, supporting disc, circle, square, none for UL and decimal, lower-alpha, upper-alpha, lower-roman, upper-roman, none for OL</LI>
+<LI>Color properties (color, background-color, border-color) support hex color codes in #RRGGBB format (3-digit shorthand like #f00 is not yet supported)</LI>
+<LI>Text-transform is applied during text parsing, transforming text before it's added to the text buffer (uppercase, lowercase, capitalize)</LI>
+<LI>Memory management uses AWeb's pool-based allocation system (ALLOCSTRUCT/ALLOCTYPE with FREE) for proper cleanup</LI>
 </UL>
 
 <H3>Not Yet Supported</H3>
@@ -406,4 +583,5 @@
 
 </BODY>
 </HTML>
+
 

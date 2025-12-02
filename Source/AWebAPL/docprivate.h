@@ -132,6 +132,7 @@ struct Document
    UBYTE *jdomain;            /* JS domain property */
    void *cssstylesheet;       /* CSS stylesheet for this document */
    struct Colorinfo *parabgcolor;  /* Background color for current paragraph (from CSS) */
+   short texttransform;       /* Text transform: 0=none, 1=uppercase, 2=lowercase, 3=capitalize */
 };
 
 #define DPF_PREFORMAT      0x00000001  /* doing PRE */

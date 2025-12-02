@@ -112,4 +112,10 @@ enum TAG_ATTRIBUTES
    TAGATTR_BR=1000,
 };
 
+/* Forward declarations */
+struct Document;
+
+/* Create the background image with this url */
+void *Backgroundimg(struct Document *doc,UBYTE *urlname);
+
 #endif

@@ -76,7 +76,7 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
    
    if(!doc || !css) return NULL;
    
-   sheet = AllocMem(sizeof(struct CSSStylesheet),MEMF_CLEAR);
+   sheet = ALLOCSTRUCT(CSSStylesheet,1,0);
    if(!sheet) return NULL;
    
    NEWLIST(&sheet->rules);
@@ -112,7 +112,7 @@ static struct CSSRule* ParseRule(struct Document *doc,UBYTE **p)
    
    if(!doc || !p || !*p) return NULL;
    
-   rule = AllocMem(sizeof(struct CSSRule),MEMF_CLEAR);
+   rule = ALLOCSTRUCT(CSSRule,1,0);
    if(!rule) return NULL;
    
    NEWLIST(&rule->selectors);
@@ -131,7 +131,7 @@ static struct CSSRule* ParseRule(struct Document *doc,UBYTE **p)
       }
       else
       {  /* Parse error in selector */
-         FreeMem(rule,sizeof(struct CSSRule));
+         FREE(rule);
          return NULL;
       }
       
@@ -144,9 +144,9 @@ static struct CSSRule* ParseRule(struct Document *doc,UBYTE **p)
    }
    
    if(**p != '{')
-   {  FreeMem(rule,sizeof(struct CSSRule));
-      return NULL;
-   }
+      {  FREE(rule);
+         return NULL;
+      }
    (*p)++; /* Skip '{' */
    
    /* Parse properties */
@@ -174,7 +174,7 @@ static struct CSSRule* ParseRule(struct Document *doc,UBYTE **p)
       return rule;
    }
    
-   FreeMem(rule,sizeof(struct CSSRule));
+   FREE(rule);
    return NULL;
 }
 
@@ -187,7 +187,7 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
    
    if(!doc || !p || !*p) return NULL;
    
-   sel = AllocMem(sizeof(struct CSSSelector),MEMF_CLEAR);
+   sel = ALLOCSTRUCT(CSSSelector,1,0);
    if(!sel) return NULL;
    
    SkipWhitespace(p);
@@ -203,7 +203,7 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
          sel->specificity = 10; /* Class specificity */
       }
       else
-      {  FreeMem(sel,sizeof(struct CSSSelector));
+      {  FREE(sel);
          return NULL;
       }
    }
@@ -217,7 +217,7 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
          sel->specificity = 100; /* ID specificity */
       }
       else
-      {  FreeMem(sel,sizeof(struct CSSSelector));
+      {  FREE(sel);
          return NULL;
       }
    }
@@ -268,7 +268,7 @@ static struct CSSProperty* ParseProperty(struct Document *doc,UBYTE **p)
    
    if(!doc || !p || !*p) return NULL;
    
-   prop = AllocMem(sizeof(struct CSSProperty),MEMF_CLEAR);
+   prop = ALLOCSTRUCT(CSSProperty,1,0);
    if(!prop) return NULL;
    
    SkipWhitespace(p);
@@ -276,7 +276,7 @@ static struct CSSProperty* ParseProperty(struct Document *doc,UBYTE **p)
    /* Parse property name */
    name = ParseIdentifier(p);
    if(!name)
-   {  FreeMem(prop,sizeof(struct CSSProperty));
+   {  FREE(prop);
       return NULL;
    }
    prop->name = Dupstr(name,-1);
@@ -284,7 +284,7 @@ static struct CSSProperty* ParseProperty(struct Document *doc,UBYTE **p)
    SkipWhitespace(p);
    if(**p != ':')
    {  FREE(prop->name);
-      FreeMem(prop,sizeof(struct CSSProperty));
+      FREE(prop);
       return NULL;
    }
    (*p)++; /* Skip ':' */
@@ -298,7 +298,7 @@ static struct CSSProperty* ParseProperty(struct Document *doc,UBYTE **p)
    }
    else
    {  FREE(prop->name);
-      FreeMem(prop,sizeof(struct CSSProperty));
+      FREE(prop);
       return NULL;
    }
    
@@ -353,9 +353,9 @@ static UBYTE* ParseIdentifier(UBYTE **p)
    len = *p - start;
    if(len == 0) return NULL;
    
-   result = AllocMem(len + 1,MEMF_CLEAR);
+   result = ALLOCTYPE(UBYTE,len + 1,0);
    if(result)
-   {  strncpy((char *)result,(char *)start,len);
+   {  memmove(result,start,len);
       result[len] = '\0';
    }
    
@@ -406,9 +406,9 @@ static UBYTE* ParseValue(UBYTE **p)
    
    if(len == 0) return NULL;
    
-   result = AllocMem(len + 1,MEMF_CLEAR);
+   result = ALLOCTYPE(UBYTE,len + 1,0);
    if(result)
-   {  strncpy((char *)result,(char *)start,len);
+   {  memmove(result,start,len);
       result[len] = '\0';
    }
    
@@ -506,9 +506,9 @@ static void ApplyProperty(void *element,struct CSSProperty *prop)
       comma = (UBYTE *)strchr((char *)value,',');
       if(comma)
       {  long len = comma - value;
-         fontName = AllocMem(len + 1,MEMF_CLEAR);
+         fontName = ALLOCTYPE(UBYTE,len + 1,0);
          if(fontName)
-         {  strncpy((char *)fontName,(char *)value,len);
+         {  memmove(fontName,value,len);
             fontName[len] = '\0';
             /* Trim whitespace */
             while(len > 0 && isspace(fontName[len - 1]))
@@ -624,7 +624,7 @@ static void FreeCSSStylesheetInternal(struct CSSStylesheet *sheet)
       }
    }
    
-   FreeMem(sheet,sizeof(struct CSSStylesheet));
+   FREE(sheet);
 }
 
 /* Parse and apply inline CSS to an element */
@@ -646,7 +646,7 @@ void ApplyInlineCSS(struct Document *doc,void *element,UBYTE *style)
          /* Free the property */
          if(prop->name) FREE(prop->name);
          if(prop->value) FREE(prop->value);
-         FreeMem(prop,sizeof(struct CSSProperty));
+         FREE(prop);
       }
       else
       {  /* Skip to next semicolon on parse error */
@@ -705,12 +705,110 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                }
             }
          }
-         /* Apply border - parse width from "2px solid #color" or "2px" format */
+         /* Apply background-image */
+         else if(stricmp((char *)prop->name,"background-image") == 0)
+         {  UBYTE *urlValue;
+            UBYTE *url;
+            void *bgimg;
+            /* Parse url(...) format */
+            urlValue = prop->value;
+            /* Skip whitespace */
+            while(*urlValue && isspace(*urlValue)) urlValue++;
+            /* Check for url( */
+            if(strnicmp((char *)urlValue,"url(",4) == 0)
+            {  UBYTE *start;
+               UBYTE *end;
+               long len;
+               start = urlValue + 4;
+               /* Skip whitespace after url( */
+               while(*start && isspace(*start)) start++;
+               /* Find closing ) */
+               end = (UBYTE *)strchr((char *)start,')');
+               if(end && end > start)
+               {  /* Trim quotes if present */
+                  if((*start == '"' || *start == '\'') && end > start + 1)
+                  {  start++;
+                     if(*(end - 1) == '"' || *(end - 1) == '\'')
+                     {  end--;
+                     }
+                  }
+                  len = end - start;
+                  if(len > 0)
+                  {  url = ALLOCTYPE(UBYTE,len + 1,0);
+                     if(url)
+                     {  memmove(url,start,len);
+                        url[len] = '\0';
+                        bgimg = Backgroundimg(doc,url);
+                        if(bgimg)
+                        {  Asetattrs(body,AOBDY_Bgimage,bgimg,TAG_END);
+                        }
+                        FREE(url);
+                     }
+                  }
+               }
+            }
+         }
+         /* Apply border - parse width, style, and color from "2px solid #color" or "2px" format */
          else if(stricmp((char *)prop->name,"border") == 0)
-         {  /* Parse border width from value like "2px solid #E8E0D8" or just "2px" */
-            /* Extract the numeric value and unit */
+         {  /* Parse border shorthand: width style color */
+            UBYTE *pval;
+            UBYTE *token;
+            long borderWidth;
+            struct Number num;
+            ULONG borderColor;
+            struct Colorinfo *ci;
+            
+            pval = prop->value;
+            borderWidth = -1;
+            borderColor = ~0;
+            
+            /* Parse tokens separated by spaces */
+            while(*pval)
+            {  SkipWhitespace(&pval);
+               if(!*pval) break;
+               
+               token = pval;
+               while(*pval && !isspace(*pval)) pval++;
+               
+               /* Check if it's a width (starts with digit or has px/em/etc) */
+               if(isdigit(*token) || *token == '+' || *token == '-')
+               {  UBYTE *end;
+                  long len;
+                  len = pval - token;
+                  end = token + len;
+                  if(borderWidth < 0)
+                  {  borderWidth = ParseCSSLengthValue(token,&num);
+                  }
+               }
+               /* Check if it's a color (starts with #) */
+               else if(*token == '#')
+               {  borderColor = ParseHexColor(token);
+               }
+               /* Otherwise it's probably a style (solid, dashed, dotted, etc.) */
+               /* We parse but don't store style yet as rendering isn't implemented */
+            }
+            
             /* Note: Full border rendering not yet implemented, but we parse it */
-            ParseCSSLengthValue(prop->value,&num);
+         }
+         /* Apply border-style */
+         else if(stricmp((char *)prop->name,"border-style") == 0)
+         {  /* Parse border style: solid, dashed, dotted, double, groove, ridge, inset, outset, none */
+            /* We parse but don't store yet as rendering isn't fully implemented */
+            /* Values: solid, dashed, dotted, double, groove, ridge, inset, outset, none */
+         }
+         /* Apply border-color */
+         else if(stricmp((char *)prop->name,"border-color") == 0)
+         {  ULONG colorrgb;
+            struct Colorinfo *ci;
+            colorrgb = ParseHexColor(prop->value);
+            if(colorrgb != ~0)
+            {  ci = Finddoccolor(doc,colorrgb);
+               if(ci)
+               {  /* For tables, apply to bordercolor */
+                  /* For other elements, we'd need to store it for future rendering */
+                  /* For now, we only apply to table cells via ApplyCSSToTableCell */
+               }
+            }
          }
          /* Apply border-radius (CSS3 - not implemented, but parse to avoid errors) */
          else if(stricmp((char *)prop->name,"border-radius") == 0)
@@ -758,15 +856,84 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             {  Asetattrs(body,AOBDY_Unsethardstyle,FSF_ITALIC,TAG_END);
             }
          }
+         /* Apply font-weight */
+         else if(stricmp((char *)prop->name,"font-weight") == 0)
+         {  if(stricmp((char *)prop->value,"bold") == 0 || stricmp((char *)prop->value,"700") == 0 || stricmp((char *)prop->value,"bolder") == 0)
+            {  Asetattrs(body,AOBDY_Sethardstyle,FSF_BOLD,TAG_END);
+            }
+            else if(stricmp((char *)prop->value,"normal") == 0 || stricmp((char *)prop->value,"400") == 0 || stricmp((char *)prop->value,"lighter") == 0)
+            {  Asetattrs(body,AOBDY_Unsethardstyle,FSF_BOLD,TAG_END);
+            }
+            /* Also support numeric values 100-900 */
+            else
+            {  long weightValue;
+               weightValue = ParseCSSLengthValue(prop->value,&num);
+               if(weightValue >= 600)
+               {  Asetattrs(body,AOBDY_Sethardstyle,FSF_BOLD,TAG_END);
+               }
+               else if(weightValue >= 0 && weightValue < 600)
+               {  Asetattrs(body,AOBDY_Unsethardstyle,FSF_BOLD,TAG_END);
+               }
+            }
+         }
+         /* Apply text-decoration */
+         else if(stricmp((char *)prop->name,"text-decoration") == 0)
+         {  /* text-decoration can have multiple values like "underline line-through" */
+            UBYTE *decValue;
+            UBYTE *pdec;
+            decValue = Dupstr(prop->value,-1);
+            if(decValue)
+            {  pdec = decValue;
+               while(*pdec)
+               {  SkipWhitespace(&pdec);
+                  if(!*pdec) break;
+                  if(stricmp((char *)pdec,"line-through") == 0 || stricmp((char *)pdec,"strikethrough") == 0)
+                  {  Asetattrs(body,AOBDY_Sethardstyle,FSF_STRIKE,TAG_END);
+                  }
+                  else if(stricmp((char *)pdec,"none") == 0)
+                  {  /* Remove all text decorations */
+                     Asetattrs(body,AOBDY_Unsethardstyle,FSF_STRIKE,TAG_END);
+                  }
+                  /* Skip to next space or end */
+                  while(*pdec && !isspace(*pdec)) pdec++;
+               }
+               FREE(decValue);
+            }
+         }
+         /* Apply white-space */
+         else if(stricmp((char *)prop->name,"white-space") == 0)
+         {  if(stricmp((char *)prop->value,"nowrap") == 0)
+            {  Asetattrs(body,AOBDY_Nobr,TRUE,TAG_END);
+            }
+            else if(stricmp((char *)prop->value,"normal") == 0 || stricmp((char *)prop->value,"pre-wrap") == 0 || stricmp((char *)prop->value,"pre-line") == 0)
+            {  Asetattrs(body,AOBDY_Nobr,FALSE,TAG_END);
+            }
+            /* Note: "pre" is handled by STYLE_PRE, not white-space */
+         }
+         /* Apply text-transform */
+         else if(stricmp((char *)prop->name,"text-transform") == 0)
+         {  if(stricmp((char *)prop->value,"uppercase") == 0)
+            {  doc->texttransform = 1;
+            }
+            else if(stricmp((char *)prop->value,"lowercase") == 0)
+            {  doc->texttransform = 2;
+            }
+            else if(stricmp((char *)prop->value,"capitalize") == 0)
+            {  doc->texttransform = 3;
+            }
+            else if(stricmp((char *)prop->value,"none") == 0)
+            {  doc->texttransform = 0;
+            }
+         }
          /* Apply font-family */
          else if(stricmp((char *)prop->name,"font-family") == 0)
-         {  fontFace = prop->value;
+         {  fontFace = NULL;
             comma = (UBYTE *)strchr((char *)prop->value,',');
             if(comma)
             {  long len = comma - prop->value;
-               fontFace = AllocMem(len + 1,MEMF_CLEAR);
+               fontFace = ALLOCTYPE(UBYTE,len + 1,0);
                if(fontFace)
-               {  strncpy((char *)fontFace,(char *)prop->value,len);
+               {  memmove(fontFace,prop->value,len);
                   fontFace[len] = '\0';
                   while(len > 0 && isspace(fontFace[len - 1]))
                   {  fontFace[--len] = '\0';
@@ -778,6 +945,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
             if(fontFace)
             {  Asetattrs(body,AOBDY_Fontface,fontFace,TAG_END);
+               FREE(fontFace);
             }
          }
          /* Apply font-size */
@@ -838,7 +1006,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
          /* Free the property */
          if(prop->name) FREE(prop->name);
          if(prop->value) FREE(prop->value);
-         FreeMem(prop,sizeof(struct CSSProperty));
+         FREE(prop);
       }
       else
       {  /* Skip to next semicolon on parse error */
@@ -996,7 +1164,7 @@ void ApplyInlineCSSToLink(struct Document *doc,void *link,void *body,UBYTE *styl
       if(prop)
       {  if(prop->name) FREE(prop->name);
          if(prop->value) FREE(prop->value);
-         FreeMem(prop,sizeof(struct CSSProperty));
+         FREE(prop);
       }
       
       /* Skip to next semicolon on parse error */
@@ -1037,7 +1205,7 @@ struct Colorinfo *ExtractBackgroundColorFromStyle(struct Document *doc,UBYTE *st
          }
          if(prop->name) FREE(prop->name);
          if(prop->value) FREE(prop->value);
-         FreeMem(prop,sizeof(struct CSSProperty));
+         FREE(prop);
       }
       else
       {  /* Skip to next semicolon on parse error */
@@ -1139,7 +1307,7 @@ void ApplyCSSToTableCell(struct Document *doc,void *table,UBYTE *style)
          
          if(prop->name) FREE(prop->name);
          if(prop->value) FREE(prop->value);
-         FreeMem(prop,sizeof(struct CSSProperty));
+         FREE(prop);
       }
       else
       {  /* Skip to next semicolon on parse error */
@@ -1258,7 +1426,7 @@ void ApplyCSSToImage(struct Document *doc,void *copy,UBYTE *style)
          
          if(prop->name) FREE(prop->name);
          if(prop->value) FREE(prop->value);
-         FreeMem(prop,sizeof(struct CSSProperty));
+         FREE(prop);
       }
       else
       {  /* Skip to next semicolon on parse error */
@@ -1350,10 +1518,22 @@ void ApplyCSSToTable(struct Document *doc,void *table,UBYTE *style)
             {  cssBgcolor = Finddoccolor(doc,colorrgb);
             }
          }
+         /* Extract border-color */
+         else if(stricmp((char *)prop->name,"border-color") == 0)
+         {  ULONG colorrgb;
+            struct Colorinfo *ci;
+            colorrgb = ParseHexColor(prop->value);
+            if(colorrgb != ~0)
+            {  ci = Finddoccolor(doc,colorrgb);
+               if(ci)
+               {  Asetattrs(table,AOTAB_Bordercolor,ci,TAG_END);
+               }
+            }
+         }
          
          if(prop->name) FREE(prop->name);
          if(prop->value) FREE(prop->value);
-         FreeMem(prop,sizeof(struct CSSProperty));
+         FREE(prop);
       }
       else
       {  /* Skip to next semicolon on parse error */
