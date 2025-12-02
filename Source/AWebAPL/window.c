@@ -77,6 +77,12 @@ static ULONG idcmpflags=IDCMP_CHANGEWINDOW|IDCMP_INTUITICKS|IDCMP_REFRESHWINDOW|
    IDCMP_RAWKEY|IDCMP_SIZEVERIFY|
    IDCMP_GADGETDOWN|IDCMP_INACTIVEWINDOW|IDCMP_ACTIVEWINDOW;
 
+#ifdef LOCALONLY
+UBYTE *urlpops[]=
+{  "file:///",
+   NULL,
+};
+#else
 UBYTE *urlpops[]=
 {  "http://www.",
    "http://",
@@ -86,6 +92,7 @@ UBYTE *urlpops[]=
    "file://localhost/",
    NULL,
 };
+#endif
 
 /*------------------------------------------------------------------------*/
 /* Default images */
@@ -1558,18 +1565,33 @@ void Setanimgad(BOOL onoff)
 UBYTE *Windowtitle(struct Awindow *win,UBYTE *name,UBYTE *title)
 {  UBYTE *newtitle,*p;
    long len=strlen(title)+1;
+#ifdef LOCALONLY
+   /* Skip portname in LOCALONLY builds */
+   if(name) len+=strlen(name)+3;  /* "[name] " = 3 extra chars */
+#else
    if(name) len+=strlen(name)+4;
    if(win->portname) len+=strlen(win->portname)+3;
    else len+=20;
+#endif
    newtitle=ALLOCTYPE(UBYTE,len,0);
    if(newtitle)
    {  p=newtitle;
+#ifdef LOCALONLY
+      /* Skip portname in LOCALONLY builds */
+      if(name)
+      {  p+=sprintf(newtitle,"[%s] %s",name,title);
+      }
+      else
+      {  strcpy(newtitle,title);
+      }
+#else
       if(win->portname) p+=sprintf(newtitle,"%s",win->portname);
       else p+=sprintf(newtitle,"(AWEB #%d)",win->key);
       if(name)
       {  p+=sprintf(p," [%s]",name);
       }
       sprintf(p," - %s",title);
+#endif
    }
    return newtitle;
 }

@@ -433,6 +433,11 @@ void Followurlname(struct Awindow *win,UBYTE *name,UBYTE *id)
 /* Use the url string as search argument if autosearch enabled */
 static void Followurlsmart(struct Awindow *win,UBYTE *urlname,UBYTE *id)
 {  
+#ifdef LOCALONLY
+   /* In LOCALONLY builds, all URLs are treated as file paths */
+   /* Fixurlname will add file:/// prefix if needed */
+   Followurlname(win,urlname,id);
+#else
 #ifndef DEMOVERSION
    if(prefs.autosearch && *prefs.searchurl && *urlname
    && !strchr(urlname,':') && !strchr(urlname,'.') && !strchr(urlname,'/'))
@@ -459,6 +464,7 @@ static void Followurlsmart(struct Awindow *win,UBYTE *urlname,UBYTE *id)
 #endif
    {  Followurlname(win,urlname,id);
    }
+#endif
 }
 
 /* Use the gadget string as new url */

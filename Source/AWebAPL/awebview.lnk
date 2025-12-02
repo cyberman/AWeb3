@@ -2,10 +2,10 @@ FROM     lib:c.o awebview.o locale.o memory.o versionview.o boopsi.o support.o
          requestview.o asyncio.o simplerexx.o arexxview.o clip.o tooltip.o
          prefs.o defprefsview.o
          object.o task.o scroller.o applicationview.o file.o filereq.o editor.o timer.o
-                 window.o eventview.o winrexx.o winhis.o frame.o framejs.o
+                 windowview.o eventview.o winrexx.o winhis.o frame.o framejs.o
          popup.o search.o print.o printwin.o info.o saveiff.o
          netstat.o hotlist.o whiswin.o cabrowse.o
-         url.o source.o copy.o copyjs.o cacheview.o cookieview.o fetchview.o mime.o
+         urlview.o source.o copy.o copyjs.o cacheview.o cookieview.o fetchview.o mime.o
          local.o httpview.o xawebview.o
          tcpview.o tcperr.o nameservview.o authorview.o
          awebtcpview.o awebamitcpview.o amisslview.o

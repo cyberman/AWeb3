@@ -1395,6 +1395,32 @@ UBYTE *Fixurlname(UBYTE *name)
 {  UBYTE *p,*begin=NULL,*end=NULL,*fixname;
    short scheme=0;   /* 0=unknown, 1=found, 2=not found */
    long len;
+   if(!name || !*name) return NULL;
+#ifdef LOCALONLY
+   /* In LOCALONLY builds, only treat "file:///" as a scheme */
+   /* Everything else (including volume names with colons) is a file path */
+   if(STRNIEQUAL(name,"file:///",8))
+   {  /* Already has file:/// prefix, return a copy */
+      if(fixname=Dupstr(name,-1))
+      {  return fixname;
+      }
+      return NULL;
+   }
+   /* Not a file:/// URL, treat as file path and add prefix */
+   for(p=name;*p;p++)
+   {  if(!begin && !isspace(*p)) begin=p;
+      if(begin)
+      {  if(!isspace(*p)) end=p+1;
+      }
+   }
+   if(!begin || !end) return NULL;
+   len=end-begin+8;  /* "file:///" (8) + path */
+   if(fixname=ALLOCTYPE(UBYTE,len+1,MEMF_PUBLIC))
+   {  strcpy(fixname,"file:///");
+      strncat(fixname,begin,end-begin);
+   }
+   return fixname;
+#else
    for(p=name;*p;p++)
    {  if(!begin && !isspace(*p)) begin=p;
       if(begin)
@@ -1405,14 +1431,16 @@ UBYTE *Fixurlname(UBYTE *name)
          }
       }
    }
+   if(!begin || !end) return NULL;
    len=end-begin;
-   if(scheme!=1) len+=7;
+   if(scheme!=1) len+=7;  /* "http://" is 7 characters */
    if(fixname=ALLOCTYPE(UBYTE,len+1,MEMF_PUBLIC))
-   {  *p='\0';
+   {  *fixname='\0';
       if(scheme!=1) strcat(fixname,"http://");
       strncat(fixname,begin,end-begin);
    }
    return fixname;
+#endif
 }
 
 UBYTE *Urllocalfilename(UBYTE *url)

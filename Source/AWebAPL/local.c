@@ -389,35 +389,6 @@ static void GenerateDirListing(struct Fetchdriver *fd,UBYTE *dirname,long lock)
          if(html_len>=max_len) html_len=max_len-1;
          html_buf[html_len]='\0';
          
-         /* Add parent directory link if not root */
-         if(html_len<max_len-100 && dirname && dirname[0]!='\0')
-         {  p=dirname+strlen(dirname)-1;
-            if(*p=='/') p--;
-            if(*p==':') p--;
-            while(p>dirname && *p!='/' && *p!=':') p--;
-            if(p>dirname || (*p=='/' && p>dirname))
-            {  q=p;
-               if(*q=='/') q--;
-               while(q>dirname && *q!='/' && *q!=':') q--;
-               if(q>=dirname && html_len<max_len-100)
-               {  LONG len;
-                  len=sprintf(html_buf+html_len,"<P><A HREF=\"file:///");
-                  if(len>0 && html_len+len<max_len)
-                  {  html_len+=len;
-                     name_len=q-dirname+1;
-                     if(*q==':') name_len++;
-                     if(html_len+name_len+50<max_len)
-                     {  len=Htmlmove(html_buf+html_len,dirname,name_len);
-                        if(len>0 && html_len+len<max_len)
-                        {  html_len+=len;
-                           len=sprintf(html_buf+html_len,"/\">..</A></P>\n");
-                           if(len>0 && html_len+len<max_len) html_len+=len;
-                        }
-                     }
-                  }
-               }
-            }
-         }
          
          if(html_len<max_len-100)
          {  LONG len;

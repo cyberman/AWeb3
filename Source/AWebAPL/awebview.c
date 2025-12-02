@@ -114,7 +114,11 @@ BOOL profile=FALSE;
 BOOL nopool=FALSE;
 BOOL has35=FALSE;
 BOOL haiku=FALSE;
+#ifdef LOCALONLY
+BOOL nostartup=TRUE;  /* Always skip startup screen in LOCALONLY builds */
+#else
 BOOL nostartup=FALSE;
+#endif
 
 UBYTE *initialurls[16];
 UBYTE localinitialurl[16];
@@ -1296,10 +1300,9 @@ static BOOL Hasprotocol(UBYTE *url)
 static void Getarguments(struct WBStartup *wbs)
 {  long args[16]={0};
 #ifdef LOCALONLY
-   UBYTE *argtemplate="FILE/M,CONFIG/K"
+   UBYTE *argtemplate="FILE/M,CONFIG/K";
 #else
    UBYTE *argtemplate="URL/M,LOCAL/S,CONFIG/K,HOTLIST/K"
-#endif
 #ifndef DEMOVERSION
       ",HAIKU=VVIIV/S"
 #endif
@@ -1314,6 +1317,7 @@ static void Getarguments(struct WBStartup *wbs)
 #endif
 #endif
       ;
+#endif
    long i,nurl=0;
    struct Process *process;
    if(wbs)

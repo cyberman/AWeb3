@@ -111,16 +111,14 @@
  #define NEED35
 #endif
 
-#ifdef LOCALONLY
- #define DEFAULTCFG "AWebView"
-#endif
-
 #ifdef BETAVERSION
  #define AWEBVERSION BETARELEASE
  #define RELEASECLASS "beta"
  #define AWEBLIBVERSION 0
  #define AWEBLIBREVISION BETALIBREVISION
- #define DEFAULTCFG "AWeb3"
+ #ifndef LOCALONLY
+  #define DEFAULTCFG "AWeb3"
+ #endif
 #else
  #define AWEBVERSION FULLRELEASE
  #ifdef DEMOVERSION
@@ -128,14 +126,18 @@
    #undef AWEBVERSION
    #define AWEBVERSION FULLRELEASE "." BETARELEASENR
    #define RELEASECLASS "SE"
-   #define DEFAULTCFG "AWeb3SE"
+   #ifndef LOCALONLY
+    #define DEFAULTCFG "AWeb3SE"
+   #endif
   #else 
    #ifdef LOCALONLY
     #define RELEASECLASS "LOCALDEMO"
    #else
     #define RELEASECLASS "DEMO"
    #endif
-   #define DEFAULTCFG "AWeb3DEMO"
+   #ifndef LOCALONLY
+    #define DEFAULTCFG "AWeb3DEMO"
+   #endif
   #endif
  #else
   #ifdef NEED35
@@ -143,10 +145,18 @@
   #else
    #define RELEASECLASS ""
   #endif
-  #define DEFAULTCFG "AWeb3"
+  #ifndef LOCALONLY
+   #define DEFAULTCFG "AWeb3"
+  #endif
  #endif
  #define AWEBLIBVERSION FULLLIBVERSION
  #define AWEBLIBREVISION FULLLIBREVISION
+#endif
+
+#ifdef LOCALONLY
+ #ifndef DEFAULTCFG
+  #define DEFAULTCFG "AWebView"
+ #endif
 #endif
 
 #define AWEBLIBVSTRING AWEBVERSION RELEASECLASS

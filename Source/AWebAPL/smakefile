@@ -154,12 +154,12 @@ awebview:       prefs.o defprefsview.o
 awebview:       object.o task.o scroller.o applicationview.o file.o filereq.o editor.o
 awebview:       timer.o
 #  Display related objects
-awebview:       window.o eventview.o winrexx.o winhis.o frame.o framejs.o
+awebview:       windowview.o eventview.o winrexx.o winhis.o frame.o framejs.o
 awebview:       popup.o search.o print.o printwin.o info.o saveiff.o
 #  Secondary window objects
 awebview:       netstat.o hotlist.o whiswin.o cabrowse.o
 #  Url related objects
-awebview:       url.o source.o copy.o copyjs.o cacheview.o cookieview.o fetchview.o mime.o
+awebview:       urlview.o source.o copy.o copyjs.o cacheview.o cookieview.o fetchview.o mime.o
 awebview:       local.o httpview.o xawebview.o
 #  TCP/SSL drivers (compiled with LOCALONLY)
 awebview:       tcpview.o tcperr.o nameservview.o authorview.o
@@ -255,6 +255,14 @@ arexxview.o:   arexx.c aweb.h arexx.h simplerexx.h application.h
 defprefsview.o: defprefs.c awebcfg.h awebprefs.h keyfile.h ezlists.h locale.h
     @echo "        Compiling defprefs.c (LOCALONLY)..."
     @sc $(DEBUG) DEF=LOCALONLY defprefs.c OBJNAME=defprefsview.o
+
+urlview.o:      url.c aweb.h url.h link.h source.h cache.h fetch.h window.h
+    @echo "        Compiling url.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY url.c OBJNAME=urlview.o
+
+windowview.o:   window.c aweb.h winprivate.h frame.h winhis.h application.h url.h window.h
+    @echo "        Compiling window.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY window.c OBJNAME=windowview.o
 
 # Note: AWebView uses separate object files (*view.o) for files that differ
 # when LOCALONLY is defined. This allows building both AWeb and AWebView
