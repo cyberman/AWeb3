@@ -1383,17 +1383,15 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
        * debug_printf() */
       /* debug_printf() uses debug_log_sema which can deadlock if called from
        * callbacks */
-      /* The working example (AmiSpeedTest) doesn't use SSL info callbacks */
-      /*
-      Set SSL info callback for detailed handshake debugging
-      This provides detailed information about SSL handshake progress
-      if (httpdebug) {
-        debug_printf("DEBUG: Assl_openssl: Setting SSL info callback for "
-                     "handshake debugging\n");
-        SSL_CTX_set_info_callback(assl->sslctx, ssl_info_callback);
-        check_ssl_error("SSL_CTX_set_info_callback", local_amisslbase);
-      }
-      */
+      /* Set SSL info callback for detailed handshake debugging
+       * This provides detailed information about SSL handshake progress
+       * if (httpdebug) {
+       *   debug_printf("DEBUG: Assl_openssl: Setting SSL info callback for "
+       *                "handshake debugging\n");
+       *   SSL_CTX_set_info_callback(assl->sslctx, ssl_info_callback);
+       *   check_ssl_error("SSL_CTX_set_info_callback", local_amisslbase);
+       * }
+       */
 
       debug_printf("DEBUG: Assl_openssl: SSL context configuration complete\n");
     } else {
@@ -1482,7 +1480,6 @@ __asm void Assl_closessl(register __a0 struct Assl *assl) {
     /* Semaphore is always accessible if assl pointer is valid (it's a field in
      * the struct) */
     /* CRITICAL: Do NOT use semaphores for SSL cleanup */
-    /* The working example (AmiSpeedTest) doesn't use semaphores at all */
     /* SSL_free() and SSL_CTX_free() are safe to call without semaphores */
 
     /* Validate AmiSSLBase pointer */
@@ -1979,8 +1976,6 @@ __asm long Assl_write(register __a0 struct Assl *assl,
 
     /* CRITICAL: Do NOT use semaphores during SSL operations - they cause
      * deadlocks */
-    /* The working example (AmiSpeedTest) doesn't use semaphores at all for SSL
-     * operations */
     /* Each connection has its own SSL object, which is thread-safe
      * per-connection */
     /* We only check the 'closed' flag - if cleanup happens, operations will
@@ -2246,8 +2241,6 @@ __asm long Assl_read(register __a0 struct Assl *assl,
 
     /* CRITICAL: Do NOT use semaphores during SSL operations - they cause
      * deadlocks */
-    /* The working example (AmiSpeedTest) doesn't use semaphores at all for SSL
-     * operations */
     /* Each connection has its own SSL object, which is thread-safe
      * per-connection */
     /* We only check the 'closed' flag - if cleanup happens, operations will
@@ -2268,7 +2261,7 @@ __asm long Assl_read(register __a0 struct Assl *assl,
       if ((ULONG)assl->ssl >= 0x1000 && (ULONG)assl->ssl < 0xFFFFFFF0 &&
           (ULONG)assl->sslctx >= 0x1000 && (ULONG)assl->sslctx < 0xFFFFFFF0) {
         debug_printf(
-            "DEBUG: Assl_read: Calling SSL_read() - NO SEMAPHORE PROTECTION\n");
+            "DEBUG: Assl_read: Calling SSL_read()\n");
 
         /* Perform the read - NO SEMAPHORE PROTECTION */
         /* SSL_read() is thread-safe per-connection and performs blocking
