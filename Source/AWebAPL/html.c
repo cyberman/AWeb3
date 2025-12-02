@@ -221,18 +221,9 @@ static void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *i
    UBYTE *leftValue;
    UBYTE *marginRightValue;
    BOOL matches;
-   UBYTE *comma;
    UBYTE *fontFace;
-   UBYTE *fontValue;
-   UBYTE *start;
-   UBYTE *end;
-   long len;
    short fontSize;
    BOOL isRelative;
-   ULONG colorrgb;
-   struct Colorinfo *ci;
-   float lineHeightValue;
-   UBYTE *lineHeightStr;
    
    if(!doc || !body || !doc->cssstylesheet)
    {  debug_printf("CSS: ApplyCSSToBody skipped - doc=%p body=%p stylesheet=%p\n",
@@ -494,27 +485,24 @@ static void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *i
                                  found = TRUE;
                               }
                            }
-                           else
-                           {  /* Generic family - pass the full list to Matchfont */
-                              if(!found)
-                              {  fontFace = ALLOCTYPE(UBYTE,strlen((char *)prop->value) + 1,0);
-                                 if(fontFace)
-                                 {  strcpy((char *)fontFace,(char *)prop->value);
-                                    debug_printf("CSS: Applying font-family='%s' (generic) to body\n",fontFace);
-                                    Asetattrs(body,AOBDY_Fontface,fontFace,TAG_END);
-                                    FREE(fontFace);
-                                    found = TRUE;
-                                 }
-                              }
-                           }
                         }
                         
                         /* Skip comma and whitespace */
                         while(*p && (isspace(*p) || *p == ',')) p++;
                      }
                      
+                     /* If no specific font found, apply the full font list (including generic families) */
                      if(!found)
-                     {  debug_printf("CSS: font-family parsing failed for '%s'\n",prop->value);
+                     {  fontFace = ALLOCTYPE(UBYTE,strlen((char *)prop->value) + 1,0);
+                        if(fontFace)
+                        {  strcpy((char *)fontFace,(char *)prop->value);
+                           debug_printf("CSS: Applying font-family='%s' (full list with fallbacks) to body\n",fontFace);
+                           Asetattrs(body,AOBDY_Fontface,fontFace,TAG_END);
+                           FREE(fontFace);
+                        }
+                        else
+                        {  debug_printf("CSS: font-family allocation failed for '%s'\n",prop->value);
+                        }
                      }
                   }
                   /* Apply font-size */
@@ -1847,7 +1835,7 @@ static BOOL Dotext(struct Document *doc,struct Tagattr *ta)
          AOELT_Preformat,doc->pflags&DPF_PREFORMAT,
          AOTXT_Blink,doc->pflags&DPF_BLINK,
          AOTXT_Text,&doc->text,
-         CONDTAG(AOTXT_Bgcolor,doc->parabgcolor),
+         (doc->parabgcolor ? AOTXT_Bgcolor : TAG_IGNORE),doc->parabgcolor,
          TAG_END))) 
       {  if(transformed) FREE(transformed);
          return FALSE;
@@ -3020,12 +3008,51 @@ static BOOL Dool(struct Document *doc,struct Tagattr *ta)
    /* Store list class for descendant selector support */
    if(classAttr)
    {  doc->currentlistclass = Dupstr(classAttr,-1);
-      /* Check if this list should be horizontal (menubar with display:inline) */
-      if(stricmp((char *)classAttr,"menubar") == 0)
+   }
+   /* Check CSS stylesheet for any rule that matches list items with display:inline */
+   /* This handles rules like ".menubar li", ".nav li", or any ".classname li" with display:inline */
+   if(doc->cssstylesheet && classAttr)
+   {  struct CSSRule *rule;
+      struct CSSSelector *sel;
+      struct CSSProperty *prop;
+      struct CSSStylesheet *sheet;
+      BOOL hasDisplayInline = FALSE;
+      
+      sheet = (struct CSSStylesheet *)doc->cssstylesheet;
+      for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
+          (struct MinNode *)rule->node.mln_Succ;
+          rule = (struct CSSRule *)rule->node.mln_Succ)
+      {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
+            (struct MinNode *)sel->node.mln_Succ;
+            sel = (struct CSSSelector *)sel->node.mln_Succ)
+         {  /* Check if this selector matches our list's class AND targets 'li' elements */
+            if((sel->type & CSS_SEL_CLASS) && sel->class && 
+               stricmp((char *)sel->class,(char *)classAttr) == 0)
+            {  /* Check if this selector also matches 'li' element */
+               if(sel->type & CSS_SEL_ELEMENT && sel->name && 
+                  stricmp((char *)sel->name,"li") == 0)
+               {  /* This is .classname li - check for display:inline */
+                  for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
+                      (struct MinNode *)prop->node.mln_Succ;
+                      prop = (struct CSSProperty *)prop->node.mln_Succ)
+                  {  if(prop->name && prop->value && 
+                        stricmp((char *)prop->name,"display") == 0 &&
+                        stricmp((char *)prop->value,"inline") == 0)
+                     {  hasDisplayInline = TRUE;
+                        break;
+                     }
+                  }
+               }
+            }
+         }
+      }
+      if(hasDisplayInline)
       {  li.horizontal = TRUE;
+         /* Also set list-style-type: none for horizontal lists */
+         li.bullettype = BDBT_PLAIN;
       }
    }
-   /* Check CSS for display:inline on this list */
+   /* Check CSS for display:inline on this list (inline style) */
    if(styleAttr)
    {  UBYTE *p;
       UBYTE *nameStart;
@@ -3061,6 +3088,8 @@ static BOOL Dool(struct Document *doc,struct Tagattr *ta)
          if(nameLen == 7 && strnicmp((char *)nameStart,"display",7) == 0)
          {  if(valueLen == 6 && strnicmp((char *)valueStart,"inline",6) == 0)
             {  li.horizontal = TRUE;
+               /* Also set list-style-type: none for horizontal lists */
+               li.bullettype = BDBT_PLAIN;
             }
          }
       }
@@ -3183,9 +3212,48 @@ static BOOL Doul(struct Document *doc,struct Tagattr *ta)
    /* Store list class for descendant selector support */
    if(classAttr)
    {  doc->currentlistclass = Dupstr(classAttr,-1);
-      /* Check if this list should be horizontal (menubar with display:inline) */
-      if(stricmp((char *)classAttr,"menubar") == 0)
+   }
+   /* Check CSS stylesheet for any rule that matches list items with display:inline */
+   /* This handles rules like ".menubar li", ".nav li", or any ".classname li" with display:inline */
+   if(doc->cssstylesheet && classAttr)
+   {  struct CSSRule *rule;
+      struct CSSSelector *sel;
+      struct CSSProperty *prop;
+      struct CSSStylesheet *sheet;
+      BOOL hasDisplayInline = FALSE;
+      
+      sheet = (struct CSSStylesheet *)doc->cssstylesheet;
+      for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
+          (struct MinNode *)rule->node.mln_Succ;
+          rule = (struct CSSRule *)rule->node.mln_Succ)
+      {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
+            (struct MinNode *)sel->node.mln_Succ;
+            sel = (struct CSSSelector *)sel->node.mln_Succ)
+         {  /* Check if this selector matches our list's class AND targets 'li' elements */
+            if((sel->type & CSS_SEL_CLASS) && sel->class && 
+               stricmp((char *)sel->class,(char *)classAttr) == 0)
+            {  /* Check if this selector also matches 'li' element */
+               if(sel->type & CSS_SEL_ELEMENT && sel->name && 
+                  stricmp((char *)sel->name,"li") == 0)
+               {  /* This is .classname li - check for display:inline */
+                  for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
+                      (struct MinNode *)prop->node.mln_Succ;
+                      prop = (struct CSSProperty *)prop->node.mln_Succ)
+                  {  if(prop->name && prop->value && 
+                        stricmp((char *)prop->name,"display") == 0 &&
+                        stricmp((char *)prop->value,"inline") == 0)
+                     {  hasDisplayInline = TRUE;
+                        break;
+                     }
+                  }
+               }
+            }
+         }
+      }
+      if(hasDisplayInline)
       {  li.horizontal = TRUE;
+         /* Also set list-style-type: none for horizontal lists */
+         li.bullettype = BDBT_PLAIN;
       }
    }
    /* Check CSS for display:inline on this list */
@@ -3273,9 +3341,103 @@ static BOOL Doli(struct Document *doc,struct Tagattr *ta)
    {  if(!Doul(doc,&dummyta)) return FALSE;
       li=(struct Listinfo *)Agetattr(Docbody(doc),AOBDY_List);
    }
+   
+   /* Apply CSS rules for .classname li to this list item (generic, not hardcoded to "menubar") */
+   if(doc->cssstylesheet && doc->currentlistclass)
+   {  struct CSSRule *rule;
+      struct CSSSelector *sel;
+      struct CSSProperty *prop;
+      struct CSSStylesheet *sheet;
+      void *body;
+      
+      body = Docbody(doc);
+      sheet = (struct CSSStylesheet *)doc->cssstylesheet;
+      for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
+          (struct MinNode *)rule->node.mln_Succ;
+          rule = (struct CSSRule *)rule->node.mln_Succ)
+      {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
+            (struct MinNode *)sel->node.mln_Succ;
+            sel = (struct CSSSelector *)sel->node.mln_Succ)
+         {  /* Check for .classname li selector (matches parent list's class) */
+            if((sel->type & CSS_SEL_CLASS) && sel->class && 
+               stricmp((char *)sel->class,(char *)doc->currentlistclass) == 0 &&
+               (sel->type & CSS_SEL_ELEMENT) && sel->name && 
+               stricmp((char *)sel->name,"li") == 0)
+            {  /* Apply properties from .classname li rule */
+               for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
+                   (struct MinNode *)prop->node.mln_Succ;
+                   prop = (struct CSSProperty *)prop->node.mln_Succ)
+               {  if(prop->name && prop->value)
+                  {  /* Apply margin-left and margin-right */
+                     if(stricmp((char *)prop->name,"margin-left") == 0)
+                     {  /* Parse margin value (e.g., "1em" or "14px") */
+                        long marginValue;
+                        struct Number num;
+                        UBYTE *valueStr;
+                        long valueLen;
+                        BOOL isEm;
+                        
+                        valueStr = prop->value;
+                        valueLen = strlen((char *)valueStr);
+                        /* Check if value ends with "em" */
+                        isEm = (valueLen >= 2 && 
+                                tolower(valueStr[valueLen-2]) == 'e' && 
+                                tolower(valueStr[valueLen-1]) == 'm');
+                        
+                        if(Getnumber(&num,prop->value))
+                        {  marginValue = num.n;
+                           /* Convert "em" to pixels (approximate: 1em = 14px for 14px font) */
+                           if(isEm && marginValue > 0)
+                           {  marginValue = marginValue * 14; /* Approximate conversion */
+                           }
+                           if(marginValue > 0)
+                           {  Asetattrs(body,AOBDY_Leftmargin,marginValue,TAG_END);
+                              debug_printf("CSS: Applied margin-left=%ld to list item\n",marginValue);
+                           }
+                        }
+                     }
+                     else if(stricmp((char *)prop->name,"margin-right") == 0)
+                     {  /* Parse margin value */
+                        long marginValue;
+                        struct Number num;
+                        UBYTE *valueStr;
+                        long valueLen;
+                        BOOL isEm;
+                        
+                        valueStr = prop->value;
+                        valueLen = strlen((char *)valueStr);
+                        /* Check if value ends with "em" */
+                        isEm = (valueLen >= 2 && 
+                                tolower(valueStr[valueLen-2]) == 'e' && 
+                                tolower(valueStr[valueLen-1]) == 'm');
+                        
+                        if(Getnumber(&num,prop->value))
+                        {  marginValue = num.n;
+                           /* Convert "em" to pixels */
+                           if(isEm && marginValue > 0)
+                           {  marginValue = marginValue * 14; /* Approximate conversion */
+                           }
+                           /* Note: AWeb doesn't have margin-right, use left margin as spacing */
+                           if(marginValue > 0)
+                           {  Asetattrs(body,AOBDY_Leftmargin,marginValue,TAG_END);
+                              debug_printf("CSS: Applied margin-right=%ld (as left margin) to list item\n",marginValue);
+                           }
+                        }
+                     }
+                  }
+               }
+            }
+         }
+      }
+   }
+   
    /* For horizontal lists, don't add line breaks between items */
    if(li && !li->horizontal)
    {  Wantbreak(doc,1);
+   }
+   /* For horizontal lists, ensure no bullets */
+   if(li && li->horizontal)
+   {  li->bullettype = BDBT_PLAIN;
    }
    if(li && li->type==BDLT_UL)
    {  btype=li->bullettype;

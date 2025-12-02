@@ -1387,7 +1387,7 @@ void ApplyCSSToLinkColors(struct Document *doc)
    sheet = (struct CSSStylesheet *)doc->cssstylesheet;
    
    /* Find a:link and a:visited rules to set document link colors */
-   /* Also handle 'a' without pseudo-class as default link color */
+   /* Process :link and :visited FIRST, then fall back to 'a' without pseudo-class */
    for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
        (struct MinNode *)rule->node.mln_Succ;
        rule = (struct CSSRule *)rule->node.mln_Succ)
@@ -1403,29 +1403,9 @@ void ApplyCSSToLinkColors(struct Document *doc)
             }
          }
          
-         /* Match pseudo-class - :link, :visited, or none (for default 'a' rule) */
-         if(matches)
-         {  if(!(sel->type & CSS_SEL_PSEUDO) || !sel->pseudo)
-            {  /* 'a' without pseudo-class - use as default link color if no :link rule found */
-               if(!linkColorSet)
-               {  for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
-                      (struct MinNode *)prop->node.mln_Succ;
-                      prop = (struct CSSProperty *)prop->node.mln_Succ)
-                  {  if(prop->name && prop->value && stricmp((char *)prop->name,"color") == 0)
-                     {  colorrgb = ParseHexColor(prop->value);
-                        if(colorrgb != ~0)
-                        {  ci = Finddoccolor(doc,colorrgb);
-                           if(ci)
-                           {  doc->linkcolor = ci;
-                              linkColorSet = TRUE;
-                              debug_printf("CSS: Set doc->linkcolor from 'a' (default)\n");
-                           }
-                        }
-                     }
-                  }
-               }
-            }
-            else if(stricmp((char *)sel->pseudo,"link") == 0)
+         /* Match pseudo-class - :link and :visited take priority */
+         if(matches && (sel->type & CSS_SEL_PSEUDO) && sel->pseudo)
+         {  if(stricmp((char *)sel->pseudo,"link") == 0)
             {  /* Apply a:link color to doc->linkcolor */
                for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
                    (struct MinNode *)prop->node.mln_Succ;
@@ -1456,6 +1436,51 @@ void ApplyCSSToLinkColors(struct Document *doc)
                         {  doc->vlinkcolor = ci;
                            visitedColorSet = TRUE;
                            debug_printf("CSS: Set doc->vlinkcolor from a:visited\n");
+                        }
+                     }
+                  }
+               }
+            }
+         }
+      }
+   }
+   
+   /* Second pass: Handle 'a' without pseudo-class as fallback default link color */
+   if(!linkColorSet)
+   {  for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
+          (struct MinNode *)rule->node.mln_Succ;
+          rule = (struct CSSRule *)rule->node.mln_Succ)
+      {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
+            (struct MinNode *)sel->node.mln_Succ;
+            sel = (struct CSSSelector *)sel->node.mln_Succ)
+         {  matches = TRUE;
+            
+            /* Match element name - must be 'a' */
+            if(sel->type & CSS_SEL_ELEMENT && sel->name)
+            {  if(stricmp((char *)sel->name,"a") != 0)
+               {  matches = FALSE;
+               }
+            }
+            
+            /* Must NOT have pseudo-class */
+            if(matches && ((sel->type & CSS_SEL_PSEUDO) && sel->pseudo))
+            {  matches = FALSE;
+            }
+            
+            /* Apply 'a' without pseudo-class as default link color */
+            if(matches)
+            {  for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
+                   (struct MinNode *)prop->node.mln_Succ;
+                   prop = (struct CSSProperty *)prop->node.mln_Succ)
+               {  if(prop->name && prop->value && stricmp((char *)prop->name,"color") == 0)
+                  {  colorrgb = ParseHexColor(prop->value);
+                     if(colorrgb != ~0)
+                     {  ci = Finddoccolor(doc,colorrgb);
+                        if(ci)
+                        {  doc->linkcolor = ci;
+                           linkColorSet = TRUE;
+                           debug_printf("CSS: Set doc->linkcolor from 'a' (default fallback)\n");
+                           break;
                         }
                      }
                   }
