@@ -632,29 +632,53 @@ static void Convertgeminitohtml(struct Fetchdriver *fd,struct GResponse *resp,lo
                      final_url=url_start;
                      final_urllen=urllen;
                   }
-                  else if(urllen>=9 && (!strnicmp(url_start,"gemini://",9) || !strnicmp(url_start,"spartan://",10)))
-                  {  /* Already absolute gemini:// or spartan:// URL */
-                     final_url=url_start;
-                     final_urllen=urllen;
-                  }
                   else
                   {  /* Relative URL - resolve against base */
-                     struct Geminaddr resolved;
-                     struct Geminaddr base;
-                     UBYTE rel_buf[256];
-                     if(urllen>=sizeof(rel_buf)) urllen=sizeof(rel_buf)-1;
-                     memmove(rel_buf,url_start,urllen);
-                     rel_buf[urllen]='\0';
-                     /* Build base address structure for resolution */
-                     base.hostname=resp->base_hostname;
-                     base.port=resp->base_port;
-                     base.path=resp->base_path;
-                     base.buf=NULL;
-                     if(resp->base_hostname && Resolverelativeurl(&base,rel_buf,&resolved,resp->is_spartan))
-                     {  /* Always use full gemini:// or spartan:// URL so AWeb recognizes the protocol */
+                     /* Check if URL looks like a hostname (missing scheme, e.g., "hostname/path") */
+                     /* AmiGemini handles this as "//hostname/path" which becomes "gemini://hostname/path" */
+                     BOOL looks_like_hostname=FALSE;
+                     if(urllen>0 && url_start[0]!='/')
+                     {  /* Doesn't start with / - could be hostname or relative path */
+                        /* Check if it contains a dot (likely a hostname) and has a / after the hostname */
+                        UBYTE *first_slash;
+                        first_slash=(UBYTE *)strchr((char *)url_start,'/');
+                        if(first_slash && first_slash>url_start)
+                        {  /* Has a / and something before it - check if it looks like a hostname */
+                           long hostname_len=first_slash-url_start;
+                           /* If it contains a dot and looks like a domain name, treat as hostname */
+                           if(strchr((char *)url_start,'.') && hostname_len>0 && hostname_len<256)
+                           {  looks_like_hostname=TRUE;
+                           }
+                        }
+                     }
+                     if(looks_like_hostname)
+                     {  /* URL looks like "hostname/path" - treat as missing scheme */
+                        /* Prepend scheme:// to make it a full URL */
+                        if(resp->is_spartan)
+                        {  final_urllen=sprintf(link_url,"spartan://%.*s",(int)urllen,url_start);
+                        }
+                        else
+                        {  final_urllen=sprintf(link_url,"gemini://%.*s",(int)urllen,url_start);
+                        }
+                        final_url=link_url;
+                     }
+                     else
+                     {  /* Relative path - resolve against base */
+                        struct Geminaddr resolved;
+                        struct Geminaddr base;
+                        UBYTE rel_buf[256];
+                        if(urllen>=sizeof(rel_buf)) urllen=sizeof(rel_buf)-1;
+                        memmove(rel_buf,url_start,urllen);
+                        rel_buf[urllen]='\0';
+                        /* Build base address structure for resolution */
+                        base.hostname=resp->base_hostname;
+                        base.port=resp->base_port;
+                        base.path=resp->base_path;
+                        base.buf=NULL;
+                        if(resp->base_hostname && Resolverelativeurl(&base,rel_buf,&resolved,resp->is_spartan))
+                        {  /* Always use full gemini:// or spartan:// URL so AWeb recognizes the protocol */
                         /* AWeb's Hasprotocol() function requires protocol prefix to route to plugin */
-                        /* CRITICAL: resolved.path does NOT include leading / (it's stripped in Makegeminaddr line 247) */
-                        /* So we must always add / before the path when building the URL */
+                        /* resolved.path includes leading / (stored by Makegeminaddr and Resolverelativeurl) */
                         if(resp->is_spartan)
                         {  /* Generate spartan:// URLs for Spartan pages */
                            if(resolved.port==300)
@@ -713,8 +737,9 @@ static void Convertgeminitohtml(struct Fetchdriver *fd,struct GResponse *resp,lo
                         final_url=url_start;
                         final_urllen=urllen;
                      }
+                     }
                   }
-                  /* Format link - use proper HTML anchor tags */
+                  /* Format link - use proper HTML anchor tags (applies to all URLs) */
                   if(desclen>0 && desc_start)
                   {  outlen+=sprintf(out+outlen,"<p><a href=\"%.*s\">%.*s</a></p>",
                         final_urllen,final_url,desclen,desc_start);
