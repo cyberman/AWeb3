@@ -272,7 +272,7 @@ static UBYTE *Findeol(UBYTE *p,UBYTE *end)
 }
 
 static void Builddir(struct Fetchdriver *fd,struct GResponse *resp,long read)
-{  UBYTE *p,*end,*descr,*selector,*host,*hport;
+{  UBYTE *p,*end,*descr,*selector,*host,*hport,*plus;
    UBYTE type;
    UBYTE *icon;
    long length=0;
@@ -298,6 +298,10 @@ static void Builddir(struct Fetchdriver *fd,struct GResponse *resp,long read)
       if(!(p=Findtab(p,end))) break;
       *p='\0';
       hport=++p;
+      /* check for gopher+ */
+      if(!(p=Findtab(p,end))) break;
+      *p='\0';
+      plus=++p;
       if(!(p=Findtab(p,end))) break;
       if(*p=='\r' || *p=='\n') *p='\0';
       else
@@ -307,19 +311,100 @@ static void Builddir(struct Fetchdriver *fd,struct GResponse *resp,long read)
       switch(type)
       {  case '0':icon="&text.document;";break;
          case '1':icon="&folder;";break;
+         case '2':icon="&telephone;";break;
+         case '3':icon=NULL;break;              /* error */
          case '4':icon="&binhex.document;";break;
          case '5':icon="&archive;";break;
          case '6':icon="&uuencoded.document;";break;
          case '7':icon="&index;";break;
+         case '8':icon="&telnet;";break;
          case '9':icon="&binary.document;";break;
-         case 'g':icon="&image;";break;
-         case 'I':icon="&image;";break;
+         case '+':icon="&redunt;";break;
+         case 'T':icon="&tn3270;";break;
+         case 'g':                              /* gif */
+         case 'I':                              /* image */
+         case ':':icon="&image;";break;         /* gopher+ image */
+         case 'h':icon="&html;";break;          /* html */
+         case 'i':icon=NULL;break;              /* info */
+         case 'w':icon="&www;";break;           /* www link */
+         case 's':
+         case '<':icon="&audio;";break;        /* sound */
+         case ';':icon="&film;";break;         /* gopher+ movie */
          default: icon=NULL;
       }
       if(icon)
-      {  length+=sprintf(fd->block+length,
-            "<BR>%s <A HREF=\"gopher://%s:%s/%c%s\">%s</A>",
-            icon,host,hport,type,selector,descr);
+      {  switch(type)
+         {  case '0':
+            case '1':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '9':
+            case '+':
+            case 'g':
+            case 'h':
+            case 'I':
+            case 's':
+               {  length+=sprintf(fd->block+length,
+                     "<BR>%s <A HREF=\"gopher://%s:%s/%c%s\">%s</A>",
+                     icon,host,hport,type,selector,descr);
+                  if(length>INPUTBLOCKSIZE-1000)
+                  {  Updatetaskattrs(
+                        AOURL_Data,fd->block,
+                        AOURL_Datalength,length,
+                        TAG_END);
+                     length=0;
+                  }
+                  break;
+               }
+            /* telnet type */
+            case '8':
+               {  length+=sprintf(fd->block+length,
+                     "<BR>%s <A HREF=\"telnet://%s:%s\">%s</A>",
+                     icon,host,hport,descr);
+                  if(length>INPUTBLOCKSIZE-1000)
+                  {  Updatetaskattrs(
+                        AOURL_Data,fd->block,
+                        AOURL_Datalength,length,
+                        TAG_END);
+                     length=0;
+                  }
+                  break;
+               }
+            /* www link type */
+            case 'w':
+               {  length+=sprintf(fd->block+length,
+                     "<BR>%s <A HREF=\"http://%s:%s%s\">%s</A>",
+                     icon,host,hport,selector,descr);
+                  if(length>INPUTBLOCKSIZE-1000)
+                  {  Updatetaskattrs(
+                        AOURL_Data,fd->block,
+                        AOURL_Datalength,length,
+                        TAG_END);
+                     length=0;
+                  }
+                  break;
+               }
+            /* info link type */
+            case 'i':
+               {  length+=sprintf(fd->block+length,"<BR>%s",descr);
+                  if(length>INPUTBLOCKSIZE-1000)
+                  {  Updatetaskattrs(
+                        AOURL_Data,fd->block,
+                        AOURL_Datalength,length,
+                        TAG_END);
+                     length=0;
+                  }
+                  break;
+               }
+            default:
+               break;
+         }
+      }
+      else
+      {  /* show any information that doesn't have a known type */
+         length+=sprintf(fd->block+length,"<BR>%s",descr);
          if(length>INPUTBLOCKSIZE-1000)
          {  Updatetaskattrs(
                AOURL_Data,fd->block,
@@ -372,6 +457,7 @@ static void Deleteperiods(struct Fetchdriver *fd,struct GResponse *resp,long rea
 
 static void Makeindex(struct Fetchdriver *fd)
 {  long length;
+   /* we ought to do different msg for cso and normal indexes */
    sprintf(fd->block,"<html><h1>%s</h1><isindex>",AWEBSTR(MSG_AWEB_GOPHERINDEX));
    length=strlen(fd->block);
    Updatetaskattrs(
@@ -380,29 +466,6 @@ static void Makeindex(struct Fetchdriver *fd)
       TAG_END);
 }
 
-/* Set socket timeouts to prevent hanging connections */
-static void SetSocketTimeouts(long sock, struct Library *socketbase)
-{  struct timeval timeout;
-   extern struct Library *SocketBase;
-   struct Library *saved_socketbase;
-   
-   timeout.tv_sec = 30;  /* 30 second timeout */
-   timeout.tv_usec = 0;
-   
-   /* Set global SocketBase for setsockopt() from proto/socket.h */
-   /* Save and restore SocketBase to avoid race conditions */
-   saved_socketbase = SocketBase;
-   SocketBase = socketbase;
-   
-   /* Set receive timeout - use standard socket library function */
-   setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
-   
-   /* Set send timeout - use standard socket library function */
-   setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout));
-   
-   /* Restore SocketBase */
-   SocketBase = saved_socketbase;
-}
 
 __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
 {  struct Library *SocketBase;
@@ -415,7 +478,8 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
    AwebTcpBase=Opentcp(&SocketBase,fd,!fd->validate);
    if(SocketBase && AwebTcpBase)
    {  if(Makegopheraddr(&ha,fd->name))
-      {  if(ha.type=='7' && !ha.query)
+      {  /* both index and CSO are index fields */
+         if((ha.type=='7' && !ha.query) || (ha.type=='2' && !ha.query))
          {  Makeindex(fd);
          }
          else
