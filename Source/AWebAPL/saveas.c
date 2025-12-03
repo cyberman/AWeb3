@@ -164,6 +164,7 @@ static long Srcupdatesaveas(struct Saveas *sas,struct Amsrcupdate *ams)
    long length=0;
    UBYTE *data=NULL,*name;
    UBYTE *unkurl,*unkext;
+   UBYTE *contenttype=NULL;
    void *url;
    BOOL eof=FALSE,error=FALSE;
    if(!sas->fetch && !(sas->flags&SASF_EOF)) sas->fetch=ams->fetch;
@@ -171,7 +172,8 @@ static long Srcupdatesaveas(struct Saveas *sas,struct Amsrcupdate *ams)
    {  switch(tag->ti_Tag)
       {  case AOURL_Contenttype:
             if(tag->ti_Data)
-            {  if(STRNIEQUAL((UBYTE *)tag->ti_Data,"text/",5)) sas->flags|=SASF_TEXT;
+            {  contenttype=(UBYTE *)tag->ti_Data;
+               if(STRNIEQUAL(contenttype,"text/",5)) sas->flags|=SASF_TEXT;
                else sas->flags&=~SASF_TEXT;
             }
             break;
@@ -206,7 +208,18 @@ static long Srcupdatesaveas(struct Saveas *sas,struct Amsrcupdate *ams)
    /* At the very first data or eof, ask for the file name and create a buffer file. */
    if(!(sas->flags&(SASF_CANCEL|SASF_ERROR)))
    {  if((data || eof) && !sas->file && !sas->temp)
-      {  if(!sas->req)
+      {  /* Check content type - never prompt to save text/html */
+         if(!contenttype)
+         {  url=(void *)Agetattr(sas->source,AOSRC_Url);
+            if(url) contenttype=(UBYTE *)Agetattr(url,AOURL_Contenttype);
+         }
+         if(contenttype && STRIEQUAL(contenttype, "text/html"))
+         {  /* Cancel save for HTML content - should be displayed, not saved */
+            if(sas->fetch) Asetattrs(sas->fetch, AOFCH_Cancel, TRUE, TAG_END);
+            Resetsaveas(sas);
+            sas->flags |= SASF_CANCEL;
+         }
+         else if(!sas->req)
          {  if(!(name=Savepathsrc(sas->source)))
             {  name=Savepath((void *)Agetattr(sas->source,AOSRC_Url));
             }
@@ -228,7 +241,9 @@ static long Srcupdatesaveas(struct Saveas *sas,struct Amsrcupdate *ams)
             if(name) FREE(name);
             if(sas->unktype && unkext) FREE(unkext);
          }
-         sas->temp=Anewobject(AOTP_FILE,TAG_END);
+         if(!(sas->flags&SASF_CANCEL))
+         {  sas->temp=Anewobject(AOTP_FILE,TAG_END);
+         }
       }
       if(data)
       {  if(sas->file)

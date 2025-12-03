@@ -912,7 +912,7 @@ static void Loadprefs(struct Saveformat *svf,long fh,void *prf)
       }
    }
    if(imagemime)
-   {  Addmimeinfo(&((struct Browserprefs *)prf)->mimelist,"IMAGE","*",
+   {  Addmimeinfo(&((struct Browserprefs *)prf)->mimelist,"image","*",
          "",MDRIVER_INTERNAL,"","");
    }
 }
@@ -1326,13 +1326,13 @@ BOOL Initdefprefs(void)
    Adddeffontalias(alias,6,font,36);
    
    if(!Addmimeinfo(&defprefs.mimelist,
-      "TEXT","HTML","html htm shtml phtml asp",MDRIVER_INTERNAL,"","")) return FALSE;
+      "text","html","html htm shtml phtml asp",MDRIVER_INTERNAL,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "TEXT","PLAIN","txt",MDRIVER_INTERNAL,"","")) return FALSE;
+      "text","plain","txt",MDRIVER_INTERNAL,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "TEXT","XML","xml",MDRIVER_INTERNAL,"","")) return FALSE;
+      "text","xml","xml",MDRIVER_INTERNAL,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "APPLICATION","RSS+XML","rss",
+      "application","rss+xml","rss",
 #ifdef OSVERSION
       MDRIVER_PLUGIN,"AWeb:awebplugin/awebrss.awebplugin",""
 #else
@@ -1340,7 +1340,7 @@ BOOL Initdefprefs(void)
 #endif
       )) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "APPLICATION","ATOM+XML","atom",
+      "application","atom+xml","atom",
 #ifdef OSVERSION
       MDRIVER_PLUGIN,"AWeb:awebplugin/awebrss.awebplugin",""
 #else
@@ -1348,12 +1348,12 @@ BOOL Initdefprefs(void)
 #endif
       )) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "TEXT","X-AGUIDE","guide",MDRIVER_NONE,"","")) return FALSE;
+      "text","x-aguide","guide",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "TEXT","*","",MDRIVER_EXTERNAL,
+      "text","*","",MDRIVER_EXTERNAL,
       "SYS:Utilities/MultiView","%f pubscreen %n")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "IMAGE","GIF","gif",
+      "image","gif","gif",
 #ifdef OSVERSION
       MDRIVER_PLUGIN,"AWeb:awebplugin/awebgif.awebplugin",""
 #else
@@ -1361,7 +1361,7 @@ BOOL Initdefprefs(void)
 #endif
       )) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "IMAGE","JPEG","jpg jpeg jpe jfif",
+      "image","jpeg","jpg jpeg jpe jfif",
 #ifdef OSVERSION
       MDRIVER_PLUGIN,"AWeb:awebplugin/awebjfif.awebplugin",""
 #else
@@ -1369,9 +1369,9 @@ BOOL Initdefprefs(void)
 #endif
       )) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "IMAGE","X-IFF","iff ilbm ham ham8",MDRIVER_INTERNAL,"","")) return FALSE;
+      "image","x-iff","iff ilbm ham ham8",MDRIVER_INTERNAL,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "IMAGE","PNG","png",
+      "image","png","png",
 #ifdef OSVERSION
       MDRIVER_PLUGIN,"AWeb:awebplugin/awebpng.awebplugin",""
 #else
@@ -1379,29 +1379,29 @@ BOOL Initdefprefs(void)
 #endif
       )) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "IMAGE","XBITMAP","xbm",MDRIVER_INTERNAL,"","")) return FALSE;
+      "image","xbitmap","xbm",MDRIVER_INTERNAL,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "IMAGE","*","",MDRIVER_INTERNAL,"","")) return FALSE;
+      "image","*","",MDRIVER_INTERNAL,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "VIDEO","MPEG","mpg mpeg",MDRIVER_NONE,"","")) return FALSE;
+      "video","mpeg","mpg mpeg",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "VIDEO","QUICKTIME","qt",MDRIVER_NONE,"","")) return FALSE;
+      "video","quicktime","qt",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "VIDEO","X-ANIM","ani anim",MDRIVER_EXTERNAL,
+      "video","x-anim","ani anim",MDRIVER_EXTERNAL,
       "SYS:Utilities/MultiView","%f screen")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "AUDIO","BASIC","au snd",MDRIVER_NONE,"","")) return FALSE;
+      "audio","basic","au snd",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "AUDIO","MIDI","mid midi",MDRIVER_NONE,"","")) return FALSE;
+      "audio","midi","mid midi",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "AUDIO","WAV","wav",MDRIVER_NONE,"","")) return FALSE;
+      "audio","wav","wav",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "AUDIO","X-8SVX","8svx svx",MDRIVER_EXTERNAL,
+      "audio","x-8svx","8svx svx",MDRIVER_EXTERNAL,
       "SYS:Utilities/MultiView","%f pubscreen %n")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "AUDIO","X-MOD","mod",MDRIVER_NONE,"","")) return FALSE;
+      "audio","x-mod","mod",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "AUDIO","*","",MDRIVER_INTERNAL,"","")) return FALSE;
+      "audio","*","",MDRIVER_INTERNAL,"","")) return FALSE;
 
    Adddefmenu(AMENU_MENU,MSG_PROJECT_MENU,NULL);
 #ifndef DEMOVERSION
@@ -1555,7 +1555,7 @@ BOOL Initdefprefs(void)
    if(!Adduserbutton(&defprefs.buttons,"Amiga-News",
       "OPEN http://www.amiga-news.de/en/")) return FALSE;
    if(!Adduserbutton(&defprefs.buttons,"AmigaWorld",
-      "OPEN https://www.amigaworld.net/")) return FALSE;
+      "OPEN https://amigaworld.net/")) return FALSE;
    if(!Adduserbutton(&defprefs.buttons,"The Old Net",
       "OPEN http://www.theoldnet.com")) return FALSE;
 #else
@@ -1854,8 +1854,8 @@ struct Mimeinfo *Addmimeinfo(LIST(Mimeinfo) *list,UBYTE *type,UBYTE *subtype,UBY
    && (!args || (mi->args=Dupstr(args,-1)))
    )
    {  mi->driver=driver;
-      if(type && subtype && STRIEQUAL(type,"TEXT") &&
-         (STRIEQUAL(subtype,"HTML") || STRIEQUAL(subtype,"PLAIN")))
+      if(type && subtype && STRIEQUAL(type,"text") &&
+         (STRIEQUAL(subtype,"html") || STRIEQUAL(subtype,"plain")))
          mi->deleteable=FALSE;
       else mi->deleteable=TRUE;
       /* If new mimeinfo is empty, add to tail of the list

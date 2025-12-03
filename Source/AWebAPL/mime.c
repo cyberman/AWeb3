@@ -68,11 +68,11 @@ static UBYTE *Getextension(UBYTE *url)
 static void Defaultmimes(void)
 {  UBYTE exts[16];
    strcpy(exts,"htm html");
-   Addmimetype("TEXT/HTML",exts,MDRIVER_INTERNAL,NULL,NULL);
+   Addmimetype("text/html",exts,MDRIVER_INTERNAL,NULL,NULL);
    strcpy(exts,"txt");
-   Addmimetype("TEXT/PLAIN",exts,MDRIVER_INTERNAL,NULL,NULL);
+   Addmimetype("text/plain",exts,MDRIVER_INTERNAL,NULL,NULL);
    strcpy(exts,"md markdown");
-   Addmimetype("TEXT/MARKDOWN",exts,MDRIVER_INTERNAL,NULL,NULL);
+   Addmimetype("text/markdown",exts,MDRIVER_INTERNAL,NULL,NULL);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -156,11 +156,11 @@ BOOL Checkmimetype(UBYTE *data,long length,UBYTE *type)
    BOOL ok=TRUE;
    /* APPLICATION/OCTET-STREAM and X-UNKNOWN types are not "reasonable" - 
     * they indicate unknown content and should trigger content sniffing */
-   if(!type || STRIEQUAL(type,"APPLICATION/OCTET-STREAM") 
-      || STRIEQUAL(type,"X-UNKNOWN/X-UNKNOWN"))
+   if(!type || STRIEQUAL(type,"application/octet-stream") 
+      || STRIEQUAL(type,"x-unknown/x-unknown"))
    {  return FALSE;
    }
-   if(STRNIEQUAL(type,"TEXT/",5))
+   if(STRNIEQUAL(type,"text/",5))
    {  p=data;
       end=p+length;
       /* Ignore leading nullbytes */
@@ -168,21 +168,21 @@ BOOL Checkmimetype(UBYTE *data,long length,UBYTE *type)
       while(p<end && (Isprint(*p) || Isspace(*p))) p++;
       if(p<end) ok=FALSE;
    }
-   else if(length>0 && STRNIEQUAL(type,"IMAGE/",6))
+   else if(length>0 && STRNIEQUAL(type,"image/",6))
    {  static UBYTE gif87asig[]={ 'G','I','F','8','7','a' };
       static UBYTE gif89asig[]={ 'G','I','F','8','9','a' };
       static UBYTE pngsig[]={ 0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a };
       static UBYTE jpegsig[]={ 0xff,0xd8 };
       short l;
-      if(STRIEQUAL(type+6,"GIF"))
+      if(STRIEQUAL(type+6,"gif"))
       {  l=MIN(length,sizeof(gif87asig));
          ok=!memcmp(data,gif87asig,l) || !memcmp(data,gif89asig,l);
       }
-      else if(STRIEQUAL(type+6,"JPEG"))
+      else if(STRIEQUAL(type+6,"jpeg"))
       {  l=MIN(length,sizeof(jpegsig));
          ok=!memcmp(data,jpegsig,l);
       }
-      else if(STRIEQUAL(type+6,"PNG") || STRIEQUAL(type+6,"X-PNG"))
+      else if(STRIEQUAL(type+6,"png") || STRIEQUAL(type+6,"x-png"))
       {  l=MIN(length,sizeof(pngsig));
          ok=!memcmp(data,pngsig,l);
       }
@@ -192,11 +192,11 @@ BOOL Checkmimetype(UBYTE *data,long length,UBYTE *type)
 
 UBYTE *Mimetypefromdata(UBYTE *data,long length,UBYTE *deftype)
 {  UBYTE *p,*end;
-   UBYTE *type=deftype?deftype:(UBYTE *)"X-UNKNOWN/X-UNKNOWN";
+   UBYTE *type=deftype?deftype:(UBYTE *)"x-unknown/x-unknown";
    if(data && length)
    {  /* Handle XML-based formats (generic XML) */
-      if(STRNIEQUAL(deftype,"APPLICATION/XML",15) ||
-         STRNIEQUAL(deftype,"TEXT/XML",8))
+      if(STRNIEQUAL(deftype,"application/xml",15) ||
+         STRNIEQUAL(deftype,"text/xml",8))
       {  /* XML formats should be treated as text - verify content is XML-like */
          p=data;
          end=data+length;
@@ -204,52 +204,52 @@ UBYTE *Mimetypefromdata(UBYTE *data,long length,UBYTE *deftype)
          while(p<end-3 && isspace(*p)) p++;
          if(p<=end-5 && STRNIEQUAL(p,"<?xml",5))
          {  /* XML declaration found - keep as XML type */
-            type="TEXT/XML";
+            type="text/xml";
          }
-         else if(Checkmimetype(data,length,"TEXT/PLAIN"))
+         else if(Checkmimetype(data,length,"text/plain"))
          {  /* Valid text content - keep as XML type */
-            type="TEXT/XML";
+            type="text/xml";
          }
          else
          {  /* Not valid text - fall back to octet-stream */
-            type="APPLICATION/OCTET-STREAM";
+            type="application/octet-stream";
          }
       }
-      else if(STRNIEQUAL(deftype,"TEXT/",5))
+      else if(STRNIEQUAL(deftype,"text/",5))
       {  p=data;
          end=data+length;
          while(p<end && !*p) p++;
          while(p<end-3 && isspace(*p)) p++;
          if(p<=end-4 && STRNIEQUAL(p,"<!--",4))
-         {  type="TEXT/HTML";
+         {  type="text/html";
          }
          else if(p<=end-6 && STRNIEQUAL(p,"<HTML>",6))
-         {  type="TEXT/HTML";
+         {  type="text/html";
          }
          else if(p<=end-10 && STRNIEQUAL(p,"<!DOCTYPE",9) && isspace(p[9]))
          {  p+=10;
             while(p<end && isspace(*p)) p++;
             if(p<=end-5 && STRNIEQUAL(p,"HTML ",5))
-            {  type="TEXT/HTML";
+            {  type="text/html";
             }
          }
          else if(p<=end-5 && STRNIEQUAL(p,"<?xml",5))
          {  /* XML declaration found - treat as XML */
-            type="TEXT/XML";
+            type="text/xml";
          }
-         else if(STRIEQUAL(deftype,"TEXT/MARKDOWN"))
+         else if(STRIEQUAL(deftype,"text/markdown"))
          {  /* Preserve markdown type - markdown files are valid text */
-            type="TEXT/MARKDOWN";
+            type="text/markdown";
          }
          else if(Checkmimetype(data,length,"TEXT/PLAIN"))
-         {  type="TEXT/PLAIN";
+         {  type="text/plain";
          }
          else
-         {  type="APPLICATION/OCTET-STREAM";
+         {  type="application/octet-stream";
          }
       }
-      else if(!deftype || STRIEQUAL(deftype,"APPLICATION/OCTET-STREAM") 
-               || STRIEQUAL(deftype,"X-UNKNOWN/X-UNKNOWN"))
+      else if(!deftype || STRIEQUAL(deftype,"application/octet-stream") 
+               || STRIEQUAL(deftype,"x-unknown/x-unknown"))
       {  /* Try to detect content type from data when default is unknown/octet-stream */
          p=data;
          end=data+length;
@@ -264,22 +264,22 @@ UBYTE *Mimetypefromdata(UBYTE *data,long length,UBYTE *deftype)
             if(length >= sizeof(gif87asig) 
                && (!memcmp(data,gif87asig,sizeof(gif87asig)) 
                    || !memcmp(data,gif89asig,sizeof(gif89asig))))
-            {  type="IMAGE/GIF";
+            {  type="image/gif";
                found_image=TRUE;
             }
             else if(length >= sizeof(jpegsig) && !memcmp(data,jpegsig,sizeof(jpegsig)))
-            {  type="IMAGE/JPEG";
+            {  type="image/jpeg";
                found_image=TRUE;
             }
             else if(length >= sizeof(pngsig) && !memcmp(data,pngsig,sizeof(pngsig)))
-            {  type="IMAGE/PNG";
+            {  type="image/png";
                found_image=TRUE;
             }
             else
             {  /* Scan for JPEG markers (ff d8, ff e0-ff ef are JPEG APP markers) */
                for(i=0;i<length-1 && i<1024;i++)
                {  if(data[i]==0xff && (data[i+1]==0xd8 || (data[i+1]>=0xe0 && data[i+1]<=0xef)))
-                  {  type="IMAGE/JPEG";
+                  {  type="image/jpeg";
                      found_image=TRUE;
                      break;
                   }
@@ -290,31 +290,31 @@ UBYTE *Mimetypefromdata(UBYTE *data,long length,UBYTE *deftype)
                while(p<end && !*p) p++;
                while(p<end-3 && isspace(*p)) p++;
                if(p<=end-4 && STRNIEQUAL(p,"<!--",4))
-               {  type="TEXT/HTML";
+               {  type="text/html";
                }
                else if(p<=end-6 && STRNIEQUAL(p,"<HTML>",6))
-               {  type="TEXT/HTML";
+               {  type="text/html";
                }
                else if(p<=end-5 && STRNIEQUAL(p,"<HTML",5))
                {  /* HTML tag (case-insensitive, may have attributes or be <html>) */
-                  type="TEXT/HTML";
+                  type="text/html";
                }
                else if(p<=end-10 && STRNIEQUAL(p,"<!DOCTYPE",9) && isspace(p[9]))
                {  p+=10;
                   while(p<end && isspace(*p)) p++;
                   if(p<=end-5 && STRNIEQUAL(p,"HTML ",5))
-                  {  type="TEXT/HTML";
+                  {  type="text/html";
                   }
                   else if(p<=end-4 && STRNIEQUAL(p,"HTML>",4))
-                  {  type="TEXT/HTML";
+                  {  type="text/html";
                   }
                }
                else if(p<=end-5 && STRNIEQUAL(p,"<?xml",5))
                {  /* XML declaration found - treat as XML */
-                  type="TEXT/XML";
+                  type="text/xml";
                }
-               else if(Checkmimetype(data,length,"TEXT/PLAIN"))
-               {  type="TEXT/PLAIN";
+               else if(Checkmimetype(data,length,"text/plain"))
+               {  type="text/plain";
                }
             }
          }
@@ -332,7 +332,7 @@ ULONG Getmimedriver(UBYTE *mimetype,UBYTE **name,UBYTE **args)
    {  strcpy(wildtype,mimetype);
       strcpy(noxtype,mimetype);
       if(p=strchr(mimetype,'/')) strcpy(wildtype+(p+1-mimetype),"*");
-      if(p && STRNIEQUAL(p,"/X-",3))
+      if(p && STRNIEQUAL(p,"/x-",3))
       {  strcpy(noxtype+(p+1-mimetype),p+3);
       }
       /* search for mime type, or remember matching wild subtype */
@@ -360,9 +360,9 @@ ULONG Getmimedriver(UBYTE *mimetype,UBYTE **name,UBYTE **args)
          *args=mvw->args;
       }
       else if(mvw && mvw->driver==MDRIVER_INTERNAL)
-      {  if(STRNIEQUAL("TEXT/",mimetype,5)) mime=MIMEDRV_DOCUMENT;
-         else if(STRNIEQUAL("IMAGE/",mimetype,6)) mime=MIMEDRV_IMAGE;
-         else if(STRNIEQUAL("AUDIO/",mimetype,6)) mime=MIMEDRV_SOUND;
+      {  if(STRNIEQUAL("text/",mimetype,5)) mime=MIMEDRV_DOCUMENT;
+         else if(STRNIEQUAL("image/",mimetype,6)) mime=MIMEDRV_IMAGE;
+         else if(STRNIEQUAL("audio/",mimetype,6)) mime=MIMEDRV_SOUND;
       }
       else if(mvw && mvw->driver==MDRIVER_SAVELOCAL)
       {  mime=MIMEDRV_SAVELOCAL;
@@ -373,6 +373,6 @@ ULONG Getmimedriver(UBYTE *mimetype,UBYTE **name,UBYTE **args)
 
 BOOL Isxbm(UBYTE *mimetype)
 {  return (BOOL)
-      (STRIEQUAL(mimetype,"IMAGE/X-XBITMAP") || STRIEQUAL(mimetype,"IMAGE/XBITMAP"));
+      (STRIEQUAL(mimetype,"image/x-xbitmap") || STRIEQUAL(mimetype,"image/xbitmap"));
 }
 

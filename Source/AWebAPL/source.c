@@ -201,7 +201,7 @@ static void Adddriver(struct Source *src,UBYTE *data,long length)
    if(type && !Checkmimetype(data,length,type)) type=NULL;
    
    /* Check if URL suggests RSS/Atom feed - if so, check content and override type */
-   if(type && STRIEQUAL(type,"TEXT/HTML"))
+   if(type && STRIEQUAL(type,"text/html"))
    {  UBYTE *url;
       UBYTE *p,*end;
       BOOL url_suggests_feed = FALSE;
@@ -248,11 +248,11 @@ static void Adddriver(struct Source *src,UBYTE *data,long length)
          while(p < end - 10)
          {  if(*p == '<')
             {  if(!strnicmp(p, "<rss", 4))
-               {  type = "APPLICATION/RSS+XML";
+               {  type = "application/rss+xml";
                   break;
                }
                if(!strnicmp(p, "<feed", 5))
-               {  type = "APPLICATION/ATOM+XML";
+               {  type = "application/atom+xml";
                   break;
                }
             }
@@ -276,7 +276,7 @@ static void Adddriver(struct Source *src,UBYTE *data,long length)
    }
    
    /* Update contenttype if we overrode it for RSS/Atom */
-   if(type && (STRIEQUAL(type,"APPLICATION/RSS+XML") || STRIEQUAL(type,"APPLICATION/ATOM+XML")))
+   if(type && (STRIEQUAL(type,"application/rss+xml") || STRIEQUAL(type,"application/atom+xml")))
    {  strcpy(src->contenttype,type);
    }
 
@@ -292,13 +292,13 @@ static void Adddriver(struct Source *src,UBYTE *data,long length)
    else
    {  drt=Getmimedriver(type,&name,&args);
       if(*src->defaulttype && drt==MIMEDRV_DOCUMENT
-      && !STRNIEQUAL(src->defaulttype,"TEXT/",5))
+      && !STRNIEQUAL(src->defaulttype,"text/",5))
       {  /* NEVER attempt to use a document as an embedded object */
          drt=0;
       }
       if(*prefs.imgvcmd
-      && STRNIEQUAL(src->defaulttype,"TEXT/",5)
-      && type && STRNIEQUAL(type,"IMAGE/",6))
+      && STRNIEQUAL(src->defaulttype,"text/",5)
+      && type && STRNIEQUAL(type,"image/",6))
       {  /* View image using separate image viewer */
          drt=MIMEDRV_EXTPROG;
          name=prefs.imgvcmd;
@@ -381,7 +381,7 @@ static void Savesource(struct Source *src,UBYTE *name,BOOL append)
    if(Agetattr(src->driver,AOSDV_Saveable))
    {  ObtainSemaphore(&prefssema);
       if(prefs.saveicons && !(src->flags&SRCF_NOICON))
-      {  if(STRNIEQUAL(src->contenttype,"TEXT/",5)) icontype=FILEICON_TEXT;
+      {  if(STRNIEQUAL(src->contenttype,"text/",5)) icontype=FILEICON_TEXT;
          else icontype=FILEICON_DATA;
       }
       ReleaseSemaphore(&prefssema);
