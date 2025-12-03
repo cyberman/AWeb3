@@ -4366,17 +4366,24 @@ static BOOL Readdata(struct Httpinfo *hi)
    if(hi->sock >= 0)
    {  if (!((hi->flags & HTTPIF_KEEPALIVE) && (hi->flags & HTTPIF_KEEPALIVE_REQ)))
       {  debug_printf("DEBUG: Readdata cleanup: Closing non-keepalive socket\n");
-#ifndef DEMOVERSION
-         if(hi->assl) Assl_closessl(hi->assl);
-#endif
+         /* Close socket first, then clean up SSL */
          if(hi->socketbase) a_close(hi->sock, hi->socketbase);
          hi->sock = -1;
          
          /* Also free the library/assl references now since we won't pool */
+         /* NOTE: Assl_cleanup() will call Assl_closessl() internally, so don't call it twice */
 #ifndef DEMOVERSION
-         if(hi->assl) { Assl_cleanup(hi->assl); FREE(hi->assl); hi->assl=NULL; }
+         if(hi->assl)
+         {  /* Assl_cleanup() handles SSL shutdown and cleanup internally */
+            Assl_cleanup(hi->assl);
+            FREE(hi->assl);
+            hi->assl = NULL;
+         }
 #endif
-         if(hi->socketbase) { CloseLibrary(hi->socketbase); hi->socketbase=NULL; }
+         if(hi->socketbase)
+         {  CloseLibrary(hi->socketbase);
+            hi->socketbase = NULL;
+         }
       }
       else
       {  debug_printf("DEBUG: Readdata cleanup: Keeping keep-alive socket for pooling (sock=%ld)\n", hi->sock);
@@ -5499,18 +5506,13 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                   /* Check for exit signal before starting blocking HTTP response */
                   if(Checktaskbreak())
                   {  debug_printf("DEBUG: Httpretrieve: Exit signal detected, aborting HTTP response\n");
-                     /* Close socket and SSL to interrupt any blocking operations */
-#ifndef DEMOVERSION
-                     if(hi->assl)
-                     {  debug_printf("DEBUG: Httpretrieve: Closing SSL connection due to exit\n");
-                        Assl_closessl(hi->assl);
-                     }
-#endif
+                     /* Close socket first to interrupt any blocking operations */
                      if(hi->sock >= 0 && hi->socketbase)
                      {  debug_printf("DEBUG: Httpretrieve: Closing socket due to exit\n");
                         a_close(hi->sock, hi->socketbase);
                         hi->sock = -1;
                      }
+                     /* SSL cleanup will happen at end of Httpretrieve() via Assl_cleanup() */
                      error=TRUE;
                   }
                   else
