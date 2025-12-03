@@ -4545,6 +4545,8 @@ static long Send(struct Httpinfo *hi,UBYTE *request,long reqlen)
 
 #ifndef DEMOVERSION
 /* Warning: Cannot make SSL connection. Retries TRUE if use unsecure link. */
+/* COMMENTED OUT: Modern browser behavior - fail connection instead of prompting for unsecure fallback */
+/*
 static BOOL Securerequest(struct Httpinfo *hi,UBYTE *reason)
 {  UBYTE *msg,*msgbuf;
    BOOL ok=FALSE;
@@ -4557,6 +4559,7 @@ static BOOL Securerequest(struct Httpinfo *hi,UBYTE *reason)
    }
    return ok;
 }
+*/
 #endif
 
 BOOL Httpcertaccept(char *hostname,char *certname)
@@ -4697,7 +4700,8 @@ static BOOL Openlibraries(struct Httpinfo *hi)
       {  debug_printf("DEBUG: Openlibraries: Tcpopenssl() failed - SSL not available\n");
          /* No SSL available */
          Lowlevelreq("AWeb requires amissl.library (AmiSSL 5.20+) for SSL/TLS connections.\nPlease install AmiSSL and try again.");
-         if(Securerequest(hi,haiku?HAIKU12:AWEBSTR(MSG_SSLWARN_SSL_NO_SSL2)))
+         /* Modern browser behavior: fail connection instead of allowing unsecure fallback */
+         /* if(Securerequest(hi,haiku?HAIKU12:AWEBSTR(MSG_SSLWARN_SSL_NO_SSL2)))
          {  debug_printf("DEBUG: Openlibraries: User chose to retry without SSL\n");
             hi->flags&=~HTTPIF_SSL;
          }
@@ -4705,6 +4709,9 @@ static BOOL Openlibraries(struct Httpinfo *hi)
          {  debug_printf("DEBUG: Openlibraries: User cancelled, SSL required\n");
             result=FALSE;
          }
+         */
+         debug_printf("DEBUG: Openlibraries: SSL required but not available - failing connection\n");
+         result=FALSE;
       }
 #else
       debug_printf("DEBUG: Openlibraries: DEMOVERSION - disabling SSL\n");
@@ -4925,9 +4932,12 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
             else if(!ok && !(hi->flags&HTTPIF_NOSSLREQ))
             {  UBYTE errbuf[128],*p;
                p=Assl_geterror(hi->assl,errbuf);
-               if(Securerequest(hi,p))
+               /* Modern browser behavior: fail connection instead of allowing unsecure fallback */
+               /* if(Securerequest(hi,p))
                {  hi->flags|=HTTPIF_RETRYNOSSL;
                }
+               */
+               debug_printf("DEBUG: SSL connect failed: %s - failing connection (no unsecure fallback)\n", p);
                /* SSL connect failed - clean up SSL resources */
                if(hi->assl)
                {  Assl_closessl(hi->assl);
@@ -5118,9 +5128,12 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
             if(!ok && !(hi->flags&HTTPIF_NOSSLREQ))
             {  UBYTE errbuf[128],*p;
                p=Assl_geterror(hi->assl,errbuf);
-               if(Securerequest(hi,p))
+               /* Modern browser behavior: fail connection instead of allowing unsecure fallback */
+               /* if(Securerequest(hi,p))
                {  hi->flags|=HTTPIF_RETRYNOSSL;
                }
+               */
+               debug_printf("DEBUG: SSL connect failed after tunnel: %s - failing connection (no unsecure fallback)\n", p);
                /* SSL connect failed after tunnel - clean up SSL resources */
                if(hi->assl)
                {  Assl_closessl(hi->assl);
@@ -5221,7 +5234,8 @@ static BOOL Formwarnrequest(void)
 static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
 {  struct hostent *hent;
    long reqlen,msglen,result;
-   UBYTE *request,*p,*q;
+   UBYTE *request = fd->block;  /* Initialize to fd->block - Buildrequest() may allocate new buffer */
+   UBYTE *p,*q;
    BOOL error=FALSE;
    int retry_count;  /* C89: Declare at start */
    BOOL try_again;   /* C89: Declare at start */
