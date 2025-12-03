@@ -45,7 +45,7 @@
 #define DEFMAXCONNECT   2
 #else
 #define NDTRUE          TRUE
-#define DEFMAXCONNECT   12
+#define DEFMAXCONNECT   8
 #endif
 
 struct Prefs defprefs=
@@ -1330,6 +1330,24 @@ BOOL Initdefprefs(void)
    if(!Addmimeinfo(&defprefs.mimelist,
       "TEXT","PLAIN","txt",MDRIVER_INTERNAL,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
+      "TEXT","XML","xml",MDRIVER_INTERNAL,"","")) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
+      "APPLICATION","RSS+XML","rss",
+#ifdef OSVERSION
+      MDRIVER_PLUGIN,"AWeb:awebplugin/awebrss.awebplugin",""
+#else
+      MDRIVER_INTERNAL,"",""
+#endif
+      )) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
+      "APPLICATION","ATOM+XML","atom",
+#ifdef OSVERSION
+      MDRIVER_PLUGIN,"AWeb:awebplugin/awebrss.awebplugin",""
+#else
+      MDRIVER_INTERNAL,"",""
+#endif
+      )) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
       "TEXT","X-AGUIDE","guide",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
       "TEXT","*","",MDRIVER_EXTERNAL,
@@ -1508,7 +1526,7 @@ BOOL Initdefprefs(void)
    Adddefmenu(AMENU_ITEM,MSG_SETTINGS_NETWORK,"SYSTEM AWebCfg NETWORK CONFIG %c PUBSCREEN %n");
 #ifndef NEED35
    if(!has35)
-   {  Adddefmenu(AMENU_ITEM,MSG_SETTINGS_CLASSACT,"SYSTEM SYS:Prefs/Reaction PUBSCREEN %n");
+   {  Adddefmenu(AMENU_ITEM,MSG_SETTINGS_CLASSACT,"SYSTEM SYS:Prefs/ReAction PUBSCREEN %n");
    }
 #endif
    Adddefmenu(AMENU_SEPARATOR,NULL,NULL);

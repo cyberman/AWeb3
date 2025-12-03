@@ -200,6 +200,67 @@ static void Adddriver(struct Source *src,UBYTE *data,long length)
    /* See if it is reasonable */
    if(type && !Checkmimetype(data,length,type)) type=NULL;
    
+   /* Check if URL suggests RSS/Atom feed - if so, check content and override type */
+   if(type && STRIEQUAL(type,"TEXT/HTML"))
+   {  UBYTE *url;
+      UBYTE *p,*end;
+      BOOL url_suggests_feed = FALSE;
+      BOOL content_suggests_feed = FALSE;
+      
+      url = (UBYTE *)Agetattr(src->url,AOURL_Url);
+      if(url)
+      {  long len = strlen(url);
+         if(len >= 4)
+         {  UBYTE *ext = url + len - 4;
+            if(strstr(url, "/feed") || strstr(url, "/rss") || strstr(url, "/atom") ||
+               strstr(url, "?feed") || strstr(url, "?rss") || strstr(url, "?atom") ||
+               !strnicmp(ext, ".rss", 4) ||
+               (len >= 5 && !strnicmp(ext - 1, ".atom", 5)))
+            {  url_suggests_feed = TRUE;
+            }
+         }
+      }
+      
+      if(url_suggests_feed && data && length > 10)
+      {  p = data;
+         end = data + length;
+         if(end - data > 512) end = data + 512;
+         while(p < end - 10)
+         {  if(*p == '<')
+            {  if(!strnicmp(p, "<rss", 4)) { content_suggests_feed = TRUE; break; }
+               if(!strnicmp(p, "<feed", 5)) { content_suggests_feed = TRUE; break; }
+               if(!strnicmp(p, "<?xml", 5))
+               {  long i;
+                  for(i = 0; i < 200 && p + i < end; i++)
+                  {  if(!strnicmp(p + i, "<rss", 4)) { content_suggests_feed = TRUE; break; }
+                     if(!strnicmp(p + i, "<feed", 5)) { content_suggests_feed = TRUE; break; }
+                  }
+                  if(content_suggests_feed) break;
+               }
+            }
+            p++;
+         }
+      }
+      
+      if(url_suggests_feed && content_suggests_feed)
+      {  /* Override content type to RSS/Atom so plugin gets loaded */
+         p = data;
+         while(p < end - 10)
+         {  if(*p == '<')
+            {  if(!strnicmp(p, "<rss", 4))
+               {  type = "APPLICATION/RSS+XML";
+                  break;
+               }
+               if(!strnicmp(p, "<feed", 5))
+               {  type = "APPLICATION/ATOM+XML";
+                  break;
+               }
+            }
+            p++;
+         }
+      }
+   }
+   
    if(!type)
    {  /* No reasonable type, find the one from MIME settings */
       type=Mimetypefromext((UBYTE *)Agetattr(src->url,AOURL_Url));
@@ -212,6 +273,11 @@ static void Adddriver(struct Source *src,UBYTE *data,long length)
    {  /* Still no reasonable type, try to infer from data */
       type=Mimetypefromdata(data,length,src->defaulttype);
       if(type) strcpy(src->contenttype,type);
+   }
+   
+   /* Update contenttype if we overrode it for RSS/Atom */
+   if(type && (STRIEQUAL(type,"APPLICATION/RSS+XML") || STRIEQUAL(type,"APPLICATION/ATOM+XML")))
+   {  strcpy(src->contenttype,type);
    }
 
    if(src->flags&SRCF_SAVEAS)
