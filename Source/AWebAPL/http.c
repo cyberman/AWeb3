@@ -4754,7 +4754,16 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
       {  /* Validate socketbase is still valid before using it */
          /* Another task might have closed the library, invalidating our handle */
          if(!hi->socketbase)
-         {  debug_printf("DEBUG: Opensocket: socketbase is NULL, returning -1\n");
+         {  debug_printf("DEBUG: Opensocket: socketbase is NULL, cleaning up SSL and returning -1\n");
+#ifndef DEMOVERSION
+            /* Clean up SSL resources that were allocated in Openlibraries() */
+            if(hi->assl)
+            {  Assl_closessl(hi->assl);
+               Assl_cleanup(hi->assl);
+               FREE(hi->assl);
+               hi->assl = NULL;
+            }
+#endif
             return -1;
          }
          
@@ -4762,12 +4771,23 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
          if(hi->flags&HTTPIF_SSL)
          {  /* Validate socketbase again before SSL operations */
             if(!hi->socketbase)
-            {  debug_printf("DEBUG: Opensocket: socketbase became NULL before SSL init, returning -1\n");
+            {  debug_printf("DEBUG: Opensocket: socketbase became NULL before SSL init, cleaning up SSL and returning -1\n");
+               /* Clean up SSL resources that were allocated in Openlibraries() */
+               if(hi->assl)
+               {  Assl_closessl(hi->assl);
+                  Assl_cleanup(hi->assl);
+                  FREE(hi->assl);
+                  hi->assl = NULL;
+               }
                return -1;
             }
             debug_printf("DEBUG: Opensocket: Calling Assl_openssl() before creating socket\n");
             if(!Assl_openssl(hi->assl))
-            {  debug_printf("DEBUG: Opensocket: Assl_openssl() failed, returning -1\n");
+            {  debug_printf("DEBUG: Opensocket: Assl_openssl() failed, cleaning up SSL and returning -1\n");
+               Assl_closessl(hi->assl);
+               Assl_cleanup(hi->assl);
+               FREE(hi->assl);
+               hi->assl = NULL;
                return -1;
             }
             debug_printf("DEBUG: Opensocket: Assl_openssl() succeeded\n");
@@ -4775,21 +4795,39 @@ static long Opensocket(struct Httpinfo *hi,struct hostent *hent)
             /* Validate socketbase is still valid after SSL init */
             /* Another task might have closed the library during SSL initialization */
             if(!hi->socketbase)
-            {  debug_printf("DEBUG: Opensocket: socketbase became NULL during SSL init, returning -1\n");
+            {  debug_printf("DEBUG: Opensocket: socketbase became NULL during SSL init, cleaning up SSL and returning -1\n");
                Assl_closessl(hi->assl);
+               Assl_cleanup(hi->assl);
+               FREE(hi->assl);
+               hi->assl = NULL;
                return -1;
             }
          }
 #endif
          /* Final validation before creating socket */
          if(!hi->socketbase)
-         {  debug_printf("DEBUG: Opensocket: socketbase is NULL before socket creation, returning -1\n");
+         {  debug_printf("DEBUG: Opensocket: socketbase is NULL before socket creation, cleaning up SSL and returning -1\n");
+#ifndef DEMOVERSION
+            /* Clean up SSL resources that were allocated in Openlibraries() */
+            if(hi->assl)
+            {  Assl_closessl(hi->assl);
+               Assl_cleanup(hi->assl);
+               FREE(hi->assl);
+               hi->assl = NULL;
+            }
+#endif
             return -1;
          }
          sock=a_socket(hent->h_addrtype,SOCK_STREAM,0,hi->socketbase);
          debug_printf("DEBUG: Opensocket: Created socket %ld\n", sock);
          if(sock<0)
-         {  Assl_closessl(hi->assl);
+         {  debug_printf("DEBUG: Opensocket: Socket creation failed, cleaning up SSL\n");
+            if(hi->assl)
+            {  Assl_closessl(hi->assl);
+               Assl_cleanup(hi->assl);
+               FREE(hi->assl);
+               hi->assl = NULL;
+            }
             return -1;
          }
       }
@@ -4823,6 +4861,7 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
       return FALSE;
    }
    
+   /* Attempt TCP connection */
    if(!a_connect(hi->sock,hent,hi->port,hi->socketbase))
    {  /* TCP connect succeeded - a_connect returns 0 on success */
       debug_printf("DEBUG: TCP connect succeeded\n");
@@ -4841,6 +4880,13 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
             {  debug_printf("DEBUG: Connect: Closing socket to interrupt SSL operations\n");
                a_close(hi->sock, hi->socketbase);
                hi->sock = -1;
+            }
+            /* Clean up SSL resources */
+            if(hi->assl)
+            {  Assl_closessl(hi->assl);
+               Assl_cleanup(hi->assl);
+               FREE(hi->assl);
+               hi->assl = NULL;
             }
             ok=FALSE;
          }
@@ -4875,6 +4921,13 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
                if(Securerequest(hi,p))
                {  hi->flags|=HTTPIF_RETRYNOSSL;
                }
+               /* SSL connect failed - clean up SSL resources */
+               if(hi->assl)
+               {  Assl_closessl(hi->assl);
+                  Assl_cleanup(hi->assl);
+                  FREE(hi->assl);
+                  hi->assl = NULL;
+               }
             }
          }
          else
@@ -4882,6 +4935,13 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
                    hi->assl, hi->sock);
             ok=FALSE;
             hi->flags|=HTTPIF_NOSSLREQ;
+            /* Clean up SSL resources if they exist but are invalid */
+            if(hi->assl)
+            {  Assl_closessl(hi->assl);
+               Assl_cleanup(hi->assl);
+               FREE(hi->assl);
+               hi->assl = NULL;
+            }
          }
       }
 #endif
@@ -4892,7 +4952,15 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
       if(ok && hi->sock >= 0)
       {  /* CRITICAL: Validate SocketBase before using socket functions */
          if(!hi->socketbase)
-         {  debug_printf("DEBUG: Connect: socketbase is NULL, cannot set timeouts\n");
+         {  debug_printf("DEBUG: Connect: socketbase is NULL, cannot set timeouts - cleaning up SSL\n");
+#ifndef DEMOVERSION
+            if(hi->assl)
+            {  Assl_closessl(hi->assl);
+               Assl_cleanup(hi->assl);
+               FREE(hi->assl);
+               hi->assl = NULL;
+            }
+#endif
             return FALSE;
          }
          
@@ -4905,8 +4973,16 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
          
          /* CRITICAL: Validate SocketBase is still valid after assignment */
          if(!SocketBase)
-         {  debug_printf("DEBUG: Connect: SocketBase became NULL after assignment\n");
+         {  debug_printf("DEBUG: Connect: SocketBase became NULL after assignment - cleaning up SSL\n");
             SocketBase = saved_socketbase_connect; /* Restore before returning */
+#ifndef DEMOVERSION
+            if(hi->assl)
+            {  Assl_closessl(hi->assl);
+               Assl_cleanup(hi->assl);
+               FREE(hi->assl);
+               hi->assl = NULL;
+            }
+#endif
             return FALSE;
          }
          
@@ -5038,6 +5114,13 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
                if(Securerequest(hi,p))
                {  hi->flags|=HTTPIF_RETRYNOSSL;
                }
+               /* SSL connect failed after tunnel - clean up SSL resources */
+               if(hi->assl)
+               {  Assl_closessl(hi->assl);
+                  Assl_cleanup(hi->assl);
+                  FREE(hi->assl);
+                  hi->assl = NULL;
+               }
             }
                }
                else
@@ -5045,13 +5128,27 @@ static BOOL Connect(struct Httpinfo *hi,struct hostent *hent)
                          hi->assl, hi->sock);
                   ok=FALSE;
                   hi->flags|=HTTPIF_NOSSLREQ;
+                  /* Clean up SSL resources if they exist but are invalid */
+                  if(hi->assl)
+                  {  Assl_closessl(hi->assl);
+                     Assl_cleanup(hi->assl);
+                     FREE(hi->assl);
+                     hi->assl = NULL;
+                  }
                }
             }
          }
          else
          {  /* For direct SSL connections, TCP connect MUST succeed first */
             /* Cannot proceed with SSL if TCP connection failed */
-            debug_printf("DEBUG: TCP connect failed for SSL connection - cannot proceed with SSL handshake\n");
+            debug_printf("DEBUG: TCP connect failed for SSL connection - cleaning up SSL resources\n");
+            /* Clean up SSL resources that were initialized but never used */
+            if(hi->assl)
+            {  Assl_closessl(hi->assl);
+               Assl_cleanup(hi->assl);
+               FREE(hi->assl);
+               hi->assl = NULL;
+            }
             ok=FALSE;
          }
       }
@@ -5261,6 +5358,15 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                         a_close(hi->sock, hi->socketbase);
                         hi->sock = -1;
                      }
+                     /* Clean up SSL resources */
+#ifndef DEMOVERSION
+                     if(hi->assl)
+                     {  Assl_closessl(hi->assl);
+                        Assl_cleanup(hi->assl);
+                        FREE(hi->assl);
+                        hi->assl = NULL;
+                     }
+#endif
                      result = FALSE;
                      error = TRUE;
                   }
@@ -5282,6 +5388,9 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
 #ifndef DEMOVERSION
                            if(hi->assl)
                            {  Assl_closessl(hi->assl);
+                              Assl_cleanup(hi->assl);
+                              FREE(hi->assl);
+                              hi->assl = NULL;
                            }
 #endif
                            if(hi->sock >= 0 && hi->socketbase)
