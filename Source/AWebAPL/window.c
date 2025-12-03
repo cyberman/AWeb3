@@ -26,6 +26,7 @@
 #include "winhis.h"
 #include "winprivate.h"
 #include "jslib.h"
+#include <intuition/intuition.h>
 #include <intuition/imageclass.h>
 #include <intuition/gadgetclass.h>
 #include <intuition/icclass.h>
@@ -598,27 +599,54 @@ static BOOL Openwindow(struct Awindow *win)
       OBP_Precision,PRECISION_EXACT,
       TAG_END);
 
-   if(!(win->window=OpenWindowTags(NULL,
-      WA_Left,win->box.Left,
-      WA_Top,win->box.Top,
-      WA_Width,win->box.Width,
-      WA_Height,win->box.Height,
-      WA_PubScreen,screen,
-      WA_SizeGadget,TRUE,
-      WA_DragBar,TRUE,
-      WA_DepthGadget,TRUE,
-      WA_CloseGadget,TRUE,
-      WA_Activate,TRUE,
-      WA_SimpleRefresh,TRUE,
-      WA_SizeBRight,TRUE,
-      WA_SizeBBottom,TRUE,
-      WA_NewLookMenus,TRUE,
-      WA_AutoAdjust,TRUE,
-      WA_ReportMouse,TRUE,
-      WA_MaxWidth,-1,
-      WA_MaxHeight,-1,
-      WA_Zoom,&win->zoombox,
-      TAG_END))) return FALSE;
+   /* Check if intuition.library v46+ is available for iconify gadget support */
+   if(IntuitionBase && IntuitionBase->lib_Version>=46)
+   {  if(!(win->window=OpenWindowTags(NULL,
+         WA_Left,win->box.Left,
+         WA_Top,win->box.Top,
+         WA_Width,win->box.Width,
+         WA_Height,win->box.Height,
+         WA_PubScreen,screen,
+         WA_SizeGadget,TRUE,
+         WA_DragBar,TRUE,
+         WA_DepthGadget,TRUE,
+         WA_CloseGadget,TRUE,
+         WA_IconifyGadget,TRUE,
+         WA_Activate,TRUE,
+         WA_SimpleRefresh,TRUE,
+         WA_SizeBRight,TRUE,
+         WA_SizeBBottom,TRUE,
+         WA_NewLookMenus,TRUE,
+         WA_AutoAdjust,TRUE,
+         WA_ReportMouse,TRUE,
+         WA_MaxWidth,-1,
+         WA_MaxHeight,-1,
+         WA_Zoom,&win->zoombox,
+         TAG_END))) return FALSE;
+   }
+   else
+   {  if(!(win->window=OpenWindowTags(NULL,
+         WA_Left,win->box.Left,
+         WA_Top,win->box.Top,
+         WA_Width,win->box.Width,
+         WA_Height,win->box.Height,
+         WA_PubScreen,screen,
+         WA_SizeGadget,TRUE,
+         WA_DragBar,TRUE,
+         WA_DepthGadget,TRUE,
+         WA_CloseGadget,TRUE,
+         WA_Activate,TRUE,
+         WA_SimpleRefresh,TRUE,
+         WA_SizeBRight,TRUE,
+         WA_SizeBBottom,TRUE,
+         WA_NewLookMenus,TRUE,
+         WA_AutoAdjust,TRUE,
+         WA_ReportMouse,TRUE,
+         WA_MaxWidth,-1,
+         WA_MaxHeight,-1,
+         WA_Zoom,&win->zoombox,
+         TAG_END))) return FALSE;
+   }
    Settitle(win,AWEBSTR(MSG_AWEB_NODOCTITLE));
    Setactiveport(win->portname);
    activewindow=win;

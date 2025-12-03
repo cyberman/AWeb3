@@ -778,7 +778,14 @@ void Processwindow(void)
          win->cmd|=CMD_CHECKLINK;
          switch(msg->Class)
          {  case IDCMP_CLOSEWINDOW:
-               win->cmd|=CMD_CLOSE;
+               /* If intuition.library v46+ and ie_Code is 1, this is from
+                * the iconify gadget - call iconify instead of closing */
+               if(IntuitionBase && IntuitionBase->lib_Version>=46 && msg->Code==1)
+               {  Iconify(TRUE);
+               }
+               else
+               {  win->cmd|=CMD_CLOSE;
+               }
                break;
             case IDCMP_IDCMPUPDATE:
                switch(gadgetid=GetTagData(GA_ID,0,(struct TagItem *)msg->IAddress))
