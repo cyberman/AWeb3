@@ -1,0 +1,16 @@
+## SAS/C makefile for RSS/Atom aweb plugin module
+
+.c.o:
+   sc "$*.c"
+
+awebrss.awebplugin:    startup.o rss.o rssparse.o rssrender.o rss.lnk
+   slink with rss.lnk
+
+startup.o:     startup.c pluginlib.h
+
+rss.o: rss.c pluginlib.h rss.h
+
+rssparse.o: rssparse.c rss.h
+
+rssrender.o: rssrender.c rss.h
+
