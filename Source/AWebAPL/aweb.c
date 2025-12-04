@@ -1251,7 +1251,7 @@ static BOOL Initall(void)
 static void Getprogramname(struct WBStartup *wbs)
 {  long progdir;
    UBYTE progbuf[40];
-   if(wbs)
+   if(wbs && wbs->sm_NumArgs > 0)
    {  if(NameFromLock(wbs->sm_ArgList[0].wa_Lock,programname,256))
       {  AddPart(programname,wbs->sm_ArgList[0].wa_Name,256);
       }
@@ -1305,7 +1305,7 @@ static void Getarguments(struct WBStartup *wbs)
       ;
    long i,nurl=0;
    struct Process *process;
-   if(wbs)
+   if(wbs && wbs->sm_NumArgs > 0)
    {  long oldcd=CurrentDir(wbs->sm_ArgList[0].wa_Lock);
       struct DiskObject *dob=GetDiskObject(wbs->sm_ArgList[0].wa_Name);
       if(dob)
