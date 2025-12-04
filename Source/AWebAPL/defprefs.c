@@ -157,7 +157,7 @@ struct Prefs defprefs=
       FALSE,                                 /* four colour mode */
    },
    {  /* gui prefs */
-      IEQUALIFIER_LALT|IEQUALIFIER_RALT|IEQUALIFIER_CONTROL|IEQUALIFIER_MIDBUTTON,
+      IEQUALIFIER_LALT|IEQUALIFIER_RALT|IEQUALIFIER_CONTROL|IEQUALIFIER_RIGHTBUTTON,
                                              /* popup key */
       TRUE,                                  /* show buttons */
       TRUE,                                  /* show navigation controls */
