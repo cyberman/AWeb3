@@ -1307,7 +1307,26 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
     /* SSL_CTX_new() accesses shared OpenSSL state - must be serialized */
     debug_printf("DEBUG: Assl_openssl: Creating new SSL context with "
                  "TLS_client_method()\n");
-    if (assl->sslctx = SSL_CTX_new(TLS_client_method())) {
+    /* CRITICAL: Re-validate AmiSSLBase before calling OpenSSL functions */
+    /* AmiSSLBase might become NULL if the library is closed by another task */
+    /* OpenSSL macros use AmiSSLBase internally, so it must be valid */
+    if (!AmiSSLBase || (ULONG)AmiSSLBase < 0x1000) {
+      debug_printf("DEBUG: Assl_openssl: ERROR - AmiSSLBase is invalid (%p), cannot create SSL context\n", AmiSSLBase);
+      ReleaseSemaphore(&ssl_init_sema);
+      return FALSE;
+    }
+    /* CRITICAL: Check that TLS_client_method() returns non-NULL before using it */
+    /* TLS_client_method() can return NULL if AmiSSL is not properly initialized */
+    /* Passing NULL to SSL_CTX_new() will cause a crash inside AmiSSL library */
+    {
+      const SSL_METHOD *method = TLS_client_method();
+      if (!method) {
+        debug_printf("DEBUG: Assl_openssl: ERROR - TLS_client_method() returned NULL, AmiSSL not properly initialized\n");
+        check_ssl_error("TLS_client_method (failed)", local_amisslbase);
+        ReleaseSemaphore(&ssl_init_sema);
+        return FALSE;
+      }
+      if (assl->sslctx = SSL_CTX_new(method)) {
       debug_printf(
           "DEBUG: Assl_openssl: SSL context created successfully at %p\n",
           assl->sslctx);
@@ -1394,9 +1413,10 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
        */
 
       debug_printf("DEBUG: Assl_openssl: SSL context configuration complete\n");
-    } else {
-      debug_printf("DEBUG: Assl_openssl: Failed to create SSL context\n");
-      check_ssl_error("SSL_CTX_new (failed)", local_amisslbase);
+      } else {
+        debug_printf("DEBUG: Assl_openssl: Failed to create SSL context\n");
+        check_ssl_error("SSL_CTX_new (failed)", local_amisslbase);
+      }
     }
 
     /* Reset denied flag and closed flag for new connection */
