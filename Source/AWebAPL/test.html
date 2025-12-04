@@ -1,0 +1,151 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<title>AWeb Compatibility Test Websites</title>
+</head>
+<body>
+<h1>AWeb Compatibility Test Websites</h1>
+
+<h2>Fully Compatible</h2>
+<table border="1" cellpadding="5" cellspacing="0" width="900">
+<thead>
+<tr>
+<th width="35%">URL</th>
+<th width="65%">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://www.aminet.net/">http://www.aminet.net/</a></td>
+<td></td>
+</tr>
+<tr>
+    <td><a href="https://www.amigaforever.com">https://www.amigaforever.com</a></td>
+    <td></td>
+    </tr>
+<tr>
+<td><a href="http://www.amiga-news.de/">http://www.amiga-news.de/</a></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="https://www.os4depot.net/">http://www.os4depot.net/</a></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="https://amigaworld.net/">http://amigaworld.net/</a></td>
+<td>N.B. AW.net does not properly redirect the www subdomain while their certificate is only valid for amigaworld.net</td>
+</tr>
+<tr>
+<td><a href="http://www.amigaworld.de/">http://www.amigaworld.de/</a></td>
+<td>Assets are not well optimised, can take a long time to load</td>
+</tr>
+<tr>
+<td><a href="https://www.ibrowse-dev.net/">https://www.ibrowse-dev.net/</a></td>
+<td></td>
+</tr>
+<tr>
+    <td><a href="http://www.amigazen.com">http://www.amigazen.com</a></td>
+    <td></td>
+    </tr>
+</tbody>
+</table>
+
+<h2>Mostly Compatible (Minor Issues)</h2>
+<table border="1" cellpadding="5" cellspacing="0" width="900">
+<thead>
+<tr>
+<th width="35%">URL</th>
+<th width="65%">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://www.amiga.com">https://www.amiga.com</a></td>
+<td>The larger banner PNG image sometimes fails to load correctly</td>
+</tr>
+<tr>
+    <td><a href="https://developer.amigaos3.net/autodocs/">https://developer.amigaos3.net/autodocs/</a></td>
+    <td>The autodocs section is mostly compatible now that the necessary inline CSS support is implemented. Other pages rely on bootstrap css so will not display correctly.</td>
+    </tr>
+    <tr>
+        <td><a href="http://www.theoldnet.com">http://www.theoldnet.com</a></td>
+        <td>Some images do not load, possibly due to use of AnimGIFs</td>
+        </tr>
+        <tr>
+            <td><a href="https://amigaos.exec.pl">https://amigaos.exec.pl</a></td>
+            <td>Home page relies on external CSS but simple design means most content is still usable, especially on other pages</td>
+            </tr>
+</tbody>
+</table>
+
+<h2>Partially Compatible (Major Issues)</h2>
+<table border="1" cellpadding="5" cellspacing="0" width="900">
+<thead>
+<tr>
+<th width="35%">URL</th>
+<th width="65%">Notes</th>
+</tr>
+</thead>
+<tbody>
+    <tr>
+        <td><a href="https://www.amigans.net">https://www.amigans.net</a></td>
+        <td>'topmenu' element does not layout correctly but the rest of the pages are mostly compatible</td>
+        </tr>
+        <tr>
+            <td><a href="https://forum.amiga.org">https://forum.amiga.org</a></td>
+            <td>Layout and image rendering issues making site mostly unusable</td>
+            </tr>
+            <tr>
+                <td><a href="https://hyperion-entertainment.com">https://hyperion-entertainment.com</a></td>
+                <td>Content is readable but requires external CSS support to render correctly</td>
+                </tr>
+</tbody>
+</table>
+
+<h2>Not Compatible</h2>
+<table border="1" cellpadding="5" cellspacing="0" width="900">
+<thead>
+<tr>
+<th width="35%">URL</th>
+<th width="65%">Notes</th>
+</tr>
+</thead>
+<tbody>
+    <tr>
+        <td><a href="https://www.google.com">https://www.google.com</a></td>
+        <td>Google will show a 'browser too old' error and for some pages, a partially compatible cookie consent page.</td>
+        </tr>
+        <tr>
+            <tr>
+                <td><a href="https://www.amigaos.net">https://www.amigaos.net</a></td>
+                <td>Expects a modern browser, pages will not load</td>
+                </tr>
+                <tr>
+                    <td><a href="https://www.github.com">https://www.github.com</a></td>
+                    <td>Expects a modern browser, pages will not load</td>
+                    </tr>
+                    <tr>
+                        <td><a href="https://www.amigastore.eu">https://www.amigastore.eu</a></td>
+                        <td>Causes AWeb to crash</td>
+                        </tr>
+            <td><a href="https://eab.abime.net">https://eab.abime.net</a></td>
+            <td>Uses a CDN firewall which expects a modern browser</td>
+            </tr>
+            <tr>
+                <td><a href="https://www.everythingamiga.com">https://www.everythingamiga.com</a></td>
+                <td>Wordpress site relying heavily on external CSS</td>
+                </tr>
+                <tr>
+                    <td><a href="https://www.amigalove.com">https://www.amigalove.com</a></td>
+                    <td>Uses Cloudflare CDN firewall which expects a modern browser</td>
+                    </tr>
+                    <tr>
+                        <td><a href="https://www.lemonamiga.com">https://www.lemonamiga.com</a></td>
+                        <td>Expects a modern browser, will cause AWeb to lock up</td>
+                        </tr>
+</tbody>
+</table>
+
+</body>
+</html>
