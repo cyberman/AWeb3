@@ -4674,26 +4674,21 @@ static BOOL Openlibraries(struct Httpinfo *hi)
       }
       debug_printf("DEBUG: Openlibraries: Calling Tcpopenssl() to initialize SSL\n");
       if(hi->assl=Tcpopenssl(hi->socketbase))
-      {  struct Library *amisslmaster;  /* C89 - declare at start of block */
-         debug_printf("DEBUG: Openlibraries: Tcpopenssl() succeeded, assl=%p\n", hi->assl);
-         /* ok */
-         /* Additional check for amisslmaster.library (AmiSSL 4+) */
-         debug_printf("DEBUG: Openlibraries: Verifying amisslmaster.library is available\n");
-         amisslmaster = OpenLibrary("amisslmaster.library", 0);
-         if(!amisslmaster)
-         {  debug_printf("DEBUG: Openlibraries: amisslmaster.library not available\n");
+      {  debug_printf("DEBUG: Openlibraries: Tcpopenssl() succeeded, assl=%p\n", hi->assl);
+         /* Verify that amisslmaster.library was successfully opened by Assl_initamissl() */
+         /* No need to open/close it again - just check the global base pointer */
+         if(!AmiSSLMasterBase)
+         {  debug_printf("DEBUG: Openlibraries: ERROR - AmiSSLMasterBase is NULL after Tcpopenssl() succeeded\n");
             Lowlevelreq("AWeb requires amisslmaster.library for SSL/TLS connections.\nPlease install AmiSSL 5.20 or newer and try again.");
             Assl_cleanup(hi->assl);
             /* Free the struct after Assl_cleanup() has cleaned it up */
             FREE(hi->assl);
             hi->assl = NULL;
             result = FALSE;
-            debug_printf("DEBUG: Openlibraries: SSL initialization failed - amisslmaster.library missing\n");
+            debug_printf("DEBUG: Openlibraries: SSL initialization failed - amisslmaster.library not initialized\n");
          }
          else
-         {  debug_printf("DEBUG: Openlibraries: amisslmaster.library verified, closing test handle\n");
-            CloseLibrary(amisslmaster);
-            debug_printf("DEBUG: Openlibraries: SSL libraries initialized successfully\n");
+         {  debug_printf("DEBUG: Openlibraries: SSL libraries initialized successfully (AmiSSLMasterBase=%p)\n", AmiSSLMasterBase);
          }
       }
       else
