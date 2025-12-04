@@ -1331,6 +1331,19 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
           "DEBUG: Assl_openssl: SSL context created successfully at %p\n",
           assl->sslctx);
       check_ssl_error("SSL_CTX_new", local_amisslbase);
+      
+      /* CRITICAL: Validate sslctx pointer immediately after SSL_CTX_new() */
+      /* SSL_CTX_new() might return a corrupted pointer that causes crashes when accessed */
+      if (!assl->sslctx || (ULONG)assl->sslctx < 0x1000 || (ULONG)assl->sslctx >= 0xFFFFFFF0) {
+        debug_printf("DEBUG: Assl_openssl: ERROR - SSL_CTX_new() returned invalid/corrupted pointer (%p)\n", assl->sslctx);
+        check_ssl_error("SSL_CTX_new (corrupted pointer)", local_amisslbase);
+        /* Free the corrupted pointer to prevent use-after-free */
+        if (assl->sslctx) {
+          SSL_CTX_free(assl->sslctx);
+          check_ssl_error("SSL_CTX_free (corrupted)", local_amisslbase);
+        }
+        assl->sslctx = NULL;
+      } else {
 
       /* Set default certificate verification paths */
       debug_printf("DEBUG: Assl_openssl: Setting default certificate "
@@ -1413,10 +1426,11 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
        */
 
       debug_printf("DEBUG: Assl_openssl: SSL context configuration complete\n");
-      } else {
-        debug_printf("DEBUG: Assl_openssl: Failed to create SSL context\n");
-        check_ssl_error("SSL_CTX_new (failed)", local_amisslbase);
-      }
+      } /* End of sslctx validation else block */
+    } else {
+      debug_printf("DEBUG: Assl_openssl: Failed to create SSL context\n");
+      check_ssl_error("SSL_CTX_new (failed)", local_amisslbase);
+    }
     }
 
     /* Reset denied flag and closed flag for new connection */
@@ -1428,7 +1442,9 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
 
     /* Create new SSL object from context for this connection */
     /* SSL_new() accesses shared OpenSSL state - must be serialized */
-    if (assl->sslctx) {
+    /* CRITICAL: Validate sslctx pointer before passing to SSL_new() */
+    /* A corrupted sslctx pointer will cause SSL_new() to return a corrupted SSL pointer */
+    if (assl->sslctx && (ULONG)assl->sslctx >= 0x1000 && (ULONG)assl->sslctx < 0xFFFFFFF0) {
       debug_printf(
           "DEBUG: Assl_openssl: Creating new SSL object from context\n");
       if (assl->ssl = SSL_new(assl->sslctx)) {
@@ -1436,19 +1452,35 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
             "DEBUG: Assl_openssl: SSL object created successfully at %p\n",
             assl->ssl);
         check_ssl_error("SSL_new", local_amisslbase);
-        /* Store assl pointer in SSL object's ex_data for certificate callback
-         */
-        /* This is safer than task userdata because each SSL object has its own
-         * assl pointer, preventing race conditions with multiple concurrent
-         * connections in the same task */
-        debug_printf("DEBUG: Assl_openssl: Storing Assl pointer in SSL object "
-                     "ex_data for certificate callback\n");
-        if (SSL_set_ex_data(assl->ssl, 0, assl) == 0) {
+        
+        /* CRITICAL: Validate SSL pointer immediately after SSL_new() */
+        /* SSL_new() might return a corrupted pointer that causes crashes when accessed */
+        /* The crash pattern shows lwz r9,16(r3) with dar=0x00000070, meaning r3=0x00000060 */
+        /* This suggests SSL_new() returned a corrupted pointer in low memory */
+        if (!assl->ssl || (ULONG)assl->ssl < 0x1000 || (ULONG)assl->ssl >= 0xFFFFFFF0) {
+          debug_printf("DEBUG: Assl_openssl: ERROR - SSL_new() returned invalid/corrupted pointer (%p)\n", assl->ssl);
+          check_ssl_error("SSL_new (corrupted pointer)", local_amisslbase);
+          /* Free the corrupted pointer to prevent use-after-free */
+          if (assl->ssl) {
+            SSL_free(assl->ssl);
+            check_ssl_error("SSL_free (corrupted)", local_amisslbase);
+          }
+          assl->ssl = NULL;
+        } else {
+          /* Store assl pointer in SSL object's ex_data for certificate callback
+           */
+          /* This is safer than task userdata because each SSL object has its own
+           * assl pointer, preventing race conditions with multiple concurrent
+           * connections in the same task */
+          debug_printf("DEBUG: Assl_openssl: Storing Assl pointer in SSL object "
+                       "ex_data for certificate callback\n");
+          if (SSL_set_ex_data(assl->ssl, 0, assl) == 0) {
           debug_printf("DEBUG: Assl_openssl: WARNING - SSL_set_ex_data failed, "
                        "certificate callback may not work correctly\n");
           check_ssl_error("SSL_set_ex_data", local_amisslbase);
-        } else {
-          debug_printf("DEBUG: Assl_openssl: SSL ex_data set successfully\n");
+          } else {
+            debug_printf("DEBUG: Assl_openssl: SSL ex_data set successfully\n");
+          }
         }
       } else {
         debug_printf("DEBUG: Assl_openssl: Failed to create SSL object\n");
@@ -1686,8 +1718,28 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
   debug_printf("DEBUG: Assl_connect: ENTRY - assl=%p, sock=%ld, hostname=%s\n",
                assl, sock, hostname ? (char *)hostname : "(NULL)");
 
-  if (!assl || !assl->ssl) {
-    debug_printf("DEBUG: Assl_connect: Invalid args\n");
+  /* CRITICAL: Validate assl pointer is not NULL and is in valid memory range */
+  if (!assl || (ULONG)assl < 0x1000 || (ULONG)assl >= 0xFFFFFFF0) {
+    debug_printf("DEBUG: Assl_connect: Invalid assl pointer (%p)\n", assl);
+    return ASSLCONNECT_FAIL;
+  }
+
+  /* CRITICAL: Validate assl->ssl pointer is not NULL and is in valid memory range */
+  /* A corrupted ssl pointer will cause crashes when SSL_set_fd() tries to access it */
+  if (!assl->ssl || (ULONG)assl->ssl < 0x1000 || (ULONG)assl->ssl >= 0xFFFFFFF0) {
+    debug_printf("DEBUG: Assl_connect: Invalid assl->ssl pointer (%p)\n", assl->ssl);
+    return ASSLCONNECT_FAIL;
+  }
+
+  /* CRITICAL: Validate assl->sslctx pointer is not NULL and is in valid memory range */
+  if (!assl->sslctx || (ULONG)assl->sslctx < 0x1000 || (ULONG)assl->sslctx >= 0xFFFFFFF0) {
+    debug_printf("DEBUG: Assl_connect: Invalid assl->sslctx pointer (%p)\n", assl->sslctx);
+    return ASSLCONNECT_FAIL;
+  }
+
+  /* CRITICAL: Check if SSL connection was already closed */
+  if (assl->closed) {
+    debug_printf("DEBUG: Assl_connect: SSL connection already closed\n");
     return ASSLCONNECT_FAIL;
   }
 
@@ -1714,6 +1766,13 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
 
   debug_printf("DEBUG: Assl_connect: Associating socket %ld with SSL object\n",
                sock);
+
+  /* CRITICAL: Re-validate assl->ssl pointer before passing to SSL_set_fd() */
+  /* SSL_set_fd() will crash if assl->ssl is a corrupted pointer */
+  if (!assl->ssl || (ULONG)assl->ssl < 0x1000 || (ULONG)assl->ssl >= 0xFFFFFFF0) {
+    debug_printf("DEBUG: Assl_connect: ERROR - assl->ssl is invalid (%p) before SSL_set_fd()\n", assl->ssl);
+    return ASSLCONNECT_FAIL;
+  }
 
   /* Associate the OS Socket with the SSL object */
   if (SSL_set_fd(assl->ssl, sock) != 1) {
