@@ -488,14 +488,11 @@ static struct Attrdes *Findattr(UBYTE *name)
 }
 
 static struct Chardes *Findchar(UBYTE *name)
-{  short a=0,b=NRCHARS-1,m;
-   long c;
-   while(a<=b)
-   {  m=(a+b)/2;
-      c=strcmp(chars[m].name,name);
-      if(c==0) return &chars[m];
-      if(c<0) a=m+1;
-      else b=m-1;
+{  short i;
+   /* Use linear search with case-insensitive comparison since array
+    * has mixed case entries and is sorted case-sensitively */
+   for(i=0;i<NRCHARS;i++)
+   {  if(!stricmp(chars[i].name,name)) return &chars[i];
    }
    return NULL;
 }
