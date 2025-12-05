@@ -66,7 +66,7 @@ void ParseCSSStylesheet(struct Document *doc,UBYTE *css)
 {  struct CSSStylesheet *sheet;
    if(!doc || !css) return;
    
-   debug_printf("CSS: ParseCSSStylesheet called, css length=%ld\n",strlen((char *)css));
+   /* debug_printf("CSS: ParseCSSStylesheet called, css length=%ld\n",strlen((char *)css)); */
    
    /* If there's an existing stylesheet, merge instead of replace */
    if(doc->cssstylesheet)
@@ -89,18 +89,18 @@ void ParseCSSStylesheet(struct Document *doc,UBYTE *css)
          /* Log first selector of each rule for debugging */
          sel = (struct CSSSelector *)rule->selectors.mlh_Head;
          if((struct MinNode *)sel->node.mln_Succ)
-         {  debug_printf("CSS: Rule %ld: selector type=0x%lx name=%s class=%s id=%s\n",
+         {  /* debug_printf("CSS: Rule %ld: selector type=0x%lx name=%s class=%s id=%s\n",
                         ruleCount,
                         (ULONG)sel->type,
                         (sel->name ? (char *)sel->name : "NULL"),
                         (sel->class ? (char *)sel->class : "NULL"),
-                        (sel->id ? (char *)sel->id : "NULL"));
+                        (sel->id ? (char *)sel->id : "NULL")); */
          }
       }
-      debug_printf("CSS: Stylesheet parsed successfully, %ld rules\n",ruleCount);
+      /* debug_printf("CSS: Stylesheet parsed successfully, %ld rules\n",ruleCount); */
    }
    else
-   {  debug_printf("CSS: Stylesheet parsing failed\n");
+   {  /* debug_printf("CSS: Stylesheet parsing failed\n"); */
    }
 }
 
@@ -114,12 +114,12 @@ void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
    
    if(!doc || !css) return;
    
-   debug_printf("MergeCSSStylesheet: Merging CSS, length=%ld\n",strlen((char *)css));
+   /* debug_printf("MergeCSSStylesheet: Merging CSS, length=%ld\n",strlen((char *)css)); */
    
    /* Parse the new CSS */
    newSheet = ParseCSS(doc,css);
    if(!newSheet)
-   {  debug_printf("MergeCSSStylesheet: ParseCSS failed\n");
+   {  /* debug_printf("MergeCSSStylesheet: ParseCSS failed\n"); */
       return;
    }
    
@@ -132,20 +132,20 @@ void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
       /* Log first selector of each rule for debugging */
       sel = (struct CSSSelector *)rule->selectors.mlh_Head;
       if((struct MinNode *)sel->node.mln_Succ)
-      {  debug_printf("MergeCSSStylesheet: New rule %ld: selector type=0x%lx name=%s class=%s id=%s\n",
+      {  /* debug_printf("MergeCSSStylesheet: New rule %ld: selector type=0x%lx name=%s class=%s id=%s\n",
                      ruleCount,
                      (ULONG)sel->type,
                      (sel->name ? (char *)sel->name : "NULL"),
                      (sel->class ? (char *)sel->class : "NULL"),
-                     (sel->id ? (char *)sel->id : "NULL"));
+                     (sel->id ? (char *)sel->id : "NULL")); */
       }
    }
-   debug_printf("MergeCSSStylesheet: Parsed %ld rules from new CSS\n",ruleCount);
+   /* debug_printf("MergeCSSStylesheet: Parsed %ld rules from new CSS\n",ruleCount); */
    
    /* If no existing stylesheet, just use the new one */
    if(!doc->cssstylesheet)
    {  doc->cssstylesheet = (void *)newSheet;
-      debug_printf("MergeCSSStylesheet: No existing sheet, using new one\n");
+      /* debug_printf("MergeCSSStylesheet: No existing sheet, using new one\n"); */
       return;
    }
    
@@ -167,7 +167,7 @@ void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
        rule = (struct CSSRule *)rule->node.mln_Succ)
    {  ruleCount++;
    }
-   debug_printf("MergeCSSStylesheet: After merge, total rules=%ld\n",ruleCount);
+   /* debug_printf("MergeCSSStylesheet: After merge, total rules=%ld\n",ruleCount); */
 }
 
 /* Parse CSS content */

@@ -242,9 +242,9 @@ static BOOL IsDivInline(struct Document *doc,UBYTE *class,UBYTE *id,UBYTE *style
          if(strnicmp((char *)p,"left",4) == 0)
          {  /* Make sure it's a complete word */
             if(p[4] == '\0' || p[4] == ';' || isspace(p[4]))
-            {  debug_printf("IsDivInline: Found float:left in inline style - class=%s id=%s\n",
+            {  /* debug_printf("IsDivInline: Found float:left in inline style - class=%s id=%s\n",
                           class ? (char *)class : "NULL",
-                          id ? (char *)id : "NULL");
+                          id ? (char *)id : "NULL"); */
                return TRUE;
             }
          }
@@ -253,9 +253,9 @@ static BOOL IsDivInline(struct Document *doc,UBYTE *class,UBYTE *id,UBYTE *style
    
    /* Then check CSS stylesheet */
    if(!doc || !doc->cssstylesheet)
-   {  debug_printf("IsDivInline: No stylesheet - class=%s id=%s\n",
+   {  /* debug_printf("IsDivInline: No stylesheet - class=%s id=%s\n",
                    class ? (char *)class : "NULL",
-                   id ? (char *)id : "NULL");
+                   id ? (char *)id : "NULL"); */
       return FALSE;
    }
    
@@ -322,9 +322,9 @@ static BOOL IsDivInline(struct Document *doc,UBYTE *class,UBYTE *id,UBYTE *style
          
          /* If selector matches, check for display: inline or float: left */
          if(matches)
-         {  debug_printf("IsDivInline: Selector matched! class=%s id=%s, checking for display:inline or float:left\n",
+         {  /* debug_printf("IsDivInline: Selector matched! class=%s id=%s, checking for display:inline or float:left\n",
                         class ? (char *)class : "NULL",
-                        id ? (char *)id : "NULL");
+                        id ? (char *)id : "NULL"); */
             for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
                (struct MinNode *)prop->node.mln_Succ;
                prop = (struct CSSProperty *)prop->node.mln_Succ)
@@ -332,9 +332,9 @@ static BOOL IsDivInline(struct Document *doc,UBYTE *class,UBYTE *id,UBYTE *style
                {  if(stricmp((char *)prop->name,"display") == 0)
                   {  if(stricmp((char *)prop->value,"inline") == 0 ||
                         stricmp((char *)prop->value,"inline-block") == 0)
-                     {  debug_printf("IsDivInline: Found display:inline or inline-block! class=%s id=%s, Returning TRUE\n",
+                     {  /* debug_printf("IsDivInline: Found display:inline or inline-block! class=%s id=%s, Returning TRUE\n",
                                   class ? (char *)class : "NULL",
-                                  id ? (char *)id : "NULL");
+                                  id ? (char *)id : "NULL"); */
                         return TRUE;
                      }
                   }
@@ -344,9 +344,9 @@ static BOOL IsDivInline(struct Document *doc,UBYTE *class,UBYTE *id,UBYTE *style
                      /* Skip whitespace */
                      while(*floatValue && isspace(*floatValue)) floatValue++;
                      if(stricmp((char *)floatValue,"left") == 0)
-                     {  debug_printf("IsDivInline: Found float:left! class=%s id=%s, Returning TRUE\n",
+                     {  /* debug_printf("IsDivInline: Found float:left! class=%s id=%s, Returning TRUE\n",
                                   class ? (char *)class : "NULL",
-                                  id ? (char *)id : "NULL");
+                                  id ? (char *)id : "NULL"); */
                         return TRUE;
                      }
                   }
@@ -379,15 +379,15 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
    BOOL isRelative;
    
    if(!doc || !body || !doc->cssstylesheet)
-   {  debug_printf("CSS: ApplyCSSToBody skipped - doc=%p body=%p stylesheet=%p\n",
-                   doc, body, (doc ? doc->cssstylesheet : NULL));
+   {  /* debug_printf("CSS: ApplyCSSToBody skipped - doc=%p body=%p stylesheet=%p\n",
+                   doc, body, (doc ? doc->cssstylesheet : NULL)); */
       return;
    }
    
-   debug_printf("CSS: ApplyCSSToBody called - tagname=%s class=%s id=%s\n",
+   /* debug_printf("CSS: ApplyCSSToBody called - tagname=%s class=%s id=%s\n",
                 (tagname ? (char *)tagname : "NULL"),
                 (class ? (char *)class : "NULL"),
-                (id ? (char *)id : "NULL"));
+                (id ? (char *)id : "NULL")); */
    
    isAbsolute = FALSE;
    topValue = NULL;
@@ -405,63 +405,63 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
          sel = (struct CSSSelector *)sel->node.mln_Succ)
       {  matches = TRUE;
          
-         debug_printf("CSS: Checking selector: type=0x%lx name=%s class=%s id=%s against element tagname=%s class=%s id=%s\n",
+         /* debug_printf("CSS: Checking selector: type=0x%lx name=%s class=%s id=%s against element tagname=%s class=%s id=%s\n",
                      (ULONG)sel->type,
                      (sel->name ? (char *)sel->name : "NULL"),
                      (sel->class ? (char *)sel->class : "NULL"),
                      (sel->id ? (char *)sel->id : "NULL"),
                      (tagname ? (char *)tagname : "NULL"),
                      (class ? (char *)class : "NULL"),
-                     (id ? (char *)id : "NULL"));
+                     (id ? (char *)id : "NULL")); */
          
          /* Match element name */
          if(sel->type & CSS_SEL_ELEMENT && sel->name)
          {  /* For body selector, tagname can be "BODY" or NULL (for document body) */
             if(stricmp((char *)sel->name,"body") == 0)
             {  if(tagname && stricmp((char *)tagname,"BODY") != 0)
-               {  debug_printf("CSS: Element name mismatch: selector wants 'body' but element is '%s'\n", tagname);
+               {  /* debug_printf("CSS: Element name mismatch: selector wants 'body' but element is '%s'\n", tagname); */
                   matches = FALSE;
                }
             }
             else if(!tagname || stricmp((char *)sel->name,(char *)tagname) != 0)
-            {  debug_printf("CSS: Element name mismatch: selector wants '%s' but element is '%s'\n",
-                           sel->name, tagname ? (char *)tagname : "NULL");
+            {  /* debug_printf("CSS: Element name mismatch: selector wants '%s' but element is '%s'\n",
+                           sel->name, tagname ? (char *)tagname : "NULL"); */
                matches = FALSE;
             }
             else
-            {  debug_printf("CSS: Element name matches: '%s'\n", sel->name);
+            {  /* debug_printf("CSS: Element name matches: '%s'\n", sel->name); */
             }
          }
          
          /* Match class */
          if(matches && sel->type & CSS_SEL_CLASS && sel->class)
          {  if(!class)
-            {  debug_printf("CSS: Class selector requires class but element has none\n");
+            {  /* debug_printf("CSS: Class selector requires class but element has none\n"); */
                matches = FALSE;
             }
             else
-            {  debug_printf("CSS: Checking class match: selector wants '%s', element has '%s'\n",
-                           sel->class, class);
+            {  /* debug_printf("CSS: Checking class match: selector wants '%s', element has '%s'\n",
+                           sel->class, class); */
                classPtr = (UBYTE *)strstr((char *)class,(char *)sel->class);
                if(!classPtr)
-               {  debug_printf("CSS: Class '%s' not found in element class '%s'\n", sel->class, class);
+               {  /* debug_printf("CSS: Class '%s' not found in element class '%s'\n", sel->class, class); */
                   matches = FALSE;
                }
                else
                {  /* Make sure it's a complete word match */
                   if(classPtr != class && !isspace(classPtr[-1]))
-                  {  debug_printf("CSS: Class '%s' found but not at word boundary (char before: 0x%02x)\n",
-                                  sel->class, (unsigned char)classPtr[-1]);
+                  {  /* debug_printf("CSS: Class '%s' found but not at word boundary (char before: 0x%02x)\n",
+                                  sel->class, (unsigned char)classPtr[-1]); */
                      matches = FALSE;
                   }
                   else if(classPtr[strlen((char *)sel->class)] != '\0' && 
                           !isspace(classPtr[strlen((char *)sel->class)]))
-                  {  debug_printf("CSS: Class '%s' found but not at word boundary (char after: 0x%02x)\n",
-                                  sel->class, (unsigned char)classPtr[strlen((char *)sel->class)]);
+                  {  /* debug_printf("CSS: Class '%s' found but not at word boundary (char after: 0x%02x)\n",
+                                  sel->class, (unsigned char)classPtr[strlen((char *)sel->class)]); */
                      matches = FALSE;
                   }
                   else
-                  {  debug_printf("CSS: Class '%s' matches!\n", sel->class);
+                  {  /* debug_printf("CSS: Class '%s' matches!\n", sel->class); */
                   }
                }
             }
@@ -470,12 +470,12 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
          /* Match ID */
          if(matches && sel->type & CSS_SEL_ID && sel->id)
          {  if(!id || stricmp((char *)sel->id,(char *)id) != 0)
-            {  debug_printf("CSS: ID mismatch: selector wants '%s' but element has '%s'\n",
-                           sel->id, id ? (char *)id : "NULL");
+            {  /* debug_printf("CSS: ID mismatch: selector wants '%s' but element has '%s'\n",
+                           sel->id, id ? (char *)id : "NULL"); */
                matches = FALSE;
             }
             else
-            {  debug_printf("CSS: ID matches: '%s'\n", sel->id);
+            {  /* debug_printf("CSS: ID matches: '%s'\n", sel->id); */
             }
          }
          
@@ -561,15 +561,15 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
          
          /* If selector matches, apply properties */
          if(matches)
-         {  debug_printf("CSS: *** SELECTOR MATCHED! *** Element=%s class=%s id=%s\n",
+         {  /* debug_printf("CSS: *** SELECTOR MATCHED! *** Element=%s class=%s id=%s\n",
                          (sel->name ? (char *)sel->name : "any"),
                          (sel->class ? (char *)sel->class : "none"),
-                         (sel->id ? (char *)sel->id : "none"));
+                         (sel->id ? (char *)sel->id : "none")); */
             for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
                (struct MinNode *)prop->node.mln_Succ;
                prop = (struct CSSProperty *)prop->node.mln_Succ)
             {  if(prop->name && prop->value)
-               {  debug_printf("CSS: Applying property: %s = %s\n", prop->name, prop->value);
+               {  /* debug_printf("CSS: Applying property: %s = %s\n", prop->name, prop->value); */
                   /* Apply text-align to body alignment */
                   if(stricmp((char *)prop->name,"text-align") == 0)
                   {  if(stricmp((char *)prop->value,"center") == 0)
@@ -1620,25 +1620,25 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
    }
    /* Check for external stylesheet */
    if(url && rel && STRIEQUAL(rel,"stylesheet"))
-   {  debug_printf("Dolink: Found stylesheet link, href=%s\n",
-                  href ? (char *)href : "NULL");
+   {  /* debug_printf("Dolink: Found stylesheet link, href=%s\n",
+                  href ? (char *)href : "NULL"); */
       /* Try to load external CSS */
       extcss = Finddocext(doc,url,(doc->pflags&DPF_RELOADVERIFY) && !(doc->pflags&DPF_NORLDOCEXT));
       if(extcss)
       {  if(extcss == (UBYTE *)~0)
-         {  debug_printf("Dolink: External CSS load error, skipping\n");
+         {  /* debug_printf("Dolink: External CSS load error, skipping\n"); */
             /* External CSS is in error, skip it */
          }
          else
-         {  debug_printf("Dolink: External CSS loaded, merging (length=%ld)\n",
-                        strlen((char *)extcss));
+         {  /* debug_printf("Dolink: External CSS loaded, merging (length=%ld)\n",
+                        strlen((char *)extcss)); */
             /* Merge external CSS with existing stylesheet */
             MergeCSSStylesheet(doc,extcss);
             /* Apply link colors from CSS (a:link, a:visited) */
             ApplyCSSToLinkColors(doc);
             /* Always re-apply CSS to body when external CSS loads */
             if(doc->body && doc->cssstylesheet)
-            {  debug_printf("Dolink: Re-applying CSS to body after external CSS load\n");
+            {  /* debug_printf("Dolink: Re-applying CSS to body after external CSS load\n"); */
                ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
                /* Re-register colors to ensure link colors are updated */
                if(doc->win && doc->frame)
@@ -1648,7 +1648,7 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
          }
       }
       else
-      {  debug_printf("Dolink: External CSS not yet available, suspending parsing\n");
+      {  /* debug_printf("Dolink: External CSS not yet available, suspending parsing\n"); */
          /* External CSS not yet available, suspend parsing */
          doc->pflags|=DPF_SUSPEND|DPF_NORLDOCEXT;
       }
@@ -2085,8 +2085,8 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
    if(class || id || styleAttr)
    {  isInline = IsDivInline(doc,class,id,styleAttr);
       if(class && strstr((char *)class,"topmenu_parent"))
-      {  debug_printf("Dodiv: IsDivInline returned %s for topmenu_parent\n",
-                      isInline ? "TRUE" : "FALSE");
+      {  /* debug_printf("Dodiv: IsDivInline returned %s for topmenu_parent\n",
+                      isInline ? "TRUE" : "FALSE"); */
       }
    }
    else
