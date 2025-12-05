@@ -1134,7 +1134,6 @@ UBYTE *Parsecommentcompatible(UBYTE *p,UBYTE *end,BOOL eof)
 
 /* Parse XML declaration: <?xml version="1.0" encoding="..." standalone="yes"?>
  * Extracts encoding if present and stores it in document flags.
- * Sets htmlmode to HTML_STRICT if XML declaration is present (indicates XHTML).
  * Returns pointer after ?> or NULL on error/eof */
 static UBYTE *Parsexmldeclaration(struct Document *doc,UBYTE *p,UBYTE *end,BOOL eof)
 {  UBYTE *attrstart,*attrend;
@@ -1147,9 +1146,6 @@ static UBYTE *Parsexmldeclaration(struct Document *doc,UBYTE *p,UBYTE *end,BOOL 
    if(p>=end-3) return NULL;
    if(!STRNIEQUAL(p,"xml",3)) return NULL;  /* Not an XML declaration */
    p+=3;
-   
-   /* XML declaration indicates XHTML - set strict mode */
-   doc->htmlmode=HTML_STRICT;
    
    /* Parse attributes: version, encoding, standalone */
    while(p<end-1 && !(p[0]=='?' && p[1]=='>'))
@@ -1204,13 +1200,11 @@ static UBYTE *Parsexmldeclaration(struct Document *doc,UBYTE *p,UBYTE *end,BOOL 
 
 /* Parse DOCTYPE declaration: <!DOCTYPE root-element [PUBLIC "..." "..." | SYSTEM "..."] [...]>
  * Extracts root element name if present.
- * Detects XHTML DOCTYPEs and sets htmlmode to HTML_STRICT for XHTML documents.
  * Returns pointer after > or NULL on error/eof */
 static UBYTE *Parsedoctypedeclaration(struct Document *doc,UBYTE *p,UBYTE *end,BOOL eof)
 {  UBYTE rootname[32];
    short i;
    UBYTE quote;
-   BOOL isxhtml=FALSE;
    
    /* Skip "DOCTYPE" keyword */
    while(p<end && isspace(*p)) p++;
@@ -1231,30 +1225,14 @@ static UBYTE *Parsedoctypedeclaration(struct Document *doc,UBYTE *p,UBYTE *end,B
       /* Root element name extracted - could be used for document type detection */
    }
    
-   /* Check for XHTML in DOCTYPE string */
-   /* Look for "XHTML" in the remaining DOCTYPE content */
+   /* Skip rest of DOCTYPE until closing > */
    while(p<end && *p!='>')
    {  if(*p=='"' || *p=='\'')
       {  quote=*p++;
          while(p<end && *p!=quote) p++;
          if(p<end) p++;  /* Skip closing quote */
       }
-      else
-      {  /* Check if we're at "XHTML" (case-insensitive)
-           * This will match:
-           * - XHTML 1.0, 1.1 (standard XHTML)
-           * - XHTML Mobile / XHTML-MP (XHTML Mobile Profile)
-           * - Any DOCTYPE containing "XHTML" */
-         if(p+4<end && STRNIEQUAL(p,"XHTML",5))
-         {  isxhtml=TRUE;
-         }
-         p++;
-      }
-   }
-   
-   /* If XHTML detected, set htmlmode to HTML_STRICT */
-   if(isxhtml)
-   {  doc->htmlmode=HTML_STRICT;
+      else p++;
    }
    
    if(p>=end) return NULL;  /* Missing closing > */
@@ -1330,7 +1308,7 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
                }
                if(!p || p>=end) return Eofandexit(doc,eof);
             }
-            else  /* No real comment - could be DOCTYPE, CDATA, or other declaration */
+            else  /* No real comment - could be DOCTYPE or other declaration */
             {  UBYTE *newp;
                /* Check if this is a DOCTYPE declaration */
                if(p<end-7 && STRNIEQUAL(p,"DOCTYPE",7))
@@ -1340,151 +1318,7 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
                      continue;  /* Skip DOCTYPE, don't process it */
                   }
                }
-               /* Check if this is a CDATA section: <![CDATA[...]]> */
-               else if(p<end-7 && STRNIEQUAL(p,"[CDATA[",7))
-               {  UBYTE *cdata_start;
-                  UBYTE *cdata_end;
-                  struct Tagattr *ta;
-                  long cdata_len;
-                  
-                  p+=7;  /* Skip "[CDATA[" */
-                  cdata_start=p;  /* Remember start of CDATA content */
-                  
-                  /* Find the end of CDATA section: ]] */
-                  while(p<end-2 && !(p[0]==']' && p[1]==']' && p[2]=='>'))
-                  {  p++;
-                  }
-                  if(p>=end-2) return Eofandexit(doc,eof);
-                  
-                  cdata_end=p;  /* End of CDATA content (before ]]> */
-                  p+=3;  /* Skip "]]>" past the end */
-                  
-                  /* Extract CDATA content as text (process character-by-character to handle newlines) */
-                  if(cdata_end>cdata_start)
-                  {  UBYTE *cdata_p;
-                     UBYTE *cdata_end_ptr;
-                     
-                     /* Process CDATA content character-by-character (like regular text) */
-                     cdata_p=cdata_start;
-                     cdata_end_ptr=cdata_end;
-                     
-                     /* Prepare to add text content - match pattern from regular text */
-                     if(!Addtobuffer(&doc->args,
-                        doc->text.buffer+doc->text.length-1,1)) return FALSE;
-                     ta=Nextattr(doc);
-                     ta->attr=TAGATTR_TEXT;
-                     tagtype=MARKUP_TEXT;
-                     
-                     /* Process CDATA content character-by-character to handle newlines properly */
-                     while(cdata_p<cdata_end_ptr)
-                     {  if(isspace(*cdata_p))
-                        {  if((doc->pflags&(DPF_PREFORMAT|DPF_JSCRIPT))
-                           && doc->pmode!=DPM_OPTION && doc->pmode!=DPM_TEXTAREA)
-                           {  if(*cdata_p=='\r' || *cdata_p=='\n')
-                              {  if(!skipnewline)
-                                 {  ta=Nextattr(doc);
-                                    ta->attr=TAGATTR_BR;
-                                    if(*cdata_p=='\r')
-                                    {  if(cdata_p+1<cdata_end_ptr && cdata_p[1]=='\n') cdata_p++;
-                                    }
-                                    cdata_p++;
-                                    doc->charcount=0;
-                                    /* Process the break, then continue with remaining CDATA */
-                                    if(tagtype==MARKUP_TEXT && !(doc->pflags&DPF_JSCRIPT))
-                                    {  Lookforicons(doc,attrs.first);
-                                    }
-                                    else
-                                    {  Processhtml(doc,tagtype,attrs.first);
-                                       if(doc->pflags&DPF_SUSPEND)
-                                       {  (*srcpos)=cdata_p-src->buffer;
-                                          return TRUE;
-                                       }
-                                    }
-                                    /* Reset for next chunk */
-                                    NEWLIST(&attrs);
-                                    nextattr=0;
-                                    doc->args.length=0;
-                                    if(!Addtobuffer(&doc->args,
-                                       doc->text.buffer+doc->text.length-1,1)) return FALSE;
-                                    ta=Nextattr(doc);
-                                    ta->attr=TAGATTR_TEXT;
-                                    skipnewline=FALSE;
-                                    continue;
-                                 }
-                              }
-                              else if(*cdata_p=='\t')
-                              {  i=8-(doc->charcount%8);
-                                 if(!Addtobuffer(&doc->args,"\xa0\xa0\xa0\xa0\xa0\xa0\xa0\xa0",i))
-                                    return FALSE;
-                                 ta->length+=i;
-                                 doc->charcount+=i;
-                                 skipnewline=FALSE;
-                              }
-                              else
-                              {  if(!Addtobuffer(&doc->args,"\xa0",1)) return FALSE;
-                                 ta->length++;
-                                 doc->charcount++;
-                                 skipnewline=FALSE;
-                              }
-                           }
-                           else if(doc->pmode==DPM_TEXTAREA)
-                           {  if(*cdata_p=='\r')
-                              {  if(cdata_p+1<cdata_end_ptr && cdata_p[1]=='\n') cdata_p++;
-                                 if(!skipnewline)
-                                 {  if(!Addtobuffer(&doc->args,"\n",1)) return FALSE;
-                                    ta->length++;
-                                 }
-                              }
-                              else if(*cdata_p=='\n')
-                              {  if(!skipnewline)
-                                 {  if(!Addtobuffer(&doc->args,"\n",1)) return FALSE;
-                                    ta->length++;
-                                 }
-                              }
-                              else
-                              {  if(!Addtobuffer(&doc->args," ",1)) return FALSE;
-                                 ta->length++;
-                                 skipnewline=FALSE;
-                              }
-                           }
-                           else
-                           {  if(doc->args.buffer[doc->args.length-1]!=' ')
-                              {  if(!skipnewline || (*cdata_p!='\n' && *cdata_p!='\r'))
-                                 {  if(!Addtobuffer(&doc->args," ",1)) return FALSE;
-                                    ta->length++;
-                                    skipnewline=FALSE;
-                                 }
-                              }
-                           }
-                        }
-                        else
-                        {  if(!Addtobuffer(&doc->args,cdata_p,1)) return FALSE;
-                           ta->length++;
-                           if(doc->pflags&DPF_PREFORMAT) doc->charcount++;
-                           skipnewline=FALSE;
-                        }
-                        cdata_p++;
-                     }
-                     
-                     /* Process final text chunk */
-                     if(!Addtobuffer(&doc->args,"",1)) return FALSE;
-                     (*srcpos)=p-src->buffer;  /* Update position */
-                     
-                     if(tagtype==MARKUP_TEXT && !(doc->pflags&DPF_JSCRIPT))
-                     {  Lookforicons(doc,attrs.first);
-                     }
-                     else
-                     {  Processhtml(doc,tagtype,attrs.first);
-                        if(doc->pflags&DPF_SUSPEND)
-                        {  (*srcpos)=cdata_start-src->buffer;
-                           return TRUE;
-                        }
-                     }
-                  }
-                  
-                  continue;  /* Continue parsing after CDATA */
-               }
-               /* Not DOCTYPE, CDATA, or parse failed - skip as generic declaration */
+               /* Not DOCTYPE or parse failed - skip as generic declaration */
                while(p<end && *p!='>') p++;  /* skip up to > */
                if(p>=end) return Eofandexit(doc,eof);
                p++;                          /* skip > */
@@ -1528,11 +1362,6 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
             for(;;)
             {  while(p<end && isspace(*p)) p++;
                if(p>=end) return Eofandexit(doc,eof);
-               /* Check for self-closing tag syntax: /> (XHTML) */
-               if(p<end-1 && p[0]=='/' && p[1]=='>')
-               {  p+=2;  /* Skip /> */
-                  break;
-               }
                if(*p=='>') break;
                if(doc->htmlmode!=HTML_STRICT && *p=='<')
                {  p--;  /* Don't skip over '<' yet */
