@@ -1,0 +1,596 @@
+/*
+/**********************************************************************
+ * 
+ * This file is part of the AWeb distribution
+ *
+ * Copyright (C) 2025 amigazen project
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the AWeb Public License as included in this
+ * distribution.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * AWeb Public License for more details.
+ *
+ **********************************************************************/
+*/
+
+/* Text Properties */
+.text-align-left {
+    text-align: left;
+    background-color: #e8e8e8;
+    padding: 10px;
+}
+
+.text-align-center {
+    text-align: center;
+    background-color: #e8e8e8;
+    padding: 10px;
+}
+
+.text-align-right {
+    text-align: right;
+    background-color: #e8e8e8;
+    padding: 10px;
+}
+
+.font-family-serif {
+    font-family: Georgia, Times, serif;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.font-family-sans {
+    font-family: Arial, Helvetica, sans-serif;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.font-family-mono {
+    font-family: Courier, monospace;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.font-size-xx-small {
+    font-size: xx-small;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.font-size-x-small {
+    font-size: x-small;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.font-size-small {
+    font-size: small;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.font-size-medium {
+    font-size: medium;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.font-size-large {
+    font-size: large;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.font-size-x-large {
+    font-size: x-large;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.font-size-xx-large {
+    font-size: xx-large;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.font-size-smaller {
+    font-size: smaller;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.font-size-larger {
+    font-size: larger;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.font-style-normal {
+    font-style: normal;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.font-style-italic {
+    font-style: italic;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.font-weight-normal {
+    font-weight: normal;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.font-weight-bold {
+    font-weight: bold;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.font-weight-700 {
+    font-weight: 700;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.text-decoration-line-through {
+    text-decoration: line-through;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.text-decoration-none {
+    text-decoration: none;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.text-transform-uppercase {
+    text-transform: uppercase;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.text-transform-lowercase {
+    text-transform: lowercase;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.text-transform-capitalize {
+    text-transform: capitalize;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.white-space-nowrap {
+    white-space: nowrap;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.line-height-1 {
+    line-height: 1.0;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.line-height-1-5 {
+    line-height: 1.5;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+.line-height-2 {
+    line-height: 2.0;
+    padding: 10px;
+    background-color: #e8e8e8;
+}
+
+/* Color Properties */
+.color-red {
+    color: #ff0000;
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+.color-green {
+    color: #00ff00;
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+.color-blue {
+    color: #0000ff;
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+.color-brown {
+    color: #8B7355;
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+.color-gray {
+    color: #666666;
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+.bg-color-red {
+    background-color: #ffcccc;
+    padding: 10px;
+}
+
+.bg-color-green {
+    background-color: #ccffcc;
+    padding: 10px;
+}
+
+.bg-color-blue {
+    background-color: #ccccff;
+    padding: 10px;
+}
+
+.bg-color-beige {
+    background-color: #F0EDEA;
+    padding: 10px;
+}
+
+.bg-color-tan {
+    background-color: #E8E0D8;
+    padding: 10px;
+}
+
+/* Layout Properties */
+.padding-5 {
+    padding: 5px;
+    background-color: #e8e8e8;
+}
+
+.padding-15 {
+    padding: 15px;
+    background-color: #e8e8e8;
+}
+
+.padding-30 {
+    padding: 30px;
+    background-color: #e8e8e8;
+}
+
+.position-static {
+    position: static;
+    background-color: #e8e8e8;
+    padding: 10px;
+    margin: 5px;
+}
+
+.position-relative {
+    position: relative;
+    background-color: #e8e8e8;
+    padding: 10px;
+    margin: 5px;
+}
+
+.position-absolute {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    background-color: #e8e8e8;
+    padding: 10px;
+    margin: 5px;
+}
+
+.position-fixed {
+    position: fixed;
+    background-color: #e8e8e8;
+    padding: 10px;
+    margin: 5px;
+}
+
+.margin-10 {
+    margin: 10px;
+    background-color: #e8e8e8;
+    padding: 10px;
+}
+
+.margin-10-20 {
+    margin: 10px 20px;
+    background-color: #e8e8e8;
+    padding: 10px;
+}
+
+.margin-10-20-30 {
+    margin: 10px 20px 30px;
+    background-color: #e8e8e8;
+    padding: 10px;
+}
+
+.margin-10-20-30-40 {
+    margin: 10px 20px 30px 40px;
+    background-color: #e8e8e8;
+    padding: 10px;
+}
+
+.margin-0 {
+    margin: 0;
+    background-color: #e8e8e8;
+    padding: 10px;
+}
+
+.margin-right-50 {
+    margin-right: 50px;
+    background-color: #e8e8e8;
+    padding: 10px;
+}
+
+.margin-left-50 {
+    margin-left: 50px;
+    background-color: #e8e8e8;
+    padding: 10px;
+}
+
+.margin-top-30 {
+    margin-top: 30px;
+    background-color: #e8e8e8;
+    padding: 10px;
+}
+
+.margin-bottom-30 {
+    margin-bottom: 30px;
+    background-color: #e8e8e8;
+    padding: 10px;
+}
+
+.margin-left-1em {
+    margin-left: 1em;
+    margin-right: 1em;
+    background-color: #e8e8e8;
+    padding: 10px;
+}
+
+.bg-image-test {
+    background-image: url('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+    padding: 20px;
+    background-color: #e8e8e8;
+}
+
+/* Table Cell Styles */
+.table-cell-width-100 {
+    width: 100px;
+    background-color: #ffcccc;
+    padding: 10px;
+}
+
+.table-cell-width-200 {
+    width: 200px;
+    background-color: #ccffcc;
+    padding: 10px;
+}
+
+.table-cell-width-50pct {
+    width: 50%;
+    background-color: #ccccff;
+    padding: 10px;
+}
+
+.table-cell-height-50 {
+    height: 50px;
+    background-color: #ffffcc;
+    padding: 10px;
+}
+
+.table-cell-height-80 {
+    height: 80px;
+    background-color: #ffccff;
+    padding: 10px;
+}
+
+.table-cell-height-30 {
+    height: 30px;
+    background-color: #ccffff;
+    padding: 10px;
+}
+
+.table-cell-align-left {
+    text-align: left;
+    background-color: #e8e8e8;
+}
+
+.table-cell-align-center {
+    text-align: center;
+    background-color: #e8e8e8;
+}
+
+.table-cell-align-right {
+    text-align: right;
+    background-color: #e8e8e8;
+}
+
+.table-cell-valign-top {
+    vertical-align: top;
+    background-color: #ffcccc;
+    padding: 10px;
+}
+
+.table-cell-valign-middle {
+    vertical-align: middle;
+    background-color: #ccffcc;
+    padding: 10px;
+}
+
+.table-cell-valign-bottom {
+    vertical-align: bottom;
+    background-color: #ccccff;
+    padding: 10px;
+}
+
+.table-cell-valign-baseline {
+    vertical-align: baseline;
+    background-color: #ffffcc;
+    padding: 10px;
+}
+
+.table-cell-bg-tan {
+    background-color: #E8E0D8;
+    padding: 10px;
+}
+
+.table-cell-bg-beige {
+    background-color: #F0EDEA;
+    padding: 10px;
+}
+
+.table-cell-bg-red {
+    background-color: #ffcccc;
+    padding: 10px;
+}
+
+.table-cell-bg-green {
+    background-color: #ccffcc;
+    padding: 10px;
+}
+
+.table-cell-combined {
+    width: 150px;
+    height: 60px;
+    text-align: center;
+    vertical-align: middle;
+    background-color: #E8E0D8;
+    padding: 15px;
+    color: #4A4A4A;
+}
+
+.table-border-red {
+    border-color: #ff0000;
+}
+
+.table-border-green {
+    border-color: #00ff00;
+}
+
+/* Link Styles */
+.link-no-underline {
+    text-decoration: none;
+}
+
+.link-no-underline-brown {
+    text-decoration: none;
+    color: #8B7355;
+}
+
+.link-red {
+    color: #ff0000;
+}
+
+.link-green {
+    color: #00ff00;
+}
+
+.link-blue {
+    color: #0000ff;
+}
+
+.link-brown {
+    color: #8B7355;
+}
+
+/* List Styles */
+.list-disc {
+    list-style-type: disc;
+}
+
+.list-circle {
+    list-style-type: circle;
+}
+
+.list-square {
+    list-style-type: square;
+}
+
+.list-none {
+    list-style-type: none;
+}
+
+.list-inline {
+    display: inline;
+    list-style-type: none;
+}
+
+.list-item-margin {
+    margin-left: 1em;
+    margin-right: 1em;
+}
+
+.list-decimal {
+    list-style-type: decimal;
+}
+
+.list-lower-alpha {
+    list-style-type: lower-alpha;
+}
+
+.list-upper-alpha {
+    list-style-type: upper-alpha;
+}
+
+.list-lower-roman {
+    list-style-type: lower-roman;
+}
+
+.list-upper-roman {
+    list-style-type: upper-roman;
+}
+
+/* Grid Layout */
+.grid-layout {
+    display: grid;
+    grid-gap: 4px 16px;
+    grid-template-columns: max-content;
+}
+
+.grid-term {
+    font-weight: bold;
+}
+
+.grid-description {
+    grid-column-start: 2;
+    margin: 0;
+}
+
+.grid-gap-small {
+    display: grid;
+    grid-gap: 2px 8px;
+    grid-template-columns: max-content;
+}
+
+.grid-gap-medium {
+    display: grid;
+    grid-gap: 4px 16px;
+    grid-template-columns: max-content;
+}
+
+.grid-gap-large {
+    display: grid;
+    grid-gap: 8px 32px;
+    grid-template-columns: max-content;
+}
+
+/* Navigation Links */
+.nav-link {
+    text-decoration: none;
+    color: #0000ff;
+}
+
+/* Test container styles */
+.test-container {
+    background-color: #e8e8e8;
+    padding: 10px;
+}
+

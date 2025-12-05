@@ -48,6 +48,7 @@ static UBYTE* ParseValue(UBYTE **p);
 static BOOL MatchSelector(struct CSSSelector *sel,void *element);
 static void ApplyProperty(void *element,struct CSSProperty *prop);
 static void FreeCSSStylesheetInternal(struct CSSStylesheet *sheet);
+void MergeCSSStylesheet(struct Document *doc,UBYTE *css);
 void SkipWhitespace(UBYTE **p);
 long ParseCSSLengthValue(UBYTE *value,struct Number *num);
 ULONG ParseHexColor(UBYTE *pcolor);
@@ -65,31 +66,108 @@ void ParseCSSStylesheet(struct Document *doc,UBYTE *css)
 {  struct CSSStylesheet *sheet;
    if(!doc || !css) return;
    
-   /* debug_printf("CSS: ParseCSSStylesheet called, css length=%ld\n",strlen((char *)css)); */
+   debug_printf("CSS: ParseCSSStylesheet called, css length=%ld\n",strlen((char *)css));
    
-   /* Free existing stylesheet if any */
+   /* If there's an existing stylesheet, merge instead of replace */
    if(doc->cssstylesheet)
-   {  FreeCSSStylesheetInternal((struct CSSStylesheet *)doc->cssstylesheet);
-      doc->cssstylesheet = NULL;
+   {  MergeCSSStylesheet(doc,css);
+      return;
    }
    
    /* Parse CSS */
    sheet = ParseCSS(doc,css);
    if(sheet)
    {  struct CSSRule *rule;
+      struct CSSSelector *sel;
       long ruleCount = 0;
       doc->cssstylesheet = (void *)sheet;
-      /* Count rules */
+      /* Count rules and log selectors */
       for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
           (struct MinNode *)rule->node.mln_Succ;
           rule = (struct CSSRule *)rule->node.mln_Succ)
       {  ruleCount++;
+         /* Log first selector of each rule for debugging */
+         sel = (struct CSSSelector *)rule->selectors.mlh_Head;
+         if((struct MinNode *)sel->node.mln_Succ)
+         {  debug_printf("CSS: Rule %ld: selector type=0x%lx name=%s class=%s id=%s\n",
+                        ruleCount,
+                        (ULONG)sel->type,
+                        (sel->name ? (char *)sel->name : "NULL"),
+                        (sel->class ? (char *)sel->class : "NULL"),
+                        (sel->id ? (char *)sel->id : "NULL"));
+         }
       }
-      /* debug_printf("CSS: Stylesheet parsed successfully, %ld rules\n",ruleCount); */
+      debug_printf("CSS: Stylesheet parsed successfully, %ld rules\n",ruleCount);
    }
    else
-   {  /* debug_printf("CSS: Stylesheet parsing failed\n"); */
+   {  debug_printf("CSS: Stylesheet parsing failed\n");
    }
+}
+
+/* Merge external CSS stylesheet with existing stylesheet */
+void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
+{  struct CSSStylesheet *existingSheet;
+   struct CSSStylesheet *newSheet;
+   struct CSSRule *rule;
+   struct CSSSelector *sel;
+   long ruleCount;
+   
+   if(!doc || !css) return;
+   
+   debug_printf("MergeCSSStylesheet: Merging CSS, length=%ld\n",strlen((char *)css));
+   
+   /* Parse the new CSS */
+   newSheet = ParseCSS(doc,css);
+   if(!newSheet)
+   {  debug_printf("MergeCSSStylesheet: ParseCSS failed\n");
+      return;
+   }
+   
+   /* Count rules in new sheet and log selectors */
+   ruleCount = 0;
+   for(rule = (struct CSSRule *)newSheet->rules.mlh_Head;
+       (struct MinNode *)rule->node.mln_Succ;
+       rule = (struct CSSRule *)rule->node.mln_Succ)
+   {  ruleCount++;
+      /* Log first selector of each rule for debugging */
+      sel = (struct CSSSelector *)rule->selectors.mlh_Head;
+      if((struct MinNode *)sel->node.mln_Succ)
+      {  debug_printf("MergeCSSStylesheet: New rule %ld: selector type=0x%lx name=%s class=%s id=%s\n",
+                     ruleCount,
+                     (ULONG)sel->type,
+                     (sel->name ? (char *)sel->name : "NULL"),
+                     (sel->class ? (char *)sel->class : "NULL"),
+                     (sel->id ? (char *)sel->id : "NULL"));
+      }
+   }
+   debug_printf("MergeCSSStylesheet: Parsed %ld rules from new CSS\n",ruleCount);
+   
+   /* If no existing stylesheet, just use the new one */
+   if(!doc->cssstylesheet)
+   {  doc->cssstylesheet = (void *)newSheet;
+      debug_printf("MergeCSSStylesheet: No existing sheet, using new one\n");
+      return;
+   }
+   
+   /* Merge: append rules from new sheet to existing sheet */
+   existingSheet = (struct CSSStylesheet *)doc->cssstylesheet;
+   
+   /* Move all rules from newSheet to existingSheet */
+   while((rule = (struct CSSRule *)REMHEAD(&newSheet->rules)))
+   {  ADDTAIL(&existingSheet->rules,rule);
+   }
+   
+   /* Free the empty newSheet structure */
+   FREE(newSheet);
+   
+   /* Count total rules after merge */
+   ruleCount = 0;
+   for(rule = (struct CSSRule *)existingSheet->rules.mlh_Head;
+       (struct MinNode *)rule->node.mln_Succ;
+       rule = (struct CSSRule *)rule->node.mln_Succ)
+   {  ruleCount++;
+   }
+   debug_printf("MergeCSSStylesheet: After merge, total rules=%ld\n",ruleCount);
 }
 
 /* Parse CSS content */
@@ -572,6 +650,31 @@ static void ApplyProperty(void *element,struct CSSProperty *prop)
       
       if(fontName != value) FREE(fontName);
    }
+   /* float */
+   else if(stricmp((char *)name,"float") == 0)
+   {  UBYTE *floatValue;
+      short halign;
+      
+      floatValue = value;
+      /* Skip whitespace */
+      while(*floatValue && isspace(*floatValue)) floatValue++;
+      
+      /* Parse float values */
+      if(stricmp((char *)floatValue,"left") == 0)
+      {  /* Set floating left */
+         halign = HALIGN_FLOATLEFT;
+         Asetattrs(element,AOELT_Floating,halign,TAG_END);
+      }
+      else if(stricmp((char *)floatValue,"right") == 0)
+      {  /* Set floating right */
+         halign = HALIGN_FLOATRIGHT;
+         Asetattrs(element,AOELT_Floating,halign,TAG_END);
+      }
+      else if(stricmp((char *)floatValue,"none") == 0)
+      {  /* Clear float */
+         Asetattrs(element,AOELT_Floating,0,TAG_END);
+      }
+   }
    /* font-size */
    else if(stricmp((char *)name,"font-size") == 0)
    {  /* Handle font size values */
@@ -749,13 +852,80 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
       /* Parse property */
       prop = ParseProperty(doc,&p);
       if(prop && prop->name && prop->value)
-      {           /* Apply padding */
+      {           /* Apply padding shorthand */
          if(stricmp((char *)prop->name,"padding") == 0)
-         {  paddingValue = ParseCSSLengthValue(prop->value,&num);
-            if(num.type == NUMBER_NUMBER && paddingValue >= 0)
-            {  /* Apply padding to left and top margins */
-               Asetattrs(body,AOBDY_Leftmargin,paddingValue,TAG_END);
-               Asetattrs(body,AOBDY_Topmargin,paddingValue,TAG_END);
+         {  UBYTE *paddingP;
+            UBYTE *tokenStart;
+            UBYTE *tokenEnd;
+            long tokenLen;
+            UBYTE *tokenBuf;
+            UBYTE *paddingTokens[4];
+            long paddingCount;
+            long paddingTop;
+            long paddingRight;
+            long paddingBottom;
+            long paddingLeft;
+            long j;
+            struct Number paddingNum;
+            
+            paddingP = prop->value;
+            paddingCount = 0;
+            paddingTop = paddingRight = paddingBottom = paddingLeft = 0;
+            for(j = 0; j < 4; j++) paddingTokens[j] = NULL;
+            
+            /* Parse padding values - can be 1, 2, 3, or 4 values */
+            for(j = 0; j < 4 && paddingP && *paddingP; j++)
+            {  while(*paddingP && isspace(*paddingP)) paddingP++;
+               if(!*paddingP) break;
+               tokenStart = paddingP;
+               while(*paddingP && !isspace(*paddingP)) paddingP++;
+               tokenEnd = paddingP;
+               tokenLen = tokenEnd - tokenStart;
+               if(tokenLen > 0)
+               {  tokenBuf = ALLOCTYPE(UBYTE,tokenLen + 1,0);
+                  if(tokenBuf)
+                  {  memmove(tokenBuf,tokenStart,tokenLen);
+                     tokenBuf[tokenLen] = '\0';
+                     paddingTokens[paddingCount] = tokenBuf;
+                     paddingCount++;
+                  }
+               }
+            }
+            
+            /* Apply padding values based on count */
+            if(paddingCount >= 1)
+            {  paddingTop = ParseCSSLengthValue(paddingTokens[0],&paddingNum);
+               if(paddingCount == 1)
+               {  paddingRight = paddingBottom = paddingLeft = paddingTop;
+               }
+               else if(paddingCount == 2)
+               {  paddingBottom = paddingTop;
+                  paddingRight = ParseCSSLengthValue(paddingTokens[1],&paddingNum);
+                  paddingLeft = paddingRight;
+               }
+               else if(paddingCount == 3)
+               {  paddingRight = ParseCSSLengthValue(paddingTokens[1],&paddingNum);
+                  paddingLeft = paddingRight;
+                  paddingBottom = ParseCSSLengthValue(paddingTokens[2],&paddingNum);
+               }
+               else if(paddingCount == 4)
+               {  paddingRight = ParseCSSLengthValue(paddingTokens[1],&paddingNum);
+                  paddingBottom = ParseCSSLengthValue(paddingTokens[2],&paddingNum);
+                  paddingLeft = ParseCSSLengthValue(paddingTokens[3],&paddingNum);
+               }
+               
+               /* Apply padding to left and top margins (right/bottom not supported) */
+               if(paddingTop >= 0 && paddingNum.type == NUMBER_NUMBER)
+               {  Asetattrs(body,AOBDY_Topmargin,paddingTop,TAG_END);
+               }
+               if(paddingLeft >= 0 && paddingNum.type == NUMBER_NUMBER)
+               {  Asetattrs(body,AOBDY_Leftmargin,paddingLeft,TAG_END);
+               }
+            }
+            
+            /* Free temporary token buffers */
+            for(j = 0; j < paddingCount; j++)
+            {  if(paddingTokens[j]) FREE(paddingTokens[j]);
             }
          }
          /* Apply background-color */
@@ -1172,6 +1342,13 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                /* Note: CSS Grid requires major architectural changes */
             }
             /* Other display values (flex, table, etc.) not yet supported */
+         }
+         /* Apply float - Note: Body objects don't directly support floating */
+         /* But we parse it here for IsDivInline to detect float:left */
+         /* The actual floating is handled by preventing line breaks in Dodiv */
+         else if(stricmp((char *)prop->name,"float") == 0)
+         {  /* Float is parsed but not directly applied to body objects */
+            /* IsDivInline will check for float:left and prevent line breaks */
          }
          /* Apply grid-column-start (for grid layout positioning) */
          else if(stricmp((char *)prop->name,"grid-column-start") == 0)
@@ -1794,23 +1971,13 @@ void ApplyCSSToTableCell(struct Document *doc,void *table,UBYTE *style)
    
    /* Apply extracted values to table cell */
    /* CSS should override HTML attributes, so always apply if found */
-   if(wtag != TAG_IGNORE)
-   {  if(widthValue > 0)
-      {  Asetattrs(table,wtag,widthValue,TAG_END);
-      }
-      else if(widthValue == 0)
-      {  /* Explicit 0 width - clear width */
-         Asetattrs(table,AOTAB_Pixelwidth,0,TAG_END);
-      }
+   if(wtag != TAG_IGNORE && widthValue >= 0)
+   {  /* Apply width value (can be pixel or percentage) */
+      Asetattrs(table,wtag,widthValue,TAG_END);
    }
-   if(htag != TAG_IGNORE)
-   {  if(heightValue > 0)
-      {  Asetattrs(table,htag,heightValue,TAG_END);
-      }
-      else if(heightValue == 0)
-      {  /* Explicit 0 height - clear height */
-         Asetattrs(table,AOTAB_Pixelheight,0,TAG_END);
-      }
+   if(htag != TAG_IGNORE && heightValue >= 0)
+   {  /* Apply height value (can be pixel or percentage) */
+      Asetattrs(table,htag,heightValue,TAG_END);
    }
    if(valign >= 0)
    {  Asetattrs(table,AOTAB_Valign,valign,TAG_END);

@@ -153,6 +153,7 @@ static struct Attrdes tagattrs[]=
    "CELLPADDING",       TAGATTR_CELLPADDING,
    "CELLSPACING",       TAGATTR_CELLSPACING,
    "CHECKED",           TAGATTR_CHECKED,
+   "CLASS",             TAGATTR_CLASS,
    "CLASSID",           TAGATTR_CLASSID,
    "CLEAR",             TAGATTR_CLEAR,
    "CODEBASE",          TAGATTR_CODEBASE,
@@ -177,7 +178,6 @@ static struct Attrdes tagattrs[]=
    "HSPACE",            TAGATTR_HSPACE,
    "HTTP-EQUIV",        TAGATTR_HTTP_EQUIV,
    "ID",                TAGATTR_ID,
-   "CLASS",             TAGATTR_CLASS,
    "ISMAP",             TAGATTR_ISMAP,
    "LANGUAGE",          TAGATTR_LANGUAGE,
    "LEFTMARGIN",        TAGATTR_LEFTMARGIN,
@@ -887,8 +887,7 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
             name[i]='\0';
             if(cd=Findchar(name))
             {  /* Always convert all entities regardless of HTML mode or character code.
-                * In strict mode, name must be terminated by semicolon or non-alphanumeric.
-                * Entity names are matched case-insensitively. */
+                * In strict mode, name must be terminated by semicolon or non-alphanumeric. */
                if(STRIEQUAL(cd->name,name)
                && (!strict || (q>=end || !isalnum(*q))))
                {  q=p+1+strlen(cd->name); /* +1 because of & */

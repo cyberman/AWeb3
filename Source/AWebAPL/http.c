@@ -122,7 +122,7 @@ static UBYTE *fixedheaders=
 
 /* HTTP/1.1 specific headers */
 static UBYTE *connection="Connection: close\r\n";
-static UBYTE *connection_keepalive="Connection: keep-alive\r\n";
+static UBYTE *connection_keepalive="Connection: close\r\n";
 
 static UBYTE *host="Host: %s\r\n";
 

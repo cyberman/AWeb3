@@ -246,6 +246,7 @@ static void Reloaddocument(struct Document *doc)
    if(doc->currentlistclass) FREE(doc->currentlistclass);
    doc->currentlistclass=NULL;
    doc->gridcolgap=0;
+   doc->currentdivinline=FALSE;
    doc->charcount=0;
    doc->frameseqnr=0;
    doc->select=NULL;
@@ -565,10 +566,76 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
             setjscancel|=tag->ti_Data;
             break;
          case AODOC_Docextready:
-            if(doc->pflags&DPF_SUSPEND)
-            {  doc->pflags&=~DPF_SUSPEND;
-               doc->dflags&=~DDF_DONE;
-               Srcupdatedocument(doc);
+            {  void *url;
+               UBYTE *extcss;
+               UBYTE *urlstr;
+               UBYTE *contenttype;
+               long urllen;
+               BOOL isCSS;
+               /* Check if this is a CSS file and merge it */
+               url = (void *)tag->ti_Data;
+               isCSS = FALSE;
+               if(url)
+               {  /* Check content-type first */
+                  contenttype = (UBYTE *)Agetattr(url,AOURL_Contenttype);
+                  if(contenttype)
+                  {  if(strnicmp((char *)contenttype,"text/css",8) == 0)
+                     {  isCSS = TRUE;
+                     }
+                  }
+                  /* Also check URL extension if content-type not available */
+                  if(!isCSS)
+                  {  UBYTE *query;
+                     urlstr = (UBYTE *)Agetattr(url,AOURL_Url);
+                     if(urlstr)
+                     {  /* Find query string (?) if present */
+                        query = (UBYTE *)strchr((char *)urlstr,'?');
+                        if(query)
+                        {  urllen = (long)(query - urlstr);
+                        }
+                        else
+                        {  urllen = strlen((char *)urlstr);
+                        }
+                        /* Check if URL ends with .css (case insensitive) before query string */
+                        if(urllen >= 4 && strnicmp((char *)&urlstr[urllen-4],".css",4) == 0)
+                        {  isCSS = TRUE;
+                        }
+                     }
+                  }
+                  if(isCSS)
+                  {  /* debug_printf("AODOC_Docextready: Detected CSS file, loading...\n"); */
+                     /* Try to get the CSS content */
+                     extcss = Finddocext(doc,url,FALSE);
+                     if(extcss && extcss != (UBYTE *)~0)
+                     {  /* debug_printf("AODOC_Docextready: CSS file loaded, merging (length=%ld)\n",
+                                    strlen((char *)extcss)); */
+                        /* Merge external CSS with existing stylesheet */
+                        MergeCSSStylesheet(doc,extcss);
+                        /* Apply link colors from CSS (a:link, a:visited) */
+                        ApplyCSSToLinkColors(doc);
+                        /* Always re-apply CSS to body when external CSS loads */
+                        if(doc->body && doc->cssstylesheet)
+                        {  /* debug_printf("AODOC_Docextready: Re-applying CSS to body after external CSS load\n"); */
+                           ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
+                           /* Re-register colors to ensure link colors are updated */
+                           if(doc->win && doc->frame)
+                           {  Registerdoccolors(doc);
+                           }
+                        }
+                     }
+                     else if(extcss == (UBYTE *)~0)
+                     {  /* debug_printf("AODOC_Docextready: CSS file load error\n"); */
+                     }
+                     else
+                     {  /* debug_printf("AODOC_Docextready: CSS file not yet available\n"); */
+                     }
+                  }
+               }
+               if(doc->pflags&DPF_SUSPEND)
+               {  doc->pflags&=~DPF_SUSPEND;
+                  doc->dflags&=~DDF_DONE;
+                  Srcupdatedocument(doc);
+               }
             }
             break;
       }

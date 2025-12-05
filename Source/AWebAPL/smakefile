@@ -535,3 +535,7 @@ install:
    -copy clone aweblib/print.aweblib TO //Internet/AWeb/aweblib/print.aweblib
    -copy clone aweblib/startup.aweblib TO //Internet/AWeb/aweblib/startup.aweblib
    -copy clone aweblib/awebjs.aweblib TO //Internet/AWeb/aweblib/awebjs.aweblib
+
+release:
+   cd //Internet
+   lha -xer r /archive/AWeb36a5.lha AWeb AWeb.info 

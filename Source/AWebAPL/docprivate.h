@@ -136,6 +136,7 @@ struct Document
    float lineheight;          /* Line height multiplier (from CSS line-height) */
    UBYTE *currentlistclass;   /* Class of current list (for descendant selector support) */
    long gridcolgap;           /* Grid column gap from parent dl element (for grid-column-start) */
+   BOOL currentdivinline;     /* Current DIV is display:inline (prevents line breaks) */
 };
 
 #define DPF_PREFORMAT      0x00000001  /* doing PRE */
