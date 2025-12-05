@@ -277,6 +277,17 @@ The main changes in version 3.6 compared to version 3.4 are:
 - Added support for some additional XML entities that have equivalents in Latin-1
 - Fixed a bug where utf-8 encoded characters would be interpreted as single byte characters
 
+**What's New in 3.6 Alpha 5:**
+- **CSS Support:** Experimental inline CSS and external stylesheet support for a subset of CSS1 and CSS2 properties (text, layout, background, border, list properties, and basic grid layout)
+- **XHTML 1.0 Support:** Added XHTML 1.0 parsing and rendering with strict mode enforcement and CDATA section support
+- **Gemini and Spartan Protocols:** Experimental support for gemini:// and spartan:// protocols, new gopher-like networks, and gemtext markup
+- **AWebView:** New standalone HTML and Markdown file viewer built using LOCALONLY configuration, taking up less RAM by excluding network features
+- **Enhanced UTF-8:** UTF-8 support now handles mapping some 3-byte and 4-byte characters to Latin-1
+- **TLS Security Improvements:** TLS connections now safely fail immediately instead of prompting for unsecure fallback, removed option to downgrade HTTPS to HTTP
+- **Plugin Updates:** PNG plugin updated to 1.0.69 and now uses same zlib as main program; JFIF and GIF plugins updated with 3.5 improvements
+- **Gopher Enhancements:** Reintegrated enhanced Gopher protocol support from AWeb 3.5 with improved type handling
+- **Bug Fixes:** Fixed CSS parser infinite loops, CSS length value parsing, link color issues, CDATA parsing, TLS cleanup, chunked encoding, and OS4 compatibility issues
+
 **What's New in 3.6 Alpha 4:**
 - **about:plugins:** Added about:plugins to list all loaded AWebPlugin and AWebLib modules
 - **file:// Protocol Directory Browsing:** The file:// protocol now supports browsing directories and viewing mounted volumes
@@ -339,6 +350,10 @@ In this context, finishing the job means both completing support for the final v
 ### Which features from the various releases of AWeb 3.5 have already been cherry-picked for inclusion in AWeb 3.6?
 
 The following features from AWeb 3.5 have been reintegrated in **AWeb 3.6**:
+- Correct handling of caching or not-caching HTTP redirect (30x) responses
+- Correct use of GetBitMapAttrs() instead of direct access of private layers.library structures
+- A fix for a bug where empty JavaScript files were still cached unnecessarily
+- The image format AWebPlugins have been updated to the slightly more recent versions found in AWeb 3.5
 - ETags support in the cache
 - Enhanced handling of 302 and 307 redirects 
 - Dynamic Garbage Collection of temporary objects in the JavaScript engine to reduce memory usage
@@ -348,7 +363,7 @@ The following features from AWeb 3.5 have been reintegrated in **AWeb 3.6**:
 
 The implementation of HTTP/1.1, gzip and chunked encoding in AWeb 3.6 is vastly more sophisticated than the simplistic version in AWeb 3.5, it is an all new implementation, so no code from the AWeb 3.5 version has been reintegrated.
 
-3.5 had incomplete changes laying the groundwork for future utf-8 support, as well as the external Charset plugin that did provide a more comprehensive solution build on codesets.library. 3.6 already has more complete builtin utf-8 support in the parser that will cope with the most common 2 byte character to Latin1 encodings, while the Charset plugin should be compatible with 3.6 for those who need more extensive Unicode support.
+3.5 had incomplete changes laying the groundwork for future utf-8 support, as well as the external Charset plugin that did provide a more comprehensive solution build on codesets.library. 3.6 already has more complete builtin utf-8 support in the parser that will cope with the most common 2 and 3 byte character to Latin1 encodings.
 
 ### What is amigazen project's plan for the future of AWeb?
 
@@ -380,7 +395,7 @@ Ports of AWeb - version 3.5 - already exist, so at some point it should be possi
 
 The first priority however is to get a good, stable build of AWeb in the form Yvon left it in when he gave it to the community.
 
-The current AWeb 3.6 Alpha 3 runs well on OS4 as a 68k binary at least in standalone mode, without it's plugins, which reportedly conflict with the way OS4 manages classic shared libraries. Note that there are some known OS4-specific issues documented in the release notes.
+The current AWeb 3.6 Alpha 4 runs on OS4 as a 68k binary, however as a native 68k binary it cannot utilise the PowerPC native AmiSSL library and therefore https connections will not work. Note that there are some known OS4-specific issues documented in the release notes.
 
 ### Can I contribute to the new AWeb?
 

@@ -5,6 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6alpha5] - 25-12-05
+
+### Added
+- **CSS Support:** Experimental inline CSS support for a subset of CSS1 and CSS2 properties including:
+  - Text properties: font-family, font-size, font-style, font-weight, color, text-align, text-decoration, text-transform, white-space
+  - Layout properties: padding, margin (1-4 value syntax), position, top, left
+  - Background properties: background-color, background-image
+  - Border properties: border-style, border-color (parsing only, rendering limited)
+  - List properties: list-style-type for UL and OL elements
+  - Line height: line-height property parsing
+  - CSS Grid: Basic grid layout properties parsing (display: grid, grid-gap, grid-template-columns, grid positioning)
+- **External Stylesheets:** Experimental support for `<link rel="stylesheet">` external CSS stylesheets with CSS selector matching (element, class, ID selectors)
+- **XHTML 1.0 Support:** Added XHTML 1.0 parsing and rendering support, enforcing strict parsing mode when XHTML is detected and implementing CDATA sections
+- **CDATA Parsing:** Added CDATA parsing in XHTML documents
+- **Gemini and Spartan Protocols:** Experimental support for the gemini:// and spartan:// protocols, new gopher-like networks, and the gemtext markup language they use
+- **AWebView:** New standalone HTML and Markdown file viewer built using the LOCALONLY build configuration, taking up less RAM by excluding network features
+- **Enhanced UTF-8 Support:** UTF-8 support now handles mapping some 3-byte and 4-byte characters to Latin-1
+- **Iconify Support:** Added support for intuition.library 46 Iconify gadget on browser windows
+- **Right Mouse Button Context Menu:** Changed default input for context menu from middle button to right mouse button
+- **Case Insensitive Entities:** Entity names are now case-insensitive (both &auml; and &Auml; work)
+- **RSS MIME type parsing:** Added foundational changes for future RSS AWebPlugin
+- **CSS Test Pages:** Added comprehensive CSS test pages to documentation (css_test.html, stylesheet_test.html)
+
+### Changed
+- **PNG Plugin:** Updated to version 1.0.69 (latest 1.0.x branch) and now uses the same zlib as the main AWeb program instead of the previous ancient version
+- **TLS Security:** TLS connections now safely fail immediately instead of prompting the user to allow unsecure fallback if secure socket cannot be established. Removed option for users to allow HTTPS to downgrade to unsecure HTTP connections
+- **TLS Cipher Ordering:** Revised TLS cipher ordering so that most performant cipher (CHACHA) goes first before AES
+- **HTTP/1.1 Keep-Alive:** Further enhancement to HTTP/1.1 keep-alive support but still disabled in this alpha release build
+- **MIME Types:** MIME types are now lowercase by default as per standards, although matching remains case-insensitive
+- **XML Entity Lookup:** Changed XML entities lookup to linear search instead of binary search for better case insensitivity support
+
+### Fixed
+- **CSS Parser:** Fixed infinite loops in CSS parser by ensuring parser pointer always advances, even on parse errors. Added safeguards to skip malformed properties/selectors
+- **CSS Length Values:** Fixed ParseCSSLengthValue to use strtod() to properly parse decimal values (.5em, 1.5em) and percentage values (150%) instead of sscanf with %ld which only handles integers
+- **CSS Link Colors:** Fixed CSS rules with pseudo-classes (a:link, a:visited, etc.) being incorrectly applied in ApplyCSSToBody, causing link colors to affect body text
+- **Self-Closing Tags:** Fixed parsing self-closing tags on malformed websites (e.g. amigaworld.net)
+- **Argument Parsing:** Fixed null pointer access during argument parsing on launch which failed silently except on OS4 where it throws a DSI error
+- **CONFIG Directory:** Fixed issue where if using a custom CONFIG argument, AWeb now creates the directory for it if it doesn't already exist before saving into it
+- **TLS Cleanup:** Fixed TLS connections are properly cleaned up in all circumstances and AmiSSL libraries are only closed on application exit. Fixed double cleanup in Readdata() where Assl_closessl() was called before Assl_cleanup()
+- **Chunked Encoding:** Fixed improvements to chunked encoding handling mean connections to google no longer trigger binary download
+- **AmiSSL Validation:** Added AmiSSLBase validation checks ahead of macro calls to prevent DSI errors sometimes seen on OS4
+- **Gopher Protocol:** Fixed enhanced Gopher type support from AWeb 3.5 with proper URL scheme handling
+
+### Reintegrated from AWeb 3.5
+- **PNG Plugin libpng:** Updated to version 1.0.0 as used in AWeb 3.5
+- **JFIF Plugin JPEG Library:** Updated to version 6b as used in AWeb 3.5
+- **GIF Plugin:** Incorporates GIF engine changes from AWeb 3.5
+- **Gopher Module:** Reintegrated improvements to the gopher:// aweblib module from AWeb 3.5 including:
+  - Support for CSO/telephone directory type ('2')
+  - Support for telnet links type ('8') with proper telnet:// URLs
+  - Support for WWW links type ('w') with proper http:// URLs
+  - Support for HTML links type ('h')
+  - Support for info messages type ('i')
+  - Support for audio types ('s', '<')
+  - Support for gopher+ extensions ('+', 'T', ':', ';')
+  - Support for error type ('3')
+  - Support for tn3270 type ('T')
+  - Enhanced link generation with proper URL schemes based on gopher type
+
 ## [3.6alpha4] - 25-12-01
 
 ### Added

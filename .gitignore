@@ -63,5 +63,6 @@ awebgst
 *.uaem
 Source/*/*.aweblib
 Source/AWebAPL/AWeb
+Source/AWebAPL/AWebView
 Source/AWebAPL/AWebJS
 Source/AWebAPL/AWebCfg
