@@ -22,6 +22,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdarg.h>
 #include "aweb.h"
 #include "css.h"
@@ -186,20 +187,29 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
    
    p = css;
    while(*p)
-   {  SkipWhitespace(&p);
+   {  UBYTE *oldp;
+      SkipWhitespace(&p);
       SkipComment(&p);
       if(!*p) break;
       
+      oldp = p;  /* Remember position before parsing */
       rule = ParseRule(doc,&p);
       if(rule)
       {  ADDTAIL(&sheet->rules,rule);
       }
       else
-      {  /* Skip to next rule on parse error */
-         while(*p && *p != '}')
-         {  p++;
+      {  /* Parse error - make sure we advance the pointer */
+         if(p == oldp)
+         {  /* Pointer didn't advance - skip one character to prevent infinite loop */
+            p++;
          }
-         if(*p == '}') p++;
+         else
+         {  /* Pointer advanced but rule failed - skip to next rule */
+            while(*p && *p != '}')
+            {  p++;
+            }
+            if(*p == '}') p++;
+         }
       }
    }
    
@@ -222,17 +232,23 @@ static struct CSSRule* ParseRule(struct Document *doc,UBYTE **p)
    
    /* Parse selectors */
    while(**p)
-   {  SkipWhitespace(p);
+   {  UBYTE *oldp;
+      SkipWhitespace(p);
       SkipComment(p);
       if(**p == '{') break;
       if(**p == ';' || **p == '}') return NULL; /* Invalid */
       
+      oldp = *p;  /* Remember position before parsing */
       sel = ParseSelector(doc,p);
       if(sel)
       {  ADDTAIL(&rule->selectors,sel);
       }
       else
-      {  /* Parse error in selector */
+      {  /* Parse error in selector - make sure pointer advanced */
+         if(*p == oldp)
+         {  /* Pointer didn't advance - skip one character to prevent infinite loop */
+            (*p)++;
+         }
          FREE(rule);
          return NULL;
       }
@@ -260,6 +276,12 @@ static struct CSSRule* ParseRule(struct Document *doc,UBYTE **p)
       prop = ParseProperty(doc,p);
       if(prop)
       {  ADDTAIL(&rule->properties,prop);
+      }
+      else
+      {  /* Parse error - skip to next semicolon or closing brace */
+         while(**p && **p != ';' && **p != '}')
+         {  (*p)++;
+         }
       }
       
       SkipWhitespace(p);
@@ -501,9 +523,9 @@ static UBYTE* ParseValue(UBYTE **p)
    SkipWhitespace(p);
    start = *p;
    
-   /* Parse until semicolon, closing brace, or newline */
+   /* Parse until semicolon or closing brace (allow newlines in values) */
    /* Handle quoted strings within the value (e.g., font-family: "Open Sans", "Helvetica Neue", ...) */
-   while(**p && **p != ';' && **p != '}' && **p != '\n' && **p != '\r')
+   while(**p && **p != ';' && **p != '}')
    {  if((**p == '"' || **p == '\'') && !inString)
       {  quote = **p;
          inString = TRUE;
@@ -1430,6 +1452,9 @@ long ParseCSSLengthValue(UBYTE *value,struct Number *num)
    char c = '\0';
    short m;
    BOOL sign = FALSE;
+   double dval;
+   long ival;
+   UBYTE *endptr;
    
    if(!value || !num) return 0;
    
@@ -1446,13 +1471,39 @@ long ParseCSSLengthValue(UBYTE *value,struct Number *num)
       m = 1;
    }
    else
-   {  m = sscanf((char *)pval," %ld%c",&num->n,&c);
-   }
-   if(m)
-   {  if(c == '%') num->type = NUMBER_PERCENT;
-      else if(c == '*') num->type = NUMBER_RELATIVE;
-      else if(sign) num->type = NUMBER_SIGNED;
-      else num->type = NUMBER_NUMBER;
+   {  /* Use strtod to parse decimal values (handles .5, 1.5, 0.5, etc.) */
+      dval = strtod((char *)pval, (char **)&endptr);
+      if(endptr != pval)
+      {  /* Successfully parsed a number */
+         /* Convert double to long, rounding */
+         ival = (long)(dval + (dval >= 0 ? 0.5 : -0.5));
+         num->n = ival;
+         /* Check what comes after the number */
+         if(*endptr)
+         {  c = *endptr;
+            if(c == '%') num->type = NUMBER_PERCENT;
+            else if(c == '*') num->type = NUMBER_RELATIVE;
+            else if(sign) num->type = NUMBER_SIGNED;
+            else num->type = NUMBER_NUMBER;
+            m = 2;
+         }
+         else
+         {  /* No character - just a number */
+            if(sign) num->type = NUMBER_SIGNED;
+            else num->type = NUMBER_NUMBER;
+            m = 1;
+         }
+      }
+      else
+      {  /* Fallback: try integer parsing with sscanf */
+         m = sscanf((char *)pval," %ld%c",&num->n,&c);
+         if(m)
+         {  if(c == '%') num->type = NUMBER_PERCENT;
+            else if(c == '*') num->type = NUMBER_RELATIVE;
+            else if(sign) num->type = NUMBER_SIGNED;
+            else num->type = NUMBER_NUMBER;
+         }
+      }
    }
    if(num->type != NUMBER_SIGNED && num->n < 0) num->n = 0;
    
