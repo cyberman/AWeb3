@@ -1198,6 +1198,201 @@ static UBYTE *Parsexmldeclaration(struct Document *doc,UBYTE *p,UBYTE *end,BOOL 
    return p;
 }
 
+/* Parse CDATA section: <![CDATA[...content...]]>
+ * Extracts CDATA content and adds it as text to the document.
+ * Normalizes newlines to spaces to match regular text handling.
+ * Returns pointer after ]]> or NULL on error/eof */
+static UBYTE *Parsecdata(struct Document *doc,UBYTE *p,UBYTE *end,BOOL eof)
+{  UBYTE *cdata_start;
+   UBYTE *cdata_end;
+   UBYTE *q;
+   struct Tagattr *ta;
+   struct Tagattr *saved_attrs_first;
+   struct Tagattr *saved_attrs_last;
+   short saved_nextattr;
+   long saved_args_length;
+   
+   /* Skip past "[CDATA[" */
+   if(p>=end-7) return NULL;
+   if(!STRNIEQUAL(p,"[CDATA[",7)) return NULL;  /* Not a CDATA section */
+   p+=7;
+   cdata_start=p;
+   
+   /* Find closing ]]> */
+   while(p<end-2)
+   {  if(p[0]==']' && p[1]==']' && p[2]=='>')
+      {  cdata_end=p;
+         p+=3;  /* Skip ]]> */
+         
+         /* Add CDATA content as text, normalizing newlines to spaces */
+         if(cdata_end>cdata_start)
+         {  /* Save current parsing state */
+            saved_attrs_first=attrs.first;
+            saved_attrs_last=attrs.last;
+            saved_nextattr=nextattr;
+            saved_args_length=doc->args.length;
+            
+            /* Create new attrs list for CDATA content */
+            NEWLIST(&attrs);
+            nextattr=0;
+            doc->args.length=0;
+            ta=Nextattr(doc);
+            ta->attr=TAGATTR_TEXT;
+            
+            /* Copy CDATA content, converting newlines to spaces */
+            q=cdata_start;
+            while(q<cdata_end)
+            {  if(*q=='\r')
+               {  /* Convert \r\n or \r to space */
+                  if(!Addtobuffer(&doc->args," ",1))
+                  {  /* Restore state on error */
+                     attrs.first=saved_attrs_first;
+                     attrs.last=saved_attrs_last;
+                     nextattr=saved_nextattr;
+                     doc->args.length=saved_args_length;
+                     return NULL;
+                  }
+                  ta->length++;
+                  q++;
+                  if(q<cdata_end && *q=='\n') q++;  /* Skip \n after \r */
+               }
+               else if(*q=='\n')
+               {  /* Convert \n to space */
+                  if(!Addtobuffer(&doc->args," ",1))
+                  {  /* Restore state on error */
+                     attrs.first=saved_attrs_first;
+                     attrs.last=saved_attrs_last;
+                     nextattr=saved_nextattr;
+                     doc->args.length=saved_args_length;
+                     return NULL;
+                  }
+                  ta->length++;
+                  q++;
+               }
+               else
+               {  /* Copy character as-is */
+                  if(!Addtobuffer(&doc->args,q,1))
+                  {  /* Restore state on error */
+                     attrs.first=saved_attrs_first;
+                     attrs.last=saved_attrs_last;
+                     nextattr=saved_nextattr;
+                     doc->args.length=saved_args_length;
+                     return NULL;
+                  }
+                  ta->length++;
+                  q++;
+               }
+            }
+            
+            if(!Addtobuffer(&doc->args,"",1))
+            {  /* Restore state on error */
+               attrs.first=saved_attrs_first;
+               attrs.last=saved_attrs_last;
+               nextattr=saved_nextattr;
+               doc->args.length=saved_args_length;
+               return NULL;
+            }
+            
+            /* Process the text content */
+            Processhtml(doc,MARKUP_TEXT,attrs.first);
+            
+            /* Restore previous parsing state */
+            attrs.first=saved_attrs_first;
+            attrs.last=saved_attrs_last;
+            nextattr=saved_nextattr;
+            doc->args.length=saved_args_length;
+         }
+         
+         return p;
+      }
+      p++;
+   }
+   
+   /* EOF reached before finding ]]> */
+   if(!eof) return NULL;
+   
+   /* At EOF, add whatever we have as text, normalizing newlines */
+   if(p>cdata_start)
+   {  /* Save current parsing state */
+      saved_attrs_first=attrs.first;
+      saved_attrs_last=attrs.last;
+      saved_nextattr=nextattr;
+      saved_args_length=doc->args.length;
+      
+      /* Create new attrs list for CDATA content */
+      NEWLIST(&attrs);
+      nextattr=0;
+      doc->args.length=0;
+      ta=Nextattr(doc);
+      ta->attr=TAGATTR_TEXT;
+      
+      /* Copy CDATA content, converting newlines to spaces */
+      q=cdata_start;
+      while(q<p)
+      {  if(*q=='\r')
+         {  /* Convert \r\n or \r to space */
+            if(!Addtobuffer(&doc->args," ",1))
+            {  /* Restore state on error */
+               attrs.first=saved_attrs_first;
+               attrs.last=saved_attrs_last;
+               nextattr=saved_nextattr;
+               doc->args.length=saved_args_length;
+               return NULL;
+            }
+            ta->length++;
+            q++;
+            if(q<p && *q=='\n') q++;  /* Skip \n after \r */
+         }
+         else if(*q=='\n')
+         {  /* Convert \n to space */
+            if(!Addtobuffer(&doc->args," ",1))
+            {  /* Restore state on error */
+               attrs.first=saved_attrs_first;
+               attrs.last=saved_attrs_last;
+               nextattr=saved_nextattr;
+               doc->args.length=saved_args_length;
+               return NULL;
+            }
+            ta->length++;
+            q++;
+         }
+         else
+         {  /* Copy character as-is */
+            if(!Addtobuffer(&doc->args,q,1))
+            {  /* Restore state on error */
+               attrs.first=saved_attrs_first;
+               attrs.last=saved_attrs_last;
+               nextattr=saved_nextattr;
+               doc->args.length=saved_args_length;
+               return NULL;
+            }
+            ta->length++;
+            q++;
+         }
+      }
+      
+      if(!Addtobuffer(&doc->args,"",1))
+      {  /* Restore state on error */
+         attrs.first=saved_attrs_first;
+         attrs.last=saved_attrs_last;
+         nextattr=saved_nextattr;
+         doc->args.length=saved_args_length;
+         return NULL;
+      }
+      
+      /* Process the text content */
+      Processhtml(doc,MARKUP_TEXT,attrs.first);
+      
+      /* Restore previous parsing state */
+      attrs.first=saved_attrs_first;
+      attrs.last=saved_attrs_last;
+      nextattr=saved_nextattr;
+      doc->args.length=saved_args_length;
+   }
+   
+   return p;
+}
+
 /* Parse DOCTYPE declaration: <!DOCTYPE root-element [PUBLIC "..." "..." | SYSTEM "..."] [...]>
  * Extracts root element name if present.
  * Returns pointer after > or NULL on error/eof */
@@ -1307,6 +1502,18 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
                      break;
                }
                if(!p || p>=end) return Eofandexit(doc,eof);
+            }
+            else if(p[0]=='[')  /* Could be CDATA section: <![CDATA[ */
+            {  UBYTE *newp;
+               newp=Parsecdata(doc,p,end,eof);
+               if(newp)
+               {  p=newp;
+                  continue;  /* CDATA processed, continue parsing */
+               }
+               /* Not CDATA or parse failed - skip as generic declaration */
+               while(p<end && *p!='>') p++;  /* skip up to > */
+               if(p>=end) return Eofandexit(doc,eof);
+               p++;                          /* skip > */
             }
             else  /* No real comment - could be DOCTYPE or other declaration */
             {  UBYTE *newp;
@@ -1627,3 +1834,4 @@ BOOL Parseplain(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
    }
    return TRUE;
 }
+
