@@ -887,8 +887,9 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
             name[i]='\0';
             if(cd=Findchar(name))
             {  /* Always convert all entities regardless of HTML mode or character code.
-                * In strict mode, name must be terminated by semicolon or non-alphanumeric. */
-               if(STREQUAL(cd->name,name)
+                * In strict mode, name must be terminated by semicolon or non-alphanumeric.
+                * Entity names are matched case-insensitively. */
+               if(STRIEQUAL(cd->name,name)
                && (!strict || (q>=end || !isalnum(*q))))
                {  q=p+1+strlen(cd->name); /* +1 because of & */
                   if(q<end)
