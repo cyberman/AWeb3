@@ -188,6 +188,7 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
    p = css;
    while(*p)
    {  UBYTE *oldp;
+      
       SkipWhitespace(&p);
       SkipComment(&p);
       if(!*p) break;
@@ -201,7 +202,8 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
       {  /* Parse error - make sure we advance the pointer */
          if(p == oldp)
          {  /* Pointer didn't advance - skip one character to prevent infinite loop */
-            p++;
+            if(*p) p++;
+            else break;  /* End of string */
          }
          else
          {  /* Pointer advanced but rule failed - skip to next rule */
@@ -210,6 +212,14 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
             }
             if(*p == '}') p++;
          }
+      }
+      
+      /* Final safety check: if we haven't advanced at all, force advance and break */
+      if(p == oldp)
+      {  if(*p) p++;
+         else break;
+         /* If we're still at the same position after forcing advance, something is wrong - break */
+         if(p == oldp) break;
       }
    }
    
@@ -269,18 +279,40 @@ static struct CSSRule* ParseRule(struct Document *doc,UBYTE **p)
    
    /* Parse properties */
    while(**p)
-   {  SkipWhitespace(p);
+   {  UBYTE *propOldp;
+      
+      SkipWhitespace(p);
       SkipComment(p);
       if(**p == '}') break;
       
+      propOldp = *p;  /* Remember position before parsing property */
       prop = ParseProperty(doc,p);
       if(prop)
       {  ADDTAIL(&rule->properties,prop);
       }
       else
       {  /* Parse error - skip to next semicolon or closing brace */
-         while(**p && **p != ';' && **p != '}')
-         {  (*p)++;
+         if(*p == propOldp)
+         {  /* Pointer didn't advance - force advance */
+            if(**p && **p != ';' && **p != '}')
+            {  (*p)++;
+            }
+            else if(**p == ';')
+            {  (*p)++;
+            }
+            else if(**p == '}')
+            {  break;
+            }
+            else
+            {  /* End of string or invalid - break */
+               break;
+            }
+         }
+         else
+         {  /* Pointer advanced but property failed - skip to next */
+            while(**p && **p != ';' && **p != '}')
+            {  (*p)++;
+            }
          }
       }
       
@@ -290,6 +322,18 @@ static struct CSSRule* ParseRule(struct Document *doc,UBYTE **p)
       }
       else if(**p == '}')
       {  break;
+      }
+      
+      /* Safety check: if pointer didn't advance at all, force advance and break */
+      if(*p == propOldp)
+      {  if(**p && **p != '}')
+         {  (*p)++;
+         }
+         else
+         {  break;
+         }
+         /* If still at same position after forcing advance, break */
+         if(*p == propOldp) break;
       }
    }
    
@@ -445,7 +489,16 @@ static struct CSSProperty* ParseProperty(struct Document *doc,UBYTE **p)
    {  prop->value = Dupstr(value,-1);
    }
    else
-   {  FREE(prop->name);
+   {  /* ParseValue failed - make sure pointer advanced */
+      /* ParseValue should have advanced past whitespace, but if it returned NULL
+       * without advancing, we need to skip to prevent infinite loop */
+      if(*p && **p != ';' && **p != '}')
+      {  /* Skip to next semicolon or closing brace */
+         while(**p && **p != ';' && **p != '}')
+         {  (*p)++;
+         }
+      }
+      FREE(prop->name);
       FREE(prop);
       return NULL;
    }
@@ -522,6 +575,11 @@ static UBYTE* ParseValue(UBYTE **p)
    
    SkipWhitespace(p);
    start = *p;
+   
+   /* If we're already at a semicolon or closing brace, no value to parse */
+   if(**p == ';' || **p == '}')
+   {  return NULL;
+   }
    
    /* Parse until semicolon or closing brace (allow newlines in values) */
    /* Handle quoted strings within the value (e.g., font-family: "Open Sans", "Helvetica Neue", ...) */
