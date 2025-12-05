@@ -24,9 +24,9 @@
 <META NAME="Description" CONTENT="Comprehensive CSS1/CSS2 compatibility test for AWeb inline styles">
 <META NAME="Keywords" CONTENT="CSS, CSS1, CSS2, compatibility, test, AWeb, inline styles">
 </HEAD>
-<BODY BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
+<BODY BACKGROUND="awebbg.iff" BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
 
-<H1>CSS1/CSS2 Compatibility Test</H1>
+<H1><IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)">&nbsp; CSS1/CSS2 Compatibility Test</H1>
 
 <P>This page tests AWeb's support for <STRONG>CSS1 and CSS2</STRONG> properties via inline styles (STYLE attribute). Each section demonstrates supported CSS properties with explanatory text describing what you should see. Note that some properties have limitations due to AWeb's layout engine architecture - see the Summary section for details.</P>
 
@@ -42,7 +42,6 @@
 <A HREF="#links" STYLE="text-decoration: none; color: #0000ff;">Link Styles</A> |
 <A HREF="#lists" STYLE="text-decoration: none; color: #0000ff;">List Styles</A> |
 <A HREF="#grid" STYLE="text-decoration: none; color: #0000ff;">Grid Layout</A> |
-<A HREF="#summary" STYLE="text-decoration: none; color: #0000ff;">Summary</A> |
 <A HREF="stylesheet_test.html" STYLE="text-decoration: none; color: #0000ff;">External Stylesheet Tests</A>
 </CENTER>
 
@@ -470,9 +469,9 @@
 <HR>
 
 <A NAME="lists"></A>
-<H2>List Styles - PASS</H2>
+<H2>List Styles</H2>
 
-<H3>list-style-type for unordered lists</H3>
+<H3>list-style-type for unordered lists - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Unordered lists with different bullet styles - disc, circle, square, and none.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -641,92 +640,7 @@
 
 <HR>
 
-<A NAME="summary"></A>
-<H2>CSS Support Summary</H2>
 
-<H3>Fully Supported CSS1/CSS2 Properties</H3>
-<UL>
-<LI><STRONG>text-align</STRONG> - left, center, right, justify</LI>
-<LI><STRONG>font-family</STRONG> - comma-separated font lists with generic families (serif, sans-serif, monospace)</LI>
-<LI><STRONG>font-size</STRONG> - absolute sizes (xx-small to xx-large) and relative sizes (smaller, larger)</LI>
-<LI><STRONG>font-style</STRONG> - italic, normal</LI>
-<LI><STRONG>font-weight</STRONG> - bold, normal, and numeric values (100-900)</LI>
-<LI><STRONG>color</STRONG> - hex color values (#RRGGBB format)</LI>
-<LI><STRONG>text-decoration</STRONG> - none, line-through (strikethrough)</LI>
-<LI><STRONG>text-transform</STRONG> - uppercase, lowercase, capitalize, none</LI>
-<LI><STRONG>white-space</STRONG> - nowrap, normal</LI>
-<LI><STRONG>line-height</STRONG> - numeric values (e.g., 1.0, 1.5, 2.0) for line spacing (parsed but not yet applied; see limitations below)</LI>
-<LI><STRONG>padding</STRONG> - shorthand property supporting 1-4 values (e.g., padding: 10px, padding: 10px 20px, padding: 10px 20px 30px, padding: 10px 20px 30px 40px); applied to left and top margins (right/bottom not supported; see limitations below)</LI>
-<LI><STRONG>background-color</STRONG> - hex color values (#RRGGBB format), applied as text highlight for paragraphs</LI>
-<LI><STRONG>background-image</STRONG> - url() format for background images</LI>
-<LI><STRONG>border</STRONG> - border width parsing (full rendering may be limited)</LI>
-<LI><STRONG>border-color</STRONG> - hex color values for table borders</LI>
-<LI><STRONG>border-style</STRONG> - parsed (solid, dashed, dotted, etc.)</LI>
-<LI><STRONG>list-style-type</STRONG> - disc, circle, square, none (for UL), decimal, lower-alpha, upper-alpha, lower-roman, upper-roman, none (for OL)</LI>
-<LI><STRONG>display: inline</STRONG> - for horizontal list layouts (removes bullets and prevents line breaks between items)</LI>
-<LI><STRONG>position</STRONG> - absolute, relative, static, fixed (parsed, rendering limited - see limitations below)</LI>
-<LI><STRONG>top, left</STRONG> - pixel and percentage values (parsed, rendering limited - see limitations below)</LI>
-<LI><STRONG>margin</STRONG> - shorthand property supporting 1-4 values (e.g., margin: 10px, margin: 10px 20px, margin: 10px 20px 30px, margin: 10px 20px 30px 40px)</LI>
-<LI><STRONG>margin-left, margin-top</STRONG> - pixel, percentage, and em values (fully supported)</LI>
-<LI><STRONG>margin-right, margin-bottom</STRONG> - pixel, percentage, and em values (parsed but rendering limited - see limitations below)</LI>
-<LI><STRONG>width, height</STRONG> - pixel and percentage values (for table cells and images); fully supported</LI>
-<LI><STRONG>vertical-align</STRONG> - top, middle, bottom, baseline (for table cells); fully supported</LI>
-<LI><STRONG>display</STRONG> - inline, block, none, grid</LI>
-<LI><STRONG>grid-gap</STRONG> - pixel values for row and column gaps (e.g., grid-gap: 4px 16px)</LI>
-<LI><STRONG>grid-template-columns</STRONG> - column template definitions (e.g., max-content)</LI>
-<LI><STRONG>grid-column-start, grid-column-end</STRONG> - grid column positioning (numeric values, e.g., grid-column-start: 2)</LI>
-<LI><STRONG>grid-row-start, grid-row-end</STRONG> - grid row positioning (parsed, rendering may be limited)</LI>
-</UL>
-
-<H3>Partially Supported / Limitations</H3>
-<UL>
-<LI><STRONG>padding</STRONG> - Shorthand property (1-4 values) is parsed correctly, but only left and top margins are applied; right and bottom padding are not supported by AWeb's layout engine</LI>
-<LI><STRONG>position, top, left</STRONG> - Parsed but rendering is limited, especially within table contexts</LI>
-<LI><STRONG>margin-right, margin-bottom</STRONG> - Parsed but not fully applied; AWeb's layout engine has limited support for right and bottom margins on generic body elements</LI>
-<LI><STRONG>border</STRONG> - Width, style, and color are parsed but full border rendering may be limited</LI>
-<LI><STRONG>border-radius</STRONG> - Parsed but not applied (CSS3 feature)</LI>
-<LI><STRONG>float</STRONG> - Not yet implemented (would require element-level changes to AWeb's layout engine)</LI>
-<LI><STRONG>grid-template-columns</STRONG> - Parsed but full grid layout rendering is simplified (max-content is supported for column sizing)</LI>
-<LI><STRONG>grid-column-end, grid-row-start, grid-row-end</STRONG> - Parsed but rendering may be limited</LI>
-</UL>
-
-<H3>Implementation Notes</H3>
-<UL>
-<LI>All CSS properties are supported via inline styles (STYLE attribute) only</LI>
-<LI>External stylesheets via &lt;LINK rel="stylesheet"&gt; are tested separately in <A HREF="stylesheet_test.html">stylesheet_test.html</A></LI>
-<LI>CSS properties can be combined in a single STYLE attribute, separated by semicolons</LI>
-<LI>Table cell styles (width, height, vertical-align, background-color, border-color) are applied to both the cell body and table cell structure, ensuring CSS overrides HTML attributes</LI>
-<LI>Link styles (text-decoration: none, color) are properly applied to anchor elements, with text-decoration: none removing the underline pattern</LI>
-<LI>Font properties (font-family, font-size, font-style, font-weight) work on body elements, paragraphs, divs, and table cells</LI>
-<LI>Text properties (text-decoration, text-transform, white-space) are applied to body elements and affect text rendering</LI>
-<LI>Background-color for paragraphs is implemented as a text highlight, allowing each paragraph to have its own distinct background color even when sharing the same body element within table cells</LI>
-<LI>Background-image supports url() format with optional quotes and is applied to body elements</LI>
-<LI>List-style-type is applied to UL and OL elements via inline styles, supporting disc, circle, square, none for UL and decimal, lower-alpha, upper-alpha, lower-roman, upper-roman, none for OL</LI>
-<LI>display: inline for lists creates horizontal layouts by removing bullets and preventing line breaks between list items</LI>
-<LI>margin-left and margin-right support "em" units for relative spacing (e.g., margin-left: 1em)</LI>
-<LI>line-height supports numeric values (e.g., 1.5) for controlling line spacing (parsed but not yet applied; requires layout engine support)</LI>
-<LI>padding shorthand supports 1-4 values following CSS standard (e.g., padding: 10px, padding: 10px 20px, padding: 10px 20px 30px, padding: 10px 20px 30px 40px); only left and top margins are applied</LI>
-<LI>margin shorthand supports 1-4 values following CSS standard (e.g., margin: 10px, margin: 10px 20px, margin: 10px 20px 30px, margin: 10px 20px 30px 40px); only top and left margins are applied</LI>
-<LI>width and height CSS properties for table cells support both pixel and percentage values (e.g., width: 100px, width: 50%)</LI>
-<LI>vertical-align CSS property for table cells supports top, middle, bottom, and baseline values</LI>
-<LI>Grid layout properties (display: grid, grid-gap, grid-template-columns, grid-column-start) enable two-column layouts for definition lists (DL), with DT elements in the first column and DD elements with grid-column-start: 2 in the second column</LI>
-<LI>grid-gap supports two values (row gap and column gap) in pixel units (e.g., grid-gap: 4px 16px)</LI>
-<LI>grid-column-start with value >= 2 applies left margin to position elements in the second column, using the column gap from the parent grid</LI>
-<LI>Color properties (color, background-color, border-color) support hex color codes in #RRGGBB format (3-digit shorthand like #f00 is not yet supported)</LI>
-<LI>Text-transform is applied during text parsing, transforming text before it's added to the text buffer (uppercase, lowercase, capitalize)</LI>
-<LI>Memory management uses AWeb's pool-based allocation system (ALLOCSTRUCT/ALLOCTYPE with FREE) for proper cleanup</LI>
-</UL>
-
-<H3>Not Yet Supported</H3>
-<UL>
-<LI>CSS rules in &lt;STYLE&gt; tags (parsing and application exist for many properties, including font-family, color, text-decoration, display, grid properties, and pseudo-classes like :link, :visited, :hover)</LI>
-<LI>CSS selectors (class, ID, element selectors) - parsing exists but application is limited</LI>
-<LI>CSS cascade and specificity</LI>
-<LI>CSS pseudo-classes (:hover, :visited, etc.)</LI>
-<LI>CSS inheritance</LI>
-<LI>Additional CSS1/CSS2 properties not listed above</LI>
-<LI>CSS3 features (except border-radius parsing)</LI>
-</UL>
 
 <P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
 
@@ -734,7 +648,7 @@
 
 <CENTER>
 <P><SMALL>Last Updated: 2025 - AWeb 3 CSS1/CSS2 Compatibility Test</SMALL></P>
-<P><A HREF="stylesheet_test.html" STYLE="text-decoration: none; color: #0000ff;">External Stylesheet Tests</A> | <A HREF="aweb.html" STYLE="text-decoration: none; color: #0000ff;">Back to AWeb documentation index</A></P>
+<P><A HREF="stylesheet_test.html">External Stylesheet Tests</A> | <A HREF="aweb.html">Back to AWeb documentation index</A></P>
 </CENTER>
 
 </BODY>

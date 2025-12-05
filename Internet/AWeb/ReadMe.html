@@ -1,14 +1,14 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
-<title>Release Notes - AWeb 3.6 &nbsp; Alpha 3</title>
+<title>Release Notes - AWeb 3.6 &nbsp; Alpha 5</title>
 </head>
 <body background="Docs/awebbg.iff">
 <img src="Docs/aweb.iff" width=192 height=93 alt="AWeb Logo" align=left>
 <p>
 <table align=center>
 <tr><td align=center>
-         <h1>AWeb 3.6 &nbsp; Alpha 3</h1>
+         <h1>AWeb 3.6 &nbsp; Alpha 5</h1>
 <tr><td align=center colspan=2><font face="Helvetica, Arial, sans-serif" size=+2 color="#cc0000"><i>The Amiga Web Browser</i></font>
 </table>
 <br clear=all>
@@ -33,15 +33,15 @@ This is AWeb 3.6, a new release of the classic AWeb for the Amiga from <a href="
 <p>
     New features in AWeb 3.6 include:
 <ul>
-<li><b>Inline CSS</b> - for the first time, AWeb now supports CSS, starting with inline CSS for properties matching HTML4 attributes</li>
-<li>Introducing <b>AWebView</b> - a new standalone HTML and Markdown file viewer, built from the same AWeb codebase</li>
+<li><b>CSS</b> - AWeb now supports CSS, starting with experimental inline CSS for properties matching HTML4 attributes and even more experimental support for external CSS stylesheets</li>
+<li>Introducing <b>AWebView</b> - a new standalone HTML and Markdown file viewer, built from the same shared AWeb codebase</li>
 <li><b>Web safe fonts</b>Font tag parsing and matching logic now works like web safe fonts on other browsers</li>
-<li>gemini:// and spartan:// protocol </li>
+<li>gemini:// and spartan:// protocol support for these new gopher-like networks</li>
 <li>A new aweblib brings <b>about:</b> URLs with home, fonts, version, plugins and blank page templates</li>
 <li><b>HTTP/1.1</b> gzip and chunked encoding, and experimental keep-alive support</li>
 <li><b>AmiSSL 5.20</b> support for HTTPS connections, including TLS 1.3 and strong cipher suites</li>
 <li><b>utf-8</b> transcoding of the most common multibyte characters to Latin-1</li>
-<li><b>AmigaOS 3.2</b> features such as contextual mouse pointers are now supported, while retaining compatibility with 3.1</li>
+<li><b>AmigaOS 3.2</b> features such as contextual mouse pointers and window iconification are now supported, while retaining compatibility with 3.1</li>
 </ul>
 </p>
 
@@ -50,7 +50,7 @@ This is AWeb 3.6, a new release of the classic AWeb for the Amiga from <a href="
 AWebView is a new standalone HTML and Markdown file viewer (in fact, it can display any file AWeb can display including images) built from the same AWeb codebase using the LOCALONLY build configuration. It is a separate application from AWeb and takes up (slightly) less RAM because it does not integrate any of the network features.
 </p>
 
-<p>AWebView incorporates the same file:// protocol handler as AWeb including the new directory browsing feature added in AWeb 3.6. It can therefore be used as a very simple file manager.</p>
+<p>AWebView incorporates the same file:// protocol handler as AWeb including the new directory browsing feature added in AWeb 3.6.</p>
 
 <p>AWebView loads it's preferences from an AWeb profile called 'AWebView' instead of the default AWeb config. AWebCfg can still be used to edit the preferences for AWebView, by saving the preferences . Of course, many of the preference settings are not relevant to AWebView and will be ignored.</p>
 
@@ -66,15 +66,13 @@ This is an initial release of AWebView provided as a proof of concept for feedba
 <li>Note that AWebView already inherits AWeb's AppWindow support. Currently this will view the file, not copy it to the location of the current folder as might be expected.</li>
 </ul>
 
-Please share feedback and ideas over at GitHub or on the project Discord server.
-
 <h2>Running AWeb</h2>
 
 <p>
 AWeb no longer requires an installer script. It can run from anywhere. Just run it from the folder it's in. Do note however that if the assign "AWeb:" does not already exist it will temporarily assign it to its current directory until it exits. On the other hand if you have assigned AWeb: to a different location then it won't find its plugins.
 </p>
 <p>
-When launched from Workbench, the default CONFIG is set to AWeb36a3 in the ToolTypes, which means it will not conflict with any existing AWeb prefs in your ENV:AWeb3 directory. When running from the command line you must specify CONFIG=AWeb36a3 to achieve the same effect as it will otherwise use the existing AWeb prefs. If you have an earlier version of AWeb installed with saved settings, this will prevent AWeb 3.6 Alpha 3 from using those settings which may include deprecated default paths such as AWebPath:
+When launched from Workbench, the default CONFIG is set to AWeb36a3 in the ToolTypes, which means it will not conflict with any existing AWeb prefs in your ENV:AWeb3 directory. When running from the command line you must specify CONFIG=AWeb36a3 to achieve the same effect as it will otherwise use the existing AWeb prefs. If you have an earlier version of AWeb installed with saved settings, this will prevent AWeb from using those settings which may include deprecated default paths such as AWebPath:
 </p>
 <p>
 This alpha build supports a HTTPDEBUG/S command line option which will output a LOT of debugging output to the console for any network operations. If you use this, redirect the output to a file on a safe disk like the RAM: disk or, if running under emulation, a mounted host folder, just in case it causes filesystem corruption.
@@ -85,18 +83,25 @@ The requirements for AWeb 3.6 remain the same as the original 3.4 release, howev
 
 <h2>What's New in 3.6 Alpha 5?</h2>
 <ul>
-<li>Experimental <b>inline CSS</b> support for a subset of CSS1 and CSS2 properties, see the <a href="Docs/css_test.html">CSS Test Page</a> for details</li>
+<li>Experimental <b>inline CSS</b> support for a subset of CSS1 and CSS2 properties, see the <a href="Docs/css_test.html">CSS Test Page</a></li>
+<li>Experimental <b>link rel="stylesheet"</b> support for external CSS stylesheets, see the <a href="Docs/stylesheet_test.html">lin rel stylesheet Test Page</a></li>
+<li>IMPORTANT: Some websites that were previously usable with earlier releases of AWeb may no longer display in a usable form, if they use external stylesheets</li>
+<li><b>XHTML 1.0</b> support for parsing and rendering XHTML documents, enforcing strict parsing mode when XHTML is detected and supporting CDATA</li>
 <li>PNG AWebPlugin updated further to version 1.0.69 (latest 1.0.x branch) after it was updated to 1.0.0 by integrating the changes from AWeb 3.5</li>
 <li>Experimental support for the <b>gemini://</b> and <b>spartan://</b> protocols, new gopher-like networks, and the gemtext markup language they use</li>
 <li>Introducing <b>AWebView</b> a new standalone HTML and Markdown file viewer built using the LOCALONLY build configuration</li>
 <li>utf-8 support now handles mapping some 3-byte and 4-byte characters to Latin-1</li>
 <li>TLS connections now safely fail immediately instead of prompting the user to allow unsecure fallback, if secure socket cannot be established</li>
+<li>PNG AWebPlugin now uses the same zlib as the main AWeb program instead of the previous ancient version</li>
+<li>Further enhancement to the <b>HTTP/1.1 keep-alive</b> support but still disabled in this alpha release build</li>
 <li>3.5 FEATURE: PNG AWebPlugin's libpng library updated to version 1.0.0 as used in AWeb 3.5</li> 
 <li>3.5 FEATURE: JFIF AWebPlugin's JPEG library updated to version 6b as used in AWeb 3.5</li>
 <li>3.5 FEATURE: GIF AWebPlugin incorporates GIF engine changes from AWeb 3.5</li>
 <li>3.5 FEATURE: Reintegrated the improvements to the gopher:// aweblib module from AWeb 3.5</li>
-<li>FIXED: If using a custom CONFIG argument, AWeb now creates the directory for it if it doesn't already exist before saving into it - caused a DSI hit on OS4</li>
+<li>FIXED: Null pointer access during argument parsing on launch which failed silently except on OS4 where it throws a DSI error</li>
+<li>FIXED: If using a custom CONFIG argument, AWeb now creates the directory for it if it doesn't already exist before saving into it</li>
 <li>FIXED: TLS connections are properly cleaned up in all circumstances and AmiSSL libraries are only closed on application exit</li>
+<li>FIXED: Improvements to chunked encoding handling mean connections to google no longer trigger binary download. Google still doesn't work but at least you'll see their errors pages now</li>
 </ul>
 
 <h2>What's New in 3.6 Alpha 4?</h2>
@@ -186,7 +191,6 @@ The following issues are specific to running the 3.6 Alpha 2 68K build on OS4:
 <li>Pages with a background image experience graphics corruption when using the window scroll bars to scroll the page</li>
 <li>Attempts to access HTTPS connections will fail</li>
 <li>Mousewheel does not scroll</li>
-<li>Since the new default homepage relies on the about.aweblib plugin, there may be issues on OS4, in which case delete the plugin or run AWebCfg first to save a new default home page</li>
 </ul>
 
 <p>Many of these issues almost certainly have been fixed before in the AWeb 3.5 codebase but they have not been integrated into AWeb 3.6, which is based on AWeb 3.4, at this time.</p>

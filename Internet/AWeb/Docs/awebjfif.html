@@ -16,24 +16,6 @@ Features include:
 </ul>
 
 <h2>Installation</h2>
-Follow these steps to install the AWeb JFIF plugin.
-<ol>
-<li>
-Run the supplied Installer script. It will copy the necessary files to a
-drawer <code>awebplugins</code> in the drawer where the AWeb-II program is
-located.
-<p>
-The installer script might ask you for a location to store temporary swap
-files during decoding of large images. You should select a drawer on your
-hard disk.
-<br><br>
-<li>
-<form action="x-aweb:rexx/AWeb:Docs/awebjfif.awebrx">
-Run the <input type=submit value="Setup script">.
-</form>
-</ol>
-
-<h2>Manual Installation</h2>
 If, for some reason, you don't want to install the plugin automatically, you
 can install it by hand.
 <ol>
@@ -50,7 +32,7 @@ your <code>S:User-Startup</code> file if it isn't already there:
 where <var>swap_drawer</var> is the drawer you selected.
 <br><br>
 <li>
-Start AWeb-II, open the browser settings and bring up the <em>Viewers</em> page.
+Start AWeb, open the browser settings and bring up the <em>Viewers</em> page.
 Select the entry for MIME type <code>IMAGE/JFIF</code> and change the following
 settings:
 <ul>
@@ -147,9 +129,15 @@ The AWeb JFIF plugin is copyright &copy; 1998 by Yvon Rozijn.<br>
 It uses code from the JPEG library that was written by the Independent JPEG Group (IJG).
 
 <h2>History</h2>
+
+awebjfif.awebplugin 1.11 (29-11-2025)
+<ul>
+<li>Updated JPEG library to version 6b as used in AWeb 3.5.
+</ul>
+
 awebjfif.awebplugin 1.10 (16-11-2025)
 <ul>
-<li>Updated to build with AWeb 3.6.
+<li>Updated to build with AWeb 3.6 and P96 graphics.
 </ul>
 
 awebjfif.awebplugin 1.9 (1-12-2000)

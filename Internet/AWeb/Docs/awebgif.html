@@ -17,27 +17,28 @@ Features include:
 <li>Support for P96 graphics
 </ul>
 
-<h2>Configuration</h2>
-The AWeb GIF plugin is preinstalled with AWeb but needs to be configured before
-use. The plugin file <code>awebgif.awebplugin</code> is located in the
-<code>awebplugins</code> drawer where AWeb is installed.
-<p>
-To configure the plugin:
+<h2>Installation</h2>
+If, for some reason, you don't want to install the plugin automatically, you
+can install it by hand.
 <ol>
 <li>
-Start AWeb, open the browser settings and bring up the <em>Viewers</em> page.
+Copy the file named <code>awebgif.awebplugin</code> to a location of your
+choice. The recommended location for plugins like this is a drawer
+<code>awebplugins</code> in the drawer where the AWeb-II program is located.
+<br><br>
+<li>
+Start AWeb-II, open the browser settings and bring up the <em>Viewers</em> page.
 Select the entry for MIME type <code>IMAGE/GIF</code> and change the following
 settings:
 <ul>
    <li>Action: "AWeb Plugin (A)"
-   <li>Name: the full path to the plugin file (e.g., <code>awebplugins/awebgif.awebplugin</code>)
+   <li>Name: the location where you copied the file <code>awebgif.awebplugin</code>
    <li>Arguments: leave blank or supply optional parameters, see below
 </ul>
 <br><br>
 <li>
 Don't forget to save your settings.
 </ol>
-<p>
 
 <h2><a name=parameters>Parameters</a></h2>
 The awebgif plugin supports two optional parameters. You can type the chosen
@@ -122,9 +123,14 @@ possibility of such damage or loss.
 The AWeb GIF plugin is copyright &copy; 1998 by Yvon Rozijn.<br>
 
 <h2>History</h2>
+awebgif.awebplugin 1.13 (29-11-2025)
+<ul>
+<li>Updated to use the GIF engine from AWeb 3.5.
+</ul>
+
 awebgif.awebplugin 1.12 (16-11-2025)
 <ul>
-<li>Updated to build with AWeb 3.6.
+<li>Updated to build with AWeb 3.6 and P96 graphics.
 </ul>
 
 awebgif.awebplugin 1.11 (1-12-2000)

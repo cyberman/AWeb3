@@ -25,6 +25,63 @@ Release History
 <body background=awebbg.iff>
 <h1><img src=aweb.iff width=192 height=93 alt=(logo)>&nbsp; Release History</h1>
 
+<h2>AWeb 3.6 Alpha 5</h2>
+
+<h3>Major New Features</h3>
+<ul>
+<li>Experimental <b>inline CSS</b> support for a subset of CSS1 and CSS2 properties, see the <a href="css_test.html">CSS Test Page</a></li>
+<li>Experimental <b>link rel="stylesheet"</b> support for external CSS stylesheets, see the <a href="stylesheet_test.html">link rel stylesheet Test Page</a></li>
+<li><b>XHTML 1.0</b> support for parsing and rendering XHTML documents, enforcing strict parsing mode when XHTML is detected and implementing CDATA sections</li>
+<li>Experimental support for the <b>gemini://</b> and <b>spartan://</b> protocols, new gopher-like networks, and the gemtext markup language they use</li>
+<li>Introducing <b>AWebView</b> a new standalone HTML and Markdown file viewer built using the LOCALONLY build configuration</li>
+</ul>
+
+<h3>CSS Features</h3>
+<ul>
+<li>Text properties: font-family, font-size, font-style, font-weight, color, text-align, text-decoration, text-transform, white-space</li>
+<li>Layout properties: padding, margin (1-4 value syntax), position, top, left</li>
+<li>Background properties: background-color, background-image</li>
+<li>Border properties: border-style, border-color (parsing only, rendering limited)</li>
+<li>List properties: list-style-type for UL and OL elements</li>
+<li>Line height: line-height property parsing</li>
+<li>CSS Grid: Basic grid layout properties parsing (display: grid, grid-gap, grid-template-columns, grid positioning)</li>
+<li>External stylesheets with CSS selector matching (element, class, ID selectors)</li>
+</ul>
+
+<h3>Improvements</h3>
+<ul>
+<li>PNG AWebPlugin updated further to version 1.0.69 (latest 1.0.x branch) after it was updated to 1.0.0 by integrating the changes from AWeb 3.5</li>
+<li>PNG AWebPlugin now uses the same zlib as the main AWeb program instead of the previous ancient version</li>
+<li>utf-8 support now handles mapping some 3-byte and 4-byte characters to Latin-1</li>
+<li>TLS connections now safely fail immediately instead of prompting the user to allow unsecure fallback, if secure socket cannot be established</li>
+<li>Further enhancement to the <b>HTTP/1.1 keep-alive</b> support but still disabled in this alpha release build</li>
+<li>Added support for intuition.library 46 Iconify gadget on browser windows</li>
+<li>Right mouse button is now the default input for the context menu instead of middle button</li>
+<li>Entity names are now case-insensitive (both &auml; and &Auml; work)</li>
+</ul>
+
+<h3>Features Reintegrated from AWeb 3.5</h3>
+<ul>
+<li>PNG AWebPlugin's libpng library updated to version 1.0.0 as used in AWeb 3.5</li>
+<li>JFIF AWebPlugin's JPEG library updated to version 6b as used in AWeb 3.5</li>
+<li>GIF AWebPlugin incorporates GIF engine changes from AWeb 3.5</li>
+<li>Reintegrated the improvements to the gopher:// aweblib module from AWeb 3.5 including enhanced type support and proper URL scheme handling</li>
+</ul>
+
+<h3>Bug Fixes</h3>
+<ul>
+<li>Fixed infinite loops in CSS parser by ensuring parser pointer always advances, even on parse errors</li>
+<li>Fixed CSS length value parsing to properly handle decimal values (.5em, 1.5em) and percentage values (150%)</li>
+<li>Fixed CSS link color styles from affecting body text color</li>
+<li>Fixed CDATA parsing in XHTML documents</li>
+<li>Fixed parsing self-closing tags on malformed websites (e.g. amigaworld.net)</li>
+<li>Fixed null pointer access during argument parsing on launch which failed silently except on OS4 where it throws a DSI error</li>
+<li>Fixed issue where if using a custom CONFIG argument, AWeb now creates the directory for it if it doesn't already exist before saving into it</li>
+<li>Fixed TLS connections are properly cleaned up in all circumstances and AmiSSL libraries are only closed on application exit</li>
+<li>Fixed improvements to chunked encoding handling mean connections to google no longer trigger binary download. Google still doesn't work but at least you'll see their errors pages now</li>
+<li>Added AmiSSLBase validation checks ahead of macro calls to prevent DSI errors sometimes seen on OS4</li>
+</ul>
+
 <h2>AWeb 3.6 Alpha 4</h2>
 
 <h3>New Features</h3>
@@ -202,24 +259,27 @@ Release History
 <h3>General Issues</h3>
 <ul>
 <li>Although the AmiSSL interface code has been completely rewritten to work with AmiSSL 5.20 and properly support asynchronous SSL connections, especially with the use of multiple threads (Tasks), it is still not completely stable</li>
+<li>Using image AWebPlugins with HTTPS connections causes crashes and lockups - for the time being do not use the image plugins, they are not configured by default</li>
 <li>This version does not currently include most of the changes from the various incomplete 3.5 releases, for now, instead it reimplements the HTTP and AmiSSL client code to a more recent standard. Other features of the 3.5 releases will come later</li>
 <li>Setting the disk cache to 0 or a very small size will prevent images from rendering - this is an issue carried over from the original AWeb</li>
-<li>The primary documentation has not yet been updated for release 3.6</li>
+<li>The documentation is still being updated for release 3.6</li>
 <li>The new support for Markdown documents still has some visual glitches</li>
-<li>The AWebPlugins are not enabled by default, you will need to enable them manually in the configuration</li>
+<li>The AWebPlugins are deliberately not enabled by default, you will need to enable them manually in the configuration</li>
 <li>Feedback is also particularly welcome on default settings and default programs</li>
 </ul>
 
 <h3>OS4 Specific Issues</h3>
 <p>
-The following issues are specific to running the 3.6 Alpha 4 68K build on OS4:
+The following issues are specific to running the 3.6 Alpha 5 68K build on OS4:
 </p>
 <ul>
 <li>Pages with a background image experience graphics corruption when using the window scroll bars to scroll the page</li>
-<li>Attempts to access HTTPS connections will trigger a GDI fault in the OS4 version of AmiSSL</li>
+<li>Attempts to access HTTPS connections will fail (as a native 68k binary it cannot utilise the PowerPC native AmiSSL library)</li>
 <li>Mousewheel does not scroll</li>
-<li>Since the new default homepage relies on the about.aweblib plugin, there may be issues on OS4, in which case delete the plugin or run AWebCfg first to save a new default home page</li>
 </ul>
+<p>
+Many of these issues almost certainly have been fixed before in the AWeb 3.5 codebase but they have not been integrated into AWeb 3.6, which is based on AWeb 3.4, at this time.
+</p>
 
 <p>
 <hr>
