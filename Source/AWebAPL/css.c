@@ -1226,11 +1226,16 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
          }
          /* Apply color */
          else if(stricmp((char *)prop->name,"color") == 0)
-         {  colorrgb = ParseHexColor(prop->value);
-            if(colorrgb != ~0)
-            {  ci = Finddoccolor(doc,colorrgb);
-               if(ci)
-               {  Asetattrs(body,AOBDY_Fontcolor,ci,TAG_END);
+         {  /* Don't apply color to body font color for anchor tags.
+              * Link colors are handled at the document level via ApplyCSSToLinkColors.
+              * Setting color on the body would incorrectly affect all body text, not just the link. */
+            if(!tagname || stricmp((char *)tagname,"A") != 0)
+            {  colorrgb = ParseHexColor(prop->value);
+               if(colorrgb != ~0)
+               {  ci = Finddoccolor(doc,colorrgb);
+                  if(ci)
+                  {  Asetattrs(body,AOBDY_Fontcolor,ci,TAG_END);
+                  }
                }
             }
          }
@@ -1572,22 +1577,15 @@ void ApplyInlineCSSToLink(struct Document *doc,void *link,void *body,UBYTE *styl
       /* Parse property */
       prop = ParseProperty(doc,&p);
       if(prop && prop->name && prop->value)
-      {  /* Apply text-decoration: none */
+      {           /* Apply text-decoration: none */
          if(stricmp((char *)prop->name,"text-decoration") == 0)
          {  if(stricmp((char *)prop->value,"none") == 0)
             {  Asetattrs(link,AOLNK_NoDecoration,TRUE,TAG_END);
             }
          }
-         /* Apply color - apply to body's font color */
-         else if(stricmp((char *)prop->name,"color") == 0)
-         {  colorrgb = ParseHexColor(prop->value);
-            if(colorrgb != ~0)
-            {  ci = Finddoccolor(doc,colorrgb);
-               if(ci && body)
-               {  Asetattrs(body,AOBDY_Fontcolor,ci,TAG_END);
-               }
-            }
-         }
+         /* Note: color is not handled here for inline styles on links.
+          * Link colors are handled at the document level via ApplyCSSToLinkColors.
+          * Setting color on the body would incorrectly affect all body text, not just the link. */
       }
       
       /* Free the property */
