@@ -559,6 +559,12 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
             }
          }
          
+         /* Skip rules with pseudo-classes (e.g., :link, :visited, :hover) - these are handled
+          * by ApplyCSSToLinkColors and ApplyCSSToLink, not by ApplyCSSToBody */
+         if(matches && (sel->type & CSS_SEL_PSEUDO) && sel->pseudo)
+         {  matches = FALSE;
+         }
+         
          /* If selector matches, apply properties */
          if(matches)
          {  /* debug_printf("CSS: *** SELECTOR MATCHED! *** Element=%s class=%s id=%s\n",
