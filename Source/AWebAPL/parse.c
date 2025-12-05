@@ -1134,6 +1134,7 @@ UBYTE *Parsecommentcompatible(UBYTE *p,UBYTE *end,BOOL eof)
 
 /* Parse XML declaration: <?xml version="1.0" encoding="..." standalone="yes"?>
  * Extracts encoding if present and stores it in document flags.
+ * Sets htmlmode to HTML_STRICT if XML declaration is present (indicates XHTML).
  * Returns pointer after ?> or NULL on error/eof */
 static UBYTE *Parsexmldeclaration(struct Document *doc,UBYTE *p,UBYTE *end,BOOL eof)
 {  UBYTE *attrstart,*attrend;
@@ -1146,6 +1147,9 @@ static UBYTE *Parsexmldeclaration(struct Document *doc,UBYTE *p,UBYTE *end,BOOL 
    if(p>=end-3) return NULL;
    if(!STRNIEQUAL(p,"xml",3)) return NULL;  /* Not an XML declaration */
    p+=3;
+   
+   /* XML declaration indicates XHTML - set strict mode */
+   doc->htmlmode=HTML_STRICT;
    
    /* Parse attributes: version, encoding, standalone */
    while(p<end-1 && !(p[0]=='?' && p[1]=='>'))
@@ -1200,11 +1204,13 @@ static UBYTE *Parsexmldeclaration(struct Document *doc,UBYTE *p,UBYTE *end,BOOL 
 
 /* Parse DOCTYPE declaration: <!DOCTYPE root-element [PUBLIC "..." "..." | SYSTEM "..."] [...]>
  * Extracts root element name if present.
+ * Detects XHTML DOCTYPEs and sets htmlmode to HTML_STRICT for XHTML documents.
  * Returns pointer after > or NULL on error/eof */
 static UBYTE *Parsedoctypedeclaration(struct Document *doc,UBYTE *p,UBYTE *end,BOOL eof)
 {  UBYTE rootname[32];
    short i;
    UBYTE quote;
+   BOOL isxhtml=FALSE;
    
    /* Skip "DOCTYPE" keyword */
    while(p<end && isspace(*p)) p++;
@@ -1225,14 +1231,26 @@ static UBYTE *Parsedoctypedeclaration(struct Document *doc,UBYTE *p,UBYTE *end,B
       /* Root element name extracted - could be used for document type detection */
    }
    
-   /* Skip rest of DOCTYPE until closing > */
+   /* Check for XHTML in DOCTYPE string */
+   /* Look for "XHTML" in the remaining DOCTYPE content */
    while(p<end && *p!='>')
    {  if(*p=='"' || *p=='\'')
       {  quote=*p++;
          while(p<end && *p!=quote) p++;
          if(p<end) p++;  /* Skip closing quote */
       }
-      else p++;
+      else
+      {  /* Check if we're at "XHTML" (case-insensitive) */
+         if(p+4<end && STRNIEQUAL(p,"XHTML",5))
+         {  isxhtml=TRUE;
+         }
+         p++;
+      }
+   }
+   
+   /* If XHTML detected, set htmlmode to HTML_STRICT */
+   if(isxhtml)
+   {  doc->htmlmode=HTML_STRICT;
    }
    
    if(p>=end) return NULL;  /* Missing closing > */
@@ -1362,6 +1380,11 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
             for(;;)
             {  while(p<end && isspace(*p)) p++;
                if(p>=end) return Eofandexit(doc,eof);
+               /* Check for self-closing tag syntax: /> (XHTML) */
+               if(p<end-1 && p[0]=='/' && p[1]=='>')
+               {  p+=2;  /* Skip /> */
+                  break;
+               }
                if(*p=='>') break;
                if(doc->htmlmode!=HTML_STRICT && *p=='<')
                {  p--;  /* Don't skip over '<' yet */
