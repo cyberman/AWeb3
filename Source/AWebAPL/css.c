@@ -1468,12 +1468,18 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                   paddingLeft = ParseCSSLengthValue(paddingTokens[3],&paddingNum);
                }
                
-               /* Apply padding to left and top margins (right/bottom not supported) */
+               /* Apply padding values to body */
                if(paddingTop >= 0 && paddingNum.type == NUMBER_NUMBER)
-               {  Asetattrs(body,AOBDY_Topmargin,paddingTop,TAG_END);
+               {  Asetattrs(body,AOBDY_PaddingTop,paddingTop,TAG_END);
+               }
+               if(paddingRight >= 0 && paddingNum.type == NUMBER_NUMBER)
+               {  Asetattrs(body,AOBDY_PaddingRight,paddingRight,TAG_END);
+               }
+               if(paddingBottom >= 0 && paddingNum.type == NUMBER_NUMBER)
+               {  Asetattrs(body,AOBDY_PaddingBottom,paddingBottom,TAG_END);
                }
                if(paddingLeft >= 0 && paddingNum.type == NUMBER_NUMBER)
-               {  Asetattrs(body,AOBDY_Leftmargin,paddingLeft,TAG_END);
+               {  Asetattrs(body,AOBDY_PaddingLeft,paddingLeft,TAG_END);
                }
             }
             
@@ -1573,16 +1579,39 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                {  borderColor = ParseHexColor(token);
                }
                /* Otherwise it's probably a style (solid, dashed, dotted, etc.) */
-               /* We parse but don't store style yet as rendering isn't implemented */
+               else
+               {  UBYTE *styleStr;
+                  UBYTE *end;
+                  long len;
+                  len = pval - token;
+                  end = token + len;
+                  styleStr = ALLOCTYPE(UBYTE, len + 1, MEMF_FAST);
+                  if(styleStr)
+                  {  memmove(styleStr, token, len);
+                     styleStr[len] = '\0';
+                     Asetattrs(body, AOBDY_BorderStyle, styleStr, TAG_END);
+                  }
+               }
             }
             
-            /* Note: Full border rendering not yet implemented, but we parse it */
+            /* Store border width and color */
+            if(borderWidth >= 0 && num.type == NUMBER_NUMBER)
+            {  Asetattrs(body, AOBDY_BorderWidth, borderWidth, TAG_END);
+            }
+            if(borderColor != ~0)
+            {  ci = Finddoccolor(doc, borderColor);
+               if(ci)
+               {  Asetattrs(body, AOBDY_BorderColor, ci, TAG_END);
+               }
+            }
          }
          /* Apply border-style */
          else if(stricmp((char *)prop->name,"border-style") == 0)
-         {  /* Parse border style: solid, dashed, dotted, double, groove, ridge, inset, outset, none */
-            /* We parse but don't store yet as rendering isn't fully implemented */
-            /* Values: solid, dashed, dotted, double, groove, ridge, inset, outset, none */
+         {  UBYTE *styleStr;
+            styleStr = Dupstr(prop->value, -1);
+            if(styleStr)
+            {  Asetattrs(body, AOBDY_BorderStyle, styleStr, TAG_END);
+            }
          }
          /* Apply border-color */
          else if(stricmp((char *)prop->name,"border-color") == 0)
@@ -1592,9 +1621,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             if(colorrgb != ~0)
             {  ci = Finddoccolor(doc,colorrgb);
                if(ci)
-               {  /* For tables, apply to bordercolor */
-                  /* For other elements, we'd need to store it for future rendering */
-                  /* For now, we only apply to table cells via ApplyCSSToTableCell */
+               {  Asetattrs(body, AOBDY_BorderColor, ci, TAG_END);
                }
             }
          }

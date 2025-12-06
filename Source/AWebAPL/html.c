@@ -1154,6 +1154,149 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      {  Asetattrs(body, AOBDY_MaxHeight, maxHeightValue, TAG_END);
                      }
                   }
+                  /* Apply padding shorthand */
+                  else if(stricmp((char *)prop->name,"padding") == 0)
+                  {  UBYTE *paddingP;
+                     UBYTE *tokenStart;
+                     UBYTE *tokenEnd;
+                     long tokenLen;
+                     UBYTE *tokenBuf;
+                     UBYTE *paddingTokens[4];
+                     long paddingCount;
+                     long paddingTop;
+                     long paddingRight;
+                     long paddingBottom;
+                     long paddingLeft;
+                     long j;
+                     paddingP = prop->value;
+                     paddingCount = 0;
+                     paddingTop = paddingRight = paddingBottom = paddingLeft = 0;
+                     for(j = 0; j < 4; j++) paddingTokens[j] = NULL;
+                     
+                     /* Parse padding values - can be 1, 2, 3, or 4 values */
+                     for(j = 0; j < 4 && paddingP && *paddingP; j++)
+                     {  while(*paddingP && isspace(*paddingP)) paddingP++;
+                        if(!*paddingP) break;
+                        tokenStart = paddingP;
+                        while(*paddingP && !isspace(*paddingP)) paddingP++;
+                        tokenEnd = paddingP;
+                        tokenLen = tokenEnd - tokenStart;
+                        if(tokenLen > 0)
+                        {  tokenBuf = ALLOCTYPE(UBYTE,tokenLen + 1,0);
+                           if(tokenBuf)
+                           {  memmove(tokenBuf,tokenStart,tokenLen);
+                              tokenBuf[tokenLen] = '\0';
+                              paddingTokens[paddingCount] = tokenBuf;
+                              paddingCount++;
+                           }
+                        }
+                     }
+                     
+                     /* Apply padding values based on count */
+                     if(paddingCount >= 1)
+                     {  paddingTop = Getnumber(&num,paddingTokens[0]);
+                        if(paddingCount == 1)
+                        {  paddingRight = paddingBottom = paddingLeft = paddingTop;
+                        }
+                        else if(paddingCount == 2)
+                        {  paddingBottom = paddingTop;
+                           paddingRight = Getnumber(&num,paddingTokens[1]);
+                           paddingLeft = paddingRight;
+                        }
+                        else if(paddingCount == 3)
+                        {  paddingRight = Getnumber(&num,paddingTokens[1]);
+                           paddingLeft = paddingRight;
+                           paddingBottom = Getnumber(&num,paddingTokens[2]);
+                        }
+                        else if(paddingCount == 4)
+                        {  paddingRight = Getnumber(&num,paddingTokens[1]);
+                           paddingBottom = Getnumber(&num,paddingTokens[2]);
+                           paddingLeft = Getnumber(&num,paddingTokens[3]);
+                        }
+                        
+                        /* Apply padding values */
+                        if(paddingTop >= 0 && num.type == NUMBER_NUMBER) Asetattrs(body,AOBDY_PaddingTop,paddingTop,TAG_END);
+                        if(paddingRight >= 0 && num.type == NUMBER_NUMBER) Asetattrs(body,AOBDY_PaddingRight,paddingRight,TAG_END);
+                        if(paddingBottom >= 0 && num.type == NUMBER_NUMBER) Asetattrs(body,AOBDY_PaddingBottom,paddingBottom,TAG_END);
+                        if(paddingLeft >= 0 && num.type == NUMBER_NUMBER) Asetattrs(body,AOBDY_PaddingLeft,paddingLeft,TAG_END);
+                     }
+                     
+                     /* Free temporary token buffers */
+                     for(j = 0; j < paddingCount; j++)
+                     {  if(paddingTokens[j]) FREE(paddingTokens[j]);
+                     }
+                  }
+                  /* Apply border shorthand */
+                  else if(stricmp((char *)prop->name,"border") == 0)
+                  {  UBYTE *pval;
+                     UBYTE *token;
+                     long borderWidth;
+                     ULONG borderColor;
+                     struct Colorinfo *ci;
+                     
+                     pval = prop->value;
+                     borderWidth = -1;
+                     borderColor = ~0;
+                     
+                     /* Parse tokens separated by spaces */
+                     while(*pval)
+                     {  SkipWhitespace(&pval);
+                        if(!*pval) break;
+                        
+                        token = pval;
+                        while(*pval && !isspace(*pval)) pval++;
+                        
+                        /* Check if it's a width */
+                        if(isdigit(*token) || *token == '+' || *token == '-')
+                        {  borderWidth = Getnumber(&num, token);
+                           if(borderWidth >= 0 && num.type == NUMBER_NUMBER)
+                           {  Asetattrs(body, AOBDY_BorderWidth, borderWidth, TAG_END);
+                           }
+                        }
+                        /* Check if it's a color */
+                        else if(*token == '#')
+                        {  borderColor = ParseHexColor(token);
+                           if(borderColor != ~0)
+                           {  ci = Finddoccolor(doc, borderColor);
+                              if(ci)
+                              {  Asetattrs(body, AOBDY_BorderColor, ci, TAG_END);
+                              }
+                           }
+                        }
+                        /* Otherwise it's probably a style */
+                        else
+                        {  UBYTE *styleStr;
+                           long len;
+                           len = pval - token;
+                           styleStr = ALLOCTYPE(UBYTE, len + 1, 0);
+                           if(styleStr)
+                           {  memmove(styleStr, token, len);
+                              styleStr[len] = '\0';
+                              Asetattrs(body, AOBDY_BorderStyle, styleStr, TAG_END);
+                           }
+                        }
+                     }
+                  }
+                  /* Apply border-color */
+                  else if(stricmp((char *)prop->name,"border-color") == 0)
+                  {  ULONG colorrgb;
+                     struct Colorinfo *ci;
+                     colorrgb = ParseHexColor(prop->value);
+                     if(colorrgb != ~0)
+                     {  ci = Finddoccolor(doc, colorrgb);
+                        if(ci)
+                        {  Asetattrs(body, AOBDY_BorderColor, ci, TAG_END);
+                        }
+                     }
+                  }
+                  /* Apply border-style */
+                  else if(stricmp((char *)prop->name,"border-style") == 0)
+                  {  UBYTE *styleStr;
+                     styleStr = Dupstr(prop->value, -1);
+                     if(styleStr)
+                     {  Asetattrs(body, AOBDY_BorderStyle, styleStr, TAG_END);
+                     }
+                  }
                   /* Apply grid-gap (row-gap column-gap) */
                   else if(stricmp((char *)prop->name,"grid-gap") == 0)
                   {  UBYTE *gapP;

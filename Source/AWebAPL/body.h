@@ -148,6 +148,27 @@
 #define AOBDY_MaxHeight    (AOBDY_Dummy+45)  /* SET,GET */
    /* (long) CSS max-height value */
 
+#define AOBDY_PaddingTop   (AOBDY_Dummy+46)  /* SET,GET */
+   /* (long) CSS padding-top value */
+
+#define AOBDY_PaddingRight (AOBDY_Dummy+47)  /* SET,GET */
+   /* (long) CSS padding-right value */
+
+#define AOBDY_PaddingBottom (AOBDY_Dummy+48)  /* SET,GET */
+   /* (long) CSS padding-bottom value */
+
+#define AOBDY_PaddingLeft  (AOBDY_Dummy+49)  /* SET,GET */
+   /* (long) CSS padding-left value */
+
+#define AOBDY_BorderWidth  (AOBDY_Dummy+50)  /* SET,GET */
+   /* (long) CSS border width (all sides) */
+
+#define AOBDY_BorderColor  (AOBDY_Dummy+51)  /* SET,GET */
+   /* (struct Colorinfo *) CSS border color */
+
+#define AOBDY_BorderStyle  (AOBDY_Dummy+52)  /* SET,GET */
+   /* (UBYTE *) CSS border style: "solid", "dashed", "dotted", etc. */
+
 /*--- body support structures ---*/
 
 /* global references */

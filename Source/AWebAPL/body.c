@@ -87,6 +87,13 @@ struct Body
    long maxwidth;            /* CSS max-width */
    long minheight;           /* CSS min-height */
    long maxheight;           /* CSS max-height */
+   long paddingtop;          /* CSS padding-top */
+   long paddingright;       /* CSS padding-right */
+   long paddingbottom;       /* CSS padding-bottom */
+   long paddingleft;         /* CSS padding-left */
+   long borderwidth;        /* CSS border width */
+   struct Colorinfo *bordercolor; /* CSS border color */
+   UBYTE *borderstyle;      /* CSS border style */
 };
 
 #define BDYF_SUB           0x0001   /* subscript mode */
@@ -768,7 +775,8 @@ static long Layoutbody(struct Body *bd,struct Amlayout *amlp)
       FREE(line);
    }
    else
-   {  y=bd->vmargin;
+   {  /* Start Y position includes top padding */
+      y=bd->vmargin+bd->paddingtop;
       bd->rendery=0;
       child=bd->contents.first;
    }
@@ -804,8 +812,9 @@ static long Layoutbody(struct Body *bd,struct Amlayout *amlp)
          y=Findindentmargin(bd,y,left+1);
       }
       Currentmargin(bd,y,&margleft,&margright);
-      aml.startx=bd->hmargin+margleft+INDENT(left);
-      aml.width=amlp->width-bd->hmargin-margright-INDENT(right);
+      /* Apply padding to content area */
+      aml.startx=bd->hmargin+margleft+INDENT(left)+bd->paddingleft;
+      aml.width=amlp->width-bd->hmargin-margright-INDENT(right)-bd->paddingleft-bd->paddingright;
       aml.flags=nextflags;
       wasmore=BOOLVAL(aml.flags&AMLF_MORE);
       endx=0;
@@ -1002,7 +1011,8 @@ if(SetSignal(0,0)&SIGBREAKF_CTRL_C) return 0;
       child=nextchild;
    }
    /* Include all pending floating objects in body height */
-   bd->aoh=Findmargin(bd,y,0)+bd->vmargin;
+   /* Add padding to body height */
+   bd->aoh=Findmargin(bd,y,0)+bd->vmargin+bd->paddingtop+bd->paddingbottom;
    
    /* Apply min-height constraint */
    if(bd->minheight >= 0 && bd->aoh < bd->minheight)
@@ -1146,6 +1156,56 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
          {  Arender(child,coo,clipMinX,clipMinY,clipMaxX,clipMaxY,flags,amr->text);
          }
       }
+      /* Render border if border width > 0 */
+      if(bd->borderwidth > 0 && coo->rp)
+      {  short borderPen;
+         long borderX1, borderY1, borderX2, borderY2;
+         
+         /* Get border color pen */
+         if(bd->bordercolor && bd->bordercolor->pen >= 0)
+         {  borderPen = bd->bordercolor->pen;
+         }
+         else
+         {  borderPen = coo->dri->dri_Pens[SHADOWPEN];
+         }
+         
+         /* Calculate border rectangle */
+         borderX1 = bd->aox + coo->dx;
+         borderY1 = bd->aoy + coo->dy;
+         borderX2 = borderX1 + bd->aow - 1;
+         borderY2 = borderY1 + bd->aoh - 1;
+         
+         /* Only draw if within clipping region */
+         if(borderX2 >= clipMinX && borderX1 <= clipMaxX &&
+            borderY2 >= clipMinY && borderY1 <= clipMaxY)
+         {  SetAPen(coo->rp, borderPen);
+            
+            /* Draw top border */
+            if(borderY1 >= clipMinY && borderY1 <= clipMaxY)
+            {  Move(coo->rp, MAX(borderX1, clipMinX), borderY1);
+               Draw(coo->rp, MIN(borderX2, clipMaxX), borderY1);
+            }
+            
+            /* Draw bottom border */
+            if(borderY2 >= clipMinY && borderY2 <= clipMaxY)
+            {  Move(coo->rp, MAX(borderX1, clipMinX), borderY2);
+               Draw(coo->rp, MIN(borderX2, clipMaxX), borderY2);
+            }
+            
+            /* Draw left border */
+            if(borderX1 >= clipMinX && borderX1 <= clipMaxX)
+            {  Move(coo->rp, borderX1, MAX(borderY1, clipMinY));
+               Draw(coo->rp, borderX1, MIN(borderY2, clipMaxY));
+            }
+            
+            /* Draw right border */
+            if(borderX2 >= clipMinX && borderX2 <= clipMaxX)
+            {  Move(coo->rp, borderX2, MAX(borderY1, clipMinY));
+               Draw(coo->rp, borderX2, MIN(borderY2, clipMaxY));
+            }
+         }
+      }
+      
       coo->bgcolor=bgcolor;
       coo->bgimage=bgimage;
       Unclipcoords(coo);
@@ -1448,6 +1508,30 @@ static long Setbody(struct Body *bd,struct Amset *ams)
          case AOBDY_MaxHeight:
             bd->maxheight = (long)tag->ti_Data;
             break;
+         case AOBDY_PaddingTop:
+            bd->paddingtop = (long)tag->ti_Data;
+            break;
+         case AOBDY_PaddingRight:
+            bd->paddingright = (long)tag->ti_Data;
+            break;
+         case AOBDY_PaddingBottom:
+            bd->paddingbottom = (long)tag->ti_Data;
+            break;
+         case AOBDY_PaddingLeft:
+            bd->paddingleft = (long)tag->ti_Data;
+            break;
+         case AOBDY_BorderWidth:
+            bd->borderwidth = (long)tag->ti_Data;
+            break;
+         case AOBDY_BorderColor:
+            bd->bordercolor = (struct Colorinfo *)tag->ti_Data;
+            break;
+         case AOBDY_BorderStyle:
+            if(bd->borderstyle && bd->borderstyle != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->borderstyle);
+            }
+            bd->borderstyle = (UBYTE *)tag->ti_Data;
+            break;
       }
    }
    if(fontw) Pushfont(bd,fontstyle,fontsize,fontcolor,fontface,fontw);
@@ -1480,6 +1564,7 @@ static void Disposebody(struct Body *bd)
    if(bd->overflow) FREE(bd->overflow);
    if(bd->clear) FREE(bd->clear);
    if(bd->liststyle) FREE(bd->liststyle);
+   if(bd->borderstyle) FREE(bd->borderstyle);
    Amethodas(AOTP_OBJECT,bd,AOM_DISPOSE);
 }
 
@@ -1505,6 +1590,13 @@ static struct Body *Newbody(struct Amset *ams)
       bd->maxwidth = -1;
       bd->minheight = -1;
       bd->maxheight = -1;
+      bd->paddingtop = 0;
+      bd->paddingright = 0;
+      bd->paddingbottom = 0;
+      bd->paddingleft = 0;
+      bd->borderwidth = 0;
+      bd->bordercolor = NULL;
+      bd->borderstyle = NULL;
       if(Newbodybuild(bd))
       {  Pushfont(bd,STYLE_NORMAL,0,NULL,NULL,FONTW_STYLE);
          bd->bgcolor=-1;
@@ -1595,6 +1687,27 @@ static long Getbody(struct Body *bd,struct Amset *ams)
             break;
          case AOBDY_MaxHeight:
             PUTATTR(tag,bd->maxheight);
+            break;
+         case AOBDY_PaddingTop:
+            PUTATTR(tag,bd->paddingtop);
+            break;
+         case AOBDY_PaddingRight:
+            PUTATTR(tag,bd->paddingright);
+            break;
+         case AOBDY_PaddingBottom:
+            PUTATTR(tag,bd->paddingbottom);
+            break;
+         case AOBDY_PaddingLeft:
+            PUTATTR(tag,bd->paddingleft);
+            break;
+         case AOBDY_BorderWidth:
+            PUTATTR(tag,bd->borderwidth);
+            break;
+         case AOBDY_BorderColor:
+            PUTATTR(tag,bd->bordercolor);
+            break;
+         case AOBDY_BorderStyle:
+            PUTATTR(tag,bd->borderstyle);
             break;
       }
    }
