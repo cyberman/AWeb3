@@ -1714,6 +1714,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
   char cert_subj[256]; /* Certificate subject for user prompt */
   BOOL hostname_valid;
   BOOL chain_valid; /* Certificate chain validation result */
+  SSL *local_ssl;     /* Local copy of SSL pointer for use after semaphore release */
 
   debug_printf("DEBUG: Assl_connect: ENTRY - assl=%p, sock=%ld, hostname=%s\n",
                assl, sock, hostname ? (char *)hostname : "(NULL)");
@@ -1724,24 +1725,34 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
     return ASSLCONNECT_FAIL;
   }
 
+  /* CRITICAL: Use semaphore to protect against concurrent cleanup */
+  ObtainSemaphore(&assl->use_sema);
+
   /* CRITICAL: Validate assl->ssl pointer is not NULL and is in valid memory range */
   /* A corrupted ssl pointer will cause crashes when SSL_set_fd() tries to access it */
   if (!assl->ssl || (ULONG)assl->ssl < 0x1000 || (ULONG)assl->ssl >= 0xFFFFFFF0) {
     debug_printf("DEBUG: Assl_connect: Invalid assl->ssl pointer (%p)\n", assl->ssl);
+    ReleaseSemaphore(&assl->use_sema);
     return ASSLCONNECT_FAIL;
   }
 
   /* CRITICAL: Validate assl->sslctx pointer is not NULL and is in valid memory range */
   if (!assl->sslctx || (ULONG)assl->sslctx < 0x1000 || (ULONG)assl->sslctx >= 0xFFFFFFF0) {
     debug_printf("DEBUG: Assl_connect: Invalid assl->sslctx pointer (%p)\n", assl->sslctx);
+    ReleaseSemaphore(&assl->use_sema);
     return ASSLCONNECT_FAIL;
   }
 
   /* CRITICAL: Check if SSL connection was already closed */
   if (assl->closed) {
     debug_printf("DEBUG: Assl_connect: SSL connection already closed\n");
+    ReleaseSemaphore(&assl->use_sema);
     return ASSLCONNECT_FAIL;
   }
+
+  /* Get local copy of SSL pointer - we'll release semaphore before blocking SSL_connect() */
+  local_ssl = assl->ssl;
+  ReleaseSemaphore(&assl->use_sema);
 
   /* SocketBase is set globally and used directly */
 
@@ -1767,15 +1778,9 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
   debug_printf("DEBUG: Assl_connect: Associating socket %ld with SSL object\n",
                sock);
 
-  /* CRITICAL: Re-validate assl->ssl pointer before passing to SSL_set_fd() */
-  /* SSL_set_fd() will crash if assl->ssl is a corrupted pointer */
-  if (!assl->ssl || (ULONG)assl->ssl < 0x1000 || (ULONG)assl->ssl >= 0xFFFFFFF0) {
-    debug_printf("DEBUG: Assl_connect: ERROR - assl->ssl is invalid (%p) before SSL_set_fd()\n", assl->ssl);
-    return ASSLCONNECT_FAIL;
-  }
-
   /* Associate the OS Socket with the SSL object */
-  if (SSL_set_fd(assl->ssl, sock) != 1) {
+  /* Use local_ssl which we validated while holding the semaphore */
+  if (SSL_set_fd(local_ssl, sock) != 1) {
     debug_printf("DEBUG: Assl_connect: SSL_set_fd failed\n");
     check_ssl_error("SSL_set_fd", AmiSSLBase);
     return ASSLCONNECT_FAIL;
@@ -1797,7 +1802,7 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
     }
 
     /* Send hostname to server (SNI) */
-    SSL_set_tlsext_host_name(assl->ssl, (char *)hostname);
+    SSL_set_tlsext_host_name(local_ssl, (char *)hostname);
     check_ssl_error("SSL_set_tlsext_host_name", AmiSSLBase);
   }
 
@@ -1808,7 +1813,19 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
   /* This will block until the server replies */
   /* CRITICAL: NO SEMAPHORE PROTECTION - SSL_connect() is thread-safe
    * per-connection */
-  ssl_result = SSL_connect(assl->ssl);
+  /* Use local_ssl which we validated while holding the semaphore */
+  ssl_result = SSL_connect(local_ssl);
+
+  /* Re-acquire semaphore to check if object is still valid after SSL_connect() */
+  ObtainSemaphore(&assl->use_sema);
+  if (assl->closed || !assl->ssl || !assl->sslctx) {
+    debug_printf("DEBUG: Assl_connect: Connection was closed during SSL_connect()\n");
+    ReleaseSemaphore(&assl->use_sema);
+    return ASSLCONNECT_FAIL;
+  }
+  /* Update local_ssl in case it changed (shouldn't happen, but be safe) */
+  local_ssl = assl->ssl;
+  ReleaseSemaphore(&assl->use_sema);
 
   if (ssl_result == 1) {
     debug_printf("DEBUG: Assl_connect: Handshake SUCCESS\n");
@@ -1816,10 +1833,10 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
     /* Manually verify certificate chain AFTER handshake completes (prevents
      * deadlocks) */
     /* This validates: trusted CA, expiration, signature validity, etc. */
-    chain_valid = Verify_certificate_chain(assl->ssl, assl->sslctx, AmiSSLBase);
+    chain_valid = Verify_certificate_chain(local_ssl, assl->sslctx, AmiSSLBase);
 
     cert_subj[0] = '\0'; /* Initialize */
-    cert = SSL_get_peer_certificate(assl->ssl);
+    cert = SSL_get_peer_certificate(local_ssl);
     if (cert) {
       /* Get certificate subject for display */
       X509_NAME_oneline(X509_get_subject_name(cert), cert_subj,
@@ -1907,7 +1924,16 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
     }
   } else {
     /* Handshake Failed */
-    ssl_error = SSL_get_error(assl->ssl, ssl_result);
+    /* Re-acquire semaphore to get local copy of SSL pointer for SSL_get_error() */
+    ObtainSemaphore(&assl->use_sema);
+    if (assl->closed || !assl->ssl || !assl->sslctx) {
+      ReleaseSemaphore(&assl->use_sema);
+      return ASSLCONNECT_FAIL;
+    }
+    local_ssl = assl->ssl;
+    ReleaseSemaphore(&assl->use_sema);
+    
+    ssl_error = SSL_get_error(local_ssl, ssl_result);
 
     debug_printf("DEBUG: Assl_connect: Handshake FAILED (err=%d, ssl_err=%d)\n",
                  ssl_result, ssl_error);
@@ -2030,6 +2056,13 @@ __asm char *Assl_geterror(register __a0 struct Assl *assl,
 __asm long Assl_write(register __a0 struct Assl *assl,
                       register __a1 char *buffer, register __d0 long length) {
   long result = -1;
+  /* C89: Declare all variables at start of function */
+  SSL *local_ssl;      /* Local copy of SSL pointer for use after semaphore release */
+  SSL *ssl_for_error;  /* Local copy of SSL pointer for SSL_get_error() calls */
+  long ssl_error;
+  long errno_value;
+  long retry_result;
+  long retry_ssl_error; /* SSL error code from retry operation */
   /* CRITICAL: Shadow global AmiSSLBase */
   /* struct Library *AmiSSLBase = NULL; */ /* Removed - use global directly */
   /* struct Library *local_amisslbase = NULL; */ /* Removed */
@@ -2053,13 +2086,10 @@ __asm long Assl_write(register __a0 struct Assl *assl,
       return -1;
     }
 
-    /* CRITICAL: Do NOT use semaphores during SSL operations - they cause
-     * deadlocks */
-    /* Each connection has its own SSL object, which is thread-safe
-     * per-connection */
-    /* We only check the 'closed' flag - if cleanup happens, operations will
-     * fail gracefully */
-
+    /* CRITICAL: Use use_sema to protect against concurrent cleanup */
+    /* We must check if SSL object is still valid before and after use */
+    /* But we cannot hold the semaphore during blocking SSL operations */
+    
     /* Quick validation check - no semaphore needed for read-only checks */
     if (!AmiSSLBase || (ULONG)AmiSSLBase < 0x1000 ||
         (ULONG)AmiSSLBase >= 0xFFFFFFF0) {
@@ -2068,48 +2098,68 @@ __asm long Assl_write(register __a0 struct Assl *assl,
       return -1;
     }
 
+    /* CRITICAL: Obtain semaphore to check if SSL object is valid */
+    /* This prevents use-after-free if Assl_closessl() is called concurrently */
+    ObtainSemaphore(&assl->use_sema);
+    
     /* Check if SSL objects are available and not closed */
     if (assl->ssl && assl->sslctx && !assl->closed) {
       /* Validate SSL object pointer is reasonable */
       if ((ULONG)assl->ssl >= 0x1000 && (ULONG)assl->ssl < 0xFFFFFFF0 &&
           (ULONG)assl->sslctx >= 0x1000 && (ULONG)assl->sslctx < 0xFFFFFFF0) {
-        debug_printf("DEBUG: Assl_write: Calling SSL_write() - NO SEMAPHORE "
-                     "PROTECTION\n");
+        /* Get local copy of SSL pointer - we'll release semaphore before blocking call */
+        local_ssl = assl->ssl;
+        debug_printf("DEBUG: Assl_write: SSL object valid, releasing semaphore before SSL_write()\n");
+        
+        /* Release semaphore before blocking SSL operation */
+        /* Holding semaphore during blocking I/O would cause deadlocks */
+        ReleaseSemaphore(&assl->use_sema);
 
-        /* Perform the write - NO SEMAPHORE PROTECTION */
+        debug_printf("DEBUG: Assl_write: Calling SSL_write()\n");
+
+        /* Perform the write - NO SEMAPHORE PROTECTION during blocking I/O */
         /* SSL_write() is thread-safe per-connection and performs blocking
          * network I/O */
-        /* Holding any semaphore here would freeze the entire system */
-        result = SSL_write(assl->ssl, buffer, length);
+        result = SSL_write(local_ssl, buffer, length);
         debug_printf("DEBUG: Assl_write: SSL_write() returned %ld\n", result);
 
-        /* CRITICAL: Check if connection was closed while SSL_write() was
-         * blocking */
+        /* CRITICAL: Re-acquire semaphore to check if object is still valid */
+        /* SSL object may have been freed during the blocking SSL_write() call */
+        ObtainSemaphore(&assl->use_sema);
+        
+        /* Check if connection was closed while SSL_write() was blocking */
         /* This prevents use-after-free crashes if Assl_closessl() was called
          * concurrently */
-        /* Check closed flag FIRST before accessing SSL object pointers */
-        if (assl->closed) {
+        if (assl->closed || !assl->ssl || !assl->sslctx) {
           debug_printf("DEBUG: Assl_write: Connection was closed during "
-                       "SSL_write() (closed=TRUE)\n");
+                       "SSL_write() (closed=%d, ssl=%p, sslctx=%p)\n",
+                       assl->closed, assl->ssl, assl->sslctx);
+          ReleaseSemaphore(&assl->use_sema);
           return -1;
         }
-        /* Then check if SSL objects are still valid (they might have been
-         * freed) */
-        if (!assl->ssl || !assl->sslctx || !AmiSSLBase) {
-          debug_printf(
-              "DEBUG: Assl_write: SSL objects were freed during SSL_write() "
-              "(ssl=%p, sslctx=%p, AmiSSLBase=%p)\n",
-              assl->ssl, assl->sslctx, AmiSSLBase);
+        
+        /* Validate AmiSSLBase is still valid */
+        if (!AmiSSLBase || (ULONG)AmiSSLBase < 0x1000 ||
+            (ULONG)AmiSSLBase >= 0xFFFFFFF0) {
+          debug_printf("DEBUG: Assl_write: AmiSSLBase became invalid during "
+                       "SSL_write() (%p)\n", AmiSSLBase);
+          ReleaseSemaphore(&assl->use_sema);
           return -1;
         }
-
+        
         /* CRITICAL: If SSL_write() returns -1, we MUST check SSL_get_error() */
         /* to determine the actual error condition */
+        /* Re-acquire semaphore to get local copy of SSL pointer for SSL_get_error() */
         if (result < 0) {
-          long ssl_error;
-          long errno_value;
+          ObtainSemaphore(&assl->use_sema);
+          if (assl->closed || !assl->ssl || !assl->sslctx) {
+            ReleaseSemaphore(&assl->use_sema);
+            return -1;
+          }
+          ssl_for_error = assl->ssl;
+          ReleaseSemaphore(&assl->use_sema);
 
-          ssl_error = SSL_get_error(assl->ssl, result);
+          ssl_error = SSL_get_error(ssl_for_error, result);
           debug_printf(
               "DEBUG: Assl_write: SSL_write() returned -1, SSL_get_error=%ld\n",
               ssl_error);
@@ -2131,25 +2181,30 @@ __asm long Assl_write(register __a0 struct Assl *assl,
             /* Retry the write once - on blocking socket, this will block until
              * ready or timeout */
             {
-              long retry_result;
-
-              /* Check if connection was closed before retry */
+              /* Re-acquire semaphore to check if object is still valid before retry */
+              ObtainSemaphore(&assl->use_sema);
               if (assl->closed || !assl->ssl || !assl->sslctx) {
                 debug_printf(
                     "DEBUG: Assl_write: Connection closed before retry\n");
+                ReleaseSemaphore(&assl->use_sema);
                 return -1;
               }
+              local_ssl = assl->ssl;
+              ReleaseSemaphore(&assl->use_sema);
 
               debug_printf("DEBUG: Assl_write: Retrying SSL_write() for "
                            "WANT_READ/WANT_WRITE\n");
-              retry_result = SSL_write(assl->ssl, buffer, length);
+              retry_result = SSL_write(local_ssl, buffer, length);
 
-              /* Check if connection was closed during retry */
+              /* Re-acquire semaphore to check if object is still valid after retry */
+              ObtainSemaphore(&assl->use_sema);
               if (assl->closed || !assl->ssl || !assl->sslctx) {
                 debug_printf(
                     "DEBUG: Assl_write: Connection closed during retry\n");
+                ReleaseSemaphore(&assl->use_sema);
                 return -1;
               }
+              ReleaseSemaphore(&assl->use_sema);
 
               if (retry_result > 0) {
                 /* Success - return the result */
@@ -2159,7 +2214,16 @@ __asm long Assl_write(register __a0 struct Assl *assl,
                 return retry_result;
               } else {
                 /* Check error type on retry */
-                long retry_ssl_error = SSL_get_error(assl->ssl, retry_result);
+                /* Re-acquire semaphore to get local copy of SSL pointer */
+                ObtainSemaphore(&assl->use_sema);
+                if (assl->closed || !assl->ssl || !assl->sslctx) {
+                  ReleaseSemaphore(&assl->use_sema);
+                  return -1;
+                }
+                ssl_for_error = assl->ssl;
+                ReleaseSemaphore(&assl->use_sema);
+                
+                retry_ssl_error = SSL_get_error(ssl_for_error, retry_result);
                 debug_printf("DEBUG: Assl_write: Retry returned %ld, "
                              "SSL_get_error=%ld\n",
                              retry_result, retry_ssl_error);
@@ -2250,14 +2314,17 @@ __asm long Assl_write(register __a0 struct Assl *assl,
         debug_printf(
             "DEBUG: Assl_write: Invalid SSL pointer (ssl=%p, sslctx=%p)\n",
             assl->ssl, assl->sslctx);
+        ReleaseSemaphore(&assl->use_sema);
       }
     } else if (assl->closed) {
       debug_printf("DEBUG: Assl_write: SSL connection already closed\n");
+      ReleaseSemaphore(&assl->use_sema);
       result = -1; /* Return error to indicate connection closed */
     } else {
       debug_printf("DEBUG: Assl_write: SSL objects not available (ssl=%p, "
                    "sslctx=%p, closed=%d)\n",
                    assl->ssl, assl->sslctx, assl->closed);
+      ReleaseSemaphore(&assl->use_sema);
     }
   } else {
     debug_printf("DEBUG: Assl_write: Invalid parameters (assl=%p, "
@@ -2270,6 +2337,13 @@ __asm long Assl_write(register __a0 struct Assl *assl,
 __asm long Assl_read(register __a0 struct Assl *assl,
                      register __a1 char *buffer, register __d0 long length) {
   long result = -1;
+  /* C89: Declare all variables at start of function */
+  SSL *local_ssl;      /* Local copy of SSL pointer for use after semaphore release */
+  SSL *ssl_for_error;  /* Local copy of SSL pointer for SSL_get_error() calls */
+  long ssl_error;
+  long errno_value;
+  long retry_result;
+  long retry_ssl_error;
   /* CRITICAL: Shadow global AmiSSLBase */
   /* struct Library *AmiSSLBase = NULL; */ /* Removed - use global directly */
   /* struct Library *local_amisslbase = NULL; */ /* Removed */
@@ -2318,13 +2392,10 @@ __asm long Assl_read(register __a0 struct Assl *assl,
       }
     }
 
-    /* CRITICAL: Do NOT use semaphores during SSL operations - they cause
-     * deadlocks */
-    /* Each connection has its own SSL object, which is thread-safe
-     * per-connection */
-    /* We only check the 'closed' flag - if cleanup happens, operations will
-     * fail gracefully */
-
+    /* CRITICAL: Use use_sema to protect against concurrent cleanup */
+    /* We must check if SSL object is still valid before and after use */
+    /* But we cannot hold the semaphore during blocking SSL operations */
+    
     /* Quick validation check - no semaphore needed for read-only checks */
     /* Use global AmiSSLBase directly */
     if (!AmiSSLBase || (ULONG)AmiSSLBase < 0x1000 ||
@@ -2334,48 +2405,68 @@ __asm long Assl_read(register __a0 struct Assl *assl,
       return -1;
     }
 
+    /* CRITICAL: Obtain semaphore to check if SSL object is valid */
+    /* This prevents use-after-free if Assl_closessl() is called concurrently */
+    ObtainSemaphore(&assl->use_sema);
+    
     /* Check if SSL objects are available and not closed */
     if (assl->ssl && assl->sslctx && !assl->closed) {
       /* Validate SSL object pointer is reasonable */
       if ((ULONG)assl->ssl >= 0x1000 && (ULONG)assl->ssl < 0xFFFFFFF0 &&
           (ULONG)assl->sslctx >= 0x1000 && (ULONG)assl->sslctx < 0xFFFFFFF0) {
-        debug_printf(
-            "DEBUG: Assl_read: Calling SSL_read()\n");
+        /* Get local copy of SSL pointer - we'll release semaphore before blocking call */
+        local_ssl = assl->ssl;
+        debug_printf("DEBUG: Assl_read: SSL object valid, releasing semaphore before SSL_read()\n");
+        
+        /* Release semaphore before blocking SSL operation */
+        /* Holding semaphore during blocking I/O would cause deadlocks */
+        ReleaseSemaphore(&assl->use_sema);
 
-        /* Perform the read - NO SEMAPHORE PROTECTION */
+        debug_printf("DEBUG: Assl_read: Calling SSL_read()\n");
+
+        /* Perform the read - NO SEMAPHORE PROTECTION during blocking I/O */
         /* SSL_read() is thread-safe per-connection and performs blocking
          * network I/O */
-        /* Holding any semaphore here would freeze the entire system */
-        result = SSL_read(assl->ssl, buffer, length);
+        result = SSL_read(local_ssl, buffer, length);
         debug_printf("DEBUG: Assl_read: SSL_read() returned %ld\n", result);
 
-        /* CRITICAL: Check if connection was closed while SSL_read() was
-         * blocking */
+        /* CRITICAL: Re-acquire semaphore to check if object is still valid */
+        /* SSL object may have been freed during the blocking SSL_read() call */
+        ObtainSemaphore(&assl->use_sema);
+        
+        /* Check if connection was closed while SSL_read() was blocking */
         /* This prevents use-after-free crashes if Assl_closessl() was called
          * concurrently */
-        /* Check closed flag FIRST before accessing SSL object pointers */
-        if (assl->closed) {
+        if (assl->closed || !assl->ssl || !assl->sslctx) {
           debug_printf("DEBUG: Assl_read: Connection was closed during "
-                       "SSL_read() (closed=TRUE)\n");
+                       "SSL_read() (closed=%d, ssl=%p, sslctx=%p)\n",
+                       assl->closed, assl->ssl, assl->sslctx);
+          ReleaseSemaphore(&assl->use_sema);
           return -1;
         }
-        /* Then check if SSL objects are still valid (they might have been
-         * freed) */
-        if (!assl->ssl || !assl->sslctx || !AmiSSLBase) {
-          debug_printf(
-              "DEBUG: Assl_read: SSL objects were freed during SSL_read() "
-              "(ssl=%p, sslctx=%p, AmiSSLBase=%p)\n",
-              assl->ssl, assl->sslctx, AmiSSLBase);
+        
+        /* Validate AmiSSLBase is still valid */
+        if (!AmiSSLBase || (ULONG)AmiSSLBase < 0x1000 ||
+            (ULONG)AmiSSLBase >= 0xFFFFFFF0) {
+          debug_printf("DEBUG: Assl_read: AmiSSLBase became invalid during "
+                       "SSL_read() (%p)\n", AmiSSLBase);
+          ReleaseSemaphore(&assl->use_sema);
           return -1;
         }
-
+        
         /* CRITICAL: If SSL_read() returns -1, we MUST check SSL_get_error() */
         /* to determine the actual error condition */
+        /* Re-acquire semaphore to get local copy of SSL pointer for SSL_get_error() */
         if (result < 0) {
-          long ssl_error;
-          long errno_value;
+          ObtainSemaphore(&assl->use_sema);
+          if (assl->closed || !assl->ssl || !assl->sslctx) {
+            ReleaseSemaphore(&assl->use_sema);
+            return -1;
+          }
+          ssl_for_error = assl->ssl;
+          ReleaseSemaphore(&assl->use_sema);
 
-          ssl_error = SSL_get_error(assl->ssl, result);
+          ssl_error = SSL_get_error(ssl_for_error, result);
           debug_printf(
               "DEBUG: Assl_read: SSL_read() returned -1, SSL_get_error=%ld\n",
               ssl_error);
@@ -2399,25 +2490,30 @@ __asm long Assl_read(register __a0 struct Assl *assl,
             /* This handles cases where OpenSSL needs more network I/O before it
              * can decrypt data */
             {
-              long retry_result;
-
-              /* Check if connection was closed before retry */
+              /* Re-acquire semaphore to check if object is still valid before retry */
+              ObtainSemaphore(&assl->use_sema);
               if (assl->closed || !assl->ssl || !assl->sslctx) {
                 debug_printf(
                     "DEBUG: Assl_read: Connection closed before retry\n");
+                ReleaseSemaphore(&assl->use_sema);
                 return -1;
               }
+              local_ssl = assl->ssl;
+              ReleaseSemaphore(&assl->use_sema);
 
               debug_printf("DEBUG: Assl_read: Retrying SSL_read() for "
                            "WANT_READ/WANT_WRITE\n");
-              retry_result = SSL_read(assl->ssl, buffer, length);
+              retry_result = SSL_read(local_ssl, buffer, length);
 
-              /* Check if connection was closed during retry */
+              /* Re-acquire semaphore to check if object is still valid after retry */
+              ObtainSemaphore(&assl->use_sema);
               if (assl->closed || !assl->ssl || !assl->sslctx) {
                 debug_printf(
                     "DEBUG: Assl_read: Connection closed during retry\n");
+                ReleaseSemaphore(&assl->use_sema);
                 return -1;
               }
+              ReleaseSemaphore(&assl->use_sema);
 
               if (retry_result > 0) {
                 /* Success - return the result */
@@ -2431,7 +2527,16 @@ __asm long Assl_read(register __a0 struct Assl *assl,
                 return 0;
               } else {
                 /* Check error type on retry */
-                long retry_ssl_error = SSL_get_error(assl->ssl, retry_result);
+                /* Re-acquire semaphore to get local copy of SSL pointer */
+                ObtainSemaphore(&assl->use_sema);
+                if (assl->closed || !assl->ssl || !assl->sslctx) {
+                  ReleaseSemaphore(&assl->use_sema);
+                  return -1;
+                }
+                ssl_for_error = assl->ssl;
+                ReleaseSemaphore(&assl->use_sema);
+                
+                retry_ssl_error = SSL_get_error(ssl_for_error, retry_result);
                 debug_printf(
                     "DEBUG: Assl_read: Retry returned -1, SSL_get_error=%ld\n",
                     retry_ssl_error);
@@ -2516,6 +2621,7 @@ __asm long Assl_read(register __a0 struct Assl *assl,
           }
         } else if (result == 0) {
           /* SSL_read() returned 0 - this means EOF (connection closed) */
+          /* Note: We already released the semaphore above, so no need to release again */
           debug_printf("DEBUG: Assl_read: SSL_read() returned 0 (EOF)\n");
           return 0;
         } else {
@@ -2529,14 +2635,17 @@ __asm long Assl_read(register __a0 struct Assl *assl,
         debug_printf(
             "DEBUG: Assl_read: Invalid SSL pointer (ssl=%p, sslctx=%p)\n",
             assl->ssl, assl->sslctx);
+        ReleaseSemaphore(&assl->use_sema);
       }
     } else if (assl->closed) {
       debug_printf("DEBUG: Assl_read: SSL connection already closed\n");
+      ReleaseSemaphore(&assl->use_sema);
       result = -1; /* Return error to indicate connection closed */
     } else {
       debug_printf("DEBUG: Assl_read: SSL objects not available (ssl=%p, "
                    "sslctx=%p, closed=%d)\n",
                    assl->ssl, assl->sslctx, assl->closed);
+      ReleaseSemaphore(&assl->use_sema);
     }
   } else {
     debug_printf("DEBUG: Assl_read: Invalid parameters (assl=%p, "
