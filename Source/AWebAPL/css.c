@@ -1902,6 +1902,211 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
             /* Other display values (flex, table, etc.) not yet supported */
          }
+         /* Apply width */
+         else if(stricmp((char *)prop->name,"width") == 0)
+         {  long widthValue;
+            struct Number widthNum;
+            
+            widthValue = ParseCSSLengthValue(prop->value, &widthNum);
+            if(widthValue >= 0 && widthNum.type != NUMBER_NONE)
+            {  /* Apply width to body object */
+               Asetattrs(body, AOBJ_Width, widthValue, TAG_END);
+            }
+         }
+         /* Apply height */
+         else if(stricmp((char *)prop->name,"height") == 0)
+         {  long heightValue;
+            struct Number heightNum;
+            
+            heightValue = ParseCSSLengthValue(prop->value, &heightNum);
+            if(heightValue >= 0 && heightNum.type != NUMBER_NONE)
+            {  /* Apply height to body object */
+               Asetattrs(body, AOBJ_Height, heightValue, TAG_END);
+            }
+         }
+         /* Apply position */
+         else if(stricmp((char *)prop->name,"position") == 0)
+         {  UBYTE *posValue;
+            UBYTE *posStr;
+            
+            posValue = prop->value;
+            SkipWhitespace(&posValue);
+            
+            posStr = Dupstr(posValue, -1);
+            if(posStr)
+            {  Asetattrs(body, AOBDY_Position, posStr, TAG_END);
+            }
+         }
+         /* Apply top */
+         else if(stricmp((char *)prop->name,"top") == 0)
+         {  long topValue;
+            struct Number topNum;
+            
+            topValue = ParseCSSLengthValue(prop->value, &topNum);
+            if(topValue >= 0 && topNum.type == NUMBER_NUMBER)
+            {  /* Apply top position */
+               Asetattrs(body, AOBJ_Top, topValue, TAG_END);
+            }
+         }
+         /* Apply left */
+         else if(stricmp((char *)prop->name,"left") == 0)
+         {  long leftValue;
+            struct Number leftNum;
+            
+            leftValue = ParseCSSLengthValue(prop->value, &leftNum);
+            if(leftValue >= 0 && leftNum.type == NUMBER_NUMBER)
+            {  /* Apply left position */
+               Asetattrs(body, AOBJ_Left, leftValue, TAG_END);
+            }
+         }
+         /* Apply right */
+         else if(stricmp((char *)prop->name,"right") == 0)
+         {  /* Right positioning - would need layout calculation */
+            /* Note: Right positioning requires knowing parent width */
+            /* For now, we parse but don't apply */
+         }
+         /* Apply bottom */
+         else if(stricmp((char *)prop->name,"bottom") == 0)
+         {  /* Bottom positioning - would need layout calculation */
+            /* Note: Bottom positioning requires knowing parent height */
+            /* For now, we parse but don't apply */
+         }
+         /* Apply z-index */
+         else if(stricmp((char *)prop->name,"z-index") == 0)
+         {  long zIndexValue;
+            UBYTE *zval;
+            
+            zval = prop->value;
+            SkipWhitespace(&zval);
+            
+            if(stricmp((char *)zval,"auto") == 0)
+            {  /* Auto z-index (default) - store as 0 */
+               zIndexValue = 0;
+            }
+            else
+            {  /* Parse numeric z-index value */
+               zIndexValue = strtol((char *)zval, NULL, 10);
+            }
+            Asetattrs(body, AOBDY_ZIndex, zIndexValue, TAG_END);
+         }
+         /* Apply display */
+         else if(stricmp((char *)prop->name,"display") == 0)
+         {  UBYTE *dispValue;
+            UBYTE *dispStr;
+            
+            dispValue = prop->value;
+            SkipWhitespace(&dispValue);
+            
+            dispStr = Dupstr(dispValue, -1);
+            if(dispStr)
+            {  Asetattrs(body, AOBDY_Display, dispStr, TAG_END);
+            }
+         }
+         /* Apply vertical-align */
+         else if(stricmp((char *)prop->name,"vertical-align") == 0)
+         {  UBYTE *valignValue;
+            short valign;
+            
+            valignValue = prop->value;
+            SkipWhitespace(&valignValue);
+            
+            valign = -1;
+            if(stricmp((char *)valignValue,"top") == 0)
+            {  valign = VALIGN_TOP;
+            }
+            else if(stricmp((char *)valignValue,"middle") == 0)
+            {  valign = VALIGN_MIDDLE;
+            }
+            else if(stricmp((char *)valignValue,"bottom") == 0)
+            {  valign = VALIGN_BOTTOM;
+            }
+            else if(stricmp((char *)valignValue,"baseline") == 0)
+            {  valign = VALIGN_BASELINE;
+            }
+            
+            if(valign >= 0)
+            {  Asetattrs(body, AOBDY_VerticalAlign, valign, TAG_END);
+            }
+         }
+         /* Apply clear */
+         else if(stricmp((char *)prop->name,"clear") == 0)
+         {  UBYTE *clearValue;
+            UBYTE *clearStr;
+            
+            clearValue = prop->value;
+            SkipWhitespace(&clearValue);
+            
+            clearStr = Dupstr(clearValue, -1);
+            if(clearStr)
+            {  Asetattrs(body, AOBDY_Clear, clearStr, TAG_END);
+            }
+         }
+         /* Apply overflow */
+         else if(stricmp((char *)prop->name,"overflow") == 0)
+         {  UBYTE *overflowValue;
+            UBYTE *overflowStr;
+            
+            overflowValue = prop->value;
+            SkipWhitespace(&overflowValue);
+            
+            overflowStr = Dupstr(overflowValue, -1);
+            if(overflowStr)
+            {  Asetattrs(body, AOBDY_Overflow, overflowStr, TAG_END);
+            }
+         }
+         /* Apply list-style */
+         else if(stricmp((char *)prop->name,"list-style") == 0)
+         {  UBYTE *listStyleValue;
+            UBYTE *listStyleStr;
+            
+            listStyleValue = prop->value;
+            SkipWhitespace(&listStyleValue);
+            
+            listStyleStr = Dupstr(listStyleValue, -1);
+            if(listStyleStr)
+            {  Asetattrs(body, AOBDY_ListStyle, listStyleStr, TAG_END);
+            }
+         }
+         /* Apply min-width */
+         else if(stricmp((char *)prop->name,"min-width") == 0)
+         {  long minWidthValue;
+            struct Number minWidthNum;
+            
+            minWidthValue = ParseCSSLengthValue(prop->value, &minWidthNum);
+            if(minWidthValue >= 0 && minWidthNum.type == NUMBER_NUMBER)
+            {  Asetattrs(body, AOBDY_MinWidth, minWidthValue, TAG_END);
+            }
+         }
+         /* Apply max-width */
+         else if(stricmp((char *)prop->name,"max-width") == 0)
+         {  long maxWidthValue;
+            struct Number maxWidthNum;
+            
+            maxWidthValue = ParseCSSLengthValue(prop->value, &maxWidthNum);
+            if(maxWidthValue >= 0 && maxWidthNum.type == NUMBER_NUMBER)
+            {  Asetattrs(body, AOBDY_MaxWidth, maxWidthValue, TAG_END);
+            }
+         }
+         /* Apply min-height */
+         else if(stricmp((char *)prop->name,"min-height") == 0)
+         {  long minHeightValue;
+            struct Number minHeightNum;
+            
+            minHeightValue = ParseCSSLengthValue(prop->value, &minHeightNum);
+            if(minHeightValue >= 0 && minHeightNum.type == NUMBER_NUMBER)
+            {  Asetattrs(body, AOBDY_MinHeight, minHeightValue, TAG_END);
+            }
+         }
+         /* Apply max-height */
+         else if(stricmp((char *)prop->name,"max-height") == 0)
+         {  long maxHeightValue;
+            struct Number maxHeightNum;
+            
+            maxHeightValue = ParseCSSLengthValue(prop->value, &maxHeightNum);
+            if(maxHeightValue >= 0 && maxHeightNum.type == NUMBER_NUMBER)
+            {  Asetattrs(body, AOBDY_MaxHeight, maxHeightValue, TAG_END);
+            }
+         }
          /* Apply float - Note: Body objects don't directly support floating */
          /* But we parse it here for IsDivInline to detect float:left */
          /* The actual floating is handled by preventing line breaks in Dodiv */

@@ -115,6 +115,39 @@
 #define AOBDY_Id           (AOBDY_Dummy+34)  /* SET,GET */
    /* (UBYTE *) Element ID for CSS matching */
 
+#define AOBDY_Position     (AOBDY_Dummy+35)  /* SET,GET */
+   /* (UBYTE *) CSS position: "static", "relative", "absolute", "fixed" */
+
+#define AOBDY_ZIndex       (AOBDY_Dummy+36)  /* SET,GET */
+   /* (long) CSS z-index value (higher = on top) */
+
+#define AOBDY_Display      (AOBDY_Dummy+37)  /* SET,GET */
+   /* (UBYTE *) CSS display: "none", "block", "inline", "inline-block", etc. */
+
+#define AOBDY_Overflow     (AOBDY_Dummy+38)  /* SET,GET */
+   /* (UBYTE *) CSS overflow: "visible", "hidden", "auto", "scroll" */
+
+#define AOBDY_Clear        (AOBDY_Dummy+39)  /* SET,GET */
+   /* (UBYTE *) CSS clear: "none", "left", "right", "both" */
+
+#define AOBDY_VerticalAlign (AOBDY_Dummy+40) /* SET,GET */
+   /* (short) CSS vertical-align: VALIGN_TOP, VALIGN_MIDDLE, VALIGN_BOTTOM, VALIGN_BASELINE */
+
+#define AOBDY_ListStyle    (AOBDY_Dummy+41)  /* SET,GET */
+   /* (UBYTE *) CSS list-style: "disc", "circle", "square", "decimal", etc. */
+
+#define AOBDY_MinWidth     (AOBDY_Dummy+42)  /* SET,GET */
+   /* (long) CSS min-width value */
+
+#define AOBDY_MaxWidth     (AOBDY_Dummy+43)  /* SET,GET */
+   /* (long) CSS max-width value */
+
+#define AOBDY_MinHeight    (AOBDY_Dummy+44)  /* SET,GET */
+   /* (long) CSS min-height value */
+
+#define AOBDY_MaxHeight    (AOBDY_Dummy+45)  /* SET,GET */
+   /* (long) CSS max-height value */
+
 /*--- body support structures ---*/
 
 /* global references */

@@ -1008,19 +1008,150 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      {  Asetattrs(body,AOBDY_Unsethardstyle,FSF_STRIKE,TAG_END);
                      }
                   }
+                  /* Apply width */
+                  else if(stricmp((char *)prop->name,"width") == 0)
+                  {  long widthValue;
+                     widthValue = Getnumber(&num,prop->value);
+                     if(widthValue >= 0 && num.type != NUMBER_NONE)
+                     {  Asetattrs(body,AOBJ_Width,widthValue,TAG_END);
+                     }
+                  }
+                  /* Apply height */
+                  else if(stricmp((char *)prop->name,"height") == 0)
+                  {  long heightValue;
+                     heightValue = Getnumber(&num,prop->value);
+                     if(heightValue >= 0 && num.type != NUMBER_NONE)
+                     {  Asetattrs(body,AOBJ_Height,heightValue,TAG_END);
+                     }
+                  }
+                  /* Apply position */
+                  else if(stricmp((char *)prop->name,"position") == 0)
+                  {  UBYTE *posStr;
+                     posStr = Dupstr(prop->value, -1);
+                     if(posStr)
+                     {  Asetattrs(body, AOBDY_Position, posStr, TAG_END);
+                     }
+                  }
+                  /* Apply top */
+                  else if(stricmp((char *)prop->name,"top") == 0)
+                  {  long topValue;
+                     topValue = Getnumber(&num,prop->value);
+                     if(topValue >= 0 && num.type == NUMBER_NUMBER)
+                     {  Asetattrs(body,AOBJ_Top,topValue,TAG_END);
+                     }
+                  }
+                  /* Apply left */
+                  else if(stricmp((char *)prop->name,"left") == 0)
+                  {  long leftValue;
+                     leftValue = Getnumber(&num,prop->value);
+                     if(leftValue >= 0 && num.type == NUMBER_NUMBER)
+                     {  Asetattrs(body,AOBJ_Left,leftValue,TAG_END);
+                     }
+                  }
+                  /* Apply right */
+                  else if(stricmp((char *)prop->name,"right") == 0)
+                  {  /* Right positioning - would need layout calculation */
+                  }
+                  /* Apply bottom */
+                  else if(stricmp((char *)prop->name,"bottom") == 0)
+                  {  /* Bottom positioning - would need layout calculation */
+                  }
+                  /* Apply z-index */
+                  else if(stricmp((char *)prop->name,"z-index") == 0)
+                  {  long zIndexValue;
+                     UBYTE *zval;
+                     zval = prop->value;
+                     SkipWhitespace(&zval);
+                     if(stricmp((char *)zval,"auto") == 0)
+                     {  zIndexValue = 0;
+                     }
+                     else
+                     {  zIndexValue = strtol((char *)zval, NULL, 10);
+                     }
+                     Asetattrs(body, AOBDY_ZIndex, zIndexValue, TAG_END);
+                  }
                   /* Apply display property */
                   else if(stricmp((char *)prop->name,"display") == 0)
-                  {  /* Parse display values: inline, block, none, grid, etc. */
-                     /* For grid, we'll apply grid-gap as spacing if available */
-                     if(stricmp((char *)prop->value,"grid") == 0)
-                     {  /* display: grid - will be handled by grid-gap property */
-                        /* debug_printf("CSS: display=grid applied to %s\n",
-                                     tagname ? (char *)tagname : "element"); */
+                  {  UBYTE *dispStr;
+                     dispStr = Dupstr(prop->value, -1);
+                     if(dispStr)
+                     {  Asetattrs(body, AOBDY_Display, dispStr, TAG_END);
                      }
-                     else if(stricmp((char *)prop->value,"none") == 0)
-                     {  /* display: none - not fully implemented, but parse it */
-                        /* debug_printf("CSS: display=none applied to %s\n",
-                                     tagname ? (char *)tagname : "element"); */
+                  }
+                  /* Apply vertical-align */
+                  else if(stricmp((char *)prop->name,"vertical-align") == 0)
+                  {  short valign;
+                     valign = -1;
+                     if(stricmp((char *)prop->value,"top") == 0)
+                     {  valign = VALIGN_TOP;
+                     }
+                     else if(stricmp((char *)prop->value,"middle") == 0)
+                     {  valign = VALIGN_MIDDLE;
+                     }
+                     else if(stricmp((char *)prop->value,"bottom") == 0)
+                     {  valign = VALIGN_BOTTOM;
+                     }
+                     else if(stricmp((char *)prop->value,"baseline") == 0)
+                     {  valign = VALIGN_BASELINE;
+                     }
+                     if(valign >= 0)
+                     {  Asetattrs(body, AOBDY_VerticalAlign, valign, TAG_END);
+                     }
+                  }
+                  /* Apply clear */
+                  else if(stricmp((char *)prop->name,"clear") == 0)
+                  {  UBYTE *clearStr;
+                     clearStr = Dupstr(prop->value, -1);
+                     if(clearStr)
+                     {  Asetattrs(body, AOBDY_Clear, clearStr, TAG_END);
+                     }
+                  }
+                  /* Apply overflow */
+                  else if(stricmp((char *)prop->name,"overflow") == 0)
+                  {  UBYTE *overflowStr;
+                     overflowStr = Dupstr(prop->value, -1);
+                     if(overflowStr)
+                     {  Asetattrs(body, AOBDY_Overflow, overflowStr, TAG_END);
+                     }
+                  }
+                  /* Apply list-style */
+                  else if(stricmp((char *)prop->name,"list-style") == 0)
+                  {  UBYTE *listStyleStr;
+                     listStyleStr = Dupstr(prop->value, -1);
+                     if(listStyleStr)
+                     {  Asetattrs(body, AOBDY_ListStyle, listStyleStr, TAG_END);
+                     }
+                  }
+                  /* Apply min-width */
+                  else if(stricmp((char *)prop->name,"min-width") == 0)
+                  {  long minWidthValue;
+                     minWidthValue = Getnumber(&num, prop->value);
+                     if(minWidthValue >= 0 && num.type == NUMBER_NUMBER)
+                     {  Asetattrs(body, AOBDY_MinWidth, minWidthValue, TAG_END);
+                     }
+                  }
+                  /* Apply max-width */
+                  else if(stricmp((char *)prop->name,"max-width") == 0)
+                  {  long maxWidthValue;
+                     maxWidthValue = Getnumber(&num, prop->value);
+                     if(maxWidthValue >= 0 && num.type == NUMBER_NUMBER)
+                     {  Asetattrs(body, AOBDY_MaxWidth, maxWidthValue, TAG_END);
+                     }
+                  }
+                  /* Apply min-height */
+                  else if(stricmp((char *)prop->name,"min-height") == 0)
+                  {  long minHeightValue;
+                     minHeightValue = Getnumber(&num, prop->value);
+                     if(minHeightValue >= 0 && num.type == NUMBER_NUMBER)
+                     {  Asetattrs(body, AOBDY_MinHeight, minHeightValue, TAG_END);
+                     }
+                  }
+                  /* Apply max-height */
+                  else if(stricmp((char *)prop->name,"max-height") == 0)
+                  {  long maxHeightValue;
+                     maxHeightValue = Getnumber(&num, prop->value);
+                     if(maxHeightValue >= 0 && num.type == NUMBER_NUMBER)
+                     {  Asetattrs(body, AOBDY_MaxHeight, maxHeightValue, TAG_END);
                      }
                   }
                   /* Apply grid-gap (row-gap column-gap) */

@@ -76,6 +76,17 @@ struct Body
    UBYTE *tagname;            /* HTML tag name for CSS matching (e.g. "DIV", "P") */
    UBYTE *class;              /* CSS class name(s) for CSS matching */
    UBYTE *id;                 /* Element ID for CSS matching */
+   UBYTE *position;          /* CSS position: "static", "relative", "absolute", "fixed" */
+   long zindex;              /* CSS z-index value */
+   UBYTE *display;           /* CSS display: "none", "block", "inline", "inline-block" */
+   UBYTE *overflow;          /* CSS overflow: "visible", "hidden", "auto", "scroll" */
+   UBYTE *clear;             /* CSS clear: "none", "left", "right", "both" */
+   short verticalalign;      /* CSS vertical-align value */
+   UBYTE *liststyle;         /* CSS list-style value */
+   long minwidth;            /* CSS min-width */
+   long maxwidth;            /* CSS max-width */
+   long minheight;           /* CSS min-height */
+   long maxheight;           /* CSS max-height */
 };
 
 #define BDYF_SUB           0x0001   /* subscript mode */
@@ -586,6 +597,24 @@ static long Measurebody(struct Body *bd,struct Ammeasure *amm)
    struct Ammresult ammr;
    long w=0,totalw=0,totalminw=0,addwidth=0,indent,halign,left,right,minw,width;
    ULONG flags;
+   BOOL isHidden;
+   
+   /* Check if body should be hidden (display: none) */
+   isHidden = FALSE;
+   if(bd->display && stricmp((char *)bd->display, "none") == 0)
+   {  isHidden = TRUE;
+   }
+   
+   if(isHidden)
+   {  /* Don't measure if display: none */
+      if(amm->ammr)
+      {  amm->ammr->width = 0;
+         amm->ammr->minwidth = 0;
+         amm->ammr->newline = TRUE;
+      }
+      return 0;
+   }
+   
    ammr.newline=TRUE;
    /* If AMMF_CHANGED, do measure only if we have a changed child */
    if(amm->flags&AMMF_CHANGED)
@@ -636,6 +665,23 @@ static long Measurebody(struct Body *bd,struct Ammeasure *amm)
    {  amm->ammr->width=totalw+2*bd->hmargin;
       {  amm->ammr->minwidth=totalminw+2*bd->hmargin;
       }
+      
+      /* Apply min-width constraint */
+      if(bd->minwidth >= 0 && amm->ammr->width < bd->minwidth)
+      {  amm->ammr->width = bd->minwidth;
+      }
+      if(bd->minwidth >= 0 && amm->ammr->minwidth < bd->minwidth)
+      {  amm->ammr->minwidth = bd->minwidth;
+      }
+      
+      /* Apply max-width constraint */
+      if(bd->maxwidth >= 0 && amm->ammr->width > bd->maxwidth)
+      {  amm->ammr->width = bd->maxwidth;
+      }
+      if(bd->maxwidth >= 0 && amm->ammr->minwidth > bd->maxwidth)
+      {  amm->ammr->minwidth = bd->maxwidth;
+      }
+      
       amm->ammr->newline=TRUE;
    }
    return 0;
@@ -654,7 +700,49 @@ static long Layoutbody(struct Body *bd,struct Amlayout *amlp)
    long result=0;
    USHORT nextflags=0,clrmargin=0;
    BOOL align,wasmore,bullet,first=TRUE,softnl=FALSE;
-   bd->aox=bd->aoy=0;
+   BOOL isHidden;
+   BOOL needsClear;
+   
+   /* Check if body should be hidden (display: none) */
+   isHidden = FALSE;
+   if(bd->display && stricmp((char *)bd->display, "none") == 0)
+   {  isHidden = TRUE;
+   }
+   
+   if(isHidden)
+   {  /* Don't layout if display: none */
+      bd->aow = 0;
+      bd->aoh = 0;
+      return 0;
+   }
+   
+   /* Check if we need to clear floats */
+   needsClear = FALSE;
+   if(bd->clear)
+   {  if(stricmp((char *)bd->clear, "both") == 0)
+      {  needsClear = TRUE;
+      }
+      else if(stricmp((char *)bd->clear, "left") == 0)
+      {  /* Would need to check if left margins exist */
+         needsClear = TRUE;
+      }
+      else if(stricmp((char *)bd->clear, "right") == 0)
+      {  /* Would need to check if right margins exist */
+         needsClear = TRUE;
+      }
+   }
+   
+   /* Apply position: fixed/absolute positioning */
+   if(bd->position && (stricmp((char *)bd->position, "fixed") == 0 || 
+                       stricmp((char *)bd->position, "absolute") == 0))
+   {  /* For fixed/absolute positioning, body position is set via AOBJ_Left/Top */
+      /* Layout engine will handle positioning */
+      bd->aox = Agetattr((void *)bd, AOBJ_Left);
+      bd->aoy = Agetattr((void *)bd, AOBJ_Top);
+   }
+   else
+   {  bd->aox=bd->aoy=0;
+   }
    /* If AMLF_CHANGED, do layout only if we have a changed child */
    if((amlp->flags&AMLF_CHANGED) && !(bd->flags&BDYF_CHANGEDCHILD)) return 0;
    /* If AMLF_CHANGED, remove all lines from the end with MORE or MARGIN set,
@@ -915,8 +1003,50 @@ if(SetSignal(0,0)&SIGBREAKF_CTRL_C) return 0;
    }
    /* Include all pending floating objects in body height */
    bd->aoh=Findmargin(bd,y,0)+bd->vmargin;
+   
+   /* Apply min-height constraint */
+   if(bd->minheight >= 0 && bd->aoh < bd->minheight)
+   {  bd->aoh = bd->minheight;
+   }
+   
+   /* Apply max-height constraint */
+   if(bd->maxheight >= 0 && bd->aoh > bd->maxheight)
+   {  bd->aoh = bd->maxheight;
+   }
+   
    /* Clear all pending margins, as MORE starts before the margins anyway. */
    Currentmargin(bd,bd->aoh,&margleft,&margright);
+   
+   /* If clear property is set, clear the appropriate margins */
+   if(needsClear)
+   {  /* Clear left margins if clear: left or both */
+      if(bd->clear && (stricmp((char *)bd->clear, "left") == 0 || 
+                       stricmp((char *)bd->clear, "both") == 0))
+      {  /* Find highest left margin and clear below it */
+         struct Margin *m;
+         long highestY = 0;
+         for(m = bd->leftmargins.first; m->next; m = m->next)
+         {  if(m->y > highestY) highestY = m->y;
+         }
+         if(highestY > 0 && bd->aoh < highestY)
+         {  bd->aoh = highestY;
+         }
+      }
+      /* Clear right margins if clear: right or both */
+      if(bd->clear && (stricmp((char *)bd->clear, "right") == 0 || 
+                       stricmp((char *)bd->clear, "both") == 0))
+      {  /* Find highest right margin and clear below it */
+         struct Margin *m;
+         long highestY = 0;
+         for(m = bd->rightmargins.first; m->next; m = m->next)
+         {  if(m->y > highestY) highestY = m->y;
+         }
+         if(highestY > 0 && bd->aoh < highestY)
+         {  bd->aoh = highestY;
+         }
+      }
+   }
+   
    bd->flags|=BDYF_LAYOUTREADY;
    return result;
 }
@@ -929,6 +1059,20 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
    short bgcolor;
    void *bgimage;
    long y;
+   BOOL isHidden;
+   long clipMinX, clipMinY, clipMaxX, clipMaxY;
+   
+   /* Check if body should be hidden (display: none) */
+   isHidden = FALSE;
+   if(bd->display && stricmp((char *)bd->display, "none") == 0)
+   {  isHidden = TRUE;
+   }
+   
+   if(isHidden)
+   {  /* Don't render if display: none */
+      return 0;
+   }
+   
    /* prevent multiple rendering by putting the value of bgupdate in to bd->bgupdate */
    bd->bgupdate = bgupdate;
    /* If AMRF_CHANGED, start with first child from rendery, but only if something
@@ -948,6 +1092,30 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
    if((coo=Clipcoords(bd,amr->coords)) && coo->rp)
    {  bgcolor=coo->bgcolor;
       bgimage=coo->bgimage;
+      
+      /* Apply overflow clipping if needed */
+      clipMinX = amr->minx;
+      clipMinY = amr->miny;
+      clipMaxX = amr->maxx;
+      clipMaxY = amr->maxy;
+      
+      if(bd->overflow && (stricmp((char *)bd->overflow, "hidden") == 0 || 
+                          stricmp((char *)bd->overflow, "auto") == 0 ||
+                          stricmp((char *)bd->overflow, "scroll") == 0))
+      {  /* Clip to body bounds */
+         long bodyMinX, bodyMinY, bodyMaxX, bodyMaxY;
+         bodyMinX = bd->aox;
+         bodyMinY = bd->aoy;
+         bodyMaxX = bd->aox + bd->aow;
+         bodyMaxY = bd->aoy + bd->aoh;
+         
+         /* Intersect clipping region with body bounds */
+         if(bodyMinX > clipMinX) clipMinX = bodyMinX;
+         if(bodyMinY > clipMinY) clipMinY = bodyMinY;
+         if(bodyMaxX < clipMaxX) clipMaxX = bodyMaxX;
+         if(bodyMaxY < clipMaxY) clipMaxY = bodyMaxY;
+      }
+      
       if(prefs.docolors && (bd->bgcolor>=0 || bd->bgimage)
       && !(bd->flags&BDYF_NOBACKGROUND))
       {  if(bd->bgcolor>=0)
@@ -968,13 +1136,14 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
          {  while(child->next && !Agetattr(child,AOELT_Visible)) child=child->next;
             if(child->next) y+=Agetattr(child,AOELT_Incrementaly);
          }
-         Erasebg(bd->cframe,coo,amr->minx,MAX(y,amr->miny),amr->maxx,amr->maxy);
+         Erasebg(bd->cframe,coo,clipMinX,MAX(y,clipMinY),clipMaxX,clipMaxY);
          flags|=AMRF_CLEARBG;
       }
       for(;child->next;child=child->next)
-      {  if(child->aox<=amr->maxx && child->aox+child->aow>amr->minx 
-         && child->aoy<=amr->maxy && child->aoy+child->aoh>amr->miny)
-         {  Arender(child,coo,amr->minx,amr->miny,amr->maxx,amr->maxy,flags,amr->text);
+      {  /* Apply overflow clipping to child rendering */
+         if(child->aox<=clipMaxX && child->aox+child->aow>clipMinX 
+         && child->aoy<=clipMaxY && child->aoy+child->aoh>clipMinY)
+         {  Arender(child,coo,clipMinX,clipMinY,clipMaxX,clipMaxY,flags,amr->text);
          }
       }
       coo->bgcolor=bgcolor;
@@ -1231,6 +1400,54 @@ static long Setbody(struct Body *bd,struct Amset *ams)
             }
             bd->id = (UBYTE *)tag->ti_Data;
             break;
+         case AOBDY_Position:
+            if(bd->position && bd->position != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->position);
+            }
+            bd->position = (UBYTE *)tag->ti_Data;
+            break;
+         case AOBDY_ZIndex:
+            bd->zindex = (long)tag->ti_Data;
+            break;
+         case AOBDY_Display:
+            if(bd->display && bd->display != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->display);
+            }
+            bd->display = (UBYTE *)tag->ti_Data;
+            break;
+         case AOBDY_Overflow:
+            if(bd->overflow && bd->overflow != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->overflow);
+            }
+            bd->overflow = (UBYTE *)tag->ti_Data;
+            break;
+         case AOBDY_Clear:
+            if(bd->clear && bd->clear != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->clear);
+            }
+            bd->clear = (UBYTE *)tag->ti_Data;
+            break;
+         case AOBDY_VerticalAlign:
+            bd->verticalalign = (short)tag->ti_Data;
+            break;
+         case AOBDY_ListStyle:
+            if(bd->liststyle && bd->liststyle != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->liststyle);
+            }
+            bd->liststyle = (UBYTE *)tag->ti_Data;
+            break;
+         case AOBDY_MinWidth:
+            bd->minwidth = (long)tag->ti_Data;
+            break;
+         case AOBDY_MaxWidth:
+            bd->maxwidth = (long)tag->ti_Data;
+            break;
+         case AOBDY_MinHeight:
+            bd->minheight = (long)tag->ti_Data;
+            break;
+         case AOBDY_MaxHeight:
+            bd->maxheight = (long)tag->ti_Data;
+            break;
       }
    }
    if(fontw) Pushfont(bd,fontstyle,fontsize,fontcolor,fontface,fontw);
@@ -1258,6 +1475,11 @@ static void Disposebody(struct Body *bd)
    if(bd->tagname) FREE(bd->tagname);
    if(bd->class) FREE(bd->class);
    if(bd->id) FREE(bd->id);
+   if(bd->position) FREE(bd->position);
+   if(bd->display) FREE(bd->display);
+   if(bd->overflow) FREE(bd->overflow);
+   if(bd->clear) FREE(bd->clear);
+   if(bd->liststyle) FREE(bd->liststyle);
    Amethodas(AOTP_OBJECT,bd,AOM_DISPOSE);
 }
 
@@ -1272,6 +1494,17 @@ static struct Body *Newbody(struct Amset *ams)
       bd->tagname = NULL;
       bd->class = NULL;
       bd->id = NULL;
+      bd->position = NULL;
+      bd->zindex = 0;
+      bd->display = NULL;
+      bd->overflow = NULL;
+      bd->clear = NULL;
+      bd->verticalalign = -1;
+      bd->liststyle = NULL;
+      bd->minwidth = -1;
+      bd->maxwidth = -1;
+      bd->minheight = -1;
+      bd->maxheight = -1;
       if(Newbodybuild(bd))
       {  Pushfont(bd,STYLE_NORMAL,0,NULL,NULL,FONTW_STYLE);
          bd->bgcolor=-1;
@@ -1329,6 +1562,39 @@ static long Getbody(struct Body *bd,struct Amset *ams)
             break;
          case AOBDY_Id:
             PUTATTR(tag,bd->id);
+            break;
+         case AOBDY_Position:
+            PUTATTR(tag,bd->position);
+            break;
+         case AOBDY_ZIndex:
+            PUTATTR(tag,bd->zindex);
+            break;
+         case AOBDY_Display:
+            PUTATTR(tag,bd->display);
+            break;
+         case AOBDY_Overflow:
+            PUTATTR(tag,bd->overflow);
+            break;
+         case AOBDY_Clear:
+            PUTATTR(tag,bd->clear);
+            break;
+         case AOBDY_VerticalAlign:
+            PUTATTR(tag,bd->verticalalign);
+            break;
+         case AOBDY_ListStyle:
+            PUTATTR(tag,bd->liststyle);
+            break;
+         case AOBDY_MinWidth:
+            PUTATTR(tag,bd->minwidth);
+            break;
+         case AOBDY_MaxWidth:
+            PUTATTR(tag,bd->maxwidth);
+            break;
+         case AOBDY_MinHeight:
+            PUTATTR(tag,bd->minheight);
+            break;
+         case AOBDY_MaxHeight:
+            PUTATTR(tag,bd->maxheight);
             break;
       }
    }
