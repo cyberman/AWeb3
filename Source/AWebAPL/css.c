@@ -47,7 +47,7 @@ static void SkipComment(UBYTE **p);
 static UBYTE* ParseIdentifier(UBYTE **p);
 static UBYTE* ParseValue(UBYTE **p);
 static BOOL MatchSelector(struct CSSSelector *sel,void *element);
-static void ApplyProperty(void *element,struct CSSProperty *prop);
+static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty *prop);
 static void FreeCSSStylesheetInternal(struct CSSStylesheet *sheet);
 void MergeCSSStylesheet(struct Document *doc,UBYTE *css);
 void SkipWhitespace(UBYTE **p);
@@ -179,7 +179,7 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
    
    if(!doc || !css) return NULL;
    
-   sheet = ALLOCSTRUCT(CSSStylesheet,1,0);
+   sheet = ALLOCSTRUCT(CSSStylesheet,1,MEMF_FAST);
    if(!sheet) return NULL;
    
    NEWLIST(&sheet->rules);
@@ -234,7 +234,7 @@ static struct CSSRule* ParseRule(struct Document *doc,UBYTE **p)
    
    if(!doc || !p || !*p) return NULL;
    
-   rule = ALLOCSTRUCT(CSSRule,1,0);
+   rule = ALLOCSTRUCT(CSSRule,1,MEMF_FAST);
    if(!rule) return NULL;
    
    NEWLIST(&rule->selectors);
@@ -356,8 +356,12 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
    
    if(!doc || !p || !*p) return NULL;
    
-   sel = ALLOCSTRUCT(CSSSelector,1,0);
+   sel = ALLOCSTRUCT(CSSSelector,1,MEMF_FAST);
    if(!sel) return NULL;
+   
+   /* Initialize new fields */
+   sel->parent = NULL;
+   sel->combinator = CSS_COMB_NONE;
    
    SkipWhitespace(p);
    
@@ -416,24 +420,53 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
       }
       
       /* Check for class or ID after element name */
+      /* Support multiple chained classes (e.g., .class1.class2) */
       SkipWhitespace(p);
-      if(**p == '.')
-      {  (*p)++;
-         class = ParseIdentifier(p);
-         if(class)
-         {  sel->type |= CSS_SEL_CLASS;
-            sel->class = Dupstr(class,-1);
-            sel->specificity += 10;
+      while(**p == '.' || **p == '#')
+      {  if(**p == '.')
+         {  (*p)++;
+            class = ParseIdentifier(p);
+            if(class)
+            {  sel->type |= CSS_SEL_CLASS;
+               if(sel->class)
+               {  /* Append to existing class list (space-separated) */
+                  UBYTE *oldClass;
+                  long oldLen;
+                  long newLen;
+                  long classLen;
+                  UBYTE *newClass;
+                  
+                  oldClass = sel->class;
+                  oldLen = strlen((char *)oldClass);
+                  classLen = strlen((char *)class);
+                  newLen = oldLen + 1 + classLen; /* old + space + new */
+                  newClass = ALLOCTYPE(UBYTE, newLen + 1, MEMF_FAST);
+                  if(newClass)
+                  {  memmove(newClass, oldClass, oldLen);
+                     newClass[oldLen] = ' ';
+                     memmove(newClass + oldLen + 1, class, classLen);
+                     newClass[newLen] = '\0';
+                     FREE(oldClass);
+                     sel->class = newClass;
+                  }
+               }
+               else
+               {  sel->class = Dupstr(class,-1);
+               }
+               sel->specificity += 10; /* Each class adds 10 to specificity */
+            }
          }
-      }
-      else if(**p == '#')
-      {  (*p)++;
-         id = ParseIdentifier(p);
-         if(id)
-         {  sel->type |= CSS_SEL_ID;
-            sel->id = Dupstr(id,-1);
-            sel->specificity += 100;
+         else if(**p == '#')
+         {  (*p)++;
+            id = ParseIdentifier(p);
+            if(id)
+            {  sel->type |= CSS_SEL_ID;
+               sel->id = Dupstr(id,-1);
+               sel->specificity += 100;
+               break; /* ID can only appear once, stop parsing classes */
+            }
          }
+         SkipWhitespace(p);
       }
    }
    
@@ -449,6 +482,51 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
       }
    }
    
+   /* Check for descendant selector (whitespace) or child combinator (>) */
+   SkipWhitespace(p);
+   if(**p && **p != ',' && **p != '{' && **p != '}')
+   {  UBYTE *oldp;
+      struct CSSSelector *childSel;
+      
+      /* Check for child combinator */
+      if(**p == '>')
+      {  (*p)++; /* Skip '>' */
+         SkipWhitespace(p);
+         oldp = *p;
+         childSel = ParseSelector(doc, p);
+         if(childSel)
+         {  childSel->parent = sel;
+            childSel->combinator = CSS_COMB_CHILD;
+            /* Update specificity - child selector adds to parent */
+            childSel->specificity += sel->specificity;
+            return childSel; /* Return the child selector as the head */
+         }
+         else
+         {  /* Parse error - restore position */
+            *p = oldp;
+         }
+      }
+      else
+      {  /* Check if there's whitespace followed by another selector (descendant) */
+         /* We already skipped whitespace, so check if next char starts an identifier */
+         if(isalpha(**p) || **p == '.' || **p == '#' || **p == '*')
+         {  oldp = *p;
+            childSel = ParseSelector(doc, p);
+            if(childSel)
+            {  childSel->parent = sel;
+               childSel->combinator = CSS_COMB_DESCENDANT;
+               /* Update specificity - descendant selector adds to parent */
+               childSel->specificity += sel->specificity;
+               return childSel; /* Return the child selector as the head */
+            }
+            else
+            {  /* Parse error - restore position */
+               *p = oldp;
+            }
+         }
+      }
+   }
+   
    return sel;
 }
 
@@ -460,7 +538,7 @@ static struct CSSProperty* ParseProperty(struct Document *doc,UBYTE **p)
    
    if(!doc || !p || !*p) return NULL;
    
-   prop = ALLOCSTRUCT(CSSProperty,1,0);
+   prop = ALLOCSTRUCT(CSSProperty,1,MEMF_FAST);
    if(!prop) return NULL;
    
    SkipWhitespace(p);
@@ -554,7 +632,7 @@ static UBYTE* ParseIdentifier(UBYTE **p)
    len = *p - start;
    if(len == 0) return NULL;
    
-   result = ALLOCTYPE(UBYTE,len + 1,0);
+   result = ALLOCTYPE(UBYTE,len + 1,MEMF_FAST);
    if(result)
    {  memmove(result,start,len);
       result[len] = '\0';
@@ -614,7 +692,7 @@ static UBYTE* ParseValue(UBYTE **p)
    
    if(len == 0) return NULL;
    
-   result = ALLOCTYPE(UBYTE,len + 1,0);
+   result = ALLOCTYPE(UBYTE,len + 1,MEMF_FAST);
    if(result)
    {  memmove(result,start,len);
       result[len] = '\0';
@@ -623,12 +701,74 @@ static UBYTE* ParseValue(UBYTE **p)
    return result;
 }
 
-/* Match a selector to an element */
-static BOOL MatchSelector(struct CSSSelector *sel,void *element)
+/* Match class attribute against selector class (handles space-separated classes) */
+/* For multiple classes in selector (e.g., "class1 class2"), element must have ALL classes */
+/* Uses proper word-boundary matching to avoid partial matches */
+static BOOL MatchClassAttribute(UBYTE *elementClass, UBYTE *selectorClass)
+{  UBYTE *start;
+   UBYTE *selectorP;
+   UBYTE *selectorStart;
+   size_t selectorWordLen;
+   size_t elementWordLen;
+   BOOL foundMatch;
+   UBYTE *elementP;
+   
+   if(!elementClass || !selectorClass || !*selectorClass)
+   {  return FALSE;
+   }
+   
+   /* If selector has multiple classes (space-separated), element must have ALL */
+   selectorP = selectorClass;
+   while(*selectorP)
+   {  /* Skip whitespace */
+      while(*selectorP && isspace(*selectorP)) selectorP++;
+      if(!*selectorP) break;
+      
+      selectorStart = selectorP;
+      /* Find end of current selector class word */
+      while(*selectorP && !isspace(*selectorP)) selectorP++;
+      selectorWordLen = selectorP - selectorStart;
+      
+      if(selectorWordLen == 0) break;
+      
+      /* Check if element has this class */
+      foundMatch = FALSE;
+      elementP = elementClass;
+      /* Skip leading whitespace */
+      while(*elementP && isspace(*elementP)) elementP++;
+      
+      while(*elementP)
+      {  start = elementP;
+         /* Find end of current element class word */
+         while(*elementP && !isspace(*elementP)) elementP++;
+         elementWordLen = elementP - start;
+         
+         /* Check if this word matches selector class (case-insensitive) */
+         if(elementWordLen == selectorWordLen)
+         {  if(strnicmp((char *)start, (char *)selectorStart, selectorWordLen) == 0)
+            {  foundMatch = TRUE;
+               break;
+            }
+         }
+         
+         /* Skip whitespace to next word */
+         while(*elementP && isspace(*elementP)) elementP++;
+      }
+      
+      /* If this selector class wasn't found in element, fail */
+      if(!foundMatch)
+      {  return FALSE;
+      }
+   }
+   
+   return TRUE;
+}
+
+/* Match a single selector component to an element (without checking parent) */
+static BOOL MatchSelectorComponent(struct CSSSelector *sel, void *element)
 {  UBYTE *elemName;
    UBYTE *elemClass;
    UBYTE *elemId;
-   UBYTE *classPtr;
    
    if(!sel || !element) return FALSE;
    
@@ -644,22 +784,9 @@ static BOOL MatchSelector(struct CSSSelector *sel,void *element)
       }
    }
    
-   /* Match class - class attribute can contain multiple classes separated by spaces */
+   /* Match class - use proper word-boundary matching */
    if(sel->type & CSS_SEL_CLASS && sel->class)
-   {  if(!elemClass)
-      {  return FALSE;
-      }
-      /* Check if class name appears in the class attribute */
-      classPtr = (UBYTE *)strstr((char *)elemClass,(char *)sel->class);
-      if(!classPtr)
-      {  return FALSE;
-      }
-      /* Make sure it's a complete word match (not part of another class name) */
-      if(classPtr != elemClass && !isspace(classPtr[-1]))
-      {  return FALSE;
-      }
-      if(classPtr[strlen((char *)sel->class)] != '\0' && 
-         !isspace(classPtr[strlen((char *)sel->class)]))
+   {  if(!MatchClassAttribute(elemClass, sel->class))
       {  return FALSE;
       }
    }
@@ -674,8 +801,181 @@ static BOOL MatchSelector(struct CSSSelector *sel,void *element)
    return TRUE;
 }
 
+/* Match a single selector component to a body (for parent matching) */
+static BOOL MatchSelectorComponentBody(struct CSSSelector *sel, void *body)
+{  UBYTE *bodyName;
+   UBYTE *bodyClass;
+   UBYTE *bodyId;
+   
+   if(!sel || !body) return FALSE;
+   
+   /* Get body attributes */
+   bodyName = (UBYTE *)Agetattr(body,AOBDY_TagName);
+   bodyClass = (UBYTE *)Agetattr(body,AOBDY_Class);
+   bodyId = (UBYTE *)Agetattr(body,AOBDY_Id);
+   
+   /* Match element name */
+   if(sel->type & CSS_SEL_ELEMENT && sel->name)
+   {  if(!bodyName || stricmp((char *)sel->name,(char *)bodyName) != 0)
+      {  return FALSE;
+      }
+   }
+   
+   /* Match class - use proper word-boundary matching */
+   if(sel->type & CSS_SEL_CLASS && sel->class)
+   {  if(!MatchClassAttribute(bodyClass, sel->class))
+      {  return FALSE;
+      }
+   }
+   
+   /* Match ID */
+   if(sel->type & CSS_SEL_ID && sel->id)
+   {  if(!bodyId || stricmp((char *)sel->id,(char *)bodyId) != 0)
+      {  return FALSE;
+      }
+   }
+   
+   return TRUE;
+}
+
+/* Match a selector component to either an element or body */
+static BOOL MatchSelectorComponentGeneric(struct CSSSelector *sel, void *obj)
+{  struct Aobject *ao;
+   short objtype;
+   UBYTE *name;
+   UBYTE *class;
+   UBYTE *id;
+   
+   if(!sel || !obj) return FALSE;
+   
+   /* Check object type to determine which attributes to use */
+   ao = (struct Aobject *)obj;
+   objtype = ao->objecttype;
+   
+   if(objtype == AOTP_BODY)
+   {  /* It's a body - use body attributes */
+      name = (UBYTE *)Agetattr(obj, AOBDY_TagName);
+      class = (UBYTE *)Agetattr(obj, AOBDY_Class);
+      id = (UBYTE *)Agetattr(obj, AOBDY_Id);
+   }
+   else
+   {  /* Assume it's an element - use element attributes */
+      name = (UBYTE *)Agetattr(obj, AOELT_TagName);
+      class = (UBYTE *)Agetattr(obj, AOELT_Class);
+      id = (UBYTE *)Agetattr(obj, AOELT_Id);
+   }
+   
+   /* Match element name */
+   if(sel->type & CSS_SEL_ELEMENT && sel->name)
+   {  if(!name || stricmp((char *)sel->name, (char *)name) != 0)
+      {  return FALSE;
+      }
+   }
+   
+   /* Match class - use proper word-boundary matching */
+   if(sel->type & CSS_SEL_CLASS && sel->class)
+   {  if(!MatchClassAttribute(class, sel->class))
+      {  return FALSE;
+      }
+   }
+   
+   /* Match ID */
+   if(sel->type & CSS_SEL_ID && sel->id)
+   {  if(!id || stricmp((char *)sel->id, (char *)id) != 0)
+      {  return FALSE;
+      }
+   }
+   
+   return TRUE;
+}
+
+/* Match a selector to an element (handles descendant/child selectors) */
+/* maxDepth limits recursion depth to prevent infinite loops and performance issues */
+static BOOL MatchSelectorInternal(struct CSSSelector *sel,void *element,long maxDepth)
+{  void *parentBody;
+   void *ancestorBody;
+   BOOL foundMatch;
+   long depth;
+   
+   if(!sel || !element || maxDepth <= 0) return FALSE;
+   
+   /* If selector has a parent (descendant/child selector), we need to match the chain */
+   if(sel->parent)
+   {  /* Match current element against current selector */
+      if(!MatchSelectorComponent(sel, element))
+      {  return FALSE;
+      }
+      
+      /* Get parent body */
+      parentBody = (void *)Agetattr(element, AOBJ_Layoutparent);
+      if(!parentBody)
+      {  return FALSE;  /* No parent, can't match parent selector */
+      }
+      
+      /* For child combinator (>), only immediate parent is valid */
+      if(sel->combinator == CSS_COMB_CHILD)
+      {  /* Check immediate parent only */
+         if(!MatchSelectorComponentGeneric(sel->parent, parentBody))
+         {  return FALSE;  /* Immediate parent doesn't match */
+         }
+         /* Matched! Continue up the chain if parent selector has its own parent */
+         if(sel->parent->parent)
+         {  /* Recursively match parent selector against parent body */
+            return MatchSelectorInternal(sel->parent, parentBody, maxDepth - 1);
+         }
+         return TRUE;  /* Full chain matched */
+      }
+      /* For descendant combinator (space), traverse up ancestor chain */
+      else if(sel->combinator == CSS_COMB_DESCENDANT)
+      {  ancestorBody = parentBody;
+         foundMatch = FALSE;
+         depth = 0;
+         
+         /* Traverse up ancestor chain until we find a match or reach root */
+         /* Limit depth to prevent excessive traversal on deep DOM trees */
+         while(ancestorBody && depth < 50)
+         {  /* Check if this ancestor matches the parent selector */
+            if(MatchSelectorComponentGeneric(sel->parent, ancestorBody))
+            {  foundMatch = TRUE;
+               break;  /* Found matching ancestor */
+            }
+            
+            /* Move up to next ancestor */
+            ancestorBody = (void *)Agetattr(ancestorBody, AOBJ_Layoutparent);
+            depth++;
+         }
+         
+         if(!foundMatch)
+         {  return FALSE;  /* No matching ancestor found */
+         }
+         
+         /* Matched! Continue up the chain if parent selector has its own parent */
+         if(sel->parent->parent)
+         {  /* Recursively match parent selector against matching ancestor */
+            return MatchSelectorInternal(sel->parent, ancestorBody, maxDepth - 1);
+         }
+         return TRUE;  /* Full chain matched */
+      }
+      else
+      {  /* Unknown combinator - shouldn't happen, but be safe */
+         return FALSE;
+      }
+   }
+   else
+   {  /* Simple selector - no parent chain */
+      return MatchSelectorComponent(sel, element);
+   }
+}
+
+/* Match a selector to an element (handles descendant/child selectors) */
+/* Public wrapper with default depth limit */
+static BOOL MatchSelector(struct CSSSelector *sel,void *element)
+{  /* Limit recursion depth to 20 levels to prevent performance issues */
+   return MatchSelectorInternal(sel, element, 20);
+}
+
 /* Apply a CSS property to an element */
-static void ApplyProperty(void *element,struct CSSProperty *prop)
+static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty *prop)
 {  UBYTE *name;
    UBYTE *value;
    short align;
@@ -714,7 +1014,7 @@ static void ApplyProperty(void *element,struct CSSProperty *prop)
       comma = (UBYTE *)strchr((char *)value,',');
       if(comma)
       {  long len = comma - value;
-         fontName = ALLOCTYPE(UBYTE,len + 1,0);
+         fontName = ALLOCTYPE(UBYTE,len + 1,MEMF_FAST);
          if(fontName)
          {  memmove(fontName,value,len);
             fontName[len] = '\0';
@@ -781,7 +1081,116 @@ static void ApplyProperty(void *element,struct CSSProperty *prop)
       }
       /* TODO: Handle numeric sizes (px, pt, em, etc.) */
    }
+   /* color */
+   else if(stricmp((char *)name,"color") == 0)
+   {  ULONG colorrgb;
+      struct Colorinfo *ci;
+      
+      if(doc)
+      {  colorrgb = ParseHexColor(value);
+         if(colorrgb != ~0)
+         {  ci = Finddoccolor(doc, colorrgb);
+            if(ci)
+            {  Asetattrs(element, AOELT_Color, ci, TAG_END);
+            }
+         }
+      }
+   }
+   /* font-weight */
+   else if(stricmp((char *)name,"font-weight") == 0)
+   {  USHORT currentStyle;
+      USHORT newStyle;
+      
+      currentStyle = (USHORT)Agetattr(element, AOELT_Style);
+      newStyle = currentStyle;
+      
+      if(stricmp((char *)value,"bold") == 0 || stricmp((char *)value,"700") == 0 || stricmp((char *)value,"bolder") == 0)
+      {  newStyle |= FSF_BOLD;
+      }
+      else if(stricmp((char *)value,"normal") == 0 || stricmp((char *)value,"400") == 0 || stricmp((char *)value,"lighter") == 0)
+      {  newStyle &= ~FSF_BOLD;
+      }
+      else
+      {  /* Try to parse numeric value */
+         long weightValue;
+         struct Number num;
+         weightValue = ParseCSSLengthValue(value, &num);
+         if(weightValue >= 600)
+         {  newStyle |= FSF_BOLD;
+         }
+         else if(weightValue >= 0 && weightValue < 600)
+         {  newStyle &= ~FSF_BOLD;
+         }
+      }
+      
+      if(newStyle != currentStyle)
+      {  Asetattrs(element, AOELT_Style, newStyle, TAG_END);
+      }
+   }
+   /* font-style */
+   else if(stricmp((char *)name,"font-style") == 0)
+   {  USHORT currentStyle;
+      USHORT newStyle;
+      
+      currentStyle = (USHORT)Agetattr(element, AOELT_Style);
+      newStyle = currentStyle;
+      
+      if(stricmp((char *)value,"italic") == 0 || stricmp((char *)value,"oblique") == 0)
+      {  newStyle |= FSF_ITALIC;
+      }
+      else if(stricmp((char *)value,"normal") == 0)
+      {  newStyle &= ~FSF_ITALIC;
+      }
+      
+      if(newStyle != currentStyle)
+      {  Asetattrs(element, AOELT_Style, newStyle, TAG_END);
+      }
+   }
+   /* text-decoration */
+   else if(stricmp((char *)name,"text-decoration") == 0)
+   {  USHORT currentStyle;
+      USHORT newStyle;
+      UBYTE *decValue;
+      UBYTE *pdec;
+      
+      currentStyle = (USHORT)Agetattr(element, AOELT_Style);
+      newStyle = currentStyle;
+      
+      decValue = Dupstr(value, -1);
+      if(decValue)
+      {  pdec = decValue;
+         while(*pdec)
+         {  SkipWhitespace(&pdec);
+            if(!*pdec) break;
+            
+            if(stricmp((char *)pdec,"underline") == 0)
+            {  newStyle |= FSF_UNDERLINED;
+            }
+            else if(stricmp((char *)pdec,"line-through") == 0 || stricmp((char *)pdec,"strikethrough") == 0)
+            {  newStyle |= FSF_STRIKE;
+            }
+            else if(stricmp((char *)pdec,"none") == 0)
+            {  newStyle &= ~(FSF_UNDERLINED | FSF_STRIKE);
+            }
+            
+            /* Skip to next space or end */
+            while(*pdec && !isspace(*pdec)) pdec++;
+         }
+         FREE(decValue);
+      }
+      
+      if(newStyle != currentStyle)
+      {  Asetattrs(element, AOELT_Style, newStyle, TAG_END);
+      }
+   }
 }
+
+/* Helper structure for sorting rules by specificity */
+struct RuleWithSpecificity
+{  struct MinNode node;
+   struct CSSRule *rule;
+   USHORT maxSpecificity;  /* Maximum specificity of matching selectors */
+};
 
 /* Apply CSS to an element */
 void ApplyCSSToElement(struct Document *doc,void *element)
@@ -789,7 +1198,11 @@ void ApplyCSSToElement(struct Document *doc,void *element)
    struct CSSSelector *sel;
    struct CSSProperty *prop;
    struct MinList matches;
+   struct RuleWithSpecificity *ruleSpec;
+   struct RuleWithSpecificity *current;
+   struct RuleWithSpecificity *insertAfter;
    struct CSSStylesheet *sheet;
+   USHORT maxSpec;
    
    if(!doc || !element || !doc->cssstylesheet) return;
    
@@ -797,29 +1210,91 @@ void ApplyCSSToElement(struct Document *doc,void *element)
    
    NEWLIST(&matches);
    
-   /* Find all matching rules */
+   /* Find all matching rules and calculate their maximum specificity */
+   /* Optimize: Check element attributes once to avoid repeated Agetattr calls */
    for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
        (struct MinNode *)rule->node.mln_Succ;
        rule = (struct CSSRule *)rule->node.mln_Succ)
-   {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
+   {  maxSpec = 0;
+      for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
          (struct MinNode *)sel->node.mln_Succ;
          sel = (struct CSSSelector *)sel->node.mln_Succ)
-      {  if(MatchSelector(sel,element))
-         {  ADDTAIL(&matches,rule);
-            break; /* One selector match is enough */
+      {  /* Quick rejection: If selector has an ID and element doesn't match, skip */
+         if(sel->type & CSS_SEL_ID && sel->id)
+         {  UBYTE *elemId;
+            short objtype;
+            struct Aobject *ao;
+            
+            ao = (struct Aobject *)element;
+            objtype = ao->objecttype;
+            if(objtype == AOTP_BODY)
+            {  elemId = (UBYTE *)Agetattr(element, AOBDY_Id);
+            }
+            else
+            {  elemId = (UBYTE *)Agetattr(element, AOELT_Id);
+            }
+            if(!elemId || stricmp((char *)sel->id, (char *)elemId) != 0)
+            {  continue;  /* ID doesn't match, skip this selector */
+            }
+         }
+         
+         if(MatchSelector(sel,element))
+         {  /* Find maximum specificity among matching selectors */
+            if(sel->specificity > maxSpec)
+            {  maxSpec = sel->specificity;
+            }
+            /* Early exit: If we found a match, we can stop checking other selectors in this rule */
+            /* (One matching selector is enough to apply the rule) */
+            break;
+         }
+      }
+      
+      /* If at least one selector matched, add rule with its specificity */
+      if(maxSpec > 0)
+      {  ruleSpec = ALLOCSTRUCT(RuleWithSpecificity, 1, MEMF_FAST);
+         if(ruleSpec)
+         {  ruleSpec->rule = rule;
+            ruleSpec->maxSpecificity = maxSpec;
+            
+            /* Insert sorted by specificity (lower first, so higher wins when applied last) */
+            /* For same specificity, maintain document order (last in document wins) */
+            insertAfter = NULL;
+            for(current = (struct RuleWithSpecificity *)matches.mlh_Head;
+                (struct MinNode *)current->node.mln_Succ;
+                current = (struct RuleWithSpecificity *)current->node.mln_Succ)
+            {  if(current->maxSpecificity > maxSpec)
+               {  /* Insert before current (after insertAfter, which is the previous node) */
+                  break;
+               }
+               insertAfter = current; /* Continue to maintain document order for same specificity */
+            }
+            
+            if(insertAfter)
+            {  /* INSERT inserts after the specified node */
+               INSERT(&matches, (struct MinNode *)insertAfter, (struct MinNode *)ruleSpec);
+            }
+            else
+            {  /* No node with lower or equal specificity, add at head */
+               ADDHEAD(&matches, (struct MinNode *)ruleSpec);
+            }
          }
       }
    }
    
-   /* Apply properties from matching rules (simple cascade - last wins) */
-   for(rule = (struct CSSRule *)matches.mlh_Head;
-       (struct MinNode *)rule->node.mln_Succ;
-       rule = (struct CSSRule *)rule->node.mln_Succ)
-   {  for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
+   /* Apply properties from matching rules sorted by specificity */
+   /* Rules with same specificity maintain document order (last wins) */
+   for(ruleSpec = (struct RuleWithSpecificity *)matches.mlh_Head;
+       (struct MinNode *)ruleSpec->node.mln_Succ;
+       ruleSpec = (struct RuleWithSpecificity *)ruleSpec->node.mln_Succ)
+   {  rule = ruleSpec->rule;
+      for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
          (struct MinNode *)prop->node.mln_Succ;
          prop = (struct CSSProperty *)prop->node.mln_Succ)
-      {  ApplyProperty(element,prop);
+      {  ApplyProperty(doc,element,prop);
       }
+      /* Free the helper structure */
+      REMOVE((struct MinNode *)ruleSpec);
+      FREE(ruleSpec);
    }
 }
 
@@ -876,7 +1351,7 @@ void ApplyInlineCSS(struct Document *doc,void *element,UBYTE *style)
       /* Parse property */
       prop = ParseProperty(doc,&p);
       if(prop)
-      {  ApplyProperty(element,prop);
+      {  ApplyProperty(doc,element,prop);
          /* Free the property */
          if(prop->name) FREE(prop->name);
          if(prop->value) FREE(prop->value);
@@ -906,7 +1381,6 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
    UBYTE *comma;
    short fontSize;
    BOOL isRelative;
-   long paddingValue;
    long marginTop;
    long marginRight;
    long marginBottom;
@@ -962,7 +1436,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                tokenEnd = paddingP;
                tokenLen = tokenEnd - tokenStart;
                if(tokenLen > 0)
-               {  tokenBuf = ALLOCTYPE(UBYTE,tokenLen + 1,0);
+                  {  tokenBuf = ALLOCTYPE(UBYTE,tokenLen + 1,MEMF_FAST);
                   if(tokenBuf)
                   {  memmove(tokenBuf,tokenStart,tokenLen);
                      tokenBuf[tokenLen] = '\0';
@@ -1049,7 +1523,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                   }
                   len = end - start;
                   if(len > 0)
-                  {  url = ALLOCTYPE(UBYTE,len + 1,0);
+                     {  url = ALLOCTYPE(UBYTE,len + 1,MEMF_FAST);
                      if(url)
                      {  memmove(url,start,len);
                         url[len] = '\0';
@@ -1245,7 +1719,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             comma = (UBYTE *)strchr((char *)prop->value,',');
             if(comma)
             {  long len = comma - prop->value;
-               fontFace = ALLOCTYPE(UBYTE,len + 1,0);
+               fontFace = ALLOCTYPE(UBYTE,len + 1,MEMF_FAST);
                if(fontFace)
                {  memmove(fontFace,prop->value,len);
                   fontFace[len] = '\0';
@@ -1343,7 +1817,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                tokenLen = tokenEnd - tokenStart;
                if(tokenLen > 0)
                {  /* Copy token to temporary buffer */
-                  tokenBuf = ALLOCTYPE(UBYTE,tokenLen + 1,0);
+                  tokenBuf = ALLOCTYPE(UBYTE,tokenLen + 1,MEMF_FAST);
                   if(tokenBuf)
                   {  memmove(tokenBuf,tokenStart,tokenLen);
                      tokenBuf[tokenLen] = '\0';
@@ -1673,8 +2147,6 @@ ULONG ParseHexColor(UBYTE *pcolor)
 void ApplyInlineCSSToLink(struct Document *doc,void *link,void *body,UBYTE *style)
 {  struct CSSProperty *prop;
    UBYTE *p;
-   ULONG colorrgb;
-   struct Colorinfo *ci;
    
    if(!doc || !link || !style) return;
    

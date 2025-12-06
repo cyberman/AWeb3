@@ -106,8 +106,14 @@
 #define AOBDY_Bgupdate     (AOBDY_Dummy+31)   /* GET */
    /* ULONG last bgupdate key value */
 
-#define AOBDY_    (AOBDY_Dummy+)
-#define AOBDY_    (AOBDY_Dummy+)
+#define AOBDY_TagName      (AOBDY_Dummy+32)  /* SET,GET */
+   /* (UBYTE *) HTML tag name (e.g. "DIV", "P") for CSS matching */
+
+#define AOBDY_Class        (AOBDY_Dummy+33)  /* SET,GET */
+   /* (UBYTE *) CSS class name(s) for CSS matching */
+
+#define AOBDY_Id           (AOBDY_Dummy+34)  /* SET,GET */
+   /* (UBYTE *) Element ID for CSS matching */
 
 /*--- body support structures ---*/
 

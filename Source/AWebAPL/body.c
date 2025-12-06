@@ -73,6 +73,9 @@ struct Body
    ULONG bgupdate;            /* Value of bgupdate last time this body was rendered */
    LIST(Openfont) openfonts;  /* All fonts used (and therefore opened) by us */
    struct Bodybuild *bld;     /* Variables only needed during growth */
+   UBYTE *tagname;            /* HTML tag name for CSS matching (e.g. "DIV", "P") */
+   UBYTE *class;              /* CSS class name(s) for CSS matching */
+   UBYTE *id;                 /* Element ID for CSS matching */
 };
 
 #define BDYF_SUB           0x0001   /* subscript mode */
@@ -1210,6 +1213,24 @@ static long Setbody(struct Body *bd,struct Amset *ams)
          case AOBDY_End:
             Disposebodybuild(bd);
             break;
+         case AOBDY_TagName:
+            if(bd->tagname && bd->tagname != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->tagname);
+            }
+            bd->tagname = (UBYTE *)tag->ti_Data;
+            break;
+         case AOBDY_Class:
+            if(bd->class && bd->class != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->class);
+            }
+            bd->class = (UBYTE *)tag->ti_Data;
+            break;
+         case AOBDY_Id:
+            if(bd->id && bd->id != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->id);
+            }
+            bd->id = (UBYTE *)tag->ti_Data;
+            break;
       }
    }
    if(fontw) Pushfont(bd,fontstyle,fontsize,fontcolor,fontface,fontw);
@@ -1234,6 +1255,9 @@ static void Disposebody(struct Body *bd)
    while(p=REMHEAD(&bd->rightmargins)) FREE(p);
    while(p=REMHEAD(&bd->openfonts)) Freeopenfont(p);
    if(bd->bld) Disposebodybuild(bd);
+   if(bd->tagname) FREE(bd->tagname);
+   if(bd->class) FREE(bd->class);
+   if(bd->id) FREE(bd->id);
    Amethodas(AOTP_OBJECT,bd,AOM_DISPOSE);
 }
 
@@ -1245,6 +1269,9 @@ static struct Body *Newbody(struct Amset *ams)
       NEWLIST(&bd->leftmargins);
       NEWLIST(&bd->rightmargins);
       NEWLIST(&bd->openfonts);
+      bd->tagname = NULL;
+      bd->class = NULL;
+      bd->id = NULL;
       if(Newbodybuild(bd))
       {  Pushfont(bd,STYLE_NORMAL,0,NULL,NULL,FONTW_STYLE);
          bd->bgcolor=-1;
@@ -1293,6 +1320,15 @@ static long Getbody(struct Body *bd,struct Amset *ams)
             break;
          case AOBDY_Bgupdate:
             PUTATTR(tag,bd->bgupdate);
+            break;
+         case AOBDY_TagName:
+            PUTATTR(tag,bd->tagname);
+            break;
+         case AOBDY_Class:
+            PUTATTR(tag,bd->class);
+            break;
+         case AOBDY_Id:
+            PUTATTR(tag,bd->id);
             break;
       }
    }

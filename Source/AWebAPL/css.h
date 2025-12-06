@@ -29,6 +29,11 @@
 #define CSS_SEL_ID         0x0004
 #define CSS_SEL_PSEUDO     0x0008
 
+/* CSS selector combinators */
+#define CSS_COMB_NONE        0
+#define CSS_COMB_DESCENDANT  1  /* space: "div p" */
+#define CSS_COMB_CHILD       2  /* >: "div > p" */
+
 /* CSS selector structure */
 struct CSSSelector
 {  struct MinNode node;
@@ -38,6 +43,8 @@ struct CSSSelector
    UBYTE *id;                /* ID name */
    UBYTE *pseudo;            /* Pseudo-class name (e.g., "link", "visited", "hover") */
    USHORT specificity;      /* Selector specificity for cascade */
+   struct CSSSelector *parent; /* Parent selector for descendant/child selectors */
+   UWORD combinator;         /* CSS_COMB_NONE, CSS_COMB_DESCENDANT, CSS_COMB_CHILD */
 };
 
 /* CSS property structure */

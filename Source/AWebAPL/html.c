@@ -206,6 +206,48 @@ static BOOL Addelement(struct Document *doc,void *elt)
 /* Forward declaration */
 static long Getnumber(struct Number *num,UBYTE *p);
 
+/* Match a class name against an element's class attribute
+ * Class attribute may contain multiple space-separated class names
+ * Returns TRUE if selector class matches any class in element's class attribute
+ * Uses proper word-boundary matching to avoid partial matches
+ */
+static BOOL MatchClassAttribute(UBYTE *elementClass, UBYTE *selectorClass)
+{  UBYTE *p;
+   UBYTE *start;
+   size_t selectorLen;
+   size_t wordLen;
+   
+   if(!elementClass || !selectorClass || !*selectorClass)
+   {  return FALSE;
+   }
+   
+   selectorLen = strlen((char *)selectorClass);
+   p = elementClass;
+   
+   /* Skip leading whitespace */
+   while(*p && isspace(*p)) p++;
+   
+   while(*p)
+   {  start = p;
+      
+      /* Find end of current word */
+      while(*p && !isspace(*p)) p++;
+      wordLen = p - start;
+      
+      /* Check if this word matches selector class (case-insensitive) */
+      if(wordLen == selectorLen)
+      {  if(strnicmp((char *)start, (char *)selectorClass, selectorLen) == 0)
+         {  return TRUE;
+         }
+      }
+      
+      /* Skip whitespace to next word */
+      while(*p && isspace(*p)) p++;
+   }
+   
+   return FALSE;
+}
+
 /* Check if a DIV element should be displayed inline based on CSS rules or inline styles */
 static BOOL IsDivInline(struct Document *doc,UBYTE *class,UBYTE *id,UBYTE *styleAttr)
 {  struct CSSRule *rule;
@@ -290,25 +332,45 @@ static BOOL IsDivInline(struct Document *doc,UBYTE *class,UBYTE *id,UBYTE *style
          }
          /* If no element name specified, it matches any element (including div) */
          
-         /* Match class */
+         /* Match class - use proper word-boundary matching */
          if(matches && sel->type & CSS_SEL_CLASS && sel->class)
          {  if(!class)
             {  matches = FALSE;
             }
             else
-            {  classPtr = (UBYTE *)strstr((char *)class,(char *)sel->class);
-               if(!classPtr)
-               {  matches = FALSE;
+            {  UBYTE *p;
+               UBYTE *start;
+               size_t selectorLen;
+               size_t wordLen;
+               BOOL classMatch = FALSE;
+               
+               selectorLen = strlen((char *)sel->class);
+               p = class;
+               
+               /* Skip leading whitespace */
+               while(*p && isspace(*p)) p++;
+               
+               /* Check each word in class attribute */
+               while(*p && !classMatch)
+               {  start = p;
+                  
+                  /* Find end of current word */
+                  while(*p && !isspace(*p)) p++;
+                  wordLen = p - start;
+                  
+                  /* Check if this word matches selector class (case-insensitive) */
+                  if(wordLen == selectorLen)
+                  {  if(strnicmp((char *)start, (char *)sel->class, selectorLen) == 0)
+                     {  classMatch = TRUE;
+                     }
+                  }
+                  
+                  /* Skip whitespace to next word */
+                  while(*p && isspace(*p)) p++;
                }
-               else
-               {  /* Make sure it's a complete word match */
-                  if(classPtr != class && !isspace(classPtr[-1]))
-                  {  matches = FALSE;
-                  }
-                  else if(classPtr[strlen((char *)sel->class)] != '\0' && 
-                          !isspace(classPtr[strlen((char *)sel->class)]))
-                  {  matches = FALSE;
-                  }
+               
+               if(!classMatch)
+               {  matches = FALSE;
                }
             }
          }
@@ -440,29 +502,9 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                matches = FALSE;
             }
             else
-            {  /* debug_printf("CSS: Checking class match: selector wants '%s', element has '%s'\n",
-                           sel->class, class); */
-               classPtr = (UBYTE *)strstr((char *)class,(char *)sel->class);
-               if(!classPtr)
-               {  /* debug_printf("CSS: Class '%s' not found in element class '%s'\n", sel->class, class); */
-                  matches = FALSE;
-               }
-               else
-               {  /* Make sure it's a complete word match */
-                  if(classPtr != class && !isspace(classPtr[-1]))
-                  {  /* debug_printf("CSS: Class '%s' found but not at word boundary (char before: 0x%02x)\n",
-                                  sel->class, (unsigned char)classPtr[-1]); */
-                     matches = FALSE;
-                  }
-                  else if(classPtr[strlen((char *)sel->class)] != '\0' && 
-                          !isspace(classPtr[strlen((char *)sel->class)]))
-                  {  /* debug_printf("CSS: Class '%s' found but not at word boundary (char after: 0x%02x)\n",
-                                  sel->class, (unsigned char)classPtr[strlen((char *)sel->class)]); */
-                     matches = FALSE;
-                  }
-                  else
-                  {  /* debug_printf("CSS: Class '%s' matches!\n", sel->class); */
-                  }
+            {  /* Use proper word-boundary matching */
+               if(!MatchClassAttribute(class, sel->class))
+               {  matches = FALSE;
                }
             }
          }
@@ -529,26 +571,10 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
             }
          }
          
-         /* Match class */
+         /* Match class - use proper word-boundary matching */
          if(matches && sel->type & CSS_SEL_CLASS && sel->class)
-         {  if(!class)
+         {  if(!MatchClassAttribute(class, sel->class))
             {  matches = FALSE;
-            }
-            else
-            {  classPtr = (UBYTE *)strstr((char *)class,(char *)sel->class);
-               if(!classPtr)
-               {  matches = FALSE;
-               }
-               else
-               {  /* Make sure it's a complete word match */
-                  if(classPtr != class && !isspace(classPtr[-1]))
-                  {  matches = FALSE;
-                  }
-                  else if(classPtr[strlen((char *)sel->class)] != '\0' && 
-                          !isspace(classPtr[strlen((char *)sel->class)]))
-                  {  matches = FALSE;
-                  }
-               }
             }
          }
          
@@ -2108,6 +2134,10 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
    if(!Ensurebody(doc)) return FALSE;
    body = Docbodync(doc);
    Asetattrs(body,AOBDY_Divalign,align,TAG_END);
+   /* Store class/id/tagname on body for CSS matching */
+   if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
+   if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
+   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"DIV",-1),TAG_END);
    Checkid(doc,tap);  /* Use original sentinel pointer */
    /* Apply CSS to body based on class/ID */
    ApplyCSSToBody(doc,body,class,id,"DIV");
@@ -2189,6 +2219,10 @@ static BOOL Dopara(struct Document *doc,struct Tagattr *ta)
    if(!Ensurebody(doc)) return FALSE;
    body = Docbodync(doc);
    Asetattrs(body,AOBDY_Align,align,TAG_END);
+   /* Store class/id/tagname on body for CSS matching */
+   if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
+   if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
+   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"P",-1),TAG_END);
    if(!Ensuresp(doc)) return FALSE;
    Checkid(doc,sentinel);
    /* Apply CSS to body based on class/ID */
