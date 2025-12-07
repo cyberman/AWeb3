@@ -1351,7 +1351,17 @@ static void Getarguments(struct WBStartup *wbs)
             initialurls[nurl++]=Dupstr(buffer,-1);
          }
       }
-      process=(struct Process *)wbs->mn_ReplyPort->mp_SigTask;
+      /* CRITICAL: Check if mn_ReplyPort is NULL before accessing mp_SigTask */
+      /* If mn_ReplyPort is NULL, accessing ->mp_SigTask will cause a crash */
+      /* The crash pattern shows dar=0x00000070, which is offset 112 (mp_SigTask offset) from NULL */
+      /* Note: mn_ReplyPort is inside sm_Message structure according to workbench/startup.h */
+      if(wbs->sm_Message.mn_ReplyPort)
+      {  process=(struct Process *)wbs->sm_Message.mn_ReplyPort->mp_SigTask;
+      }
+      else
+      {  /* Fall back to FindTask(NULL) if mn_ReplyPort is NULL */
+         process=(struct Process *)FindTask(NULL);
+      }
    }
    else
    {  struct RDArgs *rda=ReadArgs(argtemplate,args,NULL);
