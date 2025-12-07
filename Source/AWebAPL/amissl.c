@@ -99,6 +99,12 @@ struct Library *AmiSSLExtBase;
 /* Subprocesses must call InitAmiSSL() explicitly, main task doesn't */
 static struct Task *first_amissl_task = NULL;
 
+/* Each process calls SSL_CTX_up_ref() when using it, SSL_CTX_free() when done */
+/* SSL_CTX_free() decrements OpenSSL's internal reference count, only frees when refcount reaches 0 */
+/* We track our own refcount to know when to clear shared_sslctx pointer */
+static SSL_CTX *shared_sslctx = NULL;
+static ULONG shared_sslctx_refcount = 0; /* Our reference count tracking for shared SSL_CTX */
+
 /* Semaphore to protect OpenSSL object creation/destruction */
 /* SSL_CTX_new(), SSL_new(), SSL_free(), SSL_CTX_free() may access shared
  * internal state */
@@ -262,6 +268,7 @@ static ULONG get_task_id(void) {
 static void debug_printf(const char *format, ...);
 static void check_ssl_error(const char *function_name,
                             struct Library *AmiSSLBase);
+static SSL_CTX *GetSharedSSLCTX(void);
 
 /* SSL info callback for detailed handshake debugging */
 /* This callback provides detailed information about SSL handshake progress */
@@ -794,6 +801,104 @@ static void debug_printf(const char *format, ...) {
 
 /*-----------------------------------------------------------------------*/
 
+/* Get or create the shared SSL_CTX */
+/* Returns the shared SSL_CTX with reference count incremented, or NULL on error */
+/* Caller must call SSL_CTX_free() when done (which decrements refcount) */
+static SSL_CTX *GetSharedSSLCTX(void) {
+  SSL_CTX *ctx = NULL;
+  const SSL_METHOD *method = NULL;
+  
+  if (!AmiSSLBase || (ULONG)AmiSSLBase < 0x1000 || (ULONG)AmiSSLBase >= 0xFFFFFFF0) {
+    debug_printf("DEBUG: GetSharedSSLCTX: ERROR - AmiSSLBase is invalid (%p)\n", AmiSSLBase);
+    return NULL;
+  }
+  
+  ObtainSemaphore(&ssl_init_sema);
+  
+  /* If shared SSL_CTX already exists, increment reference count and return it */
+  /* CRITICAL: Check if shared_sslctx is still valid - it might have been freed */
+  /* by OpenSSL if refcount reached 0, but we haven't cleared the pointer yet */
+  if (shared_sslctx) {
+    /* Validate the pointer is still in a reasonable memory range */
+    /* If it was freed, the pointer might be in an invalid range */
+    if ((ULONG)shared_sslctx < 0x1000 || (ULONG)shared_sslctx >= 0xFFFFFFF0) {
+      debug_printf("DEBUG: GetSharedSSLCTX: Shared SSL_CTX pointer is invalid (%p), clearing it\n", shared_sslctx);
+      shared_sslctx = NULL;
+      shared_sslctx_refcount = 0;
+      /* Fall through to create new SSL_CTX */
+    } else {
+      debug_printf("DEBUG: GetSharedSSLCTX: Shared SSL_CTX exists at %p, incrementing refcount (was %lu)\n", 
+                   shared_sslctx, shared_sslctx_refcount);
+      SSL_CTX_up_ref(shared_sslctx);
+      shared_sslctx_refcount++;
+      ctx = shared_sslctx;
+      ReleaseSemaphore(&ssl_init_sema);
+      return ctx;
+    }
+  }
+  
+  /* Create new shared SSL_CTX */
+  debug_printf("DEBUG: GetSharedSSLCTX: Creating new shared SSL_CTX\n");
+  method = TLS_client_method();
+  if (!method) {
+    debug_printf("DEBUG: GetSharedSSLCTX: ERROR - TLS_client_method() returned NULL\n");
+    check_ssl_error("TLS_client_method (failed)", AmiSSLBase);
+    ReleaseSemaphore(&ssl_init_sema);
+    return NULL;
+  }
+  
+  ctx = SSL_CTX_new(method);
+  if (!ctx) {
+    debug_printf("DEBUG: GetSharedSSLCTX: ERROR - SSL_CTX_new() failed\n");
+    check_ssl_error("SSL_CTX_new (failed)", AmiSSLBase);
+    ReleaseSemaphore(&ssl_init_sema);
+    return NULL;
+  }
+  
+  /* Validate pointer */
+  if ((ULONG)ctx < 0x1000 || (ULONG)ctx >= 0xFFFFFFF0) {
+    debug_printf("DEBUG: GetSharedSSLCTX: ERROR - SSL_CTX_new() returned invalid pointer (%p)\n", ctx);
+    SSL_CTX_free(ctx);
+    check_ssl_error("SSL_CTX_free (invalid)", AmiSSLBase);
+    ReleaseSemaphore(&ssl_init_sema);
+    return NULL;
+  }
+  
+  debug_printf("DEBUG: GetSharedSSLCTX: SSL_CTX created successfully at %p\n", ctx);
+  check_ssl_error("SSL_CTX_new", AmiSSLBase);
+  
+  /* Configure the shared SSL_CTX */
+  SSL_CTX_set_default_verify_paths(ctx);
+  check_ssl_error("SSL_CTX_set_default_verify_paths", AmiSSLBase);
+  
+  SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | 
+                      SSL_OP_NO_TLSv1_1 | SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
+  check_ssl_error("SSL_CTX_set_options", AmiSSLBase);
+  
+  SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
+  check_ssl_error("SSL_CTX_set_min_proto_version", AmiSSLBase);
+  
+  SSL_CTX_set_cipher_list(ctx, "CHACHA20:MEDIUM:HIGH");
+  check_ssl_error("SSL_CTX_set_cipher_list", AmiSSLBase);
+  
+  SSL_CTX_set_ciphersuites(ctx, "TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384");
+  check_ssl_error("SSL_CTX_set_ciphersuites", AmiSSLBase);
+  
+  SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
+  check_ssl_error("SSL_CTX_set_verify", AmiSSLBase);
+  
+  /* Store as shared SSL_CTX and set initial refcount to 1 */
+  shared_sslctx = ctx;
+  shared_sslctx_refcount = 1;
+  debug_printf("DEBUG: GetSharedSSLCTX: Shared SSL_CTX configured and stored, refcount=%lu\n", 
+               shared_sslctx_refcount);
+  
+  ReleaseSemaphore(&ssl_init_sema);
+  return ctx;
+}
+
+/*-----------------------------------------------------------------------*/
+
 struct Assl *Assl_initamissl(struct Library *socketbase) {
   struct Assl *assl;
   static BOOL sema_initialized = FALSE;
@@ -1118,7 +1223,6 @@ __asm void Assl_cleanup(register __a0 struct Assl *assl) {
   /* Only cleanup if we have a valid Assl struct */
   if (assl) {
     /* Use global AmiSSLBase directly */
-    /* struct Library *AmiSSLBase = assl->amisslbase; */ /* Removed */
 
     /* CRITICAL: Protect cleanup with semaphore to prevent race conditions */
     /* Wait for any active operations to complete */
@@ -1128,12 +1232,8 @@ __asm void Assl_cleanup(register __a0 struct Assl *assl) {
     /* Assl_closessl will free ssl and sslctx */
     Assl_closessl(assl);
 
-    /* 2. Clear references (BUT DO NOT CLOSE LIBRARIES HERE) */
-    /* Closing libraries here causes race conditions with other active tasks */
-    /* assl->amisslbase = NULL; */       /* Removed */
-    /* assl->amisslmasterbase = NULL; */ /* Removed */
-    /* assl->amissslextbase = NULL; */   /* Removed */
-    /* assl->owning_task = NULL; */      /* Removed */
+
+
 
     /* Release semaphore */
     ReleaseSemaphore(&assl->use_sema);
@@ -1183,15 +1283,11 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
      * symbol AmiSSLBase */
     /* We must shadow it locally to prevent using the wrong library base from
      * another task */
-    /* struct Library *AmiSSLBase = assl->amisslbase; */ /* Removed - use global
-                                                            AmiSSLBase directly
-                                                          */
+
     /* Use local variable for error checking - baserel system handles library
      * base automatically */
     struct Library *local_amisslbase =
         AmiSSLBase; /* Use global AmiSSLBase directly */
-    /* struct Library *AmiSSLBase = assl->amisslbase; */       /* Removed */
-    /* struct Library *local_amisslbase = assl->amisslbase; */ /* Removed */
 
     debug_printf("DEBUG: Assl_openssl: Valid Assl, using global AmiSSLBase\n",
                  local_amisslbase);
@@ -1217,9 +1313,9 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
      * OPENSSL_init_ssl() manually */
     /* InitAmiSSL() is called once per task in Assl_initamissl() */
 
-    /* SSL context must be created fresh for each connection */
-    /* Do NOT reuse SSL contexts - they are NOT thread-safe for concurrent use
-     */
+    /* Per AmiSSL developer recommendation: use shared SSL_CTX for all connections */
+    /* AmiSSL is fully multi-threaded and uses mutexes on OS4 */
+    /* We use SSL_CTX_up_ref() to increment reference count, SSL_CTX_free() to decrement */
     /* ALWAYS free any existing SSL objects before creating new ones */
     /* This ensures we never reuse SSL objects - each transaction gets a fresh
      * SSL object */
@@ -1277,11 +1373,27 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
           debug_printf(
               "DEBUG: Assl_openssl: Freeing existing SSL context at %p\n",
               assl->sslctx);
+          /* call SSL_CTX_free() to decrement reference count */
+          /* SSL_CTX_free() decrements OpenSSL's internal reference count, only frees when refcount reaches 0 */
+          /* This allows multiple processes to share the same SSL_CTX safely */
+          /* CRITICAL: Track our refcount and clear shared_sslctx if it reaches 0 */
           /* Clear certificate verification callback before freeing context */
           /* This prevents callbacks from being called after context is freed */
           SSL_CTX_set_verify(assl->sslctx, SSL_VERIFY_NONE, NULL);
+          debug_printf("DEBUG: Assl_openssl: Calling SSL_CTX_free() on existing context %p (decrementing refcount, current=%lu)\n",
+                       assl->sslctx, shared_sslctx_refcount);
           SSL_CTX_free(assl->sslctx);
           check_ssl_error("SSL_CTX_free (existing)", local_amisslbase);
+          /* Decrement our refcount tracking */
+          if (shared_sslctx_refcount > 0) {
+            shared_sslctx_refcount--;
+            debug_printf("DEBUG: Assl_openssl: Our refcount decremented to %lu\n", shared_sslctx_refcount);
+            /* If refcount reaches 0, OpenSSL has freed the SSL_CTX - clear our pointer */
+            if (shared_sslctx_refcount == 0) {
+              debug_printf("DEBUG: Assl_openssl: Refcount reached 0, OpenSSL freed SSL_CTX, clearing shared_sslctx pointer\n");
+              shared_sslctx = NULL;
+            }
+          }
           assl->sslctx = NULL;
         }
         /* Reset flags after freeing */
@@ -1303,135 +1415,16 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
       }
     }
 
-    /* Create new SSL context for this connection */
-    /* SSL_CTX_new() accesses shared OpenSSL state - must be serialized */
-    debug_printf("DEBUG: Assl_openssl: Creating new SSL context with "
-                 "TLS_client_method()\n");
-    /* CRITICAL: Re-validate AmiSSLBase before calling OpenSSL functions */
-    /* AmiSSLBase might become NULL if the library is closed by another task */
-    /* OpenSSL macros use AmiSSLBase internally, so it must be valid */
-    if (!AmiSSLBase || (ULONG)AmiSSLBase < 0x1000) {
-      debug_printf("DEBUG: Assl_openssl: ERROR - AmiSSLBase is invalid (%p), cannot create SSL context\n", AmiSSLBase);
+    /* Get shared SSL_CTX  */
+    /* GetSharedSSLCTX() increments reference count, we call SSL_CTX_free() when done */
+    debug_printf("DEBUG: Assl_openssl: Getting shared SSL_CTX\n");
+    assl->sslctx = GetSharedSSLCTX();
+    if (!assl->sslctx) {
+      debug_printf("DEBUG: Assl_openssl: ERROR - Failed to get shared SSL_CTX\n");
       ReleaseSemaphore(&ssl_init_sema);
       return FALSE;
     }
-    /* CRITICAL: Check that TLS_client_method() returns non-NULL before using it */
-    /* TLS_client_method() can return NULL if AmiSSL is not properly initialized */
-    /* Passing NULL to SSL_CTX_new() will cause a crash inside AmiSSL library */
-    {
-      const SSL_METHOD *method = TLS_client_method();
-      if (!method) {
-        debug_printf("DEBUG: Assl_openssl: ERROR - TLS_client_method() returned NULL, AmiSSL not properly initialized\n");
-        check_ssl_error("TLS_client_method (failed)", local_amisslbase);
-        ReleaseSemaphore(&ssl_init_sema);
-        return FALSE;
-      }
-      if (assl->sslctx = SSL_CTX_new(method)) {
-      debug_printf(
-          "DEBUG: Assl_openssl: SSL context created successfully at %p\n",
-          assl->sslctx);
-      check_ssl_error("SSL_CTX_new", local_amisslbase);
-      
-      /* CRITICAL: Validate sslctx pointer immediately after SSL_CTX_new() */
-      /* SSL_CTX_new() might return a corrupted pointer that causes crashes when accessed */
-      if (!assl->sslctx || (ULONG)assl->sslctx < 0x1000 || (ULONG)assl->sslctx >= 0xFFFFFFF0) {
-        debug_printf("DEBUG: Assl_openssl: ERROR - SSL_CTX_new() returned invalid/corrupted pointer (%p)\n", assl->sslctx);
-        check_ssl_error("SSL_CTX_new (corrupted pointer)", local_amisslbase);
-        /* Free the corrupted pointer to prevent use-after-free */
-        if (assl->sslctx) {
-          SSL_CTX_free(assl->sslctx);
-          check_ssl_error("SSL_CTX_free (corrupted)", local_amisslbase);
-        }
-        assl->sslctx = NULL;
-      } else {
-
-      /* Set default certificate verification paths */
-      debug_printf("DEBUG: Assl_openssl: Setting default certificate "
-                   "verification paths\n");
-      SSL_CTX_set_default_verify_paths(assl->sslctx);
-      check_ssl_error("SSL_CTX_set_default_verify_paths", local_amisslbase);
-
-      /* Enhanced security: disable weak protocols and ciphers */
-      /* Disable SSLv2, SSLv3, TLS 1.0, and TLS 1.1 (all deprecated/insecure) */
-      /* TLS 1.0 and TLS 1.1 are deprecated per RFC 8996 and should not be used
-       */
-      /* SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION: Prevent session
-       * resumption on renegotiation (security best practice) */
-      debug_printf("DEBUG: Assl_openssl: Setting SSL options (disabling "
-                   "SSLv2/SSLv3/TLS1.0/TLS1.1, "
-                   "renegotiation protection)\n");
-      SSL_CTX_set_options(assl->sslctx,
-                          SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 |
-                              SSL_OP_NO_TLSv1_1 |
-                              SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
-      check_ssl_error("SSL_CTX_set_options", local_amisslbase);
-
-      /* Enforce minimum TLS version: TLS 1.2 (required for modern security) */
-      /* This ensures we never negotiate TLS 1.0 or TLS 1.1 even if server
-       * offers them */
-      debug_printf("DEBUG: Assl_openssl: Setting minimum TLS version to 1.2\n");
-      SSL_CTX_set_min_proto_version(assl->sslctx, TLS1_2_VERSION);
-      check_ssl_error("SSL_CTX_set_min_proto_version", local_amisslbase);
-
-      /* Set cipher list - optimized for Motorola 68000 family performance */
-      /* ChaCha20 is 2-3x faster than AES on 68000/68020/68030/68040/68060 CPUs */
-      /* because it's software-optimized and doesn't require hardware acceleration */
-      /* Order: ChaCha20 first (fastest), then medium/high strength ciphers */
-      debug_printf(
-          "DEBUG: Assl_openssl: Setting cipher list (optimized for 68000)\n");
-      SSL_CTX_set_cipher_list(assl->sslctx, "CHACHA20:MEDIUM:HIGH");
-      check_ssl_error("SSL_CTX_set_cipher_list", local_amisslbase);
-
-      /* Set TLS 1.3 cipher suites - optimized for 68000 performance */
-      /* Order by speed on 68000 hardware: ChaCha20 > AES-128 > AES-256 */
-      /* ChaCha20-Poly1305: ~2-3x faster than AES-GCM on 68000 (software-optimized) */
-      /* AES-128-GCM: Faster than AES-256 (shorter key = fewer operations) */
-      /* AES-256-GCM: Slowest but most secure (fallback only) */
-      debug_printf("DEBUG: Assl_openssl: Setting TLS 1.3 cipher suites (optimized for 68000)\n");
-      SSL_CTX_set_ciphersuites(assl->sslctx,
-                               "TLS_CHACHA20_POLY1305_SHA256:"  /* Fastest: ChaCha20 (2-3x faster than AES) */
-                               "TLS_AES_128_GCM_SHA256:"        /* Medium: AES-128 (faster than AES-256) */
-                               "TLS_AES_256_GCM_SHA384");       /* Slowest: AES-256 (fallback for maximum security) */
-      check_ssl_error("SSL_CTX_set_ciphersuites", local_amisslbase);
-
-      /* CRITICAL: Disable certificate verification during SSL_connect() to
-       * prevent deadlocks */
-      /* Certificate callbacks can cause deadlocks if they call debug_printf()
-       * or other blocking operations */
-      /* We will manually verify the certificate AFTER SSL_connect() completes
-       */
-      /* This ensures SSL_connect() completes without any callbacks being
-       * invoked */
-      debug_printf("DEBUG: Assl_openssl: Disabling certificate verification "
-                   "during handshake "
-                   "(will verify manually after handshake)\n");
-      SSL_CTX_set_verify(
-          assl->sslctx,
-          SSL_VERIFY_NONE, /* Disable verification during handshake */
-          NULL);           /* No callback */
-      check_ssl_error("SSL_CTX_set_verify", local_amisslbase);
-
-      /* DISABLED: SSL info callback can cause deadlocks if it calls
-       * debug_printf() */
-      /* debug_printf() uses debug_log_sema which can deadlock if called from
-       * callbacks */
-      /* Set SSL info callback for detailed handshake debugging
-       * This provides detailed information about SSL handshake progress
-       * if (httpdebug) {
-       *   debug_printf("DEBUG: Assl_openssl: Setting SSL info callback for "
-       *                "handshake debugging\n");
-       *   SSL_CTX_set_info_callback(assl->sslctx, ssl_info_callback);
-       *   check_ssl_error("SSL_CTX_set_info_callback", local_amisslbase);
-       * }
-       */
-
-      debug_printf("DEBUG: Assl_openssl: SSL context configuration complete\n");
-      } /* End of sslctx validation else block */
-    } else {
-      debug_printf("DEBUG: Assl_openssl: Failed to create SSL context\n");
-      check_ssl_error("SSL_CTX_new (failed)", local_amisslbase);
-    }
-    }
+    debug_printf("DEBUG: Assl_openssl: Got shared SSL_CTX at %p (reference count incremented)\n", assl->sslctx);
 
     /* Reset denied flag and closed flag for new connection */
     assl->denied = FALSE;
@@ -1672,15 +1665,26 @@ __asm void Assl_closessl(register __a0 struct Assl *assl) {
               (ULONG)AmiSSLBase < 0xFFFFFFF0) {
             debug_printf("DEBUG: Assl_closessl: Freeing SSL context at %p\n",
                          assl->sslctx);
-            /* Clear certificate verification callback before freeing context */
-            SSL_CTX_set_verify(assl->sslctx, SSL_VERIFY_NONE, NULL);
+            /* call SSL_CTX_free() to decrement reference count */
+            /* SSL_CTX_free() decrements OpenSSL's internal reference count, only frees when refcount reaches 0 */
+            /* CRITICAL: Track our refcount and clear shared_sslctx if it reaches 0 */
             debug_printf(
-                "DEBUG: Assl_closessl: Calling SSL_CTX_free() on context %p\n",
-                assl->sslctx);
+                "DEBUG: Assl_closessl: Calling SSL_CTX_free() on shared context %p (decrementing refcount, current=%lu)\n",
+                assl->sslctx, shared_sslctx_refcount);
             SSL_CTX_free(assl->sslctx);
             check_ssl_error("SSL_CTX_free", AmiSSLBase);
+            /* Decrement our refcount tracking */
+            if (shared_sslctx_refcount > 0) {
+              shared_sslctx_refcount--;
+              debug_printf("DEBUG: Assl_closessl: Our refcount decremented to %lu\n", shared_sslctx_refcount);
+              /* If refcount reaches 0, OpenSSL has freed the SSL_CTX - clear our pointer */
+              if (shared_sslctx_refcount == 0) {
+                debug_printf("DEBUG: Assl_closessl: Refcount reached 0, OpenSSL freed SSL_CTX, clearing shared_sslctx pointer\n");
+                shared_sslctx = NULL;
+              }
+            }
             debug_printf("DEBUG: Assl_closessl: SSL_CTX_free() completed "
-                         "successfully\n");
+                         "successfully (reference count decremented)\n");
           }
         }
         assl->sslctx = NULL;
@@ -1778,11 +1782,25 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
   debug_printf("DEBUG: Assl_connect: Associating socket %ld with SSL object\n",
                sock);
 
+  /* CRITICAL: Re-validate local_ssl pointer RIGHT BEFORE using it */
+  /* The pointer might have been corrupted between validation and use */
+  /* This prevents crashes when SSL_set_fd() tries to access the SSL structure */
+  if (!local_ssl || (ULONG)local_ssl < 0x1000 || (ULONG)local_ssl >= 0xFFFFFFF0) {
+    debug_printf("DEBUG: Assl_connect: ERROR - local_ssl is invalid/corrupted (%p) before SSL_set_fd()\n", local_ssl);
+    return ASSLCONNECT_FAIL;
+  }
+
   /* Associate the OS Socket with the SSL object */
   /* Use local_ssl which we validated while holding the semaphore */
   if (SSL_set_fd(local_ssl, sock) != 1) {
     debug_printf("DEBUG: Assl_connect: SSL_set_fd failed\n");
     check_ssl_error("SSL_set_fd", AmiSSLBase);
+    return ASSLCONNECT_FAIL;
+  }
+
+  /* CRITICAL: Re-validate local_ssl before SNI call */
+  if (!local_ssl || (ULONG)local_ssl < 0x1000 || (ULONG)local_ssl >= 0xFFFFFFF0) {
+    debug_printf("DEBUG: Assl_connect: ERROR - local_ssl is invalid/corrupted (%p) before SSL_set_tlsext_host_name()\n", local_ssl);
     return ASSLCONNECT_FAIL;
   }
 
@@ -1808,6 +1826,13 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
 
   debug_printf("DEBUG: Assl_connect: Starting SSL_connect (Blocking, NO "
                "SEMAPHORE)...\n");
+
+  /* CRITICAL: Re-validate local_ssl RIGHT BEFORE SSL_connect() */
+  /* The pointer might have been corrupted between validation and use */
+  if (!local_ssl || (ULONG)local_ssl < 0x1000 || (ULONG)local_ssl >= 0xFFFFFFF0) {
+    debug_printf("DEBUG: Assl_connect: ERROR - local_ssl is invalid/corrupted (%p) before SSL_connect()\n", local_ssl);
+    return ASSLCONNECT_FAIL;
+  }
 
   /* Perform the Handshake */
   /* This will block until the server replies */
