@@ -1050,11 +1050,19 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   }
                   /* Apply right */
                   else if(stricmp((char *)prop->name,"right") == 0)
-                  {  /* Right positioning - would need layout calculation */
+                  {  long rightValue;
+                     rightValue = Getnumber(&num, prop->value);
+                     if(rightValue >= 0 && num.type == NUMBER_NUMBER)
+                     {  Asetattrs(body, AOBDY_Right, rightValue, TAG_END);
+                     }
                   }
                   /* Apply bottom */
                   else if(stricmp((char *)prop->name,"bottom") == 0)
-                  {  /* Bottom positioning - would need layout calculation */
+                  {  long bottomValue;
+                     bottomValue = Getnumber(&num, prop->value);
+                     if(bottomValue >= 0 && num.type == NUMBER_NUMBER)
+                     {  Asetattrs(body, AOBDY_Bottom, bottomValue, TAG_END);
+                     }
                   }
                   /* Apply z-index */
                   else if(stricmp((char *)prop->name,"z-index") == 0)
@@ -1152,6 +1160,52 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      maxHeightValue = Getnumber(&num, prop->value);
                      if(maxHeightValue >= 0 && num.type == NUMBER_NUMBER)
                      {  Asetattrs(body, AOBDY_MaxHeight, maxHeightValue, TAG_END);
+                     }
+                  }
+                  /* Apply cursor */
+                  else if(stricmp((char *)prop->name,"cursor") == 0)
+                  {  UBYTE *cursorStr;
+                     cursorStr = Dupstr(prop->value, -1);
+                     if(cursorStr)
+                     {  Asetattrs(body, AOBDY_Cursor, cursorStr, TAG_END);
+                     }
+                  }
+                  /* Apply text-transform */
+                  else if(stricmp((char *)prop->name,"text-transform") == 0)
+                  {  UBYTE *transformStr;
+                     transformStr = Dupstr(prop->value, -1);
+                     if(transformStr)
+                     {  Asetattrs(body, AOBDY_TextTransform, transformStr, TAG_END);
+                        /* Also set document-level text-transform for compatibility */
+                        if(stricmp((char *)transformStr, "uppercase") == 0)
+                        {  doc->texttransform = 1;
+                        }
+                        else if(stricmp((char *)transformStr, "lowercase") == 0)
+                        {  doc->texttransform = 2;
+                        }
+                        else if(stricmp((char *)transformStr, "capitalize") == 0)
+                        {  doc->texttransform = 3;
+                        }
+                        else if(stricmp((char *)transformStr, "none") == 0)
+                        {  doc->texttransform = 0;
+                        }
+                     }
+                  }
+                  /* Apply white-space */
+                  else if(stricmp((char *)prop->name,"white-space") == 0)
+                  {  UBYTE *whitespaceStr;
+                     whitespaceStr = Dupstr(prop->value, -1);
+                     if(whitespaceStr)
+                     {  Asetattrs(body, AOBDY_WhiteSpace, whitespaceStr, TAG_END);
+                        /* Also apply to AOBDY_Nobr for nowrap */
+                        if(stricmp((char *)whitespaceStr, "nowrap") == 0)
+                        {  Asetattrs(body, AOBDY_Nobr, TRUE, TAG_END);
+                        }
+                        else if(stricmp((char *)whitespaceStr, "normal") == 0 || 
+                                stricmp((char *)whitespaceStr, "pre-wrap") == 0 || 
+                                stricmp((char *)whitespaceStr, "pre-line") == 0)
+                        {  Asetattrs(body, AOBDY_Nobr, FALSE, TAG_END);
+                        }
                      }
                   }
                   /* Apply padding shorthand */
