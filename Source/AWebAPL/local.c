@@ -226,6 +226,58 @@ static void FormatSize(UBYTE *buf,ULONG size)
    }
 }
 
+/* Convert disk type to filesystem type string */
+static void GetDiskTypeString(UBYTE *buf,LONG disk_type)
+{  /* Disk type constants from dos/dos.h */
+   /* All DOS-based filesystems start with 'DOS' (0x444F53) and have a subtype byte */
+   if(disk_type==0x444F5300L) /* ID_DOS_DISK - 'DOS\0' */
+   {  strcpy(buf,"OFS");
+   }
+   else if(disk_type==0x444F5301L) /* ID_FFS_DISK - 'DOS\1' */
+   {  strcpy(buf,"FFS");
+   }
+   else if(disk_type==0x444F5302L) /* ID_INTER_DOS_DISK - 'DOS\2' */
+   {  strcpy(buf,"OFS/I");
+   }
+   else if(disk_type==0x444F5303L) /* ID_INTER_FFS_DISK - 'DOS\3' */
+   {  strcpy(buf,"FFS/I");
+   }
+   else if(disk_type==0x444F5304L) /* ID_FASTDIR_DOS_DISK - 'DOS\4' */
+   {  strcpy(buf,"OFS/DC");
+   }
+   else if(disk_type==0x444F5305L) /* ID_FASTDIR_FFS_DISK - 'DOS\5' */
+   {  strcpy(buf,"FFS/DC");
+   }
+   else if(disk_type==0x444F5306L) /* ID_LONG_DOS_DISK - 'DOS\6' */
+   {  strcpy(buf,"OFS/LN");
+   }
+   else if(disk_type==0x444F5307L) /* ID_LONG_FFS_DISK - 'DOS\7' */
+   {  strcpy(buf,"FFS/LN");
+   }
+   else if(disk_type==0x444F5308L) /* ID_COMPLONG_FFS_DISK - 'DOS\8' */
+   {  strcpy(buf,"FFS/CLN");
+   }
+   else if(disk_type==0x4E444F53L) /* ID_NOT_REALLY_DOS - 'NDOS' */
+   {  strcpy(buf,"Not recognized");
+   }
+   else if(disk_type==0x4B49434BL) /* ID_KICKSTART_DISK - 'KICK' */
+   {  strcpy(buf,"Kickstart");
+   }
+   else if(disk_type==0x4D534400L) /* ID_MSDOS_DISK - 'MSD\0' */
+   {  strcpy(buf,"FAT");
+   }
+   else if(disk_type==0x42414400L) /* ID_UNREADABLE_DISK - 'BAD\0' */
+   {  strcpy(buf,"Unreadable");
+   }
+   else if(disk_type==-1) /* ID_NO_DISK_PRESENT */
+   {  strcpy(buf,"No Disk");
+   }
+   else
+   {  /* Unknown type - show as hex */
+      sprintf(buf,"0x%08lX",disk_type);
+   }
+}
+
 /* Format date for display from ExAll date fields using locale */
 static void FormatFileDate(UBYTE *buf,ULONG days,ULONG mins,ULONG ticks)
 {  struct DateStamp ds;
@@ -242,14 +294,12 @@ static void GenerateDirListing(struct Fetchdriver *fd,UBYTE *dirname,long lock)
    struct ExAllData *entry;
    UBYTE *html_buf;
    UBYTE *url_base;
-   UBYTE *p,*q;
    UBYTE size_buf[32];
    UBYTE date_buf[64];
    UBYTE *icon;
    ULONG buffer_size;
    LONG html_len;
    LONG url_base_len;
-   LONG name_len;
    BOOL is_dir;
    BOOL more;
    UBYTE header_done;
@@ -586,7 +636,7 @@ static void GenerateVolumeListing(struct Fetchdriver *fd)
    UBYTE *html_buf;
    UBYTE *url_base;
    UBYTE size_buf[32];
-   UBYTE date_buf[64];
+   UBYTE type_buf[32];
    UBYTE *icon;
    UBYTE *vol_name;
    LONG html_buf_size;
@@ -594,7 +644,6 @@ static void GenerateVolumeListing(struct Fetchdriver *fd)
    LONG row_start_pos;
    LONG row_num;
    UBYTE header_done;
-   struct DateStamp *vol_date;
    
    /* Lock DOS list for volumes */
    dl=LockDosList(LDF_VOLUMES|LDF_READ);
@@ -689,9 +738,9 @@ static void GenerateVolumeListing(struct Fetchdriver *fd)
             "<TABLE WIDTH=\"100%%\" BORDER=\"0\" CELLPADDING=\"2\" CELLSPACING=\"0\" NAME=\"filetable\" ID=\"filetable\">\n"
             "<THEAD>\n"
             "<TR>\n"
-            "<TH WIDTH=\"60%%\"><A HREF=\"javascript:sortTable(0)\">Name</A></TH>\n"
-            "<TH WIDTH=\"15%%\"><A HREF=\"javascript:sortTable(1)\">Size</A></TH>\n"
-            "<TH WIDTH=\"25%%\"><A HREF=\"javascript:sortTable(2)\">Date</A></TH>\n"
+            "<TH WIDTH=\"50%%\"><A HREF=\"javascript:sortTable(0)\">Name</A></TH>\n"
+            "<TH WIDTH=\"25%%\"><A HREF=\"javascript:sortTable(1)\">Size</A></TH>\n"
+            "<TH WIDTH=\"25%%\"><A HREF=\"javascript:sortTable(2)\">Type</A></TH>\n"
             "</TR>\n"
             "</THEAD>\n"
             "<TBODY>\n");
@@ -823,24 +872,52 @@ static void GenerateVolumeListing(struct Fetchdriver *fd)
             row_start_pos+=len;
             max_remaining=html_buf_size-row_start_pos-1;
             
-            /* Size - volumes don't have a simple size, show "-" */
-            strcpy(size_buf,"-");
+            /* Get volume size and filesystem type using Info() */
+            {  BPTR vol_lock;
+               UBYTE vol_path[64];
+               __aligned struct InfoData id;
+               ULONG total_size;
+               
+               /* Build volume path: "VolumeName:" */
+               sprintf(vol_path,"%s:",vol_name);
+               vol_lock=Lock(vol_path,SHARED_LOCK);
+               if(vol_lock)
+               {  memset(&id,0,sizeof(id));
+                  if(Info(vol_lock,&id))
+                  {  /* Calculate total size in bytes */
+                     if(id.id_NumBlocks>0 && id.id_BytesPerBlock>0)
+                     {  total_size=(ULONG)id.id_NumBlocks*(ULONG)id.id_BytesPerBlock;
+                        FormatSize(size_buf,total_size);
+                     }
+                     else
+                     {  strcpy(size_buf,"-");
+                     }
+                     
+                     /* Get filesystem type string */
+                     GetDiskTypeString(type_buf,id.id_DiskType);
+                  }
+                  else
+                  {  /* Info() failed - show "-" for both */
+                     strcpy(size_buf,"-");
+                     strcpy(type_buf,"-");
+                  }
+                  UnLock(vol_lock);
+               }
+               else
+               {  /* Lock failed - show "-" for both */
+                  strcpy(size_buf,"-");
+                  strcpy(type_buf,"-");
+               }
+            }
+            
             if(max_remaining<50) break;
             len=sprintf(html_buf+row_start_pos,"%s</TD>\n<TD>",size_buf);
             if(len<=0 || len>=max_remaining) break;
             row_start_pos+=len;
             max_remaining=html_buf_size-row_start_pos-1;
             
-            /* Date - get from volume date */
-            vol_date=&vol_entry->dol_VolumeDate;
-            if(vol_date && vol_date->ds_Days>0)
-            {  FormatFileDate(date_buf,vol_date->ds_Days,vol_date->ds_Minute,vol_date->ds_Tick);
-            }
-            else
-            {  strcpy(date_buf,"-");
-            }
-            if(max_remaining<100) break;
-            len=sprintf(html_buf+row_start_pos,"%s</TD>\n</TR>\n",date_buf);
+            if(max_remaining<50) break;
+            len=sprintf(html_buf+row_start_pos,"%s</TD>\n</TR>\n",type_buf);
             if(len<=0 || len>=max_remaining) break;
             row_start_pos+=len;
             
