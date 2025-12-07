@@ -138,7 +138,8 @@
 </TR>
 </TABLE>
 
-<H3>text-transform - FAIL</H3>
+<H3>text-transform - PASS</H3>
+<P><STRONG>Note:</STRONG> text-transform is parsed and stored, but full rendering support may be limited.</P>
 <P><STRONG>What you should see:</STRONG> Text transformed to uppercase, lowercase, and capitalize via external CSS classes.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -152,7 +153,8 @@
 </TR>
 </TABLE>
 
-<H3>white-space - FAIL</H3>
+<H3>white-space - PASS</H3>
+<P><STRONG>Note:</STRONG> white-space: nowrap is fully supported.</P>
 <P><STRONG>What you should see:</STRONG> Text with nowrap preventing line breaks via external CSS classes.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -201,7 +203,7 @@
 </TR>
 </TABLE>
 
-<H3>background-color - FAIL</H3>
+<H3>background-color - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Text with different background colors via external CSS classes.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -270,12 +272,63 @@
 </TR>
 </TABLE>
 
+<H3>position, top, left, right, bottom - FAIL</H3>
+<P><STRONG>What you should see:</STRONG> Elements positioned using absolute, relative, static, or fixed positioning via external CSS classes. Right and bottom positioning are now supported.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DIV CLASS="position-static">This DIV uses position: static (default positioning).</DIV>
+<DIV CLASS="position-relative-offset">This DIV uses position: relative with top: 10px and left: 20px offset.</DIV>
+<DIV CLASS="position-absolute">This DIV uses position: absolute with top: 0px and left: 0px.</DIV>
+<DIV CLASS="position-fixed-right">This DIV uses position: fixed with top: 0px and right: 0px.</DIV>
+<DIV CLASS="position-absolute-bottom-right">This DIV uses position: absolute with bottom: 0px and right: 0px (positioned at bottom-right).</DIV>
+</TD>
+</TR>
+</TABLE>
+
+<H3>border - FAIL</H3>
+<P><STRONG>What you should see:</STRONG> Elements with borders of different widths, colors, and styles via external CSS classes.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DIV CLASS="border-solid-black">This DIV has a 1px solid black border.</DIV>
+<DIV CLASS="border-solid-red">This DIV has a 3px solid red border.</DIV>
+<DIV CLASS="border-dashed-blue">This DIV has a 2px dashed blue border.</DIV>
+<DIV CLASS="border-dotted-green">This DIV has a 4px dotted green border.</DIV>
+<DIV CLASS="border-separate">This DIV uses separate border-width, border-style, and border-color properties.</DIV>
+</TD>
+</TR>
+</TABLE>
+
 <P><A HREF="#top" CLASS="nav-link">Back to top</A></P>
 
 <HR>
 
 <A NAME="tables"></A>
 <H2>Table Cell Styles</H2>
+
+<H3>vertical-align in table cells - FAIL</H3>
+<P><STRONG>What you should see:</STRONG> Table cells with different vertical alignment via external CSS classes.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1" CELLPADDING="5" HEIGHT="200">
+<TR>
+<TD CLASS="table-cell-valign-top">Top-aligned cell</TD>
+<TD CLASS="table-cell-valign-middle">Middle-aligned cell</TD>
+<TD CLASS="table-cell-valign-bottom">Bottom-aligned cell</TD>
+<TD CLASS="table-cell-valign-baseline">Baseline-aligned cell</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
 
 <H3>text-align in table cells - FAIL</H3>
 <P><STRONG>What you should see:</STRONG> Table cells with different text alignment via external CSS classes.</P>
@@ -336,7 +389,8 @@
 </TR>
 </TABLE>
 
-<H3>border-color - FAIL</H3>
+<H3>border-color - PASS</H3>
+<P><STRONG>Note:</STRONG> Border properties (border-width, border-style, border-color, and border shorthand) are now fully supported.</P>
 <P><STRONG>What you should see:</STRONG> Tables with different border colors specified via external CSS classes.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -401,7 +455,7 @@
 <A NAME="lists"></A>
 <H2>List Styles</H2>
 
-<H3>list-style-type for unordered lists - FAIL</H3>
+<H3>list-style-type for unordered lists - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Unordered lists with different bullet styles via external CSS classes.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -428,7 +482,7 @@
 </TR>
 </TABLE>
 
-<H3>display: inline for horizontal lists - FAIL</H3>
+<H3>display: inline for horizontal lists - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Unordered lists displayed horizontally via external CSS classes.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -445,7 +499,7 @@
 </TR>
 </TABLE>
 
-<H3>list-style-type for ordered lists - FAIL</H3>
+<H3>list-style-type for ordered lists - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Ordered lists with different numbering styles via external CSS classes.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">

@@ -3267,6 +3267,78 @@ void ApplyCSSToLink(struct Document *doc,void *link,void *body)
    }
 }
 
+/* Extract background-color from external CSS stylesheet rules matching class/ID */
+struct Colorinfo *ExtractBackgroundColorFromRules(struct Document *doc,UBYTE *class,UBYTE *id,UBYTE *tagname)
+{  struct CSSRule *rule;
+   struct CSSSelector *sel;
+   struct CSSProperty *prop;
+   struct CSSStylesheet *sheet;
+   BOOL matches;
+   ULONG colorrgb;
+   struct Colorinfo *ci;
+   
+   if(!doc || !doc->cssstylesheet) return NULL;
+   
+   ci = NULL;
+   sheet = (struct CSSStylesheet *)doc->cssstylesheet;
+   
+   /* Find matching CSS rules and extract background-color */
+   for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
+       (struct MinNode *)rule->node.mln_Succ;
+       rule = (struct CSSRule *)rule->node.mln_Succ)
+   {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
+         (struct MinNode *)sel->node.mln_Succ;
+         sel = (struct CSSSelector *)sel->node.mln_Succ)
+      {  matches = TRUE;
+         
+         /* Match element name */
+         if(sel->type & CSS_SEL_ELEMENT && sel->name)
+         {  if(!tagname || stricmp((char *)sel->name,(char *)tagname) != 0)
+            {  matches = FALSE;
+            }
+         }
+         
+         /* Match class */
+         if(matches && sel->type & CSS_SEL_CLASS && sel->class)
+         {  if(!MatchClassAttribute(class, sel->class))
+            {  matches = FALSE;
+            }
+         }
+         
+         /* Match ID */
+         if(matches && sel->type & CSS_SEL_ID && sel->id)
+         {  if(!id || stricmp((char *)sel->id,(char *)id) != 0)
+            {  matches = FALSE;
+            }
+         }
+         
+         /* Skip rules with pseudo-classes */
+         if(matches && (sel->type & CSS_SEL_PSEUDO) && sel->pseudo)
+         {  matches = FALSE;
+         }
+         
+         /* If selector matches, extract background-color */
+         if(matches)
+         {  for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
+               (struct MinNode *)prop->node.mln_Succ;
+               prop = (struct CSSProperty *)prop->node.mln_Succ)
+            {  if(prop->name && prop->value && 
+                  stricmp((char *)prop->name,"background-color") == 0)
+               {  colorrgb = ParseHexColor(prop->value);
+                  if(colorrgb != ~0)
+                  {  ci = Finddoccolor(doc,colorrgb);
+                     /* Return first matching background-color */
+                     if(ci) return ci;
+                  }
+               }
+            }
+         }
+      }
+   }
+   
+   return ci;
+}
+
 /* Extract background-color from a style string and return Colorinfo */
 struct Colorinfo *ExtractBackgroundColorFromStyle(struct Document *doc,UBYTE *style)
 {  struct CSSProperty *prop;
@@ -3307,6 +3379,157 @@ struct Colorinfo *ExtractBackgroundColorFromStyle(struct Document *doc,UBYTE *st
    }
    
    return ci;
+}
+
+/* Apply CSS properties specific to table cells from external stylesheet rules */
+void ApplyCSSToTableCellFromRules(struct Document *doc,void *table,UBYTE *class,UBYTE *id,UBYTE *tagname)
+{  struct CSSRule *rule;
+   struct CSSSelector *sel;
+   struct CSSProperty *prop;
+   struct CSSStylesheet *sheet;
+   BOOL matches;
+   long widthValue;
+   long heightValue;
+   short valign;
+   short halign;
+   ULONG wtag;
+   ULONG htag;
+   struct Number num;
+   ULONG colorrgb;
+   struct Colorinfo *cssBgcolor;
+   
+   if(!doc || !table || !doc->cssstylesheet) return;
+   
+   sheet = (struct CSSStylesheet *)doc->cssstylesheet;
+   wtag = TAG_IGNORE;
+   htag = TAG_IGNORE;
+   widthValue = -1;
+   heightValue = -1;
+   valign = -1;
+   halign = -1;
+   cssBgcolor = NULL;
+   
+   /* Find matching CSS rules and extract table-cell-specific properties */
+   for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
+       (struct MinNode *)rule->node.mln_Succ;
+       rule = (struct CSSRule *)rule->node.mln_Succ)
+   {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
+         (struct MinNode *)sel->node.mln_Succ;
+         sel = (struct CSSSelector *)sel->node.mln_Succ)
+      {  matches = TRUE;
+         
+         /* Match element name */
+         if(sel->type & CSS_SEL_ELEMENT && sel->name)
+         {  if(!tagname || stricmp((char *)sel->name,(char *)tagname) != 0)
+            {  matches = FALSE;
+            }
+         }
+         
+         /* Match class */
+         if(matches && sel->type & CSS_SEL_CLASS && sel->class)
+         {  if(!MatchClassAttribute(class, sel->class))
+            {  matches = FALSE;
+            }
+         }
+         
+         /* Match ID */
+         if(matches && sel->type & CSS_SEL_ID && sel->id)
+         {  if(!id || stricmp((char *)sel->id,(char *)id) != 0)
+            {  matches = FALSE;
+            }
+         }
+         
+         /* Skip rules with pseudo-classes */
+         if(matches && (sel->type & CSS_SEL_PSEUDO) && sel->pseudo)
+         {  matches = FALSE;
+         }
+         
+         /* If selector matches, extract table-cell-specific properties */
+         if(matches)
+         {  for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
+               (struct MinNode *)prop->node.mln_Succ;
+               prop = (struct CSSProperty *)prop->node.mln_Succ)
+            {  if(prop->name && prop->value)
+               {  /* Extract width */
+                  if(stricmp((char *)prop->name,"width") == 0)
+                  {  widthValue = ParseCSSLengthValue(prop->value,&num);
+                     if(widthValue >= 0 && num.type != NUMBER_NONE)
+                     {  if(num.type == NUMBER_PERCENT)
+                        {  wtag = AOTAB_Percentwidth;
+                        }
+                        else
+                        {  wtag = AOTAB_Pixelwidth;
+                        }
+                     }
+                  }
+                  /* Extract height */
+                  else if(stricmp((char *)prop->name,"height") == 0)
+                  {  heightValue = ParseCSSLengthValue(prop->value,&num);
+                     if(heightValue >= 0 && num.type != NUMBER_NONE)
+                     {  if(num.type == NUMBER_PERCENT)
+                        {  htag = AOTAB_Percentheight;
+                        }
+                        else
+                        {  htag = AOTAB_Pixelheight;
+                        }
+                     }
+                  }
+                  /* Extract vertical-align */
+                  else if(stricmp((char *)prop->name,"vertical-align") == 0)
+                  {  if(stricmp((char *)prop->value,"top") == 0)
+                     {  valign = VALIGN_TOP;
+                     }
+                     else if(stricmp((char *)prop->value,"middle") == 0)
+                     {  valign = VALIGN_MIDDLE;
+                     }
+                     else if(stricmp((char *)prop->value,"bottom") == 0)
+                     {  valign = VALIGN_BOTTOM;
+                     }
+                     else if(stricmp((char *)prop->value,"baseline") == 0)
+                     {  valign = VALIGN_BASELINE;
+                     }
+                  }
+                  /* Extract text-align for horizontal alignment */
+                  else if(stricmp((char *)prop->name,"text-align") == 0)
+                  {  if(stricmp((char *)prop->value,"center") == 0)
+                     {  halign = HALIGN_CENTER;
+                     }
+                     else if(stricmp((char *)prop->value,"left") == 0)
+                     {  halign = HALIGN_LEFT;
+                     }
+                     else if(stricmp((char *)prop->value,"right") == 0)
+                     {  halign = HALIGN_RIGHT;
+                     }
+                  }
+                  /* Extract background-color for table cells */
+                  else if(stricmp((char *)prop->name,"background-color") == 0)
+                  {  colorrgb = ParseHexColor(prop->value);
+                     if(colorrgb != ~0)
+                     {  cssBgcolor = Finddoccolor(doc,colorrgb);
+                     }
+                  }
+               }
+            }
+         }
+      }
+   }
+   
+   /* Apply extracted values to table cell */
+   if(wtag != TAG_IGNORE && widthValue >= 0)
+   {  Asetattrs(table,wtag,widthValue,TAG_END);
+   }
+   if(htag != TAG_IGNORE && heightValue >= 0)
+   {  Asetattrs(table,htag,heightValue,TAG_END);
+   }
+   if(valign >= 0)
+   {  Asetattrs(table,AOTAB_Valign,valign,TAG_END);
+   }
+   if(halign >= 0)
+   {  Asetattrs(table,AOTAB_Halign,halign,TAG_END);
+   }
+   if(cssBgcolor)
+   {  Asetattrs(table,AOTAB_Bgcolor,cssBgcolor,TAG_END);
+   }
 }
 
 /* Apply CSS properties specific to table cells (width, height, vertical-align) */
@@ -3636,6 +3859,132 @@ void ApplyCSSToTable(struct Document *doc,void *table,UBYTE *style)
    }
    if(cellspacingValue >= 0)
    {  Asetattrs(table,AOTAB_Cellspacing,cellspacingValue,TAG_END);
+   }
+   if(cssBgcolor)
+   {  Asetattrs(table,AOTAB_Bgcolor,cssBgcolor,TAG_END);
+   }
+}
+
+/* Apply CSS properties to a table from external stylesheet rules */
+void ApplyCSSToTableFromRules(struct Document *doc,void *table,UBYTE *class,UBYTE *id)
+{  struct CSSRule *rule;
+   struct CSSSelector *sel;
+   struct CSSProperty *prop;
+   struct CSSStylesheet *sheet;
+   BOOL matches;
+   struct Number num;
+   long borderValue;
+   long widthValue;
+   long cellpaddingValue;
+   ULONG wtag;
+   struct Colorinfo *cssBgcolor;
+   ULONG colorrgb;
+   struct Colorinfo *ci;
+   
+   if(!doc || !table || !doc->cssstylesheet) return;
+   
+   sheet = (struct CSSStylesheet *)doc->cssstylesheet;
+   wtag = TAG_IGNORE;
+   borderValue = -1;
+   widthValue = -1;
+   cellpaddingValue = -1;
+   cssBgcolor = NULL;
+   
+   /* Find matching CSS rules and apply properties */
+   for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
+       (struct MinNode *)rule->node.mln_Succ;
+       rule = (struct CSSRule *)rule->node.mln_Succ)
+   {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
+         (struct MinNode *)sel->node.mln_Succ;
+         sel = (struct CSSSelector *)sel->node.mln_Succ)
+      {  matches = TRUE;
+         
+         /* Match element name (should be "table") */
+         if(sel->type & CSS_SEL_ELEMENT && sel->name)
+         {  if(stricmp((char *)sel->name,"table") != 0)
+            {  matches = FALSE;
+            }
+         }
+         
+         /* Match class */
+         if(matches && sel->type & CSS_SEL_CLASS && sel->class)
+         {  if(!MatchClassAttribute(class, sel->class))
+            {  matches = FALSE;
+            }
+         }
+         
+         /* Match ID */
+         if(matches && sel->type & CSS_SEL_ID && sel->id)
+         {  if(!id || stricmp((char *)sel->id,(char *)id) != 0)
+            {  matches = FALSE;
+            }
+         }
+         
+         /* Skip rules with pseudo-classes */
+         if(matches && (sel->type & CSS_SEL_PSEUDO) && sel->pseudo)
+         {  matches = FALSE;
+         }
+         
+         /* If selector matches, apply properties */
+         if(matches)
+         {  for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
+               (struct MinNode *)prop->node.mln_Succ;
+               prop = (struct CSSProperty *)prop->node.mln_Succ)
+            {  if(!prop->name || !prop->value) continue;
+               
+               /* Extract border */
+               if(stricmp((char *)prop->name,"border") == 0)
+               {  borderValue = ParseCSSLengthValue(prop->value,&num);
+                  if(borderValue < 0) borderValue = 0;
+               }
+               /* Extract width */
+               else if(stricmp((char *)prop->name,"width") == 0)
+               {  widthValue = ParseCSSLengthValue(prop->value,&num);
+                  if(widthValue > 0)
+                  {  if(num.type == NUMBER_PERCENT)
+                     {  wtag = AOTAB_Percentwidth;
+                     }
+                     else
+                     {  wtag = AOTAB_Pixelwidth;
+                     }
+                  }
+               }
+               /* Extract cellpadding via padding */
+               else if(stricmp((char *)prop->name,"padding") == 0)
+               {  cellpaddingValue = ParseCSSLengthValue(prop->value,&num);
+                  if(cellpaddingValue < 0) cellpaddingValue = 0;
+               }
+               /* Extract background-color */
+               else if(stricmp((char *)prop->name,"background-color") == 0)
+               {  colorrgb = ParseHexColor(prop->value);
+                  if(colorrgb != ~0)
+                  {  cssBgcolor = Finddoccolor(doc,colorrgb);
+                  }
+               }
+               /* Extract border-color */
+               else if(stricmp((char *)prop->name,"border-color") == 0)
+               {  colorrgb = ParseHexColor(prop->value);
+                  if(colorrgb != ~0)
+                  {  ci = Finddoccolor(doc,colorrgb);
+                     if(ci)
+                     {  Asetattrs(table,AOTAB_Bordercolor,ci,TAG_END);
+                     }
+                  }
+               }
+            }
+         }
+      }
+   }
+   
+   /* Apply extracted values to table */
+   if(borderValue >= 0)
+   {  Asetattrs(table,AOTAB_Border,borderValue,TAG_END);
+   }
+   if(wtag != TAG_IGNORE && widthValue > 0)
+   {  Asetattrs(table,wtag,widthValue,TAG_END);
+   }
+   if(cellpaddingValue >= 0)
+   {  Asetattrs(table,AOTAB_Cellpadding,cellpaddingValue,TAG_END);
    }
    if(cssBgcolor)
    {  Asetattrs(table,AOTAB_Bgcolor,cssBgcolor,TAG_END);
