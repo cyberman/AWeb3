@@ -54,10 +54,14 @@ void SkipWhitespace(UBYTE **p);
 long ParseCSSLengthValue(UBYTE *value,struct Number *num);
 ULONG ParseHexColor(UBYTE *pcolor);
 
-/* Simple debug printf */
-static void debug_printf(const char *format, ...)
+/* Simple debug printf - only output if httpdebug is enabled */
+extern BOOL httpdebug;
+
+static void css_debug_printf(const char *format, ...)
 {  va_list args;
+   if(!httpdebug) return;
    va_start(args, format);
+   printf("[CSS] ");
    vprintf(format, args);
    va_end(args);
 }
@@ -115,14 +119,16 @@ void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
    
    if(!doc || !css) return;
    
-   /* debug_printf("MergeCSSStylesheet: Merging CSS, length=%ld\n",strlen((char *)css)); */
+   css_debug_printf("MergeCSSStylesheet: Starting merge, CSS length=%ld bytes\n", strlen((char *)css));
    
    /* Parse the new CSS */
    newSheet = ParseCSS(doc,css);
    if(!newSheet)
-   {  /* debug_printf("MergeCSSStylesheet: ParseCSS failed\n"); */
+   {  css_debug_printf("MergeCSSStylesheet: ERROR - ParseCSS failed\n");
       return;
    }
+   
+   css_debug_printf("MergeCSSStylesheet: ParseCSS succeeded, merging into existing stylesheet\n");
    
    /* Count rules in new sheet and log selectors */
    ruleCount = 0;
@@ -168,7 +174,7 @@ void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
        rule = (struct CSSRule *)rule->node.mln_Succ)
    {  ruleCount++;
    }
-   /* debug_printf("MergeCSSStylesheet: After merge, total rules=%ld\n",ruleCount); */
+   css_debug_printf("MergeCSSStylesheet: Merge completed, total rules=%ld\n", ruleCount);
 }
 
 /* Parse CSS content */
@@ -176,53 +182,232 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
 {  struct CSSStylesheet *sheet;
    struct CSSRule *rule;
    UBYTE *p;
+   long cssLen;
+   long ruleCount = 0;
+   long iterationCount = 0;
+   UBYTE *cssStart;
    
    if(!doc || !css) return NULL;
    
+   cssStart = css;
+   cssLen = strlen((char *)css);
+   css_debug_printf("ParseCSS: Starting, CSS length=%ld bytes\n", cssLen);
+   
    sheet = ALLOCSTRUCT(CSSStylesheet,1,MEMF_FAST);
-   if(!sheet) return NULL;
+   if(!sheet)
+   {  css_debug_printf("ParseCSS: Failed to allocate stylesheet\n");
+      return NULL;
+   }
    
    NEWLIST(&sheet->rules);
    sheet->pool = doc->pool;
    
    p = css;
-   while(*p)
-   {  UBYTE *oldp;
+   
+   /* Skip UTF-8 BOM if present (0xEF 0xBB 0xBF) */
+   if(p[0] == 0xEF && p[1] == 0xBB && p[2] == 0xBF)
+   {  p += 3;
+      css_debug_printf("ParseCSS: Skipped UTF-8 BOM\n");
+   }
+   
+   {  long lastPosition = -1;
+      long stuckCount = 0;
       
-      SkipWhitespace(&p);
-      SkipComment(&p);
-      if(!*p) break;
-      
-      oldp = p;  /* Remember position before parsing */
-      rule = ParseRule(doc,&p);
-      if(rule)
-      {  ADDTAIL(&sheet->rules,rule);
-      }
-      else
-      {  /* Parse error - make sure we advance the pointer */
-         if(p == oldp)
-         {  /* Pointer didn't advance - skip one character to prevent infinite loop */
-            if(*p) p++;
-            else break;  /* End of string */
+      while(*p)
+      {  UBYTE *oldp;
+         long position;
+         UBYTE *contextStart;
+         UBYTE *contextEnd;
+         long contextLen;
+         UBYTE context[101];
+         long j;
+         
+         iterationCount++;
+         
+         if(iterationCount % 100 == 0)
+         {  position = p - cssStart;
+            css_debug_printf("ParseCSS: Iteration %ld, position %ld/%ld (%.1f%%), rules parsed=%ld\n",
+                            iterationCount, position, cssLen, 
+                            (cssLen > 0 ? (100.0 * position / cssLen) : 0.0), ruleCount);
+         }
+         
+         /* Hard limit: if we've done more than 100000 iterations, something is very wrong */
+         if(iterationCount > 100000)
+         {  css_debug_printf("ParseCSS: FATAL - Exceeded 100000 iterations, breaking to prevent lockup\n");
+            break;
+         }
+         
+         oldp = p;
+         SkipWhitespace(&p);
+         SkipComment(&p);
+         if(!*p) break;
+         
+         position = p - cssStart;
+         
+         /* Detect if we're stuck at the same position (after skipping whitespace) */
+         if(position == lastPosition)
+         {  stuckCount++;
+            if(stuckCount > 10)
+            {  /* Show context around stuck position */
+               contextStart = (position > 50) ? p - 50 : cssStart;
+               contextEnd = p + 50;
+               contextLen = contextEnd - contextStart;
+               if(contextLen > 100) contextLen = 100;
+               for(j = 0; j < contextLen && contextStart[j]; j++)
+               {  context[j] = (contextStart[j] >= 32 && contextStart[j] < 127) ? contextStart[j] : '.';
+               }
+               context[j] = '\0';
+               css_debug_printf("ParseCSS: STUCK - Same position %ld for %ld iterations!\n",
+                              position, stuckCount);
+               css_debug_printf("ParseCSS: Context around stuck position: '%.100s'\n", context);
+               css_debug_printf("ParseCSS: Breaking to prevent infinite loop\n");
+               break;
+            }
          }
          else
-         {  /* Pointer advanced but rule failed - skip to next rule */
-            while(*p && *p != '}')
+         {  stuckCount = 0;
+            lastPosition = position;
+         }
+      
+         /* Check for @media query - skip it for now (basic support) */
+         if(*p == '@' && strnicmp((char *)p, "@media", 6) == 0)
+         {  css_debug_printf("ParseCSS: Found @media query at position %ld, skipping\n", p - cssStart);
+            p += 6; /* Skip "@media" */
+            SkipWhitespace(&p);
+            /* Skip media query list until opening brace */
+            while(*p && *p != '{')
             {  p++;
             }
-            if(*p == '}') p++;
+            if(*p == '{')
+            {  long braceDepth = 1;
+               long mediaStart = p - cssStart;
+               (*p)++; /* Skip opening brace */
+               /* Skip entire @media block */
+               while(*p && braceDepth > 0)
+               {  if(*p == '{') braceDepth++;
+                  else if(*p == '}') braceDepth--;
+                  p++;
+               }
+               css_debug_printf("ParseCSS: Skipped @media block from position %ld to %ld\n",
+                              mediaStart, p - cssStart);
+            }
+            /* Update position after skipping @media block */
+            position = p - cssStart;
+            lastPosition = position;
+            stuckCount = 0;
+            continue; /* Skip to next rule */
          }
-      }
-      
-      /* Final safety check: if we haven't advanced at all, force advance and break */
-      if(p == oldp)
-      {  if(*p) p++;
-         else break;
-         /* If we're still at the same position after forcing advance, something is wrong - break */
-         if(p == oldp) break;
+         
+         /* Check for other @ rules (@import, @charset, etc.) - skip them */
+         if(*p == '@')
+         {  UBYTE *atRuleStart = p;
+            UBYTE atRuleName[32];
+            long i = 0;
+            /* Extract @ rule name for debugging */
+            while(*p && i < 31 && (isalpha(*p) || *p == '-' || *p == '_'))
+            {  atRuleName[i++] = *p++;
+            }
+            atRuleName[i] = '\0';
+            css_debug_printf("ParseCSS: Found @ rule '%s' at position %ld, skipping\n",
+                            atRuleName, atRuleStart - cssStart);
+            
+            /* Skip to semicolon or opening brace */
+            while(*p && *p != ';' && *p != '{')
+            {  p++;
+            }
+            if(*p == ';')
+            {  (*p)++;
+               /* Update position after skipping @ rule */
+               position = p - cssStart;
+               lastPosition = position;
+               stuckCount = 0;
+               continue;
+            }
+            else if(*p == '{')
+            {  long braceDepth = 1;
+               (*p)++;
+               while(*p && braceDepth > 0)
+               {  if(*p == '{') braceDepth++;
+                  else if(*p == '}') braceDepth--;
+                  p++;
+               }
+               /* Update position after skipping @ rule block */
+               position = p - cssStart;
+               lastPosition = position;
+               stuckCount = 0;
+               continue;
+            }
+         }
+         
+         oldp = p;  /* Remember position before parsing */
+         rule = ParseRule(doc,&p);
+         if(rule)
+         {  ruleCount++;
+            ADDTAIL(&sheet->rules,rule);
+            if(ruleCount % 50 == 0)
+            {  css_debug_printf("ParseCSS: Parsed %ld rules so far, position %ld/%ld\n",
+                               ruleCount, p - cssStart, cssLen);
+            }
+         }
+         else
+         {  /* Parse error - make sure we advance the pointer */
+            if(p == oldp)
+            {  /* Pointer didn't advance - skip one character to prevent infinite loop */
+               {  /* Show context around the problematic character */
+                  UBYTE *contextStart2;
+                  UBYTE *contextEnd2;
+                  long contextLen2;
+                  UBYTE context2[41];
+                  long j2;
+                  
+                  contextStart2 = (p - cssStart > 20) ? p - 20 : cssStart;
+                  contextEnd2 = p + 20;
+                  contextLen2 = contextEnd2 - contextStart2;
+                  if(contextLen2 > 40) contextLen2 = 40;
+                  for(j2 = 0; j2 < contextLen2 && contextStart2[j2]; j2++)
+                  {  context2[j2] = (contextStart2[j2] >= 32 && contextStart2[j2] < 127) ? contextStart2[j2] : '.';
+                  }
+                  context2[j2] = '\0';
+                  css_debug_printf("ParseCSS: WARNING - ParseRule failed and pointer didn't advance at position %ld (char=0x%02x '%c')\n",
+                                 p - cssStart, *p, (*p >= 32 && *p < 127) ? *p : '?');
+                  css_debug_printf("ParseCSS: Context: '%.40s'\n", context2);
+               }
+               if(*p) p++;
+               else break;  /* End of string */
+            }
+            else
+            {  /* Pointer advanced but rule failed - skip to next rule */
+               css_debug_printf("ParseCSS: ParseRule failed but pointer advanced, skipping to next rule (pos %ld->%ld)\n",
+                              oldp - cssStart, p - cssStart);
+               while(*p && *p != '}')
+               {  p++;
+               }
+               if(*p == '}') p++;
+            }
+         }
+         
+         /* Final safety check: if we haven't advanced at all, force advance and break */
+         if(p == oldp)
+         {  css_debug_printf("ParseCSS: ERROR - Pointer stuck at position %ld, forcing advance\n", p - cssStart);
+            if(*p) p++;
+            else break;
+            /* If we're still at the same position after forcing advance, something is wrong - break */
+            if(p == oldp)
+            {  css_debug_printf("ParseCSS: FATAL - Pointer still stuck after force advance, breaking\n");
+               break;
+            }
+         }
+         
+         /* Safety check: if we've been parsing for too long, warn */
+         if(iterationCount > 10000)
+         {  css_debug_printf("ParseCSS: WARNING - High iteration count (%ld), position %ld/%ld\n",
+                            iterationCount, p - cssStart, cssLen);
+         }
       }
    }
    
+   css_debug_printf("ParseCSS: Completed, parsed %ld rules in %ld iterations, final position %ld/%ld\n",
+                   ruleCount, iterationCount, p - cssStart, cssLen);
    return sheet;
 }
 
@@ -231,117 +416,172 @@ static struct CSSRule* ParseRule(struct Document *doc,UBYTE **p)
 {  struct CSSRule *rule;
    struct CSSSelector *sel;
    struct CSSProperty *prop;
+   UBYTE *ruleStart;
+   long selectorCount = 0;
+   long propertyCount = 0;
    
    if(!doc || !p || !*p) return NULL;
    
+   ruleStart = *p;
    rule = ALLOCSTRUCT(CSSRule,1,MEMF_FAST);
-   if(!rule) return NULL;
+   if(!rule)
+   {  css_debug_printf("ParseRule: Failed to allocate rule\n");
+      return NULL;
+   }
    
    NEWLIST(&rule->selectors);
    NEWLIST(&rule->properties);
    
    /* Parse selectors */
-   while(**p)
-   {  UBYTE *oldp;
-      SkipWhitespace(p);
-      SkipComment(p);
-      if(**p == '{') break;
-      if(**p == ';' || **p == '}') return NULL; /* Invalid */
-      
-      oldp = *p;  /* Remember position before parsing */
-      sel = ParseSelector(doc,p);
-      if(sel)
-      {  ADDTAIL(&rule->selectors,sel);
-      }
-      else
-      {  /* Parse error in selector - make sure pointer advanced */
-         if(*p == oldp)
-         {  /* Pointer didn't advance - skip one character to prevent infinite loop */
-            (*p)++;
+   {  long selIterationCount = 0;
+      while(**p)
+      {  UBYTE *oldp;
+         
+         selIterationCount++;
+         if(selIterationCount > 1000)
+         {  css_debug_printf("ParseRule: WARNING - Selector parsing loop exceeded 1000 iterations, breaking\n");
+            break;
          }
-         FREE(rule);
-         return NULL;
+         
+         SkipWhitespace(p);
+         SkipComment(p);
+         if(**p == '{') break;
+         if(**p == ';' || **p == '}') return NULL; /* Invalid */
+         
+         oldp = *p;  /* Remember position before parsing */
+         sel = ParseSelector(doc,p);
+         if(sel)
+         {  selectorCount++;
+            ADDTAIL(&rule->selectors,sel);
+         }
+         else
+         {  /* Parse error in selector - make sure pointer advanced */
+            if(*p == oldp)
+            {  /* Pointer didn't advance - skip one character to prevent infinite loop */
+               css_debug_printf("ParseRule: WARNING - ParseSelector failed and pointer didn't advance (pos %ld, char=0x%02x)\n",
+                              *p - ruleStart, **p);
+               (*p)++;
+            }
+            else
+            {  css_debug_printf("ParseRule: ParseSelector failed but pointer advanced (pos %ld->%ld)\n",
+                               oldp - ruleStart, *p - ruleStart);
+            }
+            FREE(rule);
+            return NULL;
+         }
+         
+         SkipWhitespace(p);
+         if(**p == ',')
+         {  (*p)++;
+            continue;
+         }
+         if(**p == '{') break;
       }
-      
-      SkipWhitespace(p);
-      if(**p == ',')
-      {  (*p)++;
-         continue;
-      }
-      if(**p == '{') break;
    }
    
    if(**p != '{')
-      {  FREE(rule);
-         return NULL;
-      }
+   {  css_debug_printf("ParseRule: Expected '{' but found 0x%02x at position %ld\n",
+                      **p, *p - ruleStart);
+      FREE(rule);
+      return NULL;
+   }
    (*p)++; /* Skip '{' */
    
+   css_debug_printf("ParseRule: Parsed %ld selector(s), starting properties at position %ld\n",
+                   selectorCount, *p - ruleStart);
+   
    /* Parse properties */
-   while(**p)
-   {  UBYTE *propOldp;
-      
-      SkipWhitespace(p);
-      SkipComment(p);
-      if(**p == '}') break;
-      
-      propOldp = *p;  /* Remember position before parsing property */
-      prop = ParseProperty(doc,p);
-      if(prop)
-      {  ADDTAIL(&rule->properties,prop);
-      }
-      else
-      {  /* Parse error - skip to next semicolon or closing brace */
-         if(*p == propOldp)
-         {  /* Pointer didn't advance - force advance */
-            if(**p && **p != ';' && **p != '}')
-            {  (*p)++;
-            }
-            else if(**p == ';')
-            {  (*p)++;
-            }
-            else if(**p == '}')
-            {  break;
+   {  long propIterationCount = 0;
+      while(**p)
+      {  UBYTE *propOldp;
+         
+         propIterationCount++;
+         if(propIterationCount > 1000)
+         {  css_debug_printf("ParseRule: WARNING - Property parsing loop exceeded 1000 iterations, breaking\n");
+            break;
+         }
+         
+         SkipWhitespace(p);
+         SkipComment(p);
+         if(**p == '}') break;
+         
+         propOldp = *p;  /* Remember position before parsing property */
+         prop = ParseProperty(doc,p);
+         if(prop)
+         {  propertyCount++;
+            ADDTAIL(&rule->properties,prop);
+         }
+         else
+         {  /* Parse error - skip to next semicolon or closing brace */
+            if(*p == propOldp)
+            {  /* Pointer didn't advance - force advance */
+               css_debug_printf("ParseRule: WARNING - ParseProperty failed and pointer didn't advance (pos %ld, char=0x%02x)\n",
+                              *p - ruleStart, **p);
+               if(**p && **p != ';' && **p != '}')
+               {  (*p)++;
+               }
+               else if(**p == ';')
+               {  (*p)++;
+               }
+               else if(**p == '}')
+               {  break;
+               }
+               else
+               {  /* End of string or invalid - break */
+                  break;
+               }
             }
             else
-            {  /* End of string or invalid - break */
+            {  /* Pointer advanced but property failed - skip to next */
+               css_debug_printf("ParseRule: ParseProperty failed, skipping to next (pos %ld->%ld)\n",
+                              propOldp - ruleStart, *p - ruleStart);
+               {  long skipIterationCount = 0;
+                  while(**p && **p != ';' && **p != '}')
+                  {  skipIterationCount++;
+                     if(skipIterationCount > 10000)
+                     {  /* Safety: if we can't find semicolon or brace in 10000 chars, break */
+                        break;
+                     }
+                     (*p)++;
+                  }
+               }
+            }
+         }
+         
+         SkipWhitespace(p);
+         if(**p == ';')
+         {  (*p)++;
+         }
+         else if(**p == '}')
+         {  break;
+         }
+         
+         /* Safety check: if pointer didn't advance at all, force advance and break */
+         if(*p == propOldp)
+         {  if(**p && **p != '}')
+            {  (*p)++;
+            }
+            else
+            {  break;
+            }
+            /* If still at same position after forcing advance, break */
+            if(*p == propOldp)
+            {  css_debug_printf("ParseRule: Property pointer stuck, breaking\n");
                break;
             }
          }
-         else
-         {  /* Pointer advanced but property failed - skip to next */
-            while(**p && **p != ';' && **p != '}')
-            {  (*p)++;
-            }
-         }
-      }
-      
-      SkipWhitespace(p);
-      if(**p == ';')
-      {  (*p)++;
-      }
-      else if(**p == '}')
-      {  break;
-      }
-      
-      /* Safety check: if pointer didn't advance at all, force advance and break */
-      if(*p == propOldp)
-      {  if(**p && **p != '}')
-         {  (*p)++;
-         }
-         else
-         {  break;
-         }
-         /* If still at same position after forcing advance, break */
-         if(*p == propOldp) break;
       }
    }
+   
+   css_debug_printf("ParseRule: Completed rule with %ld selector(s) and %ld property(ies), final position %ld\n",
+                   selectorCount, propertyCount, *p - ruleStart);
    
    if(**p == '}')
    {  (*p)++; /* Skip '}' */
       return rule;
    }
    
+   css_debug_printf("ParseRule: ERROR - Expected '}' but found 0x%02x, freeing rule\n", **p);
    FREE(rule);
    return NULL;
 }
@@ -362,8 +602,26 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
    /* Initialize new fields */
    sel->parent = NULL;
    sel->combinator = CSS_COMB_NONE;
+   sel->pseudoElement = NULL;
+   sel->attr = NULL;
    
    SkipWhitespace(p);
+   
+   /* Check for :root selector (must be at start) */
+   if(**p == ':')
+   {  UBYTE *rootCheck = *p + 1;
+      UBYTE *rootId = ParseIdentifier(&rootCheck);
+      if(rootId && stricmp((char *)rootId, "root") == 0)
+      {  /* Check if next char is whitespace, comma, or brace (end of selector) */
+         if(!*rootCheck || isspace(*rootCheck) || *rootCheck == ',' || *rootCheck == '{' || *rootCheck == '}')
+         {  sel->type = CSS_SEL_ROOT;
+            sel->specificity = 1; /* :root has element-level specificity */
+            *p = rootCheck;
+            SkipWhitespace(p);
+            return sel;
+         }
+      }
+   }
    
    /* Parse element name, class, or ID */
    if(**p == '.')
@@ -470,15 +728,132 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
       }
    }
    
-   /* Check for pseudo-class (e.g., :link, :visited, :hover) */
+   /* Check for pseudo-class (e.g., :link, :visited, :hover) or pseudo-element (::before, ::after) */
    SkipWhitespace(p);
    if(**p == ':')
-   {  (*p)++;
-      pseudoName = ParseIdentifier(p);
-      if(pseudoName)
-      {  sel->type |= CSS_SEL_PSEUDO;
-         sel->pseudo = Dupstr(pseudoName,-1);
-         sel->specificity += 10; /* Pseudo-class adds to specificity */
+   {  if((*p)[1] == ':')
+      {  /* Pseudo-element (::before, ::after, ::selection, etc.) */
+         (*p) += 2; /* Skip '::' */
+         pseudoName = ParseIdentifier(p);
+         if(pseudoName)
+         {  sel->type |= CSS_SEL_PSEUDOEL;
+            sel->pseudoElement = Dupstr(pseudoName,-1);
+            sel->specificity += 1; /* Pseudo-element adds element-level specificity */
+         }
+      }
+      else
+      {  /* Pseudo-class (:link, :visited, :hover, etc.) */
+         (*p)++; /* Skip ':' */
+         pseudoName = ParseIdentifier(p);
+         if(pseudoName)
+         {  sel->type |= CSS_SEL_PSEUDO;
+            sel->pseudo = Dupstr(pseudoName,-1);
+            sel->specificity += 10; /* Pseudo-class adds to specificity */
+         }
+      }
+   }
+   
+   /* Check for attribute selector [attr], [attr=value], [attr*=value], etc. */
+   SkipWhitespace(p);
+   if(**p == '[')
+   {  struct CSSAttribute *attr;
+      UBYTE *attrName;
+      UBYTE *attrValue;
+      UBYTE *oldp;
+      UBYTE quote;
+      
+      (*p)++; /* Skip '[' */
+      SkipWhitespace(p);
+      
+      attr = ALLOCSTRUCT(CSSAttribute, 1, MEMF_FAST);
+      if(attr)
+      {  attr->name = NULL;
+         attr->value = NULL;
+         attr->operator = CSS_ATTR_NONE;
+         
+         /* Parse attribute name */
+         attrName = ParseIdentifier(p);
+         if(attrName)
+         {  attr->name = Dupstr(attrName,-1);
+            SkipWhitespace(p);
+            
+            /* Check for operator */
+            if(**p == '=')
+            {  attr->operator = CSS_ATTR_EQUAL;
+               (*p)++;
+            }
+            else if(**p == '*' && (*p)[1] == '=')
+            {  attr->operator = CSS_ATTR_CONTAINS;
+               (*p) += 2;
+            }
+            else if(**p == '^' && (*p)[1] == '=')
+            {  attr->operator = CSS_ATTR_STARTS;
+               (*p) += 2;
+            }
+            else if(**p == '$' && (*p)[1] == '=')
+            {  attr->operator = CSS_ATTR_ENDS;
+               (*p) += 2;
+            }
+            else if(**p == '~' && (*p)[1] == '=')
+            {  attr->operator = CSS_ATTR_WORD;
+               (*p) += 2;
+            }
+            
+            /* If we have an operator, parse the value */
+            if(attr->operator != CSS_ATTR_NONE)
+            {  SkipWhitespace(p);
+               oldp = *p;
+               
+               /* Check for quoted value */
+               if(**p == '"' || **p == '\'')
+               {  quote = **p;
+                  (*p)++; /* Skip opening quote */
+                  attrValue = *p;
+                  while(**p && **p != quote)
+                  {  if(**p == '\\' && (*p)[1])
+                     {  (*p) += 2; /* Skip escaped character */
+                     }
+                     else
+                     {  (*p)++;
+                     }
+                  }
+                  if(**p == quote)
+                  {  long len = *p - attrValue;
+                     attr->value = ALLOCTYPE(UBYTE, len + 1, MEMF_FAST);
+                     if(attr->value)
+                     {  memmove(attr->value, attrValue, len);
+                        attr->value[len] = '\0';
+                     }
+                     (*p)++; /* Skip closing quote */
+                  }
+               }
+               else
+               {  /* Unquoted value - parse identifier */
+                  attrValue = ParseIdentifier(p);
+                  if(attrValue)
+                  {  attr->value = Dupstr(attrValue,-1);
+                  }
+               }
+            }
+            
+            SkipWhitespace(p);
+            if(**p == ']')
+            {  (*p)++; /* Skip ']' */
+               sel->type |= CSS_SEL_ATTRIBUTE;
+               sel->attr = attr;
+               sel->specificity += 10; /* Attribute selector adds class-level specificity */
+            }
+            else
+            {  /* Invalid attribute selector - free and ignore */
+               if(attr->name) FREE(attr->name);
+               if(attr->value) FREE(attr->value);
+               FREE(attr);
+            }
+         }
+         else
+         {  /* Invalid attribute name - free and ignore */
+            FREE(attr);
+         }
       }
    }
    
@@ -661,27 +1036,47 @@ static UBYTE* ParseValue(UBYTE **p)
    
    /* Parse until semicolon or closing brace (allow newlines in values) */
    /* Handle quoted strings within the value (e.g., font-family: "Open Sans", "Helvetica Neue", ...) */
-   while(**p && **p != ';' && **p != '}')
-   {  if((**p == '"' || **p == '\'') && !inString)
-      {  quote = **p;
-         inString = TRUE;
-         (*p)++;
-         /* Skip to closing quote */
-         while(**p && **p != quote)
-         {  if(**p == '\\' && (*p)[1])
-            {  (*p) += 2; /* Skip escaped character */
+   {  long valueIterationCount = 0;
+      while(**p && **p != ';' && **p != '}')
+      {  valueIterationCount++;
+         if(valueIterationCount > 10000)
+         {  /* Safety: if we've parsed more than 10000 characters, something is wrong - break */
+            break;
+         }
+         
+         if((**p == '"' || **p == '\'') && !inString)
+         {  quote = **p;
+            inString = TRUE;
+            (*p)++;
+            /* Skip to closing quote */
+            {  long quoteIterationCount = 0;
+               while(**p && **p != quote)
+               {  quoteIterationCount++;
+                  if(quoteIterationCount > 10000)
+                  {  /* Unclosed quote - break out */
+                     inString = FALSE;
+                     break;
+                  }
+                  if(**p == '\\' && (*p)[1])
+                  {  (*p) += 2; /* Skip escaped character */
+                  }
+                  else
+                  {  (*p)++;
+                  }
+               }
+            }
+            if(**p == quote)
+            {  (*p)++; /* Skip closing quote */
+               inString = FALSE;
             }
             else
-            {  (*p)++;
+            {  /* Unclosed quote - treat as end of value */
+               inString = FALSE;
             }
          }
-         if(**p == quote)
-         {  (*p)++; /* Skip closing quote */
-            inString = FALSE;
+         else
+         {  (*p)++;
          }
-      }
-      else
-      {  (*p)++;
       }
    }
    len = *p - start;
@@ -764,13 +1159,116 @@ static BOOL MatchClassAttribute(UBYTE *elementClass, UBYTE *selectorClass)
    return TRUE;
 }
 
+/* Case-insensitive string search (stristr equivalent) */
+static UBYTE *stristr_case(UBYTE *haystack, UBYTE *needle)
+{  UBYTE *p;
+   long haystackLen;
+   long needleLen;
+   long i;
+   
+   if(!haystack || !needle || !*needle) return NULL;
+   
+   haystackLen = strlen((char *)haystack);
+   needleLen = strlen((char *)needle);
+   
+   if(needleLen > haystackLen) return NULL;
+   
+   for(i = 0; i <= haystackLen - needleLen; i++)
+   {  if(strnicmp((char *)(haystack + i), (char *)needle, needleLen) == 0)
+      {  return haystack + i;
+      }
+   }
+   
+   return NULL;
+}
+
+/* Match attribute selector */
+static BOOL MatchAttributeSelector(struct CSSAttribute *attr, UBYTE *elemAttrValue)
+{  UBYTE *attrVal;
+   long len;
+   
+   if(!attr || !attr->name) return FALSE;
+   
+   if(!elemAttrValue) return (attr->operator == CSS_ATTR_NONE) ? TRUE : FALSE; /* [attr] matches if attribute exists */
+   
+   attrVal = elemAttrValue;
+   
+   switch(attr->operator)
+   {  case CSS_ATTR_NONE:
+         /* [attr] - attribute exists */
+         return TRUE;
+         
+      case CSS_ATTR_EQUAL:
+         /* [attr=value] - exact match */
+         if(!attr->value) return FALSE;
+         return (stricmp((char *)attrVal, (char *)attr->value) == 0) ? TRUE : FALSE;
+         
+      case CSS_ATTR_CONTAINS:
+         /* [attr*=value] - contains substring */
+         if(!attr->value) return FALSE;
+         return (stristr_case(attrVal, attr->value) != NULL) ? TRUE : FALSE;
+         
+      case CSS_ATTR_STARTS:
+         /* [attr^=value] - starts with */
+         if(!attr->value) return FALSE;
+         len = strlen((char *)attr->value);
+         return (strlen((char *)attrVal) >= len && 
+                 strnicmp((char *)attrVal, (char *)attr->value, len) == 0) ? TRUE : FALSE;
+         
+      case CSS_ATTR_ENDS:
+         /* [attr$=value] - ends with */
+         if(!attr->value) return FALSE;
+         len = strlen((char *)attr->value);
+         {  long attrLen = strlen((char *)attrVal);
+            if(attrLen < len) return FALSE;
+            return (stricmp((char *)(attrVal + attrLen - len), (char *)attr->value) == 0) ? TRUE : FALSE;
+         }
+         
+      case CSS_ATTR_WORD:
+         /* [attr~=value] - word match (space-separated) */
+         if(!attr->value) return FALSE;
+         {  UBYTE *p = attrVal;
+            UBYTE *wordStart;
+            long wordLen;
+            long valueLen = strlen((char *)attr->value);
+            
+            while(*p)
+            {  /* Skip whitespace */
+               while(*p && isspace(*p)) p++;
+               if(!*p) break;
+               
+               wordStart = p;
+               /* Find end of word */
+               while(*p && !isspace(*p)) p++;
+               wordLen = p - wordStart;
+               
+               /* Check if this word matches */
+               if(wordLen == valueLen && strnicmp((char *)wordStart, (char *)attr->value, wordLen) == 0)
+               {  return TRUE;
+               }
+            }
+            return FALSE;
+         }
+         
+      default:
+         return FALSE;
+   }
+}
+
 /* Match a single selector component to an element (without checking parent) */
 static BOOL MatchSelectorComponent(struct CSSSelector *sel, void *element)
 {  UBYTE *elemName;
    UBYTE *elemClass;
    UBYTE *elemId;
+   UBYTE *attrValue;
    
    if(!sel || !element) return FALSE;
+   
+   /* Match :root selector - matches HTML element */
+   if(sel->type & CSS_SEL_ROOT)
+   {  elemName = (UBYTE *)Agetattr(element,AOELT_TagName);
+      return (elemName && stricmp((char *)elemName, "html") == 0) ? TRUE : FALSE;
+   }
    
    /* Get element attributes */
    elemName = (UBYTE *)Agetattr(element,AOELT_TagName);
@@ -798,6 +1296,30 @@ static BOOL MatchSelectorComponent(struct CSSSelector *sel, void *element)
       }
    }
    
+   /* Match attribute selector */
+   if(sel->type & CSS_SEL_ATTRIBUTE && sel->attr)
+   {  /* Get attribute value - for now, we check class and id attributes */
+      /* TODO: Support arbitrary attributes via Agetattr with attribute name */
+      if(sel->attr->name && stricmp((char *)sel->attr->name, "class") == 0)
+      {  attrValue = elemClass;
+      }
+      else if(sel->attr->name && stricmp((char *)sel->attr->name, "id") == 0)
+      {  attrValue = elemId;
+      }
+      else
+      {  /* For other attributes, we'd need to query them by name */
+         /* For now, return FALSE for unknown attributes */
+         attrValue = NULL;
+      }
+      
+      if(!MatchAttributeSelector(sel->attr, attrValue))
+      {  return FALSE;
+      }
+   }
+   
+   /* Note: Pseudo-elements (::before, ::after) are not matched here as they
+    * don't correspond to actual DOM elements. They would be handled during rendering. */
+   
    return TRUE;
 }
 
@@ -806,8 +1328,15 @@ static BOOL MatchSelectorComponentBody(struct CSSSelector *sel, void *body)
 {  UBYTE *bodyName;
    UBYTE *bodyClass;
    UBYTE *bodyId;
+   UBYTE *attrValue;
    
    if(!sel || !body) return FALSE;
+   
+   /* Match :root selector - matches HTML element */
+   if(sel->type & CSS_SEL_ROOT)
+   {  bodyName = (UBYTE *)Agetattr(body,AOBDY_TagName);
+      return (bodyName && stricmp((char *)bodyName, "html") == 0) ? TRUE : FALSE;
+   }
    
    /* Get body attributes */
    bodyName = (UBYTE *)Agetattr(body,AOBDY_TagName);
@@ -835,6 +1364,25 @@ static BOOL MatchSelectorComponentBody(struct CSSSelector *sel, void *body)
       }
    }
    
+   /* Match attribute selector */
+   if(sel->type & CSS_SEL_ATTRIBUTE && sel->attr)
+   {  /* Get attribute value - for now, we check class and id attributes */
+      if(sel->attr->name && stricmp((char *)sel->attr->name, "class") == 0)
+      {  attrValue = bodyClass;
+      }
+      else if(sel->attr->name && stricmp((char *)sel->attr->name, "id") == 0)
+      {  attrValue = bodyId;
+      }
+      else
+      {  /* For other attributes, we'd need to query them by name */
+         attrValue = NULL;
+      }
+      
+      if(!MatchAttributeSelector(sel->attr, attrValue))
+      {  return FALSE;
+      }
+   }
+   
    return TRUE;
 }
 
@@ -845,8 +1393,22 @@ static BOOL MatchSelectorComponentGeneric(struct CSSSelector *sel, void *obj)
    UBYTE *name;
    UBYTE *class;
    UBYTE *id;
+   UBYTE *attrValue;
    
    if(!sel || !obj) return FALSE;
+   
+   /* Match :root selector - matches HTML element */
+   if(sel->type & CSS_SEL_ROOT)
+   {  ao = (struct Aobject *)obj;
+      objtype = ao->objecttype;
+      if(objtype == AOTP_BODY)
+      {  name = (UBYTE *)Agetattr(obj, AOBDY_TagName);
+      }
+      else
+      {  name = (UBYTE *)Agetattr(obj, AOELT_TagName);
+      }
+      return (name && stricmp((char *)name, "html") == 0) ? TRUE : FALSE;
+   }
    
    /* Check object type to determine which attributes to use */
    ao = (struct Aobject *)obj;
@@ -882,6 +1444,25 @@ static BOOL MatchSelectorComponentGeneric(struct CSSSelector *sel, void *obj)
    /* Match ID */
    if(sel->type & CSS_SEL_ID && sel->id)
    {  if(!id || stricmp((char *)sel->id, (char *)id) != 0)
+      {  return FALSE;
+      }
+   }
+   
+   /* Match attribute selector */
+   if(sel->type & CSS_SEL_ATTRIBUTE && sel->attr)
+   {  /* Get attribute value - for now, we check class and id attributes */
+      if(sel->attr->name && stricmp((char *)sel->attr->name, "class") == 0)
+      {  attrValue = class;
+      }
+      else if(sel->attr->name && stricmp((char *)sel->attr->name, "id") == 0)
+      {  attrValue = id;
+      }
+      else
+      {  /* For other attributes, we'd need to query them by name */
+         attrValue = NULL;
+      }
+      
+      if(!MatchAttributeSelector(sel->attr, attrValue))
       {  return FALSE;
       }
    }
@@ -1314,23 +1895,29 @@ static void FreeCSSStylesheetInternal(struct CSSStylesheet *sheet)
    
    if(!sheet) return;
    
-   for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
-       (struct MinNode *)rule->node.mln_Succ;
-       rule = (struct CSSRule *)rule->node.mln_Succ)
-   {  for(sel = (struct CSSSelector *)rule->selectors.mlh_Head;
-         (struct MinNode *)sel->node.mln_Succ;
-         sel = (struct CSSSelector *)sel->node.mln_Succ)
+   /* Remove and free all rules from the list */
+   while((rule = (struct CSSRule *)REMHEAD(&sheet->rules)))
+   {  /* Remove and free all selectors from the rule's list */
+      while((sel = (struct CSSSelector *)REMHEAD(&rule->selectors)))
       {  if(sel->name) FREE(sel->name);
          if(sel->class) FREE(sel->class);
          if(sel->id) FREE(sel->id);
          if(sel->pseudo) FREE(sel->pseudo);
+         if(sel->pseudoElement) FREE(sel->pseudoElement);
+         if(sel->attr)
+         {  if(sel->attr->name) FREE(sel->attr->name);
+            if(sel->attr->value) FREE(sel->attr->value);
+            FREE(sel->attr);
+         }
+         FREE(sel);
       }
-      for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
-         (struct MinNode *)prop->node.mln_Succ;
-         prop = (struct CSSProperty *)prop->node.mln_Succ)
+      /* Remove and free all properties from the rule's list */
+      while((prop = (struct CSSProperty *)REMHEAD(&rule->properties)))
       {  if(prop->name) FREE(prop->name);
          if(prop->value) FREE(prop->value);
+         FREE(prop);
       }
+      FREE(rule);
    }
    
    FREE(sheet);
@@ -1716,28 +2303,59 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply white-space */
-         else if(stricmp((char *)prop->name,"white-space") == 0)
-         {  if(stricmp((char *)prop->value,"nowrap") == 0)
-            {  Asetattrs(body,AOBDY_Nobr,TRUE,TAG_END);
+         /* Apply cursor */
+         else if(stricmp((char *)prop->name,"cursor") == 0)
+         {  UBYTE *cursorStr;
+            cursorStr = Dupstr(prop->value, -1);
+            if(cursorStr)
+            {  Asetattrs(body, AOBDY_Cursor, cursorStr, TAG_END);
             }
-            else if(stricmp((char *)prop->value,"normal") == 0 || stricmp((char *)prop->value,"pre-wrap") == 0 || stricmp((char *)prop->value,"pre-line") == 0)
-            {  Asetattrs(body,AOBDY_Nobr,FALSE,TAG_END);
-            }
-            /* Note: "pre" is handled by STYLE_PRE, not white-space */
          }
          /* Apply text-transform */
          else if(stricmp((char *)prop->name,"text-transform") == 0)
-         {  if(stricmp((char *)prop->value,"uppercase") == 0)
-            {  doc->texttransform = 1;
+         {  UBYTE *transformStr;
+            transformStr = Dupstr(prop->value, -1);
+            if(transformStr)
+            {  Asetattrs(body, AOBDY_TextTransform, transformStr, TAG_END);
             }
-            else if(stricmp((char *)prop->value,"lowercase") == 0)
-            {  doc->texttransform = 2;
+         }
+         /* Apply white-space */
+         else if(stricmp((char *)prop->name,"white-space") == 0)
+         {  UBYTE *whitespaceStr;
+            whitespaceStr = Dupstr(prop->value, -1);
+            if(whitespaceStr)
+            {  Asetattrs(body, AOBDY_WhiteSpace, whitespaceStr, TAG_END);
+               /* Also apply to AOBDY_Nobr for nowrap */
+               if(stricmp((char *)whitespaceStr, "nowrap") == 0)
+               {  Asetattrs(body, AOBDY_Nobr, TRUE, TAG_END);
+               }
+               else if(stricmp((char *)whitespaceStr, "normal") == 0 || 
+                       stricmp((char *)whitespaceStr, "pre-wrap") == 0 || 
+                       stricmp((char *)whitespaceStr, "pre-line") == 0)
+               {  Asetattrs(body, AOBDY_Nobr, FALSE, TAG_END);
+               }
+               /* Note: "pre" is handled by STYLE_PRE, not white-space */
             }
-            else if(stricmp((char *)prop->value,"capitalize") == 0)
-            {  doc->texttransform = 3;
-            }
-            else if(stricmp((char *)prop->value,"none") == 0)
-            {  doc->texttransform = 0;
+         }
+         /* Apply text-transform */
+         else if(stricmp((char *)prop->name,"text-transform") == 0)
+         {  UBYTE *transformStr;
+            transformStr = Dupstr(prop->value, -1);
+            if(transformStr)
+            {  Asetattrs(body, AOBDY_TextTransform, transformStr, TAG_END);
+               /* Also set document-level text-transform for compatibility */
+               if(stricmp((char *)transformStr, "uppercase") == 0)
+               {  doc->texttransform = 1;
+               }
+               else if(stricmp((char *)transformStr, "lowercase") == 0)
+               {  doc->texttransform = 2;
+               }
+               else if(stricmp((char *)transformStr, "capitalize") == 0)
+               {  doc->texttransform = 3;
+               }
+               else if(stricmp((char *)transformStr, "none") == 0)
+               {  doc->texttransform = 0;
+               }
             }
          }
          /* Apply font-family */
@@ -1988,15 +2606,25 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
          }
          /* Apply right */
          else if(stricmp((char *)prop->name,"right") == 0)
-         {  /* Right positioning - would need layout calculation */
-            /* Note: Right positioning requires knowing parent width */
-            /* For now, we parse but don't apply */
+         {  long rightValue;
+            struct Number rightNum;
+            
+            rightValue = ParseCSSLengthValue(prop->value, &rightNum);
+            if(rightValue >= 0 && rightNum.type == NUMBER_NUMBER)
+            {  /* Store right position - will be calculated during layout */
+               Asetattrs(body, AOBDY_Right, rightValue, TAG_END);
+            }
          }
          /* Apply bottom */
          else if(stricmp((char *)prop->name,"bottom") == 0)
-         {  /* Bottom positioning - would need layout calculation */
-            /* Note: Bottom positioning requires knowing parent height */
-            /* For now, we parse but don't apply */
+         {  long bottomValue;
+            struct Number bottomNum;
+            
+            bottomValue = ParseCSSLengthValue(prop->value, &bottomNum);
+            if(bottomValue >= 0 && bottomNum.type == NUMBER_NUMBER)
+            {  /* Store bottom position - will be calculated during layout */
+               Asetattrs(body, AOBDY_Bottom, bottomValue, TAG_END);
+            }
          }
          /* Apply z-index */
          else if(stricmp((char *)prop->name,"z-index") == 0)

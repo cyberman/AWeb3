@@ -169,6 +169,21 @@
 #define AOBDY_BorderStyle  (AOBDY_Dummy+52)  /* SET,GET */
    /* (UBYTE *) CSS border style: "solid", "dashed", "dotted", etc. */
 
+#define AOBDY_Right        (AOBDY_Dummy+53)  /* SET,GET */
+   /* (long) CSS right position value */
+
+#define AOBDY_Bottom       (AOBDY_Dummy+54)  /* SET,GET */
+   /* (long) CSS bottom position value */
+
+#define AOBDY_Cursor       (AOBDY_Dummy+55)  /* SET,GET */
+   /* (UBYTE *) CSS cursor: "pointer", "help", "default", etc. */
+
+#define AOBDY_TextTransform (AOBDY_Dummy+56)  /* SET,GET */
+   /* (UBYTE *) CSS text-transform: "uppercase", "lowercase", "capitalize", "none" */
+
+#define AOBDY_WhiteSpace   (AOBDY_Dummy+57)  /* SET,GET */
+   /* (UBYTE *) CSS white-space: "nowrap", "normal", "pre", etc. */
+
 /*--- body support structures ---*/
 
 /* global references */

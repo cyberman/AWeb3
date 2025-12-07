@@ -94,6 +94,11 @@ struct Body
    long borderwidth;        /* CSS border width */
    struct Colorinfo *bordercolor; /* CSS border color */
    UBYTE *borderstyle;      /* CSS border style */
+   long right;             /* CSS right position */
+   long bottom;            /* CSS bottom position */
+   UBYTE *cursor;          /* CSS cursor type */
+   UBYTE *texttransform;  /* CSS text-transform */
+   UBYTE *whitespace;      /* CSS white-space */
 };
 
 #define BDYF_SUB           0x0001   /* subscript mode */
@@ -739,13 +744,30 @@ static long Layoutbody(struct Body *bd,struct Amlayout *amlp)
       }
    }
    
-   /* Apply position: fixed/absolute positioning */
+   /* Apply position: fixed/absolute/relative positioning */
+   /* Note: right/bottom calculation happens after body dimensions are known */
    if(bd->position && (stricmp((char *)bd->position, "fixed") == 0 || 
-                       stricmp((char *)bd->position, "absolute") == 0))
-   {  /* For fixed/absolute positioning, body position is set via AOBJ_Left/Top */
-      /* Layout engine will handle positioning */
-      bd->aox = Agetattr((void *)bd, AOBJ_Left);
-      bd->aoy = Agetattr((void *)bd, AOBJ_Top);
+                       stricmp((char *)bd->position, "absolute") == 0 ||
+                       stricmp((char *)bd->position, "relative") == 0))
+   {  long leftPos, topPos;
+      
+      /* Get left/top positions */
+      leftPos = Agetattr((void *)bd, AOBJ_Left);
+      topPos = Agetattr((void *)bd, AOBJ_Top);
+      
+      /* Apply position - right/bottom will be recalculated after layout */
+      if(stricmp((char *)bd->position, "relative") == 0)
+      {  /* Relative positioning: offset from normal flow position */
+         /* Normal flow position starts at 0, add offset */
+         bd->aox = leftPos;
+         bd->aoy = topPos;
+      }
+      else
+      {  /* Fixed/absolute positioning: set absolute position */
+         /* If right/bottom are set, they'll be recalculated after we know dimensions */
+         bd->aox = leftPos;
+         bd->aoy = topPos;
+      }
    }
    else
    {  bd->aox=bd->aoy=0;
@@ -1022,6 +1044,41 @@ if(SetSignal(0,0)&SIGBREAKF_CTRL_C) return 0;
    /* Apply max-height constraint */
    if(bd->maxheight >= 0 && bd->aoh > bd->maxheight)
    {  bd->aoh = bd->maxheight;
+   }
+   
+   /* Recalculate right/bottom positioning now that we know body dimensions */
+   if(bd->position && (stricmp((char *)bd->position, "fixed") == 0 || 
+                       stricmp((char *)bd->position, "absolute") == 0))
+   {  long parentWidth, parentHeight;
+      void *parentObj;
+      
+      /* Get parent dimensions for right/bottom calculation */
+      parentWidth = amlp->width;
+      parentHeight = amlp->height;
+      
+      /* Try to get parent object dimensions if available */
+      parentObj = Agetattr((void *)bd, AOBJ_Layoutparent);
+      if(parentObj)
+      {  long pw, ph;
+         Agetattrs(parentObj, AOBJ_Width, &pw, AOBJ_Height, &ph, TAG_END);
+         if(pw > 0) parentWidth = pw;
+         if(ph > 0) parentHeight = ph;
+      }
+      
+      /* Recalculate position if right/bottom are set */
+      if(bd->right >= 0 && bd->aow > 0)
+      {  /* right is set - recalculate left from right */
+         long leftPos;
+         leftPos = parentWidth - bd->aow - bd->right;
+         bd->aox = leftPos;
+      }
+      
+      if(bd->bottom >= 0 && bd->aoh > 0)
+      {  /* bottom is set - recalculate top from bottom */
+         long topPos;
+         topPos = parentHeight - bd->aoh - bd->bottom;
+         bd->aoy = topPos;
+      }
    }
    
    /* Clear all pending margins, as MORE starts before the margins anyway. */
@@ -1532,6 +1589,30 @@ static long Setbody(struct Body *bd,struct Amset *ams)
             }
             bd->borderstyle = (UBYTE *)tag->ti_Data;
             break;
+         case AOBDY_Right:
+            bd->right = (long)tag->ti_Data;
+            break;
+         case AOBDY_Bottom:
+            bd->bottom = (long)tag->ti_Data;
+            break;
+         case AOBDY_Cursor:
+            if(bd->cursor && bd->cursor != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->cursor);
+            }
+            bd->cursor = (UBYTE *)tag->ti_Data;
+            break;
+         case AOBDY_TextTransform:
+            if(bd->texttransform && bd->texttransform != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->texttransform);
+            }
+            bd->texttransform = (UBYTE *)tag->ti_Data;
+            break;
+         case AOBDY_WhiteSpace:
+            if(bd->whitespace && bd->whitespace != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->whitespace);
+            }
+            bd->whitespace = (UBYTE *)tag->ti_Data;
+            break;
       }
    }
    if(fontw) Pushfont(bd,fontstyle,fontsize,fontcolor,fontface,fontw);
@@ -1565,6 +1646,9 @@ static void Disposebody(struct Body *bd)
    if(bd->clear) FREE(bd->clear);
    if(bd->liststyle) FREE(bd->liststyle);
    if(bd->borderstyle) FREE(bd->borderstyle);
+   if(bd->cursor) FREE(bd->cursor);
+   if(bd->texttransform) FREE(bd->texttransform);
+   if(bd->whitespace) FREE(bd->whitespace);
    Amethodas(AOTP_OBJECT,bd,AOM_DISPOSE);
 }
 
@@ -1597,6 +1681,11 @@ static struct Body *Newbody(struct Amset *ams)
       bd->borderwidth = 0;
       bd->bordercolor = NULL;
       bd->borderstyle = NULL;
+      bd->right = -1;
+      bd->bottom = -1;
+      bd->cursor = NULL;
+      bd->texttransform = NULL;
+      bd->whitespace = NULL;
       if(Newbodybuild(bd))
       {  Pushfont(bd,STYLE_NORMAL,0,NULL,NULL,FONTW_STYLE);
          bd->bgcolor=-1;
@@ -1708,6 +1797,21 @@ static long Getbody(struct Body *bd,struct Amset *ams)
             break;
          case AOBDY_BorderStyle:
             PUTATTR(tag,bd->borderstyle);
+            break;
+         case AOBDY_Right:
+            PUTATTR(tag,bd->right);
+            break;
+         case AOBDY_Bottom:
+            PUTATTR(tag,bd->bottom);
+            break;
+         case AOBDY_Cursor:
+            PUTATTR(tag,bd->cursor);
+            break;
+         case AOBDY_TextTransform:
+            PUTATTR(tag,bd->texttransform);
+            break;
+         case AOBDY_WhiteSpace:
+            PUTATTR(tag,bd->whitespace);
             break;
       }
    }

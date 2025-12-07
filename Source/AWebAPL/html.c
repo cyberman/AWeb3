@@ -1986,12 +1986,18 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
       extcss = Finddocext(doc,url,(doc->pflags&DPF_RELOADVERIFY) && !(doc->pflags&DPF_NORLDOCEXT));
       if(extcss)
       {  if(extcss == (UBYTE *)~0)
-         {  /* debug_printf("Dolink: External CSS load error, skipping\n"); */
+         {  extern BOOL httpdebug;
+            if(httpdebug)
+            {  printf("[CSS] Dolink: External CSS load error, skipping\n");
+            }
             /* External CSS is in error, skip it */
          }
          else
-         {  /* debug_printf("Dolink: External CSS loaded, merging (length=%ld)\n",
-                        strlen((char *)extcss)); */
+         {  extern BOOL httpdebug;
+            if(httpdebug)
+            {  printf("[CSS] Dolink: External CSS loaded, length=%ld bytes, calling MergeCSSStylesheet\n",
+                     strlen((char *)extcss));
+            }
             /* Merge external CSS with existing stylesheet */
             MergeCSSStylesheet(doc,extcss);
             /* Apply link colors from CSS (a:link, a:visited) */

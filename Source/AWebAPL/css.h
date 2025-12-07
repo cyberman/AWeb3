@@ -28,11 +28,29 @@
 #define CSS_SEL_CLASS      0x0002
 #define CSS_SEL_ID         0x0004
 #define CSS_SEL_PSEUDO     0x0008
+#define CSS_SEL_PSEUDOEL   0x0010  /* Pseudo-element (::before, ::after, etc.) */
+#define CSS_SEL_ATTRIBUTE  0x0020  /* Attribute selector [attr] */
+#define CSS_SEL_ROOT       0x0040  /* :root selector */
 
 /* CSS selector combinators */
 #define CSS_COMB_NONE        0
 #define CSS_COMB_DESCENDANT  1  /* space: "div p" */
 #define CSS_COMB_CHILD       2  /* >: "div > p" */
+
+/* CSS attribute selector operators */
+#define CSS_ATTR_NONE      0  /* [attr] */
+#define CSS_ATTR_EQUAL     1  /* [attr=value] */
+#define CSS_ATTR_CONTAINS  2  /* [attr*=value] */
+#define CSS_ATTR_STARTS    3  /* [attr^=value] */
+#define CSS_ATTR_ENDS      4  /* [attr$=value] */
+#define CSS_ATTR_WORD      5  /* [attr~=value] (word match) */
+
+/* CSS attribute selector structure */
+struct CSSAttribute
+{  UBYTE *name;              /* Attribute name */
+   UBYTE *value;             /* Attribute value (for =, *=, ^=, $=, ~=) */
+   UWORD operator;           /* CSS_ATTR_* operator */
+};
 
 /* CSS selector structure */
 struct CSSSelector
@@ -42,6 +60,8 @@ struct CSSSelector
    UBYTE *class;             /* Class name */
    UBYTE *id;                /* ID name */
    UBYTE *pseudo;            /* Pseudo-class name (e.g., "link", "visited", "hover") */
+   UBYTE *pseudoElement;     /* Pseudo-element name (e.g., "before", "after", "selection") */
+   struct CSSAttribute *attr; /* Attribute selector (NULL if none) */
    USHORT specificity;      /* Selector specificity for cascade */
    struct CSSSelector *parent; /* Parent selector for descendant/child selectors */
    UWORD combinator;         /* CSS_COMB_NONE, CSS_COMB_DESCENDANT, CSS_COMB_CHILD */

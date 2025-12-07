@@ -186,6 +186,8 @@ static void Reloaddocument(struct Document *doc)
    Freebuffer(&doc->args);
    Freebuffer(&doc->jsrc);
    Freebuffer(&doc->jout);
+   Freebuffer(&doc->csssrc);
+   FreeCSSStylesheet(doc);
    if(doc->body)
    {  Adisposeobject(doc->body);
       doc->body=NULL;
@@ -603,12 +605,17 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
                      }
                   }
                   if(isCSS)
-                  {  /* debug_printf("AODOC_Docextready: Detected CSS file, loading...\n"); */
+                  {  extern BOOL httpdebug;
+                     if(httpdebug)
+                     {  printf("[CSS] AODOC_Docextready: Detected CSS file, loading from URL\n");
+                     }
                      /* Try to get the CSS content */
                      extcss = Finddocext(doc,url,FALSE);
                      if(extcss && extcss != (UBYTE *)~0)
-                     {  /* debug_printf("AODOC_Docextready: CSS file loaded, merging (length=%ld)\n",
-                                    strlen((char *)extcss)); */
+                     {  if(httpdebug)
+                        {  printf("[CSS] AODOC_Docextready: CSS file loaded, length=%ld bytes, calling MergeCSSStylesheet\n",
+                                 strlen((char *)extcss));
+                        }
                         /* Merge external CSS with existing stylesheet */
                         MergeCSSStylesheet(doc,extcss);
                         /* Apply link colors from CSS (a:link, a:visited) */
