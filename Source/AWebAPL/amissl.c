@@ -819,21 +819,29 @@ static SSL_CTX *GetSharedSSLCTX(void) {
   /* CRITICAL: Check if shared_sslctx is still valid - it might have been freed */
   /* by OpenSSL if refcount reached 0, but we haven't cleared the pointer yet */
   if (shared_sslctx) {
-    /* Validate the pointer is still in a reasonable memory range */
-    /* If it was freed, the pointer might be in an invalid range */
-    if ((ULONG)shared_sslctx < 0x1000 || (ULONG)shared_sslctx >= 0xFFFFFFF0) {
-      debug_printf("DEBUG: GetSharedSSLCTX: Shared SSL_CTX pointer is invalid (%p), clearing it\n", shared_sslctx);
+    /* CRITICAL: Check refcount first - if it's 0, the SSL_CTX has been freed */
+    /* Calling SSL_CTX_up_ref() on a freed SSL_CTX will crash */
+    if (shared_sslctx_refcount == 0) {
+      debug_printf("DEBUG: GetSharedSSLCTX: Shared SSL_CTX refcount is 0 (freed), clearing pointer %p\n", shared_sslctx);
       shared_sslctx = NULL;
-      shared_sslctx_refcount = 0;
       /* Fall through to create new SSL_CTX */
     } else {
-      debug_printf("DEBUG: GetSharedSSLCTX: Shared SSL_CTX exists at %p, incrementing refcount (was %lu)\n", 
-                   shared_sslctx, shared_sslctx_refcount);
-      SSL_CTX_up_ref(shared_sslctx);
-      shared_sslctx_refcount++;
-      ctx = shared_sslctx;
-      ReleaseSemaphore(&ssl_init_sema);
-      return ctx;
+      /* Validate the pointer is still in a reasonable memory range */
+      /* If it was freed, the pointer might be in an invalid range */
+      if ((ULONG)shared_sslctx < 0x1000 || (ULONG)shared_sslctx >= 0xFFFFFFF0) {
+        debug_printf("DEBUG: GetSharedSSLCTX: Shared SSL_CTX pointer is invalid (%p), clearing it\n", shared_sslctx);
+        shared_sslctx = NULL;
+        shared_sslctx_refcount = 0;
+        /* Fall through to create new SSL_CTX */
+      } else {
+        debug_printf("DEBUG: GetSharedSSLCTX: Shared SSL_CTX exists at %p, incrementing refcount (was %lu)\n", 
+                     shared_sslctx, shared_sslctx_refcount);
+        SSL_CTX_up_ref(shared_sslctx);
+        shared_sslctx_refcount++;
+        ctx = shared_sslctx;
+        ReleaseSemaphore(&ssl_init_sema);
+        return ctx;
+      }
     }
   }
   
