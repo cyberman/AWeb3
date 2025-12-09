@@ -29,6 +29,7 @@
 #include "application.h"
 #include "window.h"
 #include "body.h"
+#include "table.h"
 #include "info.h"
 #include "map.h"
 #include "jslib.h"
@@ -377,6 +378,10 @@ ULONG bgupdate = 0;
  * document redraw. This provides dramatic speed improvements. */
 static long Changebackground(struct Document *doc, struct Bgimage *bgimage)
 {  struct Bgimage *bgi;
+   struct Body *bd;
+   void *tc;
+   struct Aobject *tab;
+   long tabx,taby;
    /* find the Bgimage for this background.  */
    /* If the document has no frame, it's not displayed so don't try and render */
    if(doc->frame)
@@ -388,33 +393,61 @@ static long Changebackground(struct Document *doc, struct Bgimage *bgimage)
             /* Work through the list of elements using this background */
             /* Render as required*/
             for(bgu=bgi->bgusers.first;bgu->next;bgu=bgu->next)
-            {  struct Aobject *obj;
-               struct Coords *coo = NULL;
+            {  struct Coords *coo = NULL;
                long minx,miny,maxx,maxy;
                long bx,by,bw,bh;
                coo = Clipcoords(doc->cdv.cframe,coo);
                if(coo)
-               {  obj = (struct Aobject *)bgu->user;
-                  if(obj->objecttype == AOTP_BODY)
-                  {  if(bgupdate > Agetattr(obj,AOBDY_Bgupdate))
-                     {  /* Get body coordinates using Agetattr to avoid direct struct access */
-                        Agetattrs(obj,
-                           AOBJ_Left,&bx,
-                           AOBJ_Top,&by,
-                           AOBJ_Width,&bw,
-                           AOBJ_Height,&bh,
-                           TAG_END);
+               {  bd = (struct Body *)bgu->user;
+                  if(((struct Aobject *)bd)->objecttype == AOTP_BODY)
+                  {  if(bgupdate > Agetattr((struct Aobject *)bd,AOBDY_Bgupdate))
+                     {  tab = (struct Aobject *)Agetattr((struct Aobject *)bd,AOBJ_Layoutparent);
+                        /* In order to clear the background for the body properly */
+                        /* we need the dimensions of the cell or frame. */
+                        if((tc = (void *)Agetattr((struct Aobject *)bd,AOBDY_Tcell)))
+                        {  /* We're a table cell so get our dims from cell structure */
+                           Agetattrs(tab,
+                              AOBJ_Left,(Tag)&tabx,
+                              AOBJ_Top,(Tag)&taby,
+                              TAG_END);
+                           /* Get cell coordinates and size using Aobject attributes */
+                           Agetattrs((struct Aobject *)bd,
+                              AOBJ_Left,(Tag)&bx,
+                              AOBJ_Top,(Tag)&by,
+                              AOBJ_Width,(Tag)&bw,
+                              AOBJ_Height,(Tag)&bh,
+                              TAG_END);
+                           /* The coords are relative to the table which is our layout parent */
+                           bx += tabx;
+                           by += taby;
+                        }
+                        else if(tab && tab->objecttype == AOTP_TABLE)
+                        {  /* Not a cell but a caption */
+                           Agetattrs((struct Aobject *)bd,
+                              AOBJ_Left,(Tag)&bx,
+                              AOBJ_Top,(Tag)&by,
+                              AOBJ_Width,(Tag)&bw,
+                              AOBJ_Height,(Tag)&bh,
+                              TAG_END);
+                        }
+                        else
+                        {  /* Must be a frame body - render the whole frame */
+                           bx = coo->minx - coo->dx;
+                           by = coo->miny - coo->dy;
+                           bw = coo->maxx - coo->minx + 1;
+                           bh = coo->maxy - coo->miny + 1;
+                        }
                         minx = MAX(coo->minx - coo->dx,bx);
                         miny = MAX(coo->miny - coo->dy,by);
                         maxx = MIN(coo->maxx - coo->dx,bx + bw - 1);
                         maxy = MIN(coo->maxy - coo->dy,by + bh - 1);
-                        Anotifyset(obj,AOBJ_Bgchanged,TRUE,TAG_END);
-                        Arender(obj,coo,minx,miny,maxx,maxy,AMRF_CLEAR,NULL);
+                        Anotifyset((struct Aobject *)bd,AOBJ_Bgchanged,TRUE,TAG_END);
+                        Arender((struct Aobject *)bd,coo,minx,miny,maxx,maxy,AMRF_CLEAR,NULL);
                      }
                   }
                   else
                   {  /* For other element types, get their coordinates */
-                     Agetattrs(obj,
+                     Agetattrs((struct Aobject *)bd,
                         AOBJ_Left,&bx,
                         AOBJ_Top,&by,
                         AOBJ_Width,&bw,
@@ -424,7 +457,7 @@ static long Changebackground(struct Document *doc, struct Bgimage *bgimage)
                      miny = MAX(coo->miny - coo->dy,by);
                      maxx = MIN(coo->maxx - coo->dx,bx + bw - 1);
                      maxy = MIN(coo->maxy - coo->dy,by + bh - 1);
-                     Arender(obj,coo,minx,miny,maxx,maxy,AMRF_CLEAR,NULL);
+                     Arender((struct Aobject *)bd,coo,minx,miny,maxx,maxy,AMRF_CLEAR,NULL);
                   }
                   Unclipcoords(coo);
                }
