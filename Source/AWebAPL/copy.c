@@ -32,6 +32,7 @@
 #include "info.h"
 #include "area.h"
 #include "copyprivate.h"
+#include "jslib.h"
 #include <reaction/reaction.h>
 #include <reaction/reaction_macros.h>
 #include <gadgets/button.h>
@@ -846,7 +847,9 @@ static long Setcopy(struct Copy *cop,struct Amset *ams)
                else cop->flags&=~CPYF_ERROR;
             }
             if(cop->onerror)
-            {  Runjavascript(cop->frame?cop->frame:cop->jsframe,cop->onerror,&cop->jobject);
+            {  Jkeepobject(cop->jobject,TRUE);
+               Runjavascript(cop->frame?cop->frame:cop->jsframe,cop->onerror,&cop->jobject);
+               Jkeepobject(cop->jobject,FALSE);
             }
             break;
          case AOCPY_Defaulttype:
