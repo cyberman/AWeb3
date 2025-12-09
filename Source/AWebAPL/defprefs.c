@@ -1330,6 +1330,12 @@ BOOL Initdefprefs(void)
    if(!Addmimeinfo(&defprefs.mimelist,
       "text","plain","txt",MDRIVER_INTERNAL,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
+      "text","css","css",MDRIVER_INTERNAL,"","")) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
+      "text","javascript","js",MDRIVER_INTERNAL,"","")) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
+      "text","csv","csv",MDRIVER_INTERNAL,"","")) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
       "text","xml","xml",MDRIVER_INTERNAL,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
       "application","rss+xml","rss",
@@ -1347,6 +1353,19 @@ BOOL Initdefprefs(void)
       MDRIVER_INTERNAL,"",""
 #endif
       )) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
+      "application","x-lha","lha",MDRIVER_NONE,"","")) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
+      "application","zip","zip",MDRIVER_NONE,"","")) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
+      "application","x-tar","tar",MDRIVER_NONE,"","")) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
+      "application","gzip","gz",MDRIVER_NONE,"","")) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
+      "application","pdf","pdf",MDRIVER_EXTERNAL,
+      "SYS:Utilities/MultiView","%f pubscreen %n")) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
+      "application","x-shockwave-flash","swf",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
       "text","x-aguide","guide",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
@@ -1381,9 +1400,18 @@ BOOL Initdefprefs(void)
    if(!Addmimeinfo(&defprefs.mimelist,
       "image","xbitmap","xbm",MDRIVER_INTERNAL,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
+      "image","bmp","bmp",MDRIVER_INTERNAL,"","")) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
+      "image","tiff","tif tiff",MDRIVER_INTERNAL,"","")) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
+      "image","svg+xml","svg",MDRIVER_INTERNAL,"","")) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
       "image","*","",MDRIVER_INTERNAL,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
       "video","mpeg","mpg mpeg",MDRIVER_NONE,"","")) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
+      "video","x-msvideo","avi",MDRIVER_EXTERNAL,
+      "SYS:Utilities/MultiView","%f pubscreen %n")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
       "video","quicktime","qt",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
@@ -1391,6 +1419,8 @@ BOOL Initdefprefs(void)
       "SYS:Utilities/MultiView","%f screen")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
       "audio","basic","au snd",MDRIVER_NONE,"","")) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
+      "audio","mpeg","mp3 mpga",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
       "audio","midi","mid midi",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
@@ -1556,8 +1586,6 @@ BOOL Initdefprefs(void)
       "OPEN http://www.amiga-news.de/en/")) return FALSE;
    if(!Adduserbutton(&defprefs.buttons,"AmigaWorld",
       "OPEN https://amigaworld.net/")) return FALSE;
-   if(!Adduserbutton(&defprefs.buttons,"The Old Net",
-      "OPEN http://www.theoldnet.com")) return FALSE;
 #else
    /* LOCALONLY: No network links in predefined buttons */
 #endif
@@ -1580,8 +1608,10 @@ BOOL Initdefprefs(void)
 #endif
 #endif
 #ifndef LOCALONLY
-   if(!Adduserbutton(&defprefs.buttons,Getmainstr(MSG_USERBUTTON_CACHE),
-      "SUBWINDOW CACHEBROWSER OPEN")) return FALSE;
+   /*if(!Adduserbutton(&defprefs.buttons,Getmainstr(MSG_USERBUTTON_CACHE),
+      "SUBWINDOW CACHEBROWSER OPEN")) return FALSE;*/
+   if(!Adduserbutton(&defprefs.buttons,"Protoweb",
+      "RUN AWeb:protoweb.awebrx")) return FALSE;
    /*
    if(!Adduserbutton(&defprefs.buttons,"News:",
       "OPEN news:")) return FALSE;
