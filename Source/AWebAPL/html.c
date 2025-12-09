@@ -2523,7 +2523,7 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
 static BOOL Dodivend(struct Document *doc)
 {  /* Only add line break if DIV was not inline */
    if(!doc->currentdivinline)
-   {  Wantbreak(doc,1);
+{  Wantbreak(doc,1);
    }
    doc->currentdivinline = FALSE; /* Reset flag */
    Asetattrs(Docbodync(doc),AOBDY_Divalign,-1,TAG_END);
@@ -4463,8 +4463,8 @@ static BOOL Doli(struct Document *doc,struct Tagattr *ta)
          /* debug_printf("CSS: List item is horizontal, skipping bullet (btype=BDBT_PLAIN)\n"); */
       }
       else
-      {  btype=li->bullettype;
-         src=li->bulletsrc;
+   {  btype=li->bullettype;
+      src=li->bulletsrc;
       }
       for(;ta && ta->next;ta=ta->next)
       {  switch(ta->attr)
@@ -4472,9 +4472,9 @@ static BOOL Doli(struct Document *doc,struct Tagattr *ta)
                /* Don't override bullet type for horizontal lists - always keep BDBT_PLAIN */
                if(!li->horizontal)
                {  if(STRNIEQUAL(ATTR(doc,ta),"DISC",4)) li->bullettype=BDBT_DISC;
-                  else if(STRNIEQUAL(ATTR(doc,ta),"CIRC",4)) li->bullettype=BDBT_CIRCLE;
-                  else if(STRNIEQUAL(ATTR(doc,ta),"SQUA",4)) li->bullettype=BDBT_SQUARE;
-                  btype=li->bullettype;
+               else if(STRNIEQUAL(ATTR(doc,ta),"CIRC",4)) li->bullettype=BDBT_CIRCLE;
+               else if(STRNIEQUAL(ATTR(doc,ta),"SQUA",4)) li->bullettype=BDBT_SQUARE;
+               btype=li->bullettype;
                }
                else
                {  /* For horizontal lists, ensure bullet type stays PLAIN */
@@ -4497,20 +4497,20 @@ static BOOL Doli(struct Document *doc,struct Tagattr *ta)
       /* Only create bullet if not horizontal and btype is not PLAIN */
       if(!li->horizontal && btype != BDBT_PLAIN)
       {  switch(btype)
-         {  case BDBT_DISC:
-            case BDBT_CIRCLE:
-            case BDBT_SQUARE:
-            case BDBT_DIAMOND:
-            case BDBT_SOLIDDIA:
-            case BDBT_RECTANGLE:
-               if(!(elt=Anewobject(AOTP_BULLET,
-                  AOBJ_Pool,doc->pool,
-                  AOBUL_Type,btype,
-                  AOELT_Bullet,TRUE,
-                  AOELT_Preformat,doc->pflags&DPF_PREFORMAT,
-                  TAG_END))) return FALSE;
-               break;
-            case BDBT_IMAGE:
+      {  case BDBT_DISC:
+         case BDBT_CIRCLE:
+         case BDBT_SQUARE:
+         case BDBT_DIAMOND:
+         case BDBT_SOLIDDIA:
+         case BDBT_RECTANGLE:
+            if(!(elt=Anewobject(AOTP_BULLET,
+               AOBJ_Pool,doc->pool,
+               AOBUL_Type,btype,
+               AOELT_Bullet,TRUE,
+               AOELT_Preformat,doc->pflags&DPF_PREFORMAT,
+               TAG_END))) return FALSE;
+            break;
+         case BDBT_IMAGE:
             referer=(void *)Agetattr(doc->source->source,AOSRC_Url);
             if(!(url=Findurl(doc->base,src,0))) return FALSE;
             if(!(elt=Anewobject(AOTP_COPY,
@@ -4523,7 +4523,7 @@ static BOOL Doli(struct Document *doc,struct Tagattr *ta)
                AOCPY_Defaulttype,"image/x-unknown",
                AOCPY_Reloadverify,(doc->pflags&DPF_RELOADVERIFY),
                TAG_END))) return FALSE;
-               break;
+            break;
          }
       }
       if(elt)

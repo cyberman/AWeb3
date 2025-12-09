@@ -88,28 +88,61 @@
 <H3>Fully Supported</H3>
 
 <H4>Headings</H4>
+<P><STRONG>What you should see:</STRONG> Six levels of headings, each progressively smaller.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <H1>Heading Level 1 (H1)</H1>
 <H2>Heading Level 2 (H2)</H2>
 <H3>Heading Level 3 (H3)</H3>
 <H4>Heading Level 4 (H4)</H4>
 <H5>Heading Level 5 (H5)</H5>
 <H6>Heading Level 6 (H6)</H6>
+</TD>
+</TR>
+</TABLE>
 
 <H4>Paragraphs and Line Breaks</H4>
+<P><STRONG>What you should see:</STRONG> Paragraphs with automatic spacing and line breaks creating vertical spacing.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <P>This is a paragraph element. Paragraphs group text into logical blocks with automatic spacing.</P>
 <P>This is another paragraph, separated from the previous one.</P>
 <BR>
 This line has a line break before it using the BR element.
 <BR><BR>
 Multiple line breaks create vertical spacing.
+</TD>
+</TR>
+</TABLE>
 
 <H4>Horizontal Rules</H4>
+<P><STRONG>What you should see:</STRONG> Horizontal lines with different widths, sizes, and styles.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <HR>
 <HR WIDTH="50%">
 <HR WIDTH="300" SIZE="5">
 <HR NOSHADE>
+</TD>
+</TR>
+</TABLE>
 
 <H4>Preformatted Text</H4>
+<P><STRONG>What you should see:</STRONG> Text that preserves spacing and line breaks exactly as written.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <PRE>
 This is PRE (preformatted) text.
 It preserves    spacing   and
@@ -126,8 +159,17 @@ This is XMP format.
 Also preserves formatting.
 &lt;HTML&gt; tags shown literally.
 </XMP>
+</TD>
+</TR>
+</TABLE>
 
 <H4>Text Alignment</H4>
+<P><STRONG>What you should see:</STRONG> Text aligned left, center, and right using different methods.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <CENTER>This text is centered using the CENTER tag (HTML 3.2 standard).</CENTER>
 
 <P ALIGN="left">This paragraph is left-aligned (default).</P>
@@ -137,21 +179,51 @@ Also preserves formatting.
 <DIV ALIGN="left">DIV left-aligned</DIV>
 <DIV ALIGN="center">DIV center-aligned</DIV>
 <DIV ALIGN="right">DIV right-aligned</DIV>
+</TD>
+</TR>
+</TABLE>
 
 <H4>Block Quotes</H4>
+<P><STRONG>What you should see:</STRONG> Indented block quote text.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <BLOCKQUOTE>
 This is a block quote. It is typically indented to distinguish quoted text from regular paragraphs. Block quotes can contain multiple paragraphs and other elements.
 </BLOCKQUOTE>
+</TD>
+</TR>
+</TABLE>
 
 <H4>Address</H4>
+<P><STRONG>What you should see:</STRONG> Address text typically rendered in italics and indented.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <ADDRESS>
 This is an ADDRESS element, typically used for contact information.<BR>
 It is usually rendered in italics and may be indented.
 </ADDRESS>
+</TD>
+</TR>
+</TABLE>
 
 <H3>Partially Supported (Tolerant Mode Only)</H3>
+<P><STRONG>What you should see:</STRONG> Text that doesn't break (NOBR) and word break opportunities (WBR). Note: These require tolerant mode.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <P><NOBR>This text will not break across lines (NOBR tag - requires tolerant mode)</NOBR></P>
 <P>Here is a word<WBR>break opportunity (WBR tag - requires tolerant mode)</P>
+</TD>
+</TR>
+</TABLE>
 
 <P><A HREF="#top">Back to top</A></P>
 
@@ -161,32 +233,95 @@ It is usually rendered in italics and may be indented.
 <H2>Text Style Elements</H2>
 
 <H3>Fully Supported - Physical Styles</H3>
+<P><STRONG>What you should see:</STRONG> Text with bold, italic, underline, and strikethrough formatting.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <P><B>Bold text (B)</B> <I>Italic text (I)</I> <U>Underlined text (U)</U> <STRIKE>Strikethrough text (STRIKE)</STRIKE></P>
+</TD>
+</TR>
+</TABLE>
 
 <H3>Fully Supported - Inserted and Deleted Text (HTML 4.0)</H3>
+<P><STRONG>What you should see:</STRONG> Inserted text should appear in red with underline, and deleted text should appear in grey with strikethrough.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <P><INS>Inserted text (INS) - This text should appear in red with underline to indicate it was inserted</INS></P>
 <P><DEL>Deleted text (DEL) - This text should appear in grey with strikethrough to indicate it was deleted</DEL></P>
 <P>This is normal text. <INS>This part was inserted</INS> and <DEL>this part was deleted</DEL> from the document.</P>
+</TD>
+</TR>
+</TABLE>
 
 <H3>Fully Supported - Monospace Styles</H3>
+<P><STRONG>What you should see:</STRONG> Text rendered in monospace font for code, sample, keyboard, and variable text.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <P><TT>Teletype text (TT)</TT> <CODE>Code text (CODE)</CODE> <SAMP>Sample text (SAMP)</SAMP> <KBD>Keyboard text (KBD)</KBD> <VAR>Variable text (VAR)</VAR></P>
+</TD>
+</TR>
+</TABLE>
 
 <H3>Fully Supported - Logical Styles</H3>
+<P><STRONG>What you should see:</STRONG> Text with logical styling - emphasized, strong, citation, and definition formatting.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <P><EM>Emphasized text (EM)</EM> <STRONG>Strong text (STRONG)</STRONG> <CITE>Citation text (CITE)</CITE> <DFN>Definition text (DFN)</DFN></P>
+</TD>
+</TR>
+</TABLE>
 
 <H3>Fully Supported - Size and Positioning</H3>
+<P><STRONG>What you should see:</STRONG> Text with different sizes (BIG, SMALL) and positioning (subscript, superscript).</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <P><BIG>Big text (BIG)</BIG> normal text <SMALL>small text (SMALL)</SMALL></P>
 <P>Normal text <SUB>subscript (SUB)</SUB> and <SUP>superscript (SUP)</SUP></P>
+</TD>
+</TR>
+</TABLE>
 
 <H3>Fully Supported - Font Styling</H3>
+<P><STRONG>What you should see:</STRONG> Text with different font sizes, colors, and font faces.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <BASEFONT SIZE="4">
 <P><FONT SIZE="1">Font size 1</FONT> <FONT SIZE="2">Font size 2</FONT> <FONT SIZE="3">Font size 3</FONT> <FONT SIZE="4">Font size 4</FONT> <FONT SIZE="5">Font size 5</FONT> <FONT SIZE="6">Font size 6</FONT> <FONT SIZE="7">Font size 7</FONT></P>
 <P><FONT COLOR="red">Red text</FONT> <FONT COLOR="blue">Blue text</FONT> <FONT COLOR="green">Green text</FONT> <FONT COLOR="#ff00ff">Magenta text (#ff00ff)</FONT></P>
 <P><FONT FACE="Courier">Courier font</FONT> <FONT FACE="Times">Times font</FONT></P>
 </BASEFONT>
+</TD>
+</TR>
+</TABLE>
 
 <H3>Partially Supported (Tolerant Mode Only)</H3>
+<P><STRONG>What you should see:</STRONG> Blinking text. Note: Requires tolerant mode (Netscape extension).</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <P><BLINK>This text blinks (BLINK tag - requires tolerant mode, Netscape extension)</BLINK></P>
+</TD>
+</TR>
+</TABLE>
 
 <P><A HREF="#top">Back to top</A></P>
 
@@ -196,6 +331,12 @@ It is usually rendered in italics and may be indented.
 <H2>Lists</H2>
 
 <H3>Fully Supported - Unordered Lists</H3>
+<P><STRONG>What you should see:</STRONG> Unordered lists with different bullet styles - disc, circle, and square.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <UL>
 <LI>First unordered item</LI>
 <LI>Second unordered item</LI>
@@ -213,8 +354,17 @@ It is usually rendered in italics and may be indented.
 <UL TYPE="square">
 <LI>Square bullet</LI>
 </UL>
+</TD>
+</TR>
+</TABLE>
 
 <H3>Fully Supported - Ordered Lists</H3>
+<P><STRONG>What you should see:</STRONG> Ordered lists with different numbering styles - numbers, letters, and Roman numerals, with custom start values.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <OL>
 <LI>First ordered item</LI>
 <LI>Second ordered item</LI>
@@ -250,8 +400,17 @@ It is usually rendered in italics and may be indented.
 <LI>Ordered list starting at 5</LI>
 <LI>Continuing from 5</LI>
 </OL>
+</TD>
+</TR>
+</TABLE>
 
 <H3>Fully Supported - Definition Lists</H3>
+<P><STRONG>What you should see:</STRONG> Definition lists with terms and their definitions. Multiple definitions can be associated with a single term.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <DL>
 <DT>Term 1</DT>
 <DD>Definition 1 - can be multiple paragraphs</DD>
@@ -259,8 +418,17 @@ It is usually rendered in italics and may be indented.
 <DD>Definition 2</DD>
 <DD>Multiple definitions for same term</DD>
 </DL>
+</TD>
+</TR>
+</TABLE>
 
 <H3>Fully Supported - Directory and Menu Lists</H3>
+<P><STRONG>What you should see:</STRONG> Directory and menu lists, which are similar to unordered lists but with different semantic meaning.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <DIR>
 <LI>Directory item 1</LI>
 <LI>Directory item 2</LI>
@@ -272,8 +440,17 @@ It is usually rendered in italics and may be indented.
 <LI>Menu item 2</LI>
 <LI>Menu item 3</LI>
 </MENU>
+</TD>
+</TR>
+</TABLE>
 
 <H3>Fully Supported - Nested Lists</H3>
+<P><STRONG>What you should see:</STRONG> Lists nested within other lists, demonstrating hierarchical structure.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <UL>
 <LI>Outer item 1
     <UL>
@@ -288,6 +465,9 @@ It is usually rendered in italics and may be indented.
     </OL>
 </LI>
 </UL>
+</TD>
+</TR>
+</TABLE>
 
 <P><A HREF="#top">Back to top</A></P>
 
@@ -297,15 +477,39 @@ It is usually rendered in italics and may be indented.
 <H2>Links and Images</H2>
 
 <H3>Fully Supported - Hyperlinks</H3>
+<P><STRONG>What you should see:</STRONG> Various types of hyperlinks - regular links, anchor links, mailto links, and links that open in new windows.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <P>This is a <A HREF="test.html">regular hyperlink</A> to a local page.</P>
 <P>This is a link to an <A HREF="#top">anchor on this page</A>.</P>
 <P>This is a <A HREF="mailto:test@example.com">mailto link</A>.</P>
 <P>This link opens in a <A HREF="test.html" TARGET="_blank">new window</A> (TARGET attribute).</P>
+</TD>
+</TR>
+</TABLE>
 
 <H3>Fully Supported - Anchors</H3>
+<P><STRONG>What you should see:</STRONG> Named anchors that can be used for navigation within the page.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <P>This page uses named anchors for navigation. The anchor at the top is: <A NAME="top"></A></P>
+</TD>
+</TR>
+</TABLE>
 
 <H3>Fully Supported - Images</H3>
+<P><STRONG>What you should see:</STRONG> Images with different alignments (left, right, top, middle, bottom) and text flowing around them.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
 <P>Image with alt text: <IMG SRC="aweb.iff" ALT="AWeb Logo" WIDTH="192" HEIGHT="93" BORDER="1"></P>
 <P>Image aligned left: <IMG SRC="aweb.iff" ALT="Left" ALIGN="left" HSPACE="5" VSPACE="5" WIDTH="96" HEIGHT="46"> This text flows around the left-aligned image. The image has horizontal and vertical spacing attributes.</P>
 <BR CLEAR="left">
@@ -314,8 +518,13 @@ It is usually rendered in italics and may be indented.
 <P>Image aligned top: <IMG SRC="aweb.iff" ALT="Top" ALIGN="top" WIDTH="96" HEIGHT="46"> Text aligned to top</P>
 <P>Image aligned middle: <IMG SRC="aweb.iff" ALT="Middle" ALIGN="middle" WIDTH="96" HEIGHT="46"> Text aligned to middle</P>
 <P>Image aligned bottom: <IMG SRC="aweb.iff" ALT="Bottom" ALIGN="bottom" WIDTH="96" HEIGHT="46"> Text aligned to bottom</P>
+</TD>
+</TR>
+</TABLE>
 
 <H3>Fully Supported - Client-Side Image Maps</H3>
+<P><STRONG>What you should see:</STRONG> An image map with clickable areas defined by different shapes (rectangle, circle, polygon).</P>
+
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
 <TD>
@@ -339,6 +548,8 @@ It is usually rendered in italics and may be indented.
 <H2>Tables</H2>
 
 <H3>Fully Supported - Basic Table Structure</H3>
+<P><STRONG>What you should see:</STRONG> A basic table with caption, header row, and data rows.</P>
+
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
 <TD>
@@ -366,6 +577,8 @@ It is usually rendered in italics and may be indented.
 </TABLE>
 
 <H3>Fully Supported - Table Attributes</H3>
+<P><STRONG>What you should see:</STRONG> A table with various attributes - border, width, cellpadding, and cellspacing.</P>
+
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
 <TD>
@@ -386,6 +599,8 @@ It is usually rendered in italics and may be indented.
 </TABLE>
 
 <H3>Fully Supported - Cell Alignment</H3>
+<P><STRONG>What you should see:</STRONG> Table cells with different horizontal (left, center, right) and vertical (top, middle, bottom) alignment.</P>
+
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
 <TD>
@@ -407,6 +622,8 @@ It is usually rendered in italics and may be indented.
 </TABLE>
 
 <H3>Fully Supported - Colspan and Rowspan</H3>
+<P><STRONG>What you should see:</STRONG> Table cells that span multiple columns (COLSPAN) and multiple rows (ROWSPAN).</P>
+
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
 <TD>
@@ -431,6 +648,8 @@ It is usually rendered in italics and may be indented.
 </TABLE>
 
 <H3>Fully Supported - Table Background Colors</H3>
+<P><STRONG>What you should see:</STRONG> Tables and cells with different background colors.</P>
+
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
 <TD>
@@ -450,6 +669,8 @@ It is usually rendered in italics and may be indented.
 </TABLE>
 
 <H3>Fully Supported - Table Width</H3>
+<P><STRONG>What you should see:</STRONG> Tables with different width specifications - percentage and fixed pixel widths.</P>
+
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
 <TD>
@@ -467,6 +688,54 @@ It is usually rendered in italics and may be indented.
 <TD>Second column</TD>
 </TR>
 </TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Fully Supported - Background Image Alignment (bgalign)</H3>
+<P><STRONG>What you should see:</STRONG> Tables with background images that are properly aligned relative to their containing elements (table, row, or cell) rather than the document origin. Background images should tile correctly within each element's boundaries.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P><STRONG>Table with background image:</STRONG> The background image should be aligned to the table itself and tile within the table boundaries.</P>
+<TABLE BORDER="1" BACKGROUND="awebbg.iff" WIDTH="400" CELLPADDING="10">
+<TR>
+<TD>Cell 1,1 with table background</TD>
+<TD>Cell 1,2 with table background</TD>
+</TR>
+<TR>
+<TD>Cell 2,1 with table background</TD>
+<TD>Cell 2,2 with table background</TD>
+</TR>
+</TABLE>
+
+<P><STRONG>Table with row background image:</STRONG> The background image should be aligned to each row and tile within the row boundaries.</P>
+<TABLE BORDER="1" WIDTH="400" CELLPADDING="10">
+<TR BACKGROUND="awebbg.iff">
+<TD>Cell 1,1 with row background</TD>
+<TD>Cell 1,2 with row background</TD>
+</TR>
+<TR>
+<TD>Cell 2,1 (no background)</TD>
+<TD>Cell 2,2 (no background)</TD>
+</TR>
+</TABLE>
+
+<P><STRONG>Table with cell background images:</STRONG> Each cell's background image should be aligned to that specific cell and tile within the cell boundaries.</P>
+<TABLE BORDER="1" WIDTH="400" CELLPADDING="10">
+<TR>
+<TD BACKGROUND="awebbg.iff">Cell 1,1 with cell background</TD>
+<TD>Cell 1,2 (no background)</TD>
+</TR>
+<TR>
+<TD>Cell 2,1 (no background)</TD>
+<TD BACKGROUND="awebbg.iff">Cell 2,2 with cell background</TD>
+</TR>
+</TABLE>
+
+<P><STRONG>Note:</STRONG> The bgalign mechanism ensures that background images are correctly positioned relative to their containing element (table, row, or cell), not the document origin. This is especially important for nested tables and scrolling.</P>
 </TD>
 </TR>
 </TABLE>

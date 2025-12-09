@@ -21,6 +21,9 @@
 #include "aweb.h"
 #include "table.h"
 #include "body.h"
+#include "docprivate.h"
+#include "frprivate.h"
+#include "copy.h"
 
 #include <proto/graphics.h>
 #include <proto/utility.h>
@@ -58,6 +61,7 @@ struct Table
    struct Aobject *curbody;   /* Current body or NULL */
    ULONG flags;
    void *bgimage;             /* Common background image */
+   struct Aobject *bgalign;   /* Object to align background image to */
    struct Colorinfo *bgcolor,*bordercolor,*borderdark,*borderlight;
                               /* Common colours */
    long incrementaly;         /* Y position where last layout begun */
@@ -102,6 +106,7 @@ struct Tabrow
    short halign,valign;       /* Row level alignments */
    long baseline;             /* Max baseline height for all cells */
    void *bgimage;             /* Common background image */
+   struct Aobject *bgalign;   /* Object to align background image to */
    struct Colorinfo *bgcolor,*bordercolor,*borderdark,*borderlight;
                               /* Common colours */
    USHORT flags;
@@ -507,8 +512,13 @@ static BOOL Startrow(struct Table *tab,struct TagItem *tstate,long vspacing)
                case AOTAB_Bgimage:
                   if(tag->ti_Data)
                   {  tr->bgimage=(void *)tag->ti_Data;
+                     /* if it's our image align it to the row */
+                     tr->bgalign=(struct Aobject *)tr;
                      bgset=TRUE;
                   }
+                  break;
+               case AOTAB_Bgalign:
+                  tr->bgalign=(struct Aobject *)tag->ti_Data;
                   break;
                case AOTAB_Bgcolor:
                   if(tag->ti_Data)
@@ -539,6 +549,7 @@ static BOOL Startrow(struct Table *tab,struct TagItem *tstate,long vspacing)
       }
       if(!bgset)
       {  tr->bgimage=tab->bgimage;
+         tr->bgalign=tab->bgalign;
          tr->bgcolor=tab->bgcolor;
       }
       if(!borderset)
@@ -660,6 +671,9 @@ static BOOL Startcell(struct Table *tab,struct TagItem *tstate,long vspacing,BOO
                         bgset=TRUE;
                      }
                      break;
+                  case AOTAB_Bgalign:
+                     /* bgalign for cells is set when creating the cell body */
+                     break;
                   case AOTAB_Bgcolor:
                      if(tag->ti_Data)
                      {  tc->bgcolor=(struct Colorinfo *)tag->ti_Data;
@@ -694,7 +708,8 @@ static BOOL Startcell(struct Table *tab,struct TagItem *tstate,long vspacing,BOO
          if(!borderset)
          {  tc->bordercolor=tr->bordercolor;
          }
-         if(tc->swidth) tc->flags&=~TABCF_NOWRAP;
+         /* Removed next line so that NOWRAP overrides table width when set */
+         /* if(tc->swidth) tc->flags&=~TABCF_NOWRAP; */
          /* Allocate empty cells for spanned cells and set border flags. */
          for(c=1,cd0=tab->coldefs.first;c<tc->cellnr && cd0->next;c++,cd0=cd0->next);
          for(r=0;r<tc->rowspan;r++)
@@ -744,9 +759,23 @@ static BOOL Startcell(struct Table *tab,struct TagItem *tstate,long vspacing,BOO
             (heading?AOBDY_Sethardstyle:TAG_IGNORE),FSF_BOLD,
             TAG_END);
          if(tab->win)
-         {  Asetattrs(tc->body,
+         {  void *bgalignobj = NULL;
+            /* Determine bgalign object: if cell has bgimage, align to cell body,
+             * otherwise inherit from row/table */
+            if(tc->bgimage)
+            {  bgalignobj = (struct Aobject *)tc->body;
+            }
+            else if(tr->bgimage)
+            {  bgalignobj = tr->bgalign;
+            }
+            else if(tab->bgimage)
+            {  bgalignobj = tab->bgalign;
+            }
+            Asetattrs(tc->body,
                AOBDY_Bgimage,tc->bgimage,
                AOBDY_Bgcolor,COLOR(tc->bgcolor),
+               AOBDY_Tcell,(Tag)tc,
+               AOBDY_Bgalign,(Tag)bgalignobj,
                TAG_END);
          }
          tab->curbody=tc->body;
@@ -2096,6 +2125,41 @@ static long Settable(struct Table *tab,struct Amset *ams)
             break;
          case AOTAB_Bgimage:
             tab->bgimage=(void *)tag->ti_Data;
+            /* if it's our image align it to us */
+            if(tab->bgimage)
+            {  tab->bgalign=(struct Aobject *)tab;
+            }
+            /* Since we now handle rendering of table wide background images at */
+            /* Table level we must add ourselves as a "user" of that image */
+            if(tab->bgimage)
+            {  void *framecopy;
+               struct Document *doc;
+               struct Bguser *bgu;
+               struct Bgimage *bgi;
+               /* get the document we belong too ... */
+               /* but abort if we sometimes don't have a frame */
+               if(tab->frame)
+               {  struct Frame *fr = (struct Frame *)tab->frame;
+                  framecopy = fr->copy;
+                  if(framecopy)
+                  {  doc = (struct Document *)Agetattr((struct Aobject*)framecopy,AOCPY_Driver);
+                     if(doc)
+                     {  for(bgi=doc->bgimages.first;bgi->next;bgi=bgi->next)
+                        {  if((void *)tag->ti_Data == bgi->copy)
+                           {  if((bgu = ALLOCSTRUCT(Bguser,1,MEMF_CLEAR)))
+                              {  bgu->user = tab;
+                                 ADDTAIL(&bgi->bgusers,bgu);
+                              }
+                              break;
+                           }
+                        }
+                     }
+                  }
+               }
+            }
+            break;
+         case AOTAB_Bgalign:
+            tab->bgalign=(struct Aobject *)tag->ti_Data;
             break;
          case AOTAB_Bgcolor:
             tab->bgcolor=(struct Colorinfo *)tag->ti_Data;
@@ -2177,6 +2241,7 @@ static struct Table *Newtable(struct Amset *ams)
       tab->valign=VALIGN_TOP;
       tab->rghalign=HALIGN_LEFT;
       tab->rgvalign=VALIGN_MIDDLE;
+      tab->bgalign=NULL;
       Settable(tab,ams);
       /* Because of different AOM_ALIGN strategy, incremental can't be used for
        * floating tables. */

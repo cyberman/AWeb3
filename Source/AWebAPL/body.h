@@ -106,6 +106,12 @@
 #define AOBDY_Bgupdate     (AOBDY_Dummy+31)   /* GET */
    /* ULONG last bgupdate key value */
 
+#define AOBDY_Bgalign      (AOBDY_Dummy+29)  /* SET,GET */
+   /* (struct Aobject *) Object to align background to */
+
+#define AOBDY_Tcell        (AOBDY_Dummy+30)  /* SET,GET */
+   /* (void *) Table cell that owns body */
+
 #define AOBDY_TagName      (AOBDY_Dummy+32)  /* SET,GET */
    /* (UBYTE *) HTML tag name (e.g. "DIV", "P") for CSS matching */
 

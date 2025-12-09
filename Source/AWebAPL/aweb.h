@@ -59,6 +59,7 @@ struct Coords              /* accumulated coordinates for displaying */
    short bgcolor,textcolor,linkcolor,vlinkcolor,alinkcolor;
                            /* default pen numbers for current frame */
    void *bgimage;          /* background image for current frame */
+   struct Aobject *bgalign; /* object to align background image to */
    short nestcount;
 };
 

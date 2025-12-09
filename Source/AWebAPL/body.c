@@ -59,6 +59,7 @@ struct Body
    void *cframe;              /* Owner BODY or FRAME object */
    void *pool;                /* memory pool */
    void *parent;              /* Parent document */
+   void *tcell;               /* The table cell this body belongs to or NULL */
    LIST(Element) contents;    /* this body's children */
    short hmargin,vmargin;     /* body's outer margins */
    USHORT flags;
@@ -70,6 +71,7 @@ struct Body
    LIST(Margin) rightmargins; /* Right side floating margins */
    short bgcolor;             /* Pen number for background or -1 */
    void *bgimage;             /* Background image or NULL */
+   struct Aobject *bgalign;   /* Object to align background image to */
    ULONG bgupdate;            /* Value of bgupdate last time this body was rendered */
    LIST(Openfont) openfonts;  /* All fonts used (and therefore opened) by us */
    struct Bodybuild *bld;     /* Variables only needed during growth */
@@ -1189,6 +1191,7 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
          {  coo->bgcolor=bd->bgcolor;
          }
          coo->bgimage=bd->bgimage;
+         coo->bgalign=bd->bgalign;
       }
       if(!prefs.docolors && (bd->flags&BDYF_FORCEBGCOLOR) && bd->bgcolor>=0)
       {  coo->bgcolor=bd->bgcolor;
@@ -1259,8 +1262,8 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
             if(borderX2 >= clipMinX && borderX2 <= clipMaxX)
             {  Move(coo->rp, borderX2, MAX(borderY1, clipMinY));
                Draw(coo->rp, borderX2, MIN(borderY2, clipMaxY));
-            }
          }
+      }
       }
       
       coo->bgcolor=bgcolor;
@@ -1493,6 +1496,12 @@ static long Setbody(struct Body *bd,struct Amset *ams)
             bd->flags|=BDYF_CHANGEDCHILD;
             bd->flags&=~BDYF_LAYOUTREADY;
             break;
+         case AOBDY_Bgalign:
+            bd->bgalign=(struct Aobject *)tag->ti_Data;
+            break;
+         case AOBDY_Tcell:
+            bd->tcell=(void *)tag->ti_Data;
+            break;
          case AOBDY_Nobr:
             SETFLAG(bd->flags,BDYF_NOBR,tag->ti_Data);
             break;
@@ -1686,6 +1695,8 @@ static struct Body *Newbody(struct Amset *ams)
       bd->cursor = NULL;
       bd->texttransform = NULL;
       bd->whitespace = NULL;
+      bd->bgalign = NULL;
+      bd->tcell = NULL;
       if(Newbodybuild(bd))
       {  Pushfont(bd,STYLE_NORMAL,0,NULL,NULL,FONTW_STYLE);
          bd->bgcolor=-1;
@@ -1734,6 +1745,12 @@ static long Getbody(struct Body *bd,struct Amset *ams)
             break;
          case AOBDY_Bgupdate:
             PUTATTR(tag,bd->bgupdate);
+            break;
+         case AOBDY_Bgalign:
+            PUTATTR(tag,bd->bgalign);
+            break;
+         case AOBDY_Tcell:
+            PUTATTR(tag,bd->tcell);
             break;
          case AOBDY_TagName:
             PUTATTR(tag,bd->tagname);

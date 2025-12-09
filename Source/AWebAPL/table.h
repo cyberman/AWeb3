@@ -106,6 +106,9 @@
 #define AOTAB_Percentheight (AOTAB_Dummy+33) /* SET */
    /* (long) Pixel or percentage height. (Table cell detail) */
 
+#define AOTAB_Bgalign      (AOTAB_Dummy+34)  /* SET,GET */
+   /* (struct Aobject *) Object to align background to */
+
 #define AOTAB_    (AOTAB_Dummy+)
 #define AOTAB_    (AOTAB_Dummy+)
 

@@ -174,6 +174,9 @@
 #define AOFRM_Contentwidth (AOFRM_Dummy+60)     /* GET */
    /* (long) Width of frame contents */
 
+#define AOFRM_Bgalign      (AOFRM_Dummy+61)  /* SET,GET */
+   /* (struct Aobject *) Object to align background image to */
+
 #define AOFRM_    (AOFRM_Dummy+)
 #define AOFRM_    (AOFRM_Dummy+)
 

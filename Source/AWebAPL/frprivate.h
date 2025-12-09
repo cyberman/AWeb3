@@ -34,6 +34,7 @@ struct Frame
    short bgcolor,textcolor,linkcolor,vlinkcolor,alinkcolor;
                            /* pen numbers. If (-1) use window's defaults. */
    void *bgimage;          /* bg image to use or NULL. */
+   struct Aobject *bgalign; /* object to align background image to */
    UBYTE *id;              /* Hierarchical frame id */
    void *whis;             /* Current winhis object */
    void *inputwhis;        /* New winhis we want to obey, but haven't got a doc for yet */

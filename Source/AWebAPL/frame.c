@@ -33,6 +33,8 @@
 #include "search.h"
 #include "timer.h"
 #include "frprivate.h"
+#include "body.h"
+#include "table.h"
 #include <reaction/reaction.h>
 #include <intuition/gadgetclass.h>
 #include <intuition/imageclass.h>
@@ -45,6 +47,9 @@
 
 /*-----------------------------------------------------------------------*/
 
+/* Forward declaration for table cell structure */
+struct Tabcell;
+
 static LIST(Framename) framenames;
 
 struct Backfillinfo
@@ -56,6 +61,7 @@ struct Backfillinfo
    UBYTE *mask;            /* transparent mask or NULL */
    short bmw,bmh;          /* bitmap dimensions */
    short bgpen;
+   long aox,aoy;           /* alignment offset for background image */
 };
 
 static struct Hook backfillhook;
@@ -94,10 +100,11 @@ static void Drawbackground(struct RastPort *rp,struct Backfillinfo *bf,
    ww=x2-x1+1;
    wh=y2-y1+1;
    /* compute partial tile dimensions to build first tile-sized image */
-   bx1=(x1-bf->coo->dx) % bf->bmw;
+   /* Use alignment offset if set, otherwise use coords offset */
+   bx1=(x1-bf->coo->dx+bf->aox) % bf->bmw;
    if(bx1<0) bx1+=bf->bmw;
    bw1=MIN(bf->bmw-bx1,ww);
-   by1=(y1-bf->coo->dy) % bf->bmh;
+   by1=(y1-bf->coo->dy+bf->aoy) % bf->bmh;
    if(by1<0) by1+=bf->bmh;
    bh1=MIN(bf->bmh-by1,wh);
    /* for second part: offset2=0 and width2==offset1 but only if room allows */
@@ -1452,6 +1459,9 @@ static long Setframe(struct Frame *fr,struct Amset *ams)
          case AOFRM_Bgimage:
             fr->bgimage=(void *)tag->ti_Data;
             break;
+         case AOFRM_Bgalign:
+            fr->bgalign=(struct Aobject *)tag->ti_Data;
+            break;
          case AOFRM_Seqnr:
             fr->seqnr=(UBYTE)tag->ti_Data;
             break;
@@ -1795,6 +1805,9 @@ static long Getframe(struct Frame *fr,struct Amset *ams)
             break;
          case AOBJ_Statustext:
             PUTATTR(tag,fr->defstatus);
+            break;
+         case AOFRM_Bgalign:
+            PUTATTR(tag,fr->bgalign);
             break;
       }
    }
@@ -2390,8 +2403,44 @@ void Erasebg(struct Frame *fr,struct Coords *coo,long xmin,long ymin,long xmax,l
             AOCDV_Imagewidth,&bmw,
             AOCDV_Imageheight,&bmh,
             TAG_END);
+         if(coo->bgalign)   /* If we got alignment info */
+         {  void *tc;
+            /* If bgalign is a body and is owned by table cell */
+            if(((struct Aobject *)coo->bgalign)->objecttype == AOTP_BODY &&
+               (tc = (void *)Agetattr(coo->bgalign,AOBDY_Tcell)))
+            {  long tabx,taby,bodyx,bodyy;
+               /* Find our parent and it's coords */
+               struct Aobject *tab = (struct Aobject *)Agetattr(coo->bgalign,AOBJ_Layoutparent);
+               Agetattrs(tab,
+                  AOBJ_Left,(Tag)&tabx,
+                  AOBJ_Top,(Tag)&taby,
+                  TAG_END);
+               /* Get the body's position (which is the cell's position relative to table) */
+               Agetattrs(coo->bgalign,
+                  AOBJ_Left,(Tag)&bodyx,
+                  AOBJ_Top,(Tag)&bodyy,
+                  TAG_END);
+               /* find the coords of the cell which owns us relative to the parent */
+               bfinfo.aox = bodyx + tabx;
+               bfinfo.aoy = bodyy + taby;
+            }
+            else
+            {  Agetattrs(coo->bgalign,
+                  AOBJ_Left,(Tag)&bfinfo.aox,
+                  AOBJ_Top,(Tag)&bfinfo.aoy,
+                  TAG_END);
+            }
+         }
+         else
+         {  bfinfo.aox = 0;
+            bfinfo.aoy = 0;
+         }
          bfinfo.bmw=bmw;
          bfinfo.bmh=bmh;
+      }
+      else
+      {  bfinfo.aox = 0;
+         bfinfo.aoy = 0;
       }
       bfinfo.bgpen=coo->bgcolor;
       Installbg(&bfinfo);
@@ -2432,8 +2481,44 @@ struct RastPort *Obtainbgrp(struct Frame *fr,struct Coords *coo,
                AOCDV_Imagewidth,&bmw,
                AOCDV_Imageheight,&bmh,
                TAG_END);
+            if(coo->bgalign)   /* If we got alignment info */
+         {  void *tc;
+            /* If bgalign is a body and is owned by table cell */
+            if(((struct Aobject *)coo->bgalign)->objecttype == AOTP_BODY &&
+               (tc = (void *)Agetattr(coo->bgalign,AOBDY_Tcell)))
+            {  long tabx,taby,bodyx,bodyy;
+               /* Find our parent and it's coords */
+               struct Aobject *tab = (struct Aobject *)Agetattr(coo->bgalign,AOBJ_Layoutparent);
+               Agetattrs(tab,
+                  AOBJ_Left,(Tag)&tabx,
+                  AOBJ_Top,(Tag)&taby,
+                  TAG_END);
+               /* Get the body's position (which is the cell's position relative to table) */
+               Agetattrs(coo->bgalign,
+                  AOBJ_Left,(Tag)&bodyx,
+                  AOBJ_Top,(Tag)&bodyy,
+                  TAG_END);
+               /* find the coords of the cell which owns us relative to the parent */
+               bfinfo.aox = bodyx + tabx;
+               bfinfo.aoy = bodyy + taby;
+            }
+               else
+               {  Agetattrs(coo->bgalign,
+                     AOBJ_Left,(Tag)&bfinfo.aox,
+                     AOBJ_Top,(Tag)&bfinfo.aoy,
+                     TAG_END);
+               }
+            }
+            else
+            {  bfinfo.aox = 0;
+               bfinfo.aoy = 0;
+            }
             bfinfo.bmw=bmw;
             bfinfo.bmh=bmh;
+         }
+         else
+         {  bfinfo.aox = 0;
+            bfinfo.aoy = 0;
          }
          bfinfo.bgpen=coo->bgcolor;
          if(bfinfo.bitmap)

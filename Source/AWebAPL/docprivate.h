@@ -108,6 +108,7 @@ struct Document
    struct Colorinfo *bgcolor, /* Colors to use or NULL */
       *textcolor,*linkcolor,*vlinkcolor,*alinkcolor;
    void *bgimage;             /* Background image to use or NULL */
+   struct Aobject *bgalign;   /* Object to align background to */
    void *bgsound;             /* Background sound object */
    UBYTE *clientpull;         /* Clientpull string */
 
