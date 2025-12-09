@@ -147,10 +147,11 @@ static void Makegifmask(struct Imgprocess *imp,long xptcolor)
          flags=GetBitMapAttr(bmap,BMA_FLAGS);
          if(flags&BMF_STANDARD)
          {  long srcbytesperrow=GetBitMapAttr(imp->bitmap,BMA_WIDTH)/8;
-            long srcrows=GetBitMapAttr(imp->bitmap,BMA_HEIGHT);
-            long dstbytesperrow=GetBitMapAttr(bmap,BMA_WIDTH)/8;
             long dstrows=GetBitMapAttr(bmap,BMA_HEIGHT);
             long dstdepth=GetBitMapAttr(bmap,BMA_DEPTH);
+            long dstbytesperrow=GetBitMapAttr(bmap,BMA_WIDTH)/8;
+            /* Mask uses source bitmap row size and destination bitmap row count */
+            /* This matches AWeb 3.5.00 fix for transparency bug */
             if(imp->mask=ALLOCTYPE(UBYTE,srcbytesperrow*dstrows,
                MEMF_PUBLIC|MEMF_CHIP|MEMF_CLEAR))
             {  imp->memsize+=srcbytesperrow*dstrows;
@@ -158,7 +159,8 @@ static void Makegifmask(struct Imgprocess *imp,long xptcolor)
                {  if(xptcolor&(1<<d)) c=1;
                   else c=0;
                   for(h=0;h<dstrows;h++)
-                  {  p=bmap->Planes[d]+h*dstbytesperrow;
+                  {  /* Access bitmap planes directly - required for reading pixel data */
+                     p=bmap->Planes[d]+h*dstbytesperrow;
                      q=imp->mask+h*srcbytesperrow;
                      for(w=0;w<bmwidth;w++)
                      {  if(c) *q++|=~*p++;
