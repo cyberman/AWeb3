@@ -120,6 +120,8 @@ __asm __saveds struct Library *Initlib(
    libseglist=seglist;
    if(!Initpluginlib(libbase))
    {  Expungepluginlib(libbase);
+      /* olsen: the following line was missing. */
+      FreeMem ((APTR)((ULONG)(libbase) - (ULONG)(libbase->lib_NegSize)), libbase->lib_NegSize + libbase->lib_PosSize);
       libbase=NULL;
    }
    return libbase;
