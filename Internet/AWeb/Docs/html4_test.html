@@ -51,6 +51,28 @@
 <A NAME="document"></A>
 <H2>Document Structure (HTML 4.0)</H2>
 
+<H3>Fully Supported - Text Editing Elements</H3>
+<UL>
+<LI>INS element - Fully supported (see html-ej.html#INS) - Renders inserted text in red with underline</LI>
+<LI>DEL element - Fully supported (see html-ej.html#DEL) - Renders deleted text in grey with strikethrough</LI>
+</UL>
+
+<H3>Test Examples</H3>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P>This is normal text. <INS>This text was inserted</INS> and should appear in red with underline.</P>
+<P>This is normal text. <DEL>This text was deleted</DEL> and should appear in grey with strikethrough.</P>
+<P>Example of both: This sentence has <INS>inserted text</INS> and <DEL>deleted text</DEL> in it.</P>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
 <H3>Fully Supported</H3>
 <UL>
 <LI>HTML 4.01 DOCTYPE declarations (Strict, Transitional, Frameset) - AWeb recognizes and processes HTML 4.0 documents</LI>
@@ -677,6 +699,7 @@ Example XML declaration:
 <H3>HTML 4.0 Features Fully Supported</H3>
 <UL>
 <LI>Document structure and DOCTYPE declarations</LI>
+<LI>Text editing elements (INS, DEL)</LI>
 <LI>Enhanced META and LINK elements</LI>
 <LI>Frames and framesets (FRAMESET, FRAME, NOFRAMES)</LI>
 <LI>IFRAME (inline frames)</LI>

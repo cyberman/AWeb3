@@ -61,6 +61,7 @@ enum MARKUP_TYPES
    MARKUP_OBJECT,MARKUP_PARAM,MARKUP_EMBED,
    MARKUP_NOSCRIPT,
    MARKUP_IFRAME,
+   MARKUP_INS,MARKUP_DEL,
 };
 
 #define MARKUP_MASK        0x7fff   /* identifying part */
