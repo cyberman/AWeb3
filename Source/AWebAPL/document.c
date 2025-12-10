@@ -462,6 +462,12 @@ static long Changebackground(struct Document *doc, struct Bgimage *bgimage)
                   Unclipcoords(coo);
                }
             }
+            /* Notify the background image copy object itself if it's an animated GIF.
+             * This ensures animated GIF backgrounds update their animation frames
+             * when the background changes. */
+            if(bgi->copy)
+            {  Asetattrs(bgi->copy,AOCPY_Onimganim,TRUE,TAG_END);
+            }
          }
       }
    }
