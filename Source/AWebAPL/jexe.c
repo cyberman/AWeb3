@@ -797,27 +797,74 @@ static void Exenew(struct Jcontext *jc,struct Element *elt)
 }
 
 static void Exedelete(struct Jcontext *jc,struct Element *elt)
-{
+{  BOOL result=FALSE;
+   struct Variable *rhs;
+   struct Element *sub1;
+   if(elt && elt->sub1)
+   {  sub1=(struct Element *)elt->sub1;
+      if(sub1->type==ET_IDENTIFIER
+      || sub1->type==ET_DOT
+      || sub1->type==ET_INDEX)
+      {  jc->flags|=EXF_ASGONLY;
+         Execute(jc,sub1);
+         jc->flags&=~EXF_ASGONLY;
+         rhs=jc->varref;
+         if(rhs)
+         {  if(!(rhs->flags&VARF_DONTDELETE))
+            {  REMOVE(rhs);
+               Disposevar(rhs);
+               result=TRUE;
+            }
+            else
+            {  result=FALSE;
+            }
+         }
+      }
+      else
+      {  result=TRUE;
+      }
+   }
+   Asgboolean(jc->val,result);
 }
 
 static void Exetypeof(struct Jcontext *jc,struct Element *elt)
 {  UBYTE *tp;
-   Execute(jc,elt->sub1);
-   switch(jc->val->type)
-   {  case VTP_NUMBER:  tp="number";break;
-      case VTP_BOOLEAN: tp="boolean";break;
-      case VTP_STRING:  tp="string";break;
-      case VTP_OBJECT:
-         if(jc->val->ovalue && jc->val->ovalue->function)
-         {  tp="function";
+   UBYTE valtype;
+   struct Jobject *valobj;
+   if(elt && elt->sub1 && jc && jc->val)
+   {  Execute(jc,elt->sub1);
+      if(jc->val)
+      {  valtype=jc->val->type;
+         if(valtype==VTP_OBJECT)
+         {  valobj=jc->val->ovalue;
          }
          else
-         {  tp="object";
+         {  valobj=NULL;
          }
-         break;
-      default:          tp="undefined";break;
+         switch(valtype)
+         {  case VTP_NUMBER:  tp="number";break;
+            case VTP_BOOLEAN: tp="boolean";break;
+            case VTP_STRING:  tp="string";break;
+            case VTP_OBJECT:
+               if(valobj && valobj->function)
+               {  tp="function";
+               }
+               else
+               {  tp="object";
+               }
+               break;
+            default:          tp="undefined";break;
+         }
+         Asgstring(jc->val,tp,jc->pool);
+      }
+      else
+      {  Asgstring(&jc->valvar->val,"undefined",jc->pool);
+      }
    }
-   Asgstring(jc->val,tp,jc->pool);
+   else
+   {  if(jc && jc->val) Asgstring(jc->val,"undefined",jc->pool);
+      else if(jc && jc->valvar) Asgstring(&jc->valvar->val,"undefined",jc->pool);
+   }
 }
 
 static void Exevoid(struct Jcontext *jc,struct Element *elt)
@@ -1539,6 +1586,9 @@ static void Exevar(struct Jcontext *jc,struct Element *elt)
       }
       jc->varref=var;
       jc->flags|=EXF_KEEPREF;
+      if(var)
+      {  Asgvalue(jc->val,&var->val);
+      }
    }
 }
 

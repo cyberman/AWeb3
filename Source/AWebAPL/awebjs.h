@@ -185,6 +185,7 @@ struct Variable
 
 #define VARF_HIDDEN     0x0001   /* Property is hidden (doesn't show up in for(in)) */
 #define VARF_SYNONYM    0x0002   /* Use variable pointed to by hookdata instead. */
+#define VARF_DONTDELETE 0x0004   /* Property cannot be deleted */
 
 /* Hook function when property is added to object.
  * Returns TRUE if it understands the function, FALSE if default

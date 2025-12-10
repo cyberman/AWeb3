@@ -39,6 +39,26 @@ struct Asortinfo        /* Common info while sorting */
 
 /*-----------------------------------------------------------------------*/
 
+/* Forward declaration */
+static BOOL Arrayohook(struct Objhookdata *h);
+
+/* Find the numeric value of Nth argument */
+static double Numargument(struct Jcontext *jc,long n,BOOL *validp)
+{  struct Variable *var;
+   double result=0.0;
+   BOOL valid=FALSE;
+   for(var=jc->functions.first->local.first;n && var->next;var=var->next,n--);
+   if(var->next && var->type!=VTP_UNDEFINED)
+   {  Tonumber(&var->val,jc);
+      if(var->val.attr==VNA_VALID)
+      {  result=var->val.nvalue;
+         valid=TRUE;
+      }
+   }
+   if(validp) *validp=valid;
+   return result;
+}
+
 /* Find the string value of Nth argument or NULL */
 static UBYTE *Strargument(struct Jcontext *jc,long n)
 {  struct Variable *var;
@@ -211,6 +231,272 @@ static void Arraysort(struct Jcontext *jc)
    }
 }
 
+static void Arraypop(struct Jcontext *jc)
+{  struct Jobject *jo=jc->jthis;
+   struct Variable *length,*elt;
+   struct Value result={0};
+   UBYTE nname[16];
+   long len=0;
+   if(jo)
+   {  if(length=Findproperty(jo,"length"))
+      {  Tonumber(&length->val,jc);
+         if(length->val.attr==VNA_VALID)
+         {  len=(long)length->val.nvalue;
+            if(len>0)
+            {  len--;
+               sprintf(nname,"%d",len);
+               if(elt=Findproperty(jo,nname))
+               {  Asgvalue(&result,&elt->val);
+                  REMOVE(elt);
+                  FREE(elt->name);
+                  FREE(elt);
+                  if(jo->internal && jo->hook==Arrayohook)
+                  {  ((struct Array *)jo->internal)->length--;
+                  }
+               }
+            }
+         }
+         Asgnumber(&length->val,VNA_VALID,(double)len);
+      }
+      Asgvalue(RETVAL(jc),&result);
+      Clearvalue(&result);
+   }
+}
+
+static void Arraypush(struct Jcontext *jc)
+{  struct Jobject *jo=jc->jthis;
+   struct Jobject *args;
+   struct Variable *length,*argslen,*arg,*elt;
+   long len=0;
+   long i;
+   UBYTE nname[16];
+   if(jo)
+   {  if(length=Findproperty(jo,"length"))
+      {  Tonumber(&length->val,jc);
+         if(length->val.attr==VNA_VALID)
+         {  len=(long)length->val.nvalue;
+         }
+      }
+      if(args=Findarguments(jc))
+      {  if(argslen=Findproperty(args,"length"))
+         {  Tonumber(&argslen->val,jc);
+            if(argslen->val.attr==VNA_VALID)
+            {  long arglen=(long)argslen->val.nvalue;
+               for(i=0;i<arglen;i++)
+               {  if(arg=Arrayelt(args,i))
+                  {  if(jo->internal && jo->hook==Arrayohook)
+                     {  if(elt=Addarrayelt(jc,jo))
+                        {  Asgvalue(&elt->val,&arg->val);
+                        }
+                     }
+                     else
+                     {  sprintf(nname,"%d",len);
+                        if(elt=Findproperty(jo,nname))
+                        {  Asgvalue(&elt->val,&arg->val);
+                        }
+                        else if(elt=Addproperty(jo,nname))
+                        {  Asgvalue(&elt->val,&arg->val);
+                        }
+                     }
+                     len++;
+                  }
+               }
+            }
+         }
+      }
+      if(!(length=Findproperty(jo,"length")))
+      {  length=Addproperty(jo,"length");
+      }
+      if(length)
+      {  Asgnumber(&length->val,VNA_VALID,(double)len);
+         if(jo->internal && jo->hook==Arrayohook)
+         {  ((struct Array *)jo->internal)->length=len;
+         }
+      }
+      Asgnumber(RETVAL(jc),VNA_VALID,(double)len);
+   }
+}
+
+static void Arrayshift(struct Jcontext *jc)
+{  struct Jobject *jo=jc->jthis;
+   struct Variable *length,*var,*shift;
+   struct Value result={0};
+   long len=0;
+   long i;
+   UBYTE nname[16];
+   if(jo)
+   {  if(length=Findproperty(jo,"length"))
+      {  Tonumber(&length->val,jc);
+         if(length->val.attr==VNA_VALID)
+         {  len=(long)length->val.nvalue;
+            if(len>0)
+            {  if(var=Findproperty(jo,"0"))
+               {  Asgvalue(&result,&var->val);
+               }
+               for(i=1;i<len;i++)
+               {  sprintf(nname,"%d",i);
+                  if(var=Findproperty(jo,nname))
+                  {  sprintf(nname,"%d",i-1);
+                     if(shift=Findproperty(jo,nname))
+                     {  Asgvalue(&shift->val,&var->val);
+                     }
+                     else if(shift=Addproperty(jo,nname))
+                     {  Asgvalue(&shift->val,&var->val);
+                     }
+                  }
+                  else
+                  {  sprintf(nname,"%d",i-1);
+                     if(shift=Findproperty(jo,nname))
+                     {  Clearvalue(&shift->val);
+                     }
+                  }
+               }
+               len--;
+               sprintf(nname,"%d",len);
+               if(var=Findproperty(jo,nname))
+               {  REMOVE(var);
+                  FREE(var->name);
+                  FREE(var);
+                  if(jo->internal && jo->hook==Arrayohook)
+                  {  ((struct Array *)jo->internal)->length--;
+                  }
+               }
+            }
+         }
+         Asgnumber(&length->val,VNA_VALID,(double)len);
+      }
+      Asgvalue(RETVAL(jc),&result);
+      Clearvalue(&result);
+   }
+}
+
+static void Arrayunshift(struct Jcontext *jc)
+{  struct Jobject *jo=jc->jthis;
+   struct Jobject *args;
+   struct Variable *length,*argslen,*var,*shift;
+   long len=0;
+   long arglen=0;
+   long i;
+   UBYTE nname[16];
+   if(jo)
+   {  if(length=Findproperty(jo,"length"))
+      {  Tonumber(&length->val,jc);
+         if(length->val.attr==VNA_VALID)
+         {  len=(long)length->val.nvalue;
+         }
+      }
+      if(args=Findarguments(jc))
+      {  if(argslen=Findproperty(args,"length"))
+         {  Tonumber(&argslen->val,jc);
+            if(argslen->val.attr==VNA_VALID)
+            {  arglen=(long)argslen->val.nvalue;
+               if(arglen>0)
+               {  for(i=len;i>0;i--)
+                  {  sprintf(nname,"%d",i-1);
+                     if(var=Findproperty(jo,nname))
+                     {  sprintf(nname,"%d",i+arglen-1);
+                        if(shift=Findproperty(jo,nname))
+                        {  Asgvalue(&shift->val,&var->val);
+                        }
+                        else if(shift=Addproperty(jo,nname))
+                        {  Asgvalue(&shift->val,&var->val);
+                        }
+                     }
+                     else
+                     {  sprintf(nname,"%d",i+arglen-1);
+                        if(shift=Findproperty(jo,nname))
+                        {  Clearvalue(&shift->val);
+                        }
+                     }
+                  }
+                  len+=arglen;
+                  if(jo->internal && jo->hook==Arrayohook)
+                  {  ((struct Array *)jo->internal)->length+=arglen;
+                  }
+                  for(i=0;i<arglen;i++)
+                  {  if(var=Arrayelt(args,i))
+                     {  sprintf(nname,"%d",i);
+                        if(shift=Findproperty(jo,nname))
+                        {  Asgvalue(&shift->val,&var->val);
+                        }
+                        else if(shift=Addproperty(jo,nname))
+                        {  Asgvalue(&shift->val,&var->val);
+                        }
+                     }
+                  }
+               }
+            }
+         }
+      }
+      if(!(length=Findproperty(jo,"length")))
+      {  length=Addproperty(jo,"length");
+      }
+      if(length)
+      {  Asgnumber(&length->val,VNA_VALID,(double)len);
+         if(jo->internal && jo->hook==Arrayohook)
+         {  ((struct Array *)jo->internal)->length=len;
+         }
+      }
+      Asgnumber(RETVAL(jc),VNA_VALID,(double)len);
+   }
+}
+
+static void Arrayslice(struct Jcontext *jc)
+{  struct Jobject *jo=jc->jthis;
+   struct Jobject *array;
+   struct Variable *length,*elt,*newelt;
+   long l=0;
+   long is,ie;
+   BOOL svalid,evalid;
+   UBYTE nname[16];
+   if(jo)
+   {  if(length=Findproperty(jo,"length"))
+      {  Tonumber(&length->val,jc);
+         if(length->val.attr==VNA_VALID)
+         {  l=(long)length->val.nvalue;
+         }
+      }
+      if(array=Newarray(jc))
+      {  is=(long)Numargument(jc,0,&svalid);
+         ie=(long)Numargument(jc,1,&evalid);
+         if(svalid)
+         {  if(!evalid) ie=l;
+            if(is<0) is+=l;
+            if(is<0) is=0;
+            if(is>l) is=l;
+            if(ie<0) ie+=l;
+            if(ie<0) ie=0;
+            if(ie>l) ie=l;
+            while(is<ie)
+            {  if(array->internal && array->hook==Arrayohook)
+               {  ((struct Array *)array->internal)->length++;
+               }
+               sprintf(nname,"%d",is++);
+               if(elt=Findproperty(jo,nname))
+               {  if(array->internal && array->hook==Arrayohook)
+                  {  long newidx=((struct Array *)array->internal)->length-1;
+                     sprintf(nname,"%d",newidx);
+                     if(newelt=Addproperty(array,nname))
+                     {  Asgvalue(&newelt->val,&elt->val);
+                     }
+                  }
+                  else
+                  {  sprintf(nname,"%d",is-1);
+                     if(newelt=Addproperty(array,nname))
+                     {  Asgvalue(&newelt->val,&elt->val);
+                     }
+                  }
+               }
+            }
+            Asgobject(RETVAL(jc),array);
+         }
+         else
+         {  Asgobject(RETVAL(jc),array);
+         }
+      }
+   }
+}
+
 
 /* Add a property to an array, increase .length if necessary */
 static BOOL Arrayohook(struct Objhookdata *h)
@@ -300,6 +586,21 @@ void Initarray(struct Jcontext *jc)
       {  Addtoprototype(jc,jo,f);
       }
       if(f=Internalfunction(jc,"sort",Arraysort,"compareFunction",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"pop",Arraypop,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"push",Arraypush,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"shift",Arrayshift,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"unshift",Arrayunshift,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"slice",Arrayslice,"start","end",NULL))
       {  Addtoprototype(jc,jo,f);
       }
       Addglobalfunction(jc,jo);

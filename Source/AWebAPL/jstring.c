@@ -219,6 +219,45 @@ static void Stringcharat(struct Jcontext *jc)
    }
 }
 
+static void Stringcharcodeat(struct Jcontext *jc)
+{  struct Jobject *jo=jc->jthis;
+   UBYTE *str;
+   BOOL valid;
+   long pos;
+   UWORD val;
+   if(jo && jo->internal)
+   {  str=((struct String *)jo->internal)->svalue;
+      pos=(long)Numargument(jc,0,&valid);
+      if(valid && pos>=0 && str && pos<strlen(str))
+      {  val=(UWORD)str[pos];
+         Asgnumber(RETVAL(jc),VNA_VALID,(double)val);
+      }
+      else
+      {  Asgnumber(RETVAL(jc),VNA_NAN,0.0);
+      }
+   }
+   else
+   {  struct Value v={0};
+      if(jo)
+      {  Asgobject(&v,jo);
+         Tostring(&v,jc);
+         str=v.svalue;
+         pos=(long)Numargument(jc,0,&valid);
+         if(valid && pos>=0 && str && pos<strlen(str))
+         {  val=(UWORD)str[pos];
+            Asgnumber(RETVAL(jc),VNA_VALID,(double)val);
+         }
+         else
+         {  Asgnumber(RETVAL(jc),VNA_NAN,0.0);
+         }
+         Clearvalue(&v);
+      }
+      else
+      {  Asgnumber(RETVAL(jc),VNA_NAN,0.0);
+      }
+   }
+}
+
 static void Stringtolowercase(struct Jcontext *jc)
 {  struct Jobject *jo=jc->jthis;
    UBYTE *str,*to,*p;
@@ -401,6 +440,9 @@ void Initstring(struct Jcontext *jc)
       {  Addtoprototype(jc,jo,f);
       }
       if(f=Internalfunction(jc,"charAt",Stringcharat,"index",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"charCodeAt",Stringcharcodeat,"index",NULL))
       {  Addtoprototype(jc,jo,f);
       }
       if(f=Internalfunction(jc,"toLowerCase",Stringtolowercase,NULL))
