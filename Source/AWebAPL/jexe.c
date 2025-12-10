@@ -380,8 +380,11 @@ static void Isnan(struct Jcontext *jc)
 {  struct Variable *var;
    BOOL nan=FALSE;
    var=jc->functions.first->local.first;
-   if(var->next && var->type==VTP_NUMBER && var->attr==VNA_NAN)
-   {  nan=TRUE;
+   if(var->next)
+   {  Tonumber(&var->val,jc);
+      if(var->val.attr==VNA_NAN)
+      {  nan=TRUE;
+      }
    }
    Asgboolean(RETVAL(jc),nan);
 }
@@ -654,9 +657,24 @@ static void Exefunction(struct Jcontext *jc,struct Elementfunc *func)
       Asgobject(&var->val,f->next->def);
    }
    /* Create function call object */
-   if(var=Newvar(func->name,jc->pool))
+   if(func->name && (var=Newvar(func->name,jc->pool)))
    {  ADDTAIL(&f->local,var);
       Asgfunction(&var->val,f->def,NULL);
+   }
+   /* Set function.length property if not already set */
+   if(f->def)
+   {  struct Variable *length;
+      if(!(length=Findproperty(f->def,"length")))
+      {  struct Elementnode *enode;
+         long paramcount=0;
+         for(enode=func->subs.first;enode->next;enode=enode->next)
+         {  paramcount++;
+         }
+         if(length=Addproperty(f->def,"length"))
+         {  Asgnumber(&length->val,VNA_VALID,(double)paramcount);
+            length->flags|=VARF_HIDDEN;
+         }
+      }
    }
    /* Execute the function body */
    Execute(jc,func->body);
@@ -1549,7 +1567,7 @@ static void Exedot(struct Jcontext *jc,struct Element *elt)
    if(temp && jc->val->ovalue)
    {  jc->val->ovalue->flags|=OBJF_TEMP;
    }
-   if(mbrname && mbrname->type==ET_IDENTIFIER)
+   if(mbrname && mbrname->type==ET_IDENTIFIER && jc->val->ovalue)
    {  ok=Member(jc,elt,jc->val->ovalue,mbrname->svalue,asgonly);
    }
    if(!ok) Clearvalue(jc->val);

@@ -441,6 +441,67 @@ static void Arrayunshift(struct Jcontext *jc)
    }
 }
 
+static void Arrayconcat(struct Jcontext *jc)
+{  struct Jobject *jo=jc->jthis;
+   struct Jobject *newarray;
+   struct Jobject *args;
+   struct Variable *elt,*arg,*argslen,*newelt;
+   long i;
+   if(jo)
+   {  if(newarray=Newarray(jc))
+      {  if(jo->internal && jo->hook==Arrayohook)
+         {  long len=((struct Array *)jo->internal)->length;
+            for(i=0;i<len;i++)
+            {  if(elt=Arrayelt(jo,i))
+               {  if(newelt=Addarrayelt(jc,newarray))
+                  {  Asgvalue(&newelt->val,&elt->val);
+                  }
+               }
+            }
+         }
+         else
+         {  struct Value v={0};
+            Asgobject(&v,jo);
+            Tostring(&v,jc);
+            if(newelt=Addarrayelt(jc,newarray))
+            {  Asgvalue(&newelt->val,&v);
+            }
+            Clearvalue(&v);
+         }
+         if(args=Findarguments(jc))
+         {  if(argslen=Findproperty(args,"length"))
+            {  Tonumber(&argslen->val,jc);
+               if(argslen->val.attr==VNA_VALID)
+               {  long arglen=(long)argslen->val.nvalue;
+                  for(i=0;i<arglen;i++)
+                  {  if(arg=Arrayelt(args,i))
+                     {  if(arg->val.type==VTP_OBJECT && arg->val.ovalue
+                        && arg->val.ovalue->internal && arg->val.ovalue->hook==Arrayohook)
+                        {  long len=((struct Array *)arg->val.ovalue->internal)->length;
+                           long j;
+                           for(j=0;j<len;j++)
+                           {  if(elt=Arrayelt(arg->val.ovalue,j))
+                              {  if(newelt=Addarrayelt(jc,newarray))
+                                 {  Asgvalue(&newelt->val,&elt->val);
+                                 }
+                              }
+                           }
+                        }
+                        else
+                        {  if(newelt=Addarrayelt(jc,newarray))
+                           {  Asgvalue(&newelt->val,&arg->val);
+                           }
+                        }
+                     }
+                  }
+               }
+            }
+         }
+         Asgobject(RETVAL(jc),newarray);
+      }
+   }
+}
+
 static void Arrayslice(struct Jcontext *jc)
 {  struct Jobject *jo=jc->jthis;
    struct Jobject *array;
@@ -601,6 +662,9 @@ void Initarray(struct Jcontext *jc)
       {  Addtoprototype(jc,jo,f);
       }
       if(f=Internalfunction(jc,"slice",Arrayslice,"start","end",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"concat",Arrayconcat,NULL))
       {  Addtoprototype(jc,jo,f);
       }
       Addglobalfunction(jc,jo);

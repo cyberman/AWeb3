@@ -28,12 +28,24 @@ static void Constructor(struct Jcontext *jc)
 {
 }
 
+static void Objecttostring(struct Jcontext *jc)
+{  struct Jobject *jo=jc->jthis;
+   UBYTE buf[32];
+   if(jo)
+   {  sprintf(buf,"[object Object]");
+      Asgstring(RETVAL(jc),buf,jc->pool);
+   }
+}
+
 /*-----------------------------------------------------------------------*/
 
 void Initobject(struct Jcontext *jc)
-{  struct Jobject *jo;
+{  struct Jobject *jo,*f;
    if(jo=Internalfunction(jc,"Object",Constructor,NULL))
    {  Addprototype(jc,jo);
+      if(f=Internalfunction(jc,"toString",Objecttostring,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
       Addglobalfunction(jc,jo);
       jc->string=jo;
       Keepobject(jo,TRUE);

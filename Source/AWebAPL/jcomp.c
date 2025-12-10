@@ -674,7 +674,9 @@ static void *Element(struct Jcontext *jc,void *pa)
          {  func->name=Jdupstr(jc->nexttoken->svalue,-1,jc->pool);
             Skiptoken(jc,pa,0);
          }
-         else Errormsg(pa,"Identifier expected");
+         else
+         {  func->name=NULL;
+         }
          if(jc->nexttoken->id==JT_LEFTPAR)
          {  Skiptoken(jc,pa,0);
             for(;;)
@@ -694,14 +696,32 @@ static void *Element(struct Jcontext *jc,void *pa)
          else Errormsg(pa,"'(' expected");
          func->body=Compoundstatement(jc,pa);
          
-         /* Add function to current scope */
+         /* Create function object */
          if(fobj=Newobject(jc))
          {  fobj->function=func;
-            if((fprop=Findproperty(jc->fscope,func->name))
-            || (fprop=Addproperty(jc->fscope,func->name)))
-            {  Asgfunction(&fprop->val,fobj,NULL);
+            /* Set function.length property */
+            {  struct Variable *length;
+               struct Elementnode *enode;
+               long paramcount=0;
+               for(enode=func->subs.first;enode->next;enode=enode->next)
+               {  paramcount++;
+               }
+               if(!(length=Findproperty(fobj,"length")))
+               {  length=Addproperty(fobj,"length");
+               }
+               if(length)
+               {  Asgnumber(&length->val,VNA_VALID,(double)paramcount);
+                  length->flags|=VARF_HIDDEN;
+               }
             }
-            Addprototype(jc,fobj);
+            /* Add function to current scope if it has a name */
+            if(func->name)
+            {  if((fprop=Findproperty(jc->fscope,func->name))
+               || (fprop=Addproperty(jc->fscope,func->name)))
+               {  Asgfunction(&fprop->val,fobj,NULL);
+               }
+               Addprototype(jc,fobj);
+            }
          }
          
          /* Remember current scope with function */
