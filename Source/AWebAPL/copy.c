@@ -245,14 +245,30 @@ static void Popupinquire(struct Copy *cop,void *pup)
             TAG_END);
       }
    }
+   /* Add hardcoded "Clipboard" menu item */
+   Asetattrs(pup,
+      AOPUP_Title,"Clipboard",
+      AOPUP_Command,"CLIPBOARD",
+      TAG_END);
 }
 
 /* User has selected this popup menu choice */
 static void Popupselectcopy(struct Copy *cop,UBYTE *cmd)
 {  void *url;
+   UBYTE *urlstr;
    if(cmd)
-   {  url=(void *)Agetattr(cop->source,AOSRC_Url);
-      Execarexxcmd(Agetattr(cop->win,AOWIN_Key),cmd,"u",Agetattr(url,AOURL_Url));
+   {  if(STRIEQUAL(cmd,"CLIPBOARD"))
+      {  /* Copy image URL to clipboard */
+         url=(void *)Agetattr(cop->source,AOSRC_Url);
+         urlstr=(UBYTE *)Agetattr(url,AOURL_Url);
+         if(urlstr)
+         {  Clipcopy(urlstr,strlen(urlstr));
+         }
+      }
+      else
+      {  url=(void *)Agetattr(cop->source,AOSRC_Url);
+         Execarexxcmd(Agetattr(cop->win,AOWIN_Key),cmd,"u",Agetattr(url,AOURL_Url));
+      }
    }
    cop->popup=NULL;
 }

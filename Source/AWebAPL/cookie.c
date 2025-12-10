@@ -414,6 +414,7 @@ static BOOL Matchdomain(UBYTE *domain,UBYTE *orgdomain)
          {  l1=strlen(domain);
             l2=strlen(orgdomain);
             if(l2>=l1 && STRIEQUAL(orgdomain+l2-l1,domain)) match=TRUE;
+            if((l2==l1-1) && (*domain=='.') && (STRIEQUAL(orgdomain,domain+1))) match=TRUE;
          }
       }
    }
@@ -434,14 +435,19 @@ static BOOL Matchdomainsend(UBYTE *ckdomain,UBYTE *domain)
    {  match=TRUE;
    }
    else
-   {  if(prefs.rfc2109)
+   {        if(prefs.rfc2109)
       {  p=strchr(domain,'.');
          if(p && STRIEQUAL(ckdomain,p)) match=TRUE;
       }
       else
-      {  l1=strlen(ckdomain);
-         l2=strlen(domain);
-         if(l2>l1 && STRIEQUAL(domain+l2-l1,ckdomain)) match=TRUE;
+      {  if((*ckdomain=='.') && (STRIEQUAL(ckdomain+1,domain)))
+         {  match=TRUE;
+         }
+         else
+         {  l1=strlen(ckdomain);
+            l2=strlen(domain);
+            if(l2>l1 && STRIEQUAL(domain+l2-l1,ckdomain)) match=TRUE;
+         }
       }
    }
    return match;

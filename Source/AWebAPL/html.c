@@ -5683,26 +5683,56 @@ static BOOL Dofldtext(struct Document *doc,struct Tagattr *ta)
 /*** <INPUT> ***/
 static BOOL Doinput(struct Document *doc,struct Tagattr *ta)
 {  struct Tagattr *tattrs=ta;
-   if(doc->pflags&DPF_FORM)
-   {  for(;ta->next;ta=ta->next)
-      {  switch(ta->attr)
-         {  case TAGATTR_TYPE:
-               if(STRIEQUAL(ATTR(doc,ta),"TEXT")) return Dofldtext(doc,tattrs);
-               else if(STRIEQUAL(ATTR(doc,ta),"PASSWORD")) return Dofldtext(doc,tattrs);
-               else if(STRIEQUAL(ATTR(doc,ta),"SUBMIT")) return Dofldbutton(doc,tattrs);
-               else if(STRIEQUAL(ATTR(doc,ta),"RESET")) return Dofldbutton(doc,tattrs);
-               else if(STRIEQUAL(ATTR(doc,ta),"BUTTON")) return Dofldbutton(doc,tattrs);
-               else if(STRIEQUAL(ATTR(doc,ta),"HIDDEN")) return Dofldhidden(doc,tattrs);
-               else if(STRIEQUAL(ATTR(doc,ta),"CHECKBOX")) return Dofldcheckbox(doc,tattrs);
-               else if(STRIEQUAL(ATTR(doc,ta),"RADIO")) return Dofldradio(doc,tattrs);
-               else if(STRIEQUAL(ATTR(doc,ta),"IMAGE")) return Dofldimage(doc,tattrs);
-               else if(STRIEQUAL(ATTR(doc,ta),"FILE")) return Dofldfile(doc,tattrs);
-               break;
-         }
+   UBYTE *type=NULL;
+   UBYTE *onclick=NULL;
+   /* Check for button types and onclick handlers for formless inputs */
+   for(;ta->next;ta=ta->next)
+   {  switch(ta->attr)
+      {  case TAGATTR_TYPE:
+            type=ATTR(doc,ta);
+            break;
+         case TAGATTR_ONCLICK:
+            onclick=ATTR(doc,ta);
+            break;
       }
-      return Dofldtext(doc,tattrs);
    }
-   return TRUE;
+   /* Allow button-type inputs outside forms for JavaScript events */
+   if(!(doc->pflags&DPF_FORM))
+   {  if(type && (STRIEQUAL(type,"SUBMIT") || STRIEQUAL(type,"RESET") || STRIEQUAL(type,"BUTTON") || onclick))
+      {  ta=tattrs;
+         for(;ta->next;ta=ta->next)
+         {  switch(ta->attr)
+            {  case TAGATTR_TYPE:
+                  if(STRIEQUAL(ATTR(doc,ta),"SUBMIT")) return Dofldbutton(doc,tattrs);
+                  else if(STRIEQUAL(ATTR(doc,ta),"RESET")) return Dofldbutton(doc,tattrs);
+                  else if(STRIEQUAL(ATTR(doc,ta),"BUTTON")) return Dofldbutton(doc,tattrs);
+                  break;
+            }
+         }
+         /* If onclick is set, treat as button */
+         if(onclick) return Dofldbutton(doc,tattrs);
+      }
+      return TRUE;
+   }
+   /* Normal form input handling */
+   ta=tattrs;
+   for(;ta->next;ta=ta->next)
+   {  switch(ta->attr)
+      {  case TAGATTR_TYPE:
+            if(STRIEQUAL(ATTR(doc,ta),"TEXT")) return Dofldtext(doc,tattrs);
+            else if(STRIEQUAL(ATTR(doc,ta),"PASSWORD")) return Dofldtext(doc,tattrs);
+            else if(STRIEQUAL(ATTR(doc,ta),"SUBMIT")) return Dofldbutton(doc,tattrs);
+            else if(STRIEQUAL(ATTR(doc,ta),"RESET")) return Dofldbutton(doc,tattrs);
+            else if(STRIEQUAL(ATTR(doc,ta),"BUTTON")) return Dofldbutton(doc,tattrs);
+            else if(STRIEQUAL(ATTR(doc,ta),"HIDDEN")) return Dofldhidden(doc,tattrs);
+            else if(STRIEQUAL(ATTR(doc,ta),"CHECKBOX")) return Dofldcheckbox(doc,tattrs);
+            else if(STRIEQUAL(ATTR(doc,ta),"RADIO")) return Dofldradio(doc,tattrs);
+            else if(STRIEQUAL(ATTR(doc,ta),"IMAGE")) return Dofldimage(doc,tattrs);
+            else if(STRIEQUAL(ATTR(doc,ta),"FILE")) return Dofldfile(doc,tattrs);
+            break;
+      }
+   }
+   return Dofldtext(doc,tattrs);
 }
 
 /*** <ISINDEX> ***/

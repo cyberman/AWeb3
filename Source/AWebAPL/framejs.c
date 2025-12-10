@@ -1120,6 +1120,14 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
       {  for(p=script;*p;p++)
          {  if(*p==0xa0) *p=' ';
          }
+         /* for compatabilty purposes ignore a leading "javascript:" */
+         if(prefs.htmlmode!=HTML_STRICT)
+         {  UBYTE *p;
+            p=strchr(script,':');
+            if(p && STRNIEQUAL(script,"javascript:",p+1-script))
+            {  script=p+1;
+            }
+         }
          animon=Setanimgads(TRUE);
          jerr=(prefs.jserrors?JERRORS_ON:JERRORS_OFF);
          if(prefs.dojs==DOJS_ALL) jerr=JERRORS_CONTINUE;

@@ -162,9 +162,14 @@ long Jsetupcopy(struct Copy *cop,struct Amjsetup *amj)
             if(cop->name)
             {  if(cop->jform) parent=(void *)Agetattr(cop->jform,AOBJ_Jobject);
                else parent=amj->parent;
+               /* This is a case where we don't want to overwrite any existing property */
+               /* with the same name as this can cause multiple disposal */
                if(jv=Jproperty(amj->jc,parent,cop->name))
-               {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
-                  Jasgobject(amj->jc,jv,cop->jobject);
+               {  /* Only set if property doesn't already have a value */
+                  if(!Jtoobject(amj->jc,jv))
+                  {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
+                     Jasgobject(amj->jc,jv,cop->jobject);
+                  }
                }
             }
             if(images=Jfindarray(amj->jc,amj->parent,"images"))
