@@ -51,6 +51,9 @@
 #include "url.h"
 #include "css.h"
 #include "window.h"
+#include "application.h"
+#include "jslib.h"
+#include "frprivate.h"
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -2348,10 +2351,42 @@ static BOOL Dobody(struct Document *doc,struct Tagattr *ta)
          case TAGATTR_ONLOAD:
             if(doc->onload) FREE(doc->onload);
             doc->onload=Dupstr(ATTR(doc,ta),-1);
+            if(doc->jobject && doc->frame)
+            {  /* Jobject already exists so we must add our handler to
+                 * it belatedly.
+                 * Usually means there was <script> in the head */
+               struct Jcontext *jc;
+               struct Frame *fr;
+               struct Jobject *parent;
+               jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
+               if(jc)
+               {  fr=(struct Frame *)doc->frame;
+                  parent=fr->jobject;
+                  if(parent)
+                  {  Jaddeventhandler(jc,parent,"onload",doc->onload);
+                  }
+               }
+            }
             break;
          case TAGATTR_ONUNLOAD:
             if(doc->onunload) FREE(doc->onunload);
             doc->onunload=Dupstr(ATTR(doc,ta),-1);
+            if(doc->jobject && doc->frame)
+            {  /* Jobject already exists so we must add our handler to
+                 * it belatedly.
+                 * Usually means there was <script> in the head */
+               struct Jcontext *jc;
+               struct Frame *fr;
+               struct Jobject *parent;
+               jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
+               if(jc)
+               {  fr=(struct Frame *)doc->frame;
+                  parent=fr->jobject;
+                  if(parent)
+                  {  Jaddeventhandler(jc,parent,"onunload",doc->onunload);
+                  }
+               }
+            }
             break;
          case TAGATTR_ONFOCUS:
             if(doc->onfocus) FREE(doc->onfocus);
