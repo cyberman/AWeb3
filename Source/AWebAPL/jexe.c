@@ -22,6 +22,9 @@
 #include "jprotos.h"
 #include <exec/tasks.h>
 #include <math.h>
+#include <stdarg.h>
+#include <string.h>
+#include <proto/utility.h>
 
 /*-----------------------------------------------------------------------*/
 
@@ -31,10 +34,28 @@ static UBYTE *emsg_notallowed="Access to '%s' not allowed";
 static UBYTE *emsg_stackoverflow="Stack overflow";
 
 /* Display the run time error message */
-static void Runtimeerror(struct Jcontext *jc,struct Element *elt,UBYTE *msg,...)
+static void Runtimeerror(struct Jcontext *jc,UBYTE *type,struct Element *elt,UBYTE *msg,...)
 {  struct Jbuffer *jb=NULL;
    BOOL debugger;
-   if(!(jc->flags&(EXF_STOP|EXF_DONTSTOP)))
+   if(jc->try)
+   {  struct Jobject *e;
+      UBYTE buf[256];
+      va_list args;
+      va_start(args,msg);
+      VSNPrintf((STRPTR)buf,(ULONG)sizeof(buf),(CONST_STRPTR)msg,(APTR)args);
+      va_end(args);
+      if(type)
+      {  e=Newnativeerror(jc,type,buf);
+      }
+      else
+      {  e=Newerror(jc,buf);
+      }
+      Asgobject(jc->val,e);
+      Asgvalue(&jc->functions.first->retval,jc->val);
+      Asgvalue(jc->throwval,jc->val);
+      jc->complete=ECO_THROW;
+   }
+   else if(!(jc->flags&(EXF_STOP|EXF_DONTSTOP)))
    {  if(jc->flags&EXF_ERRORS)
       {  jb=Jdecompile(jc,elt);
          debugger=Errorrequester(jc,elt->linenr,jb?jb->buffer:NULL,-1,msg,VARARG(msg));
@@ -61,7 +82,7 @@ static BOOL Stackcheck(struct Jcontext *jc,struct Element *elt)
     * the current stack pointer */
    if((ULONG)&task<(ULONG)task->tc_SPLower+8192)
    {  
-      Runtimeerror(jc,elt,emsg_stackoverflow);
+      Runtimeerror(jc,NTE_GENERAL,elt,emsg_stackoverflow);
       ok=FALSE;
    }
    return ok;
@@ -416,14 +437,14 @@ static BOOL Member(struct Jcontext *jc,struct Element *elt,struct Jobject *jo,
          }
       }
       else
-      {  Runtimeerror(jc,elt,emsg_notallowed,mbrname);
+      {  Runtimeerror(jc,NTE_GENERAL,elt,emsg_notallowed,mbrname);
          Clearvalue(jc->val);
       }
       jc->varref=mbr;
       jc->flags|=EXF_KEEPREF;
       ok=TRUE;
    }
-   else Runtimeerror(jc,elt,emsg_noproperty,mbrname);
+   else Runtimeerror(jc,NTE_REFERENCE,elt,emsg_noproperty,mbrname);
    return ok;
 }
 
@@ -558,6 +579,8 @@ static void Callfunction(struct Jcontext *jc,struct Elementlist *elist,
          Execute(jc,func);
          /* Garbage collect temporary objects and merge survivors to objects */
          Garbagecollect(jc);
+         /* Clear tmp list after garbage collection */
+         NEWLIST(&jc->tmp);
          jc->jthis=oldthis;
          jc->flags=oldflags;
          REMOVE(f);
@@ -580,11 +603,11 @@ static void Callfunction(struct Jcontext *jc,struct Elementlist *elist,
          Clearvalue(&sval);
       }
       else
-      {  Runtimeerror(jc,(struct Element *)elist,emsg_nofunction);
+      {  Runtimeerror(jc,NTE_TYPE,(struct Element *)elist,emsg_nofunction);
       }
    }
    else
-   {  Runtimeerror(jc,(struct Element *)elist,emsg_nofunction);
+   {  Runtimeerror(jc,NTE_TYPE,(struct Element *)elist,emsg_nofunction);
    }
 }
 
@@ -834,6 +857,18 @@ static void Exereturn(struct Jcontext *jc,struct Element *elt)
    {  Clearvalue(&jc->functions.first->retval);
    }
    jc->complete=ECO_RETURN;
+}
+
+static void Exethrow(struct Jcontext *jc,struct Element *elt)
+{  if(elt->sub1)
+   {  Execute(jc,elt->sub1);
+      Asgvalue(&jc->functions.first->retval,jc->val);
+      Asgvalue(jc->throwval,jc->val);
+   }
+   else
+   {  Clearvalue(&jc->functions.first->retval);
+   }
+   jc->complete=ECO_THROW;
 }
 
 static void Exeinternal(struct Jcontext *jc,struct Element *elt)
@@ -1343,7 +1378,54 @@ static void Exeequality(struct Jcontext *jc,struct Element *elt)
       {  b=(val1.attr==val2.attr);
       }
    }
-   if(elt->type==ET_NE) b=!b;
+   if(elt->type==ET_NE || elt->type==ET_NEXEQ) b=!b;
+   Asgboolean(jc->val,b);
+   Clearvalue(&val1);
+   Clearvalue(&val2);
+}
+
+static BOOL Exactequality(struct Jcontext *jc,struct Value *val1,struct Value *val2)
+{  BOOL b;
+   if(val1->type!=val2->type)
+   {  return FALSE;
+   }
+   if(val1->type==VTP_OBJECT)
+   {  b=(BOOL)(val1->ovalue==val2->ovalue);
+   }
+   else if(val1->type>=VTP_STRING)
+   {  Tostring(val1,jc);
+      Tostring(val2,jc);
+      b=!strcmp(val1->svalue,val2->svalue);
+   }
+   else if(val1->type==VTP_NUMBER)
+   {  Tonumber(val1,jc);
+      Tonumber(val2,jc);
+      if(val1->attr==VNA_NAN || val2->attr==VNA_NAN)
+      {  b=FALSE;
+      }
+      else if(val1->attr==VNA_VALID && val2->attr==VNA_VALID)
+      {  b=(val1->nvalue==val2->nvalue);
+      }
+      else
+      {  b=(val1->attr==val2->attr);
+      }
+   }
+   else
+   {  b=(val1->type==val2->type);
+   }
+   return b;
+}
+
+static void Exeexeq(struct Jcontext *jc,struct Element *elt)
+{  struct Value val1,val2;
+   BOOL b;
+   val1.type=val2.type=0;
+   Execute(jc,elt->sub1);
+   Asgvalue(&val1,jc->val);
+   Execute(jc,elt->sub2);
+   Asgvalue(&val2,jc->val);
+   b=Exactequality(jc,&val1,&val2);
+   if(elt->type==ET_NEXEQ) b=!b;
    Asgboolean(jc->val,b);
    Clearvalue(&val1);
    Clearvalue(&val2);
@@ -1617,6 +1699,152 @@ static void Exefor(struct Jcontext *jc,struct Element *elt)
    }
 }
 
+static void Exetry(struct Jcontext *jc,struct Elementtry *elt)
+{  struct Variable *var;
+   struct Value val;
+   void *oldtry;
+   val.type=0;
+   oldtry=jc->try;
+   jc->flags|=EXF_ASGONLY;
+   Execute(jc,(struct Element *)elt->catchvar);
+   jc->flags&=~EXF_ASGONLY;
+   var=jc->varref;
+   jc->try=elt;
+   Execute(jc,(struct Element *)elt->try);
+   if(jc->complete==ECO_THROW)
+   {  Asgvalue(&var->val,jc->throwval);
+      var->flags|=VARF_DONTDELETE;
+      jc->try=oldtry;
+      Execute(jc,(struct Element *)elt->catch);
+   }
+   jc->try=oldtry;
+   Asgvalue(&val,jc->val);
+   if(elt->finally)
+   {  Execute(jc,(struct Element *)elt->finally);
+      if(jc->complete!=ECO_NORMAL)
+      {  Asgvalue(&val,jc->val);
+      }
+   }
+   Asgvalue(jc->val,&val);
+   Clearvalue(&val);
+}
+
+static void Execase(struct Jcontext *jc,struct Elementcase *elt)
+{  if(elt->expr)
+   {  Execute(jc,elt->expr);
+   }
+}
+
+static void Exeswitch(struct Jcontext *jc,struct Elementswitch *elt)
+{  struct Value val;
+   struct Elementnode *enode;
+   BOOL Casematch=FALSE;
+   val.type=0;
+   Execute(jc,elt->cond);
+   Asgvalue(&val,jc->val);
+   for(enode=elt->subs.first;enode->next;enode=enode->next)
+   {  if(enode->sub && Casematch)
+      {  if(((struct Element *)enode->sub)->type!=ET_CASE)
+         {  Execute(jc,enode->sub);
+            if(jc->complete==ECO_BREAK)
+            {  if(jc->curlabel)
+               {  if(jc->curlabel->elt==elt)
+                  {  jc->complete=ECO_NORMAL;
+                     jc->curlabel=NULL;
+                  }
+               }
+               else
+               {  jc->complete=ECO_NORMAL;
+               }
+               break;
+            }
+            if(jc->complete) break;
+         }
+      }
+      else
+      {  if(enode->sub && ((struct Element *)enode->sub)->type==ET_CASE)
+         {  if(!((struct Elementcase *)enode->sub)->isdefault)
+            {  Execute(jc,enode->sub);
+               if(Exactequality(jc,&val,jc->val)) Casematch=TRUE;
+            }
+         }
+      }
+   }
+   if(!Casematch)
+   {  if(elt->defaultcase)
+      {  for(enode=elt->defaultcase;enode->next;enode=enode->next)
+         {  if(((struct Element *)enode->sub)->type!=ET_CASE)
+            {  Execute(jc,enode->sub);
+               if(jc->complete==ECO_BREAK)
+               {  if(jc->curlabel)
+                  {  if(jc->curlabel->elt==elt)
+                     {  jc->complete=ECO_NORMAL;
+                        jc->curlabel=NULL;
+                     }
+                  }
+                  else
+                  {  jc->complete=ECO_NORMAL;
+                  }
+                  break;
+               }
+               if(jc->complete) break;
+            }
+         }
+      }
+   }
+   Clearvalue(&val);
+}
+
+static void Exeinstanceof(struct Jcontext *jc,struct Element *elt)
+{  struct Value val1,val2;
+   struct Jobject *jo;
+   val1.type=val2.type=0;
+   Execute(jc,elt->sub1);
+   Asgvalue(&val1,jc->val);
+   Execute(jc,elt->sub2);
+   Asgvalue(&val2,jc->val);
+   Toobject(&val1,jc);
+   Toobject(&val2,jc);
+   if(!val1.ovalue || !val2.ovalue)
+   {  Runtimeerror(jc,NTE_TYPE,elt,"Instanceof operand is of wrong type");
+      Asgboolean(jc->val,FALSE);
+   }
+   else
+   {  if(val2.ovalue->function)
+      {  jo=val1.ovalue;
+         while(jo)
+         {  if(jo->constructor==val2.ovalue)
+            {  Asgboolean(jc->val,TRUE);
+               Clearvalue(&val1);
+               Clearvalue(&val2);
+               return;
+            }
+            if(jo->prototype)
+            {  struct Variable *var;
+               if((var=Findproperty(jo->prototype,"constructor")))
+               {  Tofunction(&var->val,jc);
+                  if(var->val.ovalue && var->val.ovalue->constructor==val2.ovalue)
+                  {  Asgboolean(jc->val,TRUE);
+                     Clearvalue(&val1);
+                     Clearvalue(&val2);
+                     return;
+                  }
+               }
+            }
+            if(jo->prototype) jo=jo->prototype;
+            else break;
+         }
+         Asgboolean(jc->val,FALSE);
+      }
+      else
+      {  Runtimeerror(jc,NTE_TYPE,elt,"Instance of operand is of wrong type");
+         Asgboolean(jc->val,FALSE);
+      }
+   }
+   Clearvalue(&val1);
+   Clearvalue(&val2);
+}
+
 static void Exeinteger(struct Jcontext *jc,struct Elementint *elt)
 {  Asgnumber(jc->val,VNA_VALID,(double)elt->ivalue);
 }
@@ -1626,7 +1854,7 @@ static void Exefloat(struct Jcontext *jc,struct Elementfloat *elt)
 }
 
 static void Exeboolean(struct Jcontext *jc,struct Elementint *elt)
-{  Asgboolean(jc->val,elt->ivalue);
+{  Asgboolean(jc->val,(BOOL)elt->ivalue);
 }
 
 static void Exestring(struct Jcontext *jc,struct Elementstring *elt)
@@ -1691,6 +1919,7 @@ static Exeelement *exetab[]=
    Execall,
    Execompound,
    Exevarlist,
+   Exetry,
    Exefunction,
    Exebreak,
    Execontinue,
@@ -1709,6 +1938,7 @@ static Exeelement *exetab[]=
    Exetypeof,
    Exevoid,
    Exereturn,
+   Exethrow,
    Exeinternal,
    Exefunceval,
    Exeplus,
@@ -1743,6 +1973,7 @@ static Exeelement *exetab[]=
    Exeshright,    /* ashright */
    Exeushright,   /* aushright */
    Execomma,
+   Exeinstanceof,
    Exewhile,
    Exedo,
    Exewith,
@@ -1753,6 +1984,7 @@ static Exeelement *exetab[]=
    Exeif,
    Exeforin,
    Exefor,
+   Exeswitch,
    Exeinteger,
    Exefloat,
    Exeboolean,
@@ -1996,10 +2228,12 @@ BOOL Newexecute(struct Jcontext *jc)
    NEWLIST(&jc->functions);
    if((jc->valvar=Newvar(NULL,jc->pool))
    && (jc->result=Newvar(NULL,jc->pool))
+   && (jc->throw=Newvar(NULL,jc->pool))
    && (jc->jthis=Newobject(jc))
    && (f=Newfunction(jc,NULL)))
    {  Keepobject(jc->jthis,TRUE);
       jc->val=&jc->valvar->val;
+      jc->throwval=&jc->throw->val;
       ADDHEAD(&jc->functions,f);
       jc->tostring=Internalfunction(jc,"toString",Defaulttostring,NULL);
       Keepobject(jc->tostring,TRUE);
@@ -2029,6 +2263,7 @@ BOOL Newexecute(struct Jcontext *jc)
       Initmath(jc);
       Initnumber(jc);
       Initstring(jc);
+      Initerror(jc,NULL);
       return TRUE;
    }
    Freeexecute(jc);
@@ -2040,6 +2275,7 @@ void Freeexecute(struct Jcontext *jc)
    {  if(jc->val)
       {  if(jc->valvar) Disposevar(jc->valvar);
          if(jc->result) Disposevar(jc->result);
+         if(jc->throw) Disposevar(jc->throw);
          while(f=REMHEAD(&jc->functions)) Disposefunction(f);
          Disposeobject(jc->jthis);
          Disposeobject(jc->tostring);

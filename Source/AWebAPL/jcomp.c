@@ -23,6 +23,8 @@
 
 /*-----------------------------------------------------------------------*/
 
+static void *Statement(struct Jcontext *jc,void *pa);  /* Forward declaration */
+
 /* Create an element */
 static struct Element *Newelement(struct Jcontext *jc,void *pa,USHORT type,
    void *sub1,void *sub2,void *sub3,void *sub4)
@@ -534,6 +536,70 @@ static void *Variablesorexpression(struct Jcontext *jc,void *pa)
    return elt;
 }
 
+static void *Switchstatement(struct Jcontext *jc,void *pa)
+{  struct Elementswitch *elt=NULL;
+   struct Element *cond;
+   struct Elementnode *enode;
+   ULONG state;
+   Skiptoken(jc,pa,JT_LEFTPAR);
+   cond=Expression(jc,pa);
+   Skiptoken(jc,pa,JT_RIGHTPAR);
+   if(cond)
+   {  if((elt=ALLOCSTRUCT(Elementswitch,1,0,jc->pool)))
+      {  elt->type=ET_SWITCH;
+         elt->generation=jc->generation;
+         elt->linenr=jc->linenr+Plinenr(pa);
+         elt->cond=cond;
+         NEWLIST(&elt->subs);
+         if(jc->nexttoken->id==JT_LEFTBRACE)
+         {  Skiptoken(jc,pa,0);
+            while(jc->nexttoken->id)
+            {  struct Element *statement;
+               state=Parserstate(pa);
+               statement=Statement(jc,pa);
+               if(enode=Newnode(jc->pool,statement))
+               {  if(statement && statement->type==ET_CASE)
+                  {  if(((struct Elementcase *)statement)->isdefault)
+                     {  elt->defaultcase=enode;
+                     }
+                  }
+                  ADDTAIL(&elt->subs,enode);
+               }
+               if(jc->nexttoken->id==JT_RIGHTBRACE) break;
+               if(state==Parserstate(pa)) Skiptoken(jc,pa,0);
+            }
+            Skiptoken(jc,pa,JT_RIGHTBRACE);
+         }
+         else
+         {  Errormsg(pa,"'{' expected (from switch)");
+         }
+      }
+   }
+   return elt;
+}
+
+static void *Trystatement(struct Jcontext *jc,void *pa)
+{  struct Elementtry *elt=NULL;
+   if((elt=ALLOCSTRUCT(Elementtry,1,0,jc->pool)))
+   {  elt->type=ET_TRY;
+      elt->generation=jc->generation;
+      elt->linenr=jc->linenr+Plinenr(pa);
+      elt->try=Statement(jc,pa);
+      if(elt && jc->nexttoken->id==JT_CATCH)
+      {  Skiptoken(jc,pa,0);
+         Skiptoken(jc,pa,JT_LEFTPAR);
+         elt->catchvar=Variablesorexpression(jc,pa);
+         Skiptoken(jc,pa,JT_RIGHTPAR);
+         elt->catch=Statement(jc,pa);
+      }
+      if(elt && jc->nexttoken->id==JT_FINALLY)
+      {  Skiptoken(jc,pa,0);
+         elt->finally=Statement(jc,pa);
+      }
+   }
+   return elt;
+}
+
 static void *Statement(struct Jcontext *jc,void *pa)
 {  struct Element *elt=NULL;
    if(!Feedback(jc))
@@ -604,6 +670,53 @@ static void *Statement(struct Jcontext *jc,void *pa)
             elt=Newelement(jc,pa,ET_RETURN,Expression(jc,pa),NULL,NULL,NULL);
             if(jc->nexttoken->id==JT_SEMICOLON)
             {  Skiptoken(jc,pa,0);
+            }
+            break;
+         case JT_TRY:
+            Skiptoken(jc,pa,0);
+            elt=Trystatement(jc,pa);
+            break;
+         case JT_THROW:
+            Skiptoken(jc,pa,0);
+            elt=Newelement(jc,pa,ET_THROW,Expression(jc,pa),NULL,NULL,NULL);
+            if(jc->nexttoken->id==JT_SEMICOLON)
+            {  Skiptoken(jc,pa,0);
+            }
+            break;
+         case JT_SWITCH:
+            Skiptoken(jc,pa,0);
+            elt=Switchstatement(jc,pa);
+            break;
+         case JT_CASE:
+            Skiptoken(jc,pa,0);
+            {  struct Elementcase *caseelt;
+               if((caseelt=ALLOCSTRUCT(Elementcase,1,0,jc->pool)))
+               {  caseelt->type=ET_CASE;
+                  caseelt->generation=jc->generation;
+                  caseelt->linenr=jc->linenr+Plinenr(pa);
+                  caseelt->isdefault=FALSE;
+                  caseelt->expr=Expression(jc,pa);
+                  elt=(struct Element *)caseelt;
+                  if(jc->nexttoken->id==JT_CONDELSE)
+                  {  Skiptoken(jc,pa,0);
+                  }
+               }
+            }
+            break;
+         case JT_DEFAULT:
+            Skiptoken(jc,pa,0);
+            {  struct Elementcase *caseelt;
+               if((caseelt=ALLOCSTRUCT(Elementcase,1,0,jc->pool)))
+               {  caseelt->type=ET_CASE;
+                  caseelt->generation=jc->generation;
+                  caseelt->linenr=jc->linenr+Plinenr(pa);
+                  caseelt->isdefault=TRUE;
+                  caseelt->expr=NULL;
+                  elt=(struct Element *)caseelt;
+                  if(jc->nexttoken->id==JT_CONDELSE)
+                  {  Skiptoken(jc,pa,0);
+                  }
+               }
             }
             break;
          case JT_LEFTBRACE:
