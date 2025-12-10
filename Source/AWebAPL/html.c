@@ -882,13 +882,18 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   }
                   /* Apply color */
                   else if(stricmp((char *)prop->name,"color") == 0)
-                  {  ULONG colorrgb;
-                     struct Colorinfo *ci;
-                     colorrgb = ParseHexColor(prop->value);
-                     if(colorrgb != ~0)
-                     {  ci = Finddoccolor(doc,colorrgb);
-                        if(ci)
-                        {  Asetattrs(body,AOBDY_Fontcolor,ci,TAG_END);
+                  {  /* Don't apply color to body font color for anchor tags.
+                       * Link colors are handled at the document level via ApplyCSSToLinkColors.
+                       * Setting color on the body would incorrectly affect all body text, not just the link. */
+                     if(!tagname || stricmp((char *)tagname,"A") != 0)
+                     {  ULONG colorrgb;
+                        struct Colorinfo *ci;
+                        colorrgb = ParseHexColor(prop->value);
+                        if(colorrgb != ~0)
+                        {  ci = Finddoccolor(doc,colorrgb);
+                           if(ci)
+                           {  Asetattrs(body,AOBDY_Fontcolor,ci,TAG_END);
+                           }
                         }
                      }
                   }
