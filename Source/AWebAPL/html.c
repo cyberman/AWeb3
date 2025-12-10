@@ -2027,8 +2027,9 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
          else
          {  extern BOOL httpdebug;
             /* Check if this CSS was already merged via AODOC_Docextready.
-             * If DPF_NORLDOCEXT is set, it means the CSS was already processed. */
-            if(doc->pflags&DPF_NORLDOCEXT)
+             * If DPF_NORLDOCEXT is set AND stylesheet exists, it means the CSS was already processed.
+             * If stylesheet is NULL, the flag might be from a previous document, so merge anyway. */
+            if((doc->pflags&DPF_NORLDOCEXT) && doc->cssstylesheet)
             {  if(httpdebug)
                {  printf("[STYLE] Dolink: CSS already merged via AODOC_Docextready, skipping duplicate merge\n");
                }

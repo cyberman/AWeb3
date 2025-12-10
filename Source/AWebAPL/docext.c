@@ -143,7 +143,8 @@ static long Srcupdatedocext(struct Docext *dox,struct Amsrcupdate *ams)
             break;
          case AOURL_Reload:
             Freebuffer(&dox->buf);
-            dox->flags&=~DOXF_EOF;
+            /* Clear both EOF and ERROR flags on reload to allow retry */
+            dox->flags&=~(DOXF_EOF|DOXF_ERROR);
             break;
          case AOURL_Eof:
             if(tag->ti_Data)
@@ -252,9 +253,14 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
          if(durl==furl)
          {  if(dox->flags&DOXF_ERROR)
             {  if(httpdebug)
-               {  printf("[FETCH] Finddocext: Cached entry found but in ERROR state\n");
+               {  printf("[FETCH] Finddocext: Cached entry found but in ERROR state, clearing error and retrying\n");
                }
-               return (UBYTE *)~0;
+               /* Clear ERROR flag and retry loading - the error might have been transient
+                * or from a previous page load. This allows CSS to load on new page navigations. */
+               dox->flags&=~DOXF_ERROR;
+               dox->flags&=~DOXF_EOF;
+               Freebuffer(&dox->buf);
+               /* Fall through to retry loading */
             }
             /* Only return cached buffer if it's complete (EOF reached) and valid.
              * After a reload, the buffer is freed and DOXF_EOF is cleared, so

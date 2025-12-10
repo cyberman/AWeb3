@@ -677,8 +677,9 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
                                  strlen((char *)extcss));
                         }
                         /* Check if this CSS was already merged via Dolink.
-                         * If DPF_NORLDOCEXT is set, it means Dolink already processed it. */
-                        if(!(doc->pflags&DPF_NORLDOCEXT))
+                         * If DPF_NORLDOCEXT is set AND stylesheet exists, it means Dolink already processed it.
+                         * If stylesheet is NULL, the flag might be from a previous document, so merge anyway. */
+                        if(!(doc->pflags&DPF_NORLDOCEXT) || !doc->cssstylesheet)
                         {  /* Merge external CSS with existing stylesheet */
                            MergeCSSStylesheet(doc,extcss);
                            /* Set DPF_NORLDOCEXT to prevent Dolink from merging this CSS again
@@ -887,6 +888,8 @@ static struct Document *Newdocument(struct Amset *ams)
    if(doc=(struct Document *)Agetattr(dos,AODOS_Spare))
    {  Asetattrs(dos,AODOS_Spare,NULL,TAG_END);
       doc->dflags&=~(DDF_ISSPARE|DDF_NOBACKGROUND);
+      /* Clear DPF_NORLDOCEXT flag when reusing spare document for new page load */
+      doc->pflags&=~DPF_NORLDOCEXT;
       SETFLAG(doc->pflags,DPF_SCRIPTJS,(dos->flags&DOSF_SCRIPTJS));
       Anotifyset(doc->body,AOBJ_Nobackground,FALSE,TAG_END);
       Setdocument(doc,ams);
@@ -908,6 +911,8 @@ static struct Document *Newdocument(struct Amset *ams)
       NEWLIST(&doc->infotexts);
       doc->htmlmode=prefs.htmlmode;
       doc->gotbreak=2;
+      /* Ensure DPF_NORLDOCEXT is cleared for new document */
+      doc->pflags&=~DPF_NORLDOCEXT;
       SETFLAG(doc->pflags,DPF_SCRIPTJS,(dos->flags&DOSF_SCRIPTJS));
       Setdocument(doc,ams);
       if(!doc->source) goto err;
