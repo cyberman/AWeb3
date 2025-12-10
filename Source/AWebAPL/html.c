@@ -3616,7 +3616,7 @@ static BOOL Doimg(struct Document *doc,struct Tagattr *ta)
    void *usemap=NULL;
    struct Number num;
    UBYTE *src=NULL,*mapname,*name=NULL;
-   UBYTE *onload=NULL,*onerror=NULL,*onabort=NULL;
+   UBYTE *onload=NULL,*onerror=NULL,*onabort=NULL,*onclick=NULL;
    UBYTE *styleAttr=NULL;
    BOOL ismap=FALSE,wasspace=FALSE;
    void *elt,*url,*referer,*jform=NULL;
@@ -3694,6 +3694,9 @@ static BOOL Doimg(struct Document *doc,struct Tagattr *ta)
          case TAGATTR_ONABORT:
             onabort=ATTR(doc,ta);
             break;
+         case TAGATTR_ONCLICK:
+            onclick=ATTR(doc,ta);
+            break;
       }
    }
    if(src)
@@ -3721,6 +3724,7 @@ static BOOL Doimg(struct Document *doc,struct Tagattr *ta)
          AOCPY_Onload,onload,
          AOCPY_Onerror,onerror,
          AOCPY_Onabort,onabort,
+         AOCPY_Onclick,onclick,
          AOCPY_Jform,jform,
          CONDTAG(AOCPY_Border,border),
          wtag,width,
@@ -5993,6 +5997,7 @@ static BOOL Doobject(struct Document *doc,struct Tagattr *ta)
    UBYTE *data=NULL,*type=NULL,*codebase=NULL,*codetype=NULL,*classid=NULL,*name=NULL;
    UBYTE *mapname,*ttype;
    UBYTE *dummyp;
+   UBYTE *onclick=NULL;
    BOOL ismap=FALSE,declare=FALSE,shapes=TRUE;
    void *elt,*url,*referer;
    Checkid(doc,ta);
@@ -6066,6 +6071,9 @@ static BOOL Doobject(struct Document *doc,struct Tagattr *ta)
          case TAGATTR_VSPACE:
             vspace=Getposnumber(ATTR(doc,ta));
             break;
+         case TAGATTR_ONCLICK:
+            onclick=ATTR(doc,ta);
+            break;
       }
    }
    /* We cannot handle external code yet */
@@ -6100,6 +6108,7 @@ static BOOL Doobject(struct Document *doc,struct Tagattr *ta)
                CONDTAG(AOCPY_Height,height),
                CONDTAG(AOCPY_Hspace,hspace),
                CONDTAG(AOCPY_Vspace,vspace),
+               AOCPY_Onclick,onclick,
                AOCPY_Objectready,FALSE,
                TAG_END))) return FALSE;
             if(!Addelement(doc,elt)) return FALSE;

@@ -938,6 +938,10 @@ static long Setcopy(struct Copy *cop,struct Amset *ams)
             if(cop->onabort) FREE(cop->onabort);
             cop->onabort=Dupstr((UBYTE *)tag->ti_Data,-1);
             break;
+         case AOCPY_Onclick:
+            if(cop->onclick) FREE(cop->onclick);
+            cop->onclick=Dupstr((UBYTE *)tag->ti_Data,-1);
+            break;
          case AOCPY_Onimgload:
             if(tag->ti_Data && cop->onload &&
                ((cop->frame && cop->flags&CPYF_JSONLOAD) || cop->flags&CPYF_JSIMAGE))
@@ -1491,16 +1495,36 @@ static long Handleinputcopy(struct Copy *cop,struct Aminput *ami)
                   }
                }
                else
-               {  url=(void *)Agetattr(cop->source,AOSRC_Url);
-                  if(ami->flags&AMHF_DOWNLOAD)
-                  {  if(url) Auload(url,AUMLF_DOWNLOAD|PROXY(cop),cop->referer,NULL,cop->frame);
+               {  /* Handle onclick for images and objects */
+                  if(cop->onclick && !cop->link && !(cop->flags&CPYF_BACKGROUND))
+                  {  if(Runjavascript(cop->frame?cop->frame:cop->jsframe,cop->onclick,&cop->jobject))
+                     {  /* onclick returned true, continue with default action */
+                        url=(void *)Agetattr(cop->source,AOSRC_Url);
+                        if(ami->flags&AMHF_DOWNLOAD)
+                        {  if(url) Auload(url,AUMLF_DOWNLOAD|PROXY(cop),cop->referer,NULL,cop->frame);
+                        }
+                        else
+                        {  /* Set defaulttype to image because it might have been an image
+                            * link before that used the image viewer */
+                           Asetattrs(cop->source,AOSRC_Defaulttype,"IMAGE/X-UNKNOWN",TAG_END);
+                           Auload(url,AUMLF_IMAGE|((cop->flags&CPYF_ERROR)?AUMLF_RELOAD:0)|PROXY(cop),
+                              cop->referer,NULL,cop->frame);
+                        }
+                     }
+                     /* If onclick returned false, don't do default action */
                   }
                   else
-                  {  /* Set defaulttype to image because it might have been an image
-                      * link before that used the image viewer */
-                     Asetattrs(cop->source,AOSRC_Defaulttype,"IMAGE/X-UNKNOWN",TAG_END);
-                     Auload(url,AUMLF_IMAGE|((cop->flags&CPYF_ERROR)?AUMLF_RELOAD:0)|PROXY(cop),
-                        cop->referer,NULL,cop->frame);
+                  {  url=(void *)Agetattr(cop->source,AOSRC_Url);
+                     if(ami->flags&AMHF_DOWNLOAD)
+                     {  if(url) Auload(url,AUMLF_DOWNLOAD|PROXY(cop),cop->referer,NULL,cop->frame);
+                     }
+                     else
+                     {  /* Set defaulttype to image because it might have been an image
+                         * link before that used the image viewer */
+                        Asetattrs(cop->source,AOSRC_Defaulttype,"IMAGE/X-UNKNOWN",TAG_END);
+                        Auload(url,AUMLF_IMAGE|((cop->flags&CPYF_ERROR)?AUMLF_RELOAD:0)|PROXY(cop),
+                           cop->referer,NULL,cop->frame);
+                     }
                   }
                }
                result=AMR_NOREUSE;
@@ -1804,6 +1828,7 @@ static void Disposecopy(struct Copy *cop)
    if(cop->onload) FREE(cop->onload);
    if(cop->onerror) FREE(cop->onerror);
    if(cop->onabort) FREE(cop->onabort);
+   if(cop->onclick) FREE(cop->onclick);
    Freejcopy(cop);
    Queuesetmsg(cop,0);
    Amethodas(AOTP_FIELD,cop,AOM_DISPOSE);
