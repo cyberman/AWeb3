@@ -5352,7 +5352,7 @@ static BOOL Addbutton(struct Document *doc,struct Tagattr *ta,BOOL custom)
       AOBJ_Frame,doc->frame,
       AOBJ_Cframe,doc->cframe,
       AOBJ_Window,doc->win,
-      AOFLD_Form,doc->forms.last,
+      AOFLD_Form,doc->pflags&DPF_FORM?doc->forms.last:NULL,
       AOFLD_Name,name,
       AOFLD_Value,value,
       AOFLD_Onclick,onclick,

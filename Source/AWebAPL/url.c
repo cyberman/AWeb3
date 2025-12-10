@@ -782,7 +782,8 @@ static void Moveurl(struct Url *url,UBYTE *newurl,BOOL temp,BOOL seeother,void *
          Notifychilds(url,AOREL_URL_WINDOW,AOWIN_Activeurl,url->movedto,TAG_END);
          /* In case of multipart data, the loadflags are already set ok. Just use
           * mpd instead of postmsg */
-         Auload(url->movedto,loadflags,referer?Findurl("",referer,0):NULL,
+         /* For redirects, set referer to the original URL (the one that redirected) */
+         Auload(url->movedto,loadflags,url,
             mpd?(UBYTE *)mpd:postmsg,NULL);
          if(url->ssource)
          {  Asetattrs(url->ssource,

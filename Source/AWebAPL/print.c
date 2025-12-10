@@ -193,6 +193,7 @@ static BOOL Finddimensions(struct Print *prt)
 
 /* If this is in the 3rd longword of pd_OldStk, it's a turboprint device. If
  * device version >=39 it can handle >8 bit bitmaps.
+ * Standard printer.device can handle >8 bit bitmaps from version 44.
  * Copied from turboprint.h: */
 #define TPMATCHWORD  0xf10a57ef
 
@@ -201,15 +202,18 @@ static BOOL Finddimensions(struct Print *prt)
 static void Startprintdoc(struct Print *prt)
 {  struct Screen *screen=(struct Screen *)Agetattr(Aweb(),AOAPP_Screen);
    struct PrinterData *pd=(struct PrinterData *)prt->ioreq->io_Device;
+   BOOL candodeeprp;
    pd->pd_Preferences.PrintAspect=ASPECT_HORIZ;
+   /* Check if printer can handle >8 bit bitmaps */
+   candodeeprp = ((((ULONG *)(pd->pd_OldStk))[2]==TPMATCHWORD) && (pd->pd_Device.dd_Device.lib_Version>=39))
+                 || (pd->pd_Device.dd_Device.lib_Version>=44);
    if(!(prt->progressreq=Openprogressreq(AWEBSTR(MSG_PRINT_PROGRESS)))) goto err;
    if(!(prt->prwin=Anewobject(AOTP_PRINTWINDOW,
       AOPRW_Width,prt->printwidth,
       AOPRW_Height,PRINTWINH,
       AOPRW_Layoutheight,prt->height,
       AOBJ_Nobackground,!(prt->flags&PRTF_BACKGROUND),
-      AOPRW_Turboprint,(((ULONG *)(pd->pd_OldStk))[2]==TPMATCHWORD)
-         && (pd->lib_Version>=39),
+      AOPRW_Turboprint,candodeeprp,
       TAG_END))) goto err;
    prt->rp=(struct RastPort *)Agetattr(prt->prwin,AOWIN_Rastport);
    prt->cmap=screen->ViewPort.ColorMap;
