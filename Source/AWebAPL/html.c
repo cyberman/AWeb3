@@ -3090,6 +3090,9 @@ static BOOL Dofont(struct Document *doc,struct Tagattr *ta)
    struct Colorinfo *ci=NULL;
    UBYTE *face=NULL;
    UBYTE *styleAttr=NULL;
+   UBYTE *class=NULL;
+   UBYTE *id=NULL;
+   void *body;
    for(;ta->next;ta=ta->next)
    {  switch(ta->attr)
       {  case TAGATTR_STYLE:
@@ -3106,15 +3109,28 @@ static BOOL Dofont(struct Document *doc,struct Tagattr *ta)
          case TAGATTR_FACE:
             face=ATTR(doc,ta);
             break;
+         case TAGATTR_CLASS:
+            class=ATTR(doc,ta);
+            break;
+         case TAGATTR_ID:
+            id=ATTR(doc,ta);
+            break;
       }
    }
+   if(!Ensurebody(doc)) return FALSE;
+   body = Docbodync(doc);
+   if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
+   if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
+   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"FONT",-1),TAG_END);
+   /* Apply CSS to body based on class/ID (before applying FONT attributes) */
+   ApplyCSSToBody(doc,body,class,id,"FONT");
    if(sizetag!=TAG_IGNORE || colorrgb!=(ULONG)~0 || face)
-   {  if(!Ensurebody(doc)) return FALSE;
-      if(!Solvebreaks(doc)) return FALSE;
+   {  if(!Solvebreaks(doc)) return FALSE;
       if(doc->doctype==DOCTP_BODY)
       {  if(colorrgb!=~0)
          {  if(!(ci=Finddoccolor(doc,colorrgb))) return FALSE;
          }
+         /* FONT tag color attribute overrides CSS color */
          Asetattrs(Docbody(doc),
             sizetag,size,
             (ci?AOBDY_Fontcolor:TAG_IGNORE),ci,
@@ -3122,7 +3138,7 @@ static BOOL Dofont(struct Document *doc,struct Tagattr *ta)
             TAG_END);
       }
    }
-   /* Apply inline CSS if present */
+   /* Apply inline CSS if present (overrides both external CSS and FONT attributes) */
    if(styleAttr && doc->doctype==DOCTP_BODY)
    {  ApplyInlineCSSToBody(doc,Docbody(doc),styleAttr,(UBYTE *)"FONT");
    }
