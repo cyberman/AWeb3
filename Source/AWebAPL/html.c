@@ -2005,10 +2005,17 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
    }
    /* Check for external stylesheet */
    if(url && rel && STRIEQUAL(rel,"stylesheet"))
-   {  /* debug_printf("Dolink: Found stylesheet link, href=%s\n",
-                  href ? (char *)href : "NULL"); */
+   {  extern BOOL httpdebug;
+      UBYTE *urlstr;
+      BOOL isReload;
+      urlstr = (UBYTE *)Agetattr(url,AOURL_Url);
+      isReload = (doc->pflags&DPF_RELOADVERIFY) && !(doc->pflags&DPF_NORLDOCEXT);
+      if(httpdebug)
+      {  printf("[STYLE] Dolink: Found stylesheet link, href=%s, reload=%d, existing stylesheet=%p\n",
+                urlstr ? (char *)urlstr : "NULL", isReload ? 1 : 0, doc->cssstylesheet);
+      }
       /* Try to load external CSS */
-      extcss = Finddocext(doc,url,(doc->pflags&DPF_RELOADVERIFY) && !(doc->pflags&DPF_NORLDOCEXT));
+      extcss = Finddocext(doc,url,isReload);
       if(extcss)
       {  if(extcss == (UBYTE *)~0)
          {  extern BOOL httpdebug;
@@ -2019,38 +2026,72 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
          }
          else
          {  extern BOOL httpdebug;
-            /* CRITICAL: Don't call strlen on extcss - it's a pointer to a shared buffer
-             * that might not be properly null-terminated or could be reallocated.
-             * MergeCSSStylesheet will copy it safely. */
-            if(httpdebug)
-            {  /* Get length safely by copying first (for debug only) */
-               UBYTE *cssCopy = Dupstr(extcss, -1);
-               if(cssCopy)
-               {  printf("[CSS] Dolink: External CSS loaded, length=%ld bytes, calling MergeCSSStylesheet\n",
-                        strlen((char *)cssCopy));
-                  FREE(cssCopy);
+            /* Check if this CSS was already merged via AODOC_Docextready.
+             * If DPF_NORLDOCEXT is set, it means the CSS was already processed. */
+            if(doc->pflags&DPF_NORLDOCEXT)
+            {  if(httpdebug)
+               {  printf("[STYLE] Dolink: CSS already merged via AODOC_Docextready, skipping duplicate merge\n");
                }
-               else
-               {  printf("[CSS] Dolink: External CSS loaded, calling MergeCSSStylesheet\n");
+               /* CSS was already merged, just apply to body if needed */
+               if(doc->body && doc->cssstylesheet)
+               {  if(httpdebug)
+                  {  printf("[STYLE] Dolink: Re-applying CSS to body (already merged), body=%p, stylesheet=%p\n",
+                           doc->body, doc->cssstylesheet);
+                  }
+                  ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
+                  if(doc->win && doc->frame)
+                  {  Registerdoccolors(doc);
+                  }
                }
             }
-            /* Merge external CSS with existing stylesheet */
-            MergeCSSStylesheet(doc,extcss);
-            /* Apply link colors from CSS (a:link, a:visited) */
-            ApplyCSSToLinkColors(doc);
-            /* Always re-apply CSS to body when external CSS loads */
-            if(doc->body && doc->cssstylesheet)
-            {  /* debug_printf("Dolink: Re-applying CSS to body after external CSS load\n"); */
-               ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
-               /* Re-register colors to ensure link colors are updated */
-               if(doc->win && doc->frame)
-               {  Registerdoccolors(doc);
+            else
+            {  /* CRITICAL: Don't call strlen on extcss - it's a pointer to a shared buffer
+                 * that might not be properly null-terminated or could be reallocated.
+                 * MergeCSSStylesheet will copy it safely. */
+               if(httpdebug)
+               {  /* Get length safely by copying first (for debug only) */
+                  UBYTE *cssCopy = Dupstr(extcss, -1);
+                  if(cssCopy)
+                  {  printf("[CSS] Dolink: External CSS loaded, length=%ld bytes, calling MergeCSSStylesheet\n",
+                           strlen((char *)cssCopy));
+                     FREE(cssCopy);
+                  }
+                  else
+                  {  printf("[CSS] Dolink: External CSS loaded, calling MergeCSSStylesheet\n");
+                  }
+               }
+               /* Merge external CSS with existing stylesheet */
+               if(httpdebug)
+               {  printf("[STYLE] Dolink: Merging CSS into stylesheet (existing=%p)\n", doc->cssstylesheet);
+               }
+               MergeCSSStylesheet(doc,extcss);
+               /* Set DPF_NORLDOCEXT to prevent duplicate merge if AODOC_Docextready is called later */
+               doc->pflags|=DPF_NORLDOCEXT;
+               /* Apply link colors from CSS (a:link, a:visited) */
+               ApplyCSSToLinkColors(doc);
+               /* Always re-apply CSS to body when external CSS loads */
+               if(doc->body && doc->cssstylesheet)
+               {  if(httpdebug)
+                  {  printf("[STYLE] Dolink: Re-applying CSS to body after external CSS load, body=%p, stylesheet=%p\n",
+                            doc->body, doc->cssstylesheet);
+                  }
+                  ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
+                  /* Re-register colors to ensure link colors are updated */
+                  if(doc->win && doc->frame)
+                  {  Registerdoccolors(doc);
+                  }
+               }
+               else if(httpdebug)
+               {  printf("[STYLE] Dolink: Cannot apply CSS - body=%p, stylesheet=%p\n", doc->body, doc->cssstylesheet);
                }
             }
          }
       }
       else
-      {  /* debug_printf("Dolink: External CSS not yet available, suspending parsing\n"); */
+      {  extern BOOL httpdebug;
+         if(httpdebug)
+         {  printf("[STYLE] Dolink: External CSS not yet available, suspending parsing\n");
+         }
          /* External CSS not yet available, suspend parsing */
          doc->pflags|=DPF_SUSPEND|DPF_NORLDOCEXT;
       }
@@ -2217,27 +2258,37 @@ static BOOL Docsssource(struct Document *doc,struct Tagattr *ta)
 /*** </STYLE> - Process CSS ***/
 static BOOL Docssend(struct Document *doc)
 {  UBYTE *css;
+   extern BOOL httpdebug;
    if(doc->csssrc.length>0)
    {  if(!Addtobuffer(&doc->csssrc,"",1)) return FALSE; /* null terminate */
       css=doc->csssrc.buffer;
       if(css)
-      {  /* debug_printf("CSS: Parsing stylesheet, length=%ld\n",doc->csssrc.length); */
-         /* Check if we're merging with existing stylesheet */
-         BOOL hadExistingSheet = (doc->cssstylesheet != NULL);
+      {  BOOL hadExistingSheet = (doc->cssstylesheet != NULL);
+         if(httpdebug)
+         {  printf("[STYLE] Docssend: Processing inline CSS, length=%ld bytes, existing stylesheet=%p\n",
+                   doc->csssrc.length, doc->cssstylesheet);
+         }
          /* Parse and apply CSS stylesheet */
          ParseCSSStylesheet(doc,css);
-         /* debug_printf("CSS: Stylesheet parsed, body exists=%d, stylesheet=%p\n",
-                      (doc->body != NULL), doc->cssstylesheet); */
+         if(httpdebug)
+         {  printf("[STYLE] Docssend: CSS parsed, stylesheet=%p, body=%p\n",
+                   doc->cssstylesheet, doc->body);
+         }
          /* Apply link colors from CSS (a:link, a:visited) */
          ApplyCSSToLinkColors(doc);
          /* Apply CSS to body if it already exists, or if we merged with existing sheet */
          if(doc->body && doc->cssstylesheet)
-         {  /* debug_printf("CSS: Applying stylesheet CSS to body\n"); */
+         {  if(httpdebug)
+            {  printf("[STYLE] Docssend: Applying CSS to body\n");
+            }
             ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
             /* Re-register colors if we merged (to ensure link colors are updated) */
             if(hadExistingSheet && doc->win && doc->frame)
             {  Registerdoccolors(doc);
             }
+         }
+         else if(httpdebug)
+         {  printf("[STYLE] Docssend: Cannot apply CSS - body=%p, stylesheet=%p\n", doc->body, doc->cssstylesheet);
          }
       }
       Freebuffer(&doc->csssrc);
@@ -2407,7 +2458,11 @@ static BOOL Dobody(struct Document *doc,struct Tagattr *ta)
    }
    /* Apply CSS from stylesheet to body element */
    if(doc->body)
-   {  /* debug_printf("CSS: Dobody called, applying CSS to body, stylesheet=%p\n",doc->cssstylesheet); */
+   {  extern BOOL httpdebug;
+      if(httpdebug)
+      {  printf("[RENDER] Dobody: Applying CSS to body, stylesheet=%p, body=%p\n",
+                doc->cssstylesheet, doc->body);
+      }
       ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
    }
    if(gotcolor && !gotbg)
@@ -2416,9 +2471,12 @@ static BOOL Dobody(struct Document *doc,struct Tagattr *ta)
    }
    /* Register colours with our frame - this ensures CSS link colors are applied */
    if(doc->win && doc->frame)
-   {  Registerdoccolors(doc);
-      /* debug_printf("CSS: Dobody registered document colors (linkcolor=%p vlinkcolor=%p)\n",
-                   doc->linkcolor, doc->vlinkcolor); */
+   {  extern BOOL httpdebug;
+      Registerdoccolors(doc);
+      if(httpdebug)
+      {  printf("[RENDER] Dobody: Registered document colors (linkcolor=%p vlinkcolor=%p)\n",
+                doc->linkcolor, doc->vlinkcolor);
+      }
    }
    Checkid(doc,ta);
    return TRUE;

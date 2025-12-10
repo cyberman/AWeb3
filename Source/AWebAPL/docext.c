@@ -234,28 +234,46 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
    ULONG loadflags=AUMLF_DOCEXT;
    void *durl;
    void *furl=(void *)Agetattr(url,AOURL_Finalurlptr);
-/*
-printf("Search for url %08x=%s\n"
-       "             ->%08x=%s\n",
-       url,Agetattr(url,AOURL_Url),
-       furl,Agetattr(furl,AOURL_Url));
-*/
+   UBYTE *urlstr;
+   extern BOOL httpdebug;
+   urlstr = (UBYTE *)Agetattr(url,AOURL_Url);
+   if(httpdebug)
+   {  printf("[FETCH] Finddocext: URL=%s, reload=%d\n", urlstr ? (char *)urlstr : "NULL", reload ? 1 : 0);
+   }
    if(reload)
    {  loadflags|=AUMLF_RELOAD;
+      if(httpdebug)
+      {  printf("[FETCH] Finddocext: Reload requested, forcing fresh load\n");
+      }
    }
    else
    {  for(dox=docexts.first;dox->next;dox=dox->next)
       {  durl=(void *)Agetattr(dox->url,AOURL_Finalurlptr);
-/*
-printf("       dox url %08x=%s\n"
-       "             ->%08x=%s\n",
-       dox->url,Agetattr(dox->url,AOURL_Url),
-       durl,Agetattr(durl,AOURL_Url));
-*/
          if(durl==furl)
-         {  if(dox->flags&DOXF_ERROR) return (UBYTE *)~0;
-            else return dox->buf.buffer;
+         {  if(dox->flags&DOXF_ERROR)
+            {  if(httpdebug)
+               {  printf("[FETCH] Finddocext: Cached entry found but in ERROR state\n");
+               }
+               return (UBYTE *)~0;
+            }
+            /* Only return cached buffer if it's complete (EOF reached) and valid.
+             * After a reload, the buffer is freed and DOXF_EOF is cleared, so
+             * we need to reload it instead of returning an invalid buffer. */
+            if((dox->flags&DOXF_EOF) && dox->buf.buffer && dox->buf.length > 0)
+            {  if(httpdebug)
+               {  printf("[FETCH] Finddocext: Cache HIT - returning cached buffer, length=%ld bytes\n", dox->buf.length);
+               }
+               return dox->buf.buffer;
+            }
+            if(httpdebug)
+            {  printf("[FETCH] Finddocext: Cached entry found but buffer not ready (EOF=%d, buffer=%p, length=%ld), loading fresh\n",
+                      (dox->flags&DOXF_EOF) ? 1 : 0, dox->buf.buffer, dox->buf.length);
+            }
+            /* Buffer not ready yet, fall through to load it */
          }
+      }
+      if(httpdebug)
+      {  printf("[FETCH] Finddocext: Cache MISS - starting async load\n");
       }
    }
    Addwaitingdoc(doc,url);

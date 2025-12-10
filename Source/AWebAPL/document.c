@@ -175,6 +175,15 @@ static void Reloaddocument(struct Document *doc)
 {  void *p,*url;
    UBYTE *newbase,*start;
    long length;
+   extern BOOL httpdebug;
+   if(httpdebug)
+   {  void *docurl;
+      UBYTE *urlstr;
+      docurl = (void *)Agetattr(doc->source->source,AOSRC_Url);
+      urlstr = docurl ? (UBYTE *)Agetattr(docurl,AOURL_Url) : NULL;
+      printf("[RELOAD] Reloaddocument: Starting reload for document, URL=%s, stylesheet=%p, body=%p\n",
+             urlstr ? (char *)urlstr : "NULL", doc->cssstylesheet, doc->body);
+   }
    Asetattrs(doc->frame,
       AOFRM_Bgcolor,-1,
       AOFRM_Textcolor,-1,
@@ -244,7 +253,12 @@ static void Reloaddocument(struct Document *doc)
    Addtobuffer(&doc->text," ",1);
    doc->srcpos=0;
    doc->htmlmode=prefs.htmlmode;
-   doc->pflags=0;
+   /* Preserve DPF_RELOADVERIFY flag during reload so CSS and other external
+    * resources are properly reloaded instead of using cached versions */
+   {  ULONG savedReloadVerify = (doc->pflags & DPF_RELOADVERIFY);
+      doc->pflags=0;
+      if(savedReloadVerify) doc->pflags|=DPF_RELOADVERIFY;
+   }
    doc->pmode=0;
    if(doc->currentlistclass) FREE(doc->currentlistclass);
    doc->currentlistclass=NULL;
@@ -266,6 +280,10 @@ static void Reloaddocument(struct Document *doc)
    Freejdoc(doc);
    if(doc->frame) doc->dflags|=DDF_DISPTITLE;
    SETFLAG(doc->pflags,DPF_SCRIPTJS,(doc->source->flags&DOSF_SCRIPTJS));
+   if(httpdebug)
+   {  printf("[RELOAD] Reloaddocument: Reload complete, stylesheet=%p (should be NULL), body=%p (should be NULL), pflags=0x%lx (reloadverify=%d)\n",
+             doc->cssstylesheet, doc->body, (ULONG)doc->pflags, (doc->pflags & DPF_RELOADVERIFY) ? 1 : 0);
+   }
 }
 
 static void Forwardtomap(struct Document *doc,UBYTE *name,struct Amset *ams)
@@ -645,35 +663,59 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
                   }
                   if(isCSS)
                   {  extern BOOL httpdebug;
+                     UBYTE *urlstr;
+                     urlstr = (UBYTE *)Agetattr(url,AOURL_Url);
                      if(httpdebug)
-                     {  printf("[CSS] AODOC_Docextready: Detected CSS file, loading from URL\n");
+                     {  printf("[STYLE] AODOC_Docextready: CSS file ready, URL=%s, existing stylesheet=%p\n",
+                               urlstr ? (char *)urlstr : "NULL", doc->cssstylesheet);
                      }
                      /* Try to get the CSS content */
                      extcss = Finddocext(doc,url,FALSE);
                      if(extcss && extcss != (UBYTE *)~0)
                      {  if(httpdebug)
-                        {  printf("[CSS] AODOC_Docextready: CSS file loaded, length=%ld bytes, calling MergeCSSStylesheet\n",
+                        {  printf("[STYLE] AODOC_Docextready: CSS file loaded, length=%ld bytes, calling MergeCSSStylesheet\n",
                                  strlen((char *)extcss));
                         }
-                        /* Merge external CSS with existing stylesheet */
-                        MergeCSSStylesheet(doc,extcss);
+                        /* Check if this CSS was already merged via Dolink.
+                         * If DPF_NORLDOCEXT is set, it means Dolink already processed it. */
+                        if(!(doc->pflags&DPF_NORLDOCEXT))
+                        {  /* Merge external CSS with existing stylesheet */
+                           MergeCSSStylesheet(doc,extcss);
+                           /* Set DPF_NORLDOCEXT to prevent Dolink from merging this CSS again
+                            * if it's called later (e.g., during parsing resume after suspend) */
+                           doc->pflags|=DPF_NORLDOCEXT;
+                        }
+                        else if(httpdebug)
+                        {  printf("[STYLE] AODOC_Docextready: CSS already merged via Dolink, skipping duplicate merge\n");
+                        }
                         /* Apply link colors from CSS (a:link, a:visited) */
                         ApplyCSSToLinkColors(doc);
                         /* Always re-apply CSS to body when external CSS loads */
                         if(doc->body && doc->cssstylesheet)
-                        {  /* debug_printf("AODOC_Docextready: Re-applying CSS to body after external CSS load\n"); */
+                        {  if(httpdebug)
+                           {  printf("[STYLE] AODOC_Docextready: Re-applying CSS to body, body=%p, stylesheet=%p\n",
+                                    doc->body, doc->cssstylesheet);
+                           }
                            ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
                            /* Re-register colors to ensure link colors are updated */
                            if(doc->win && doc->frame)
                            {  Registerdoccolors(doc);
                            }
                         }
+                        else if(httpdebug)
+                        {  printf("[STYLE] AODOC_Docextready: Cannot apply CSS - body=%p, stylesheet=%p\n",
+                                  doc->body, doc->cssstylesheet);
+                        }
                      }
                      else if(extcss == (UBYTE *)~0)
-                     {  /* debug_printf("AODOC_Docextready: CSS file load error\n"); */
+                     {  if(httpdebug)
+                        {  printf("[STYLE] AODOC_Docextready: CSS file load error\n");
+                        }
                      }
                      else
-                     {  /* debug_printf("AODOC_Docextready: CSS file not yet available\n"); */
+                     {  if(httpdebug)
+                        {  printf("[STYLE] AODOC_Docextready: CSS file not yet available\n");
+                        }
                      }
                   }
                }
