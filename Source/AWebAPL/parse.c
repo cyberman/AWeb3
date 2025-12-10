@@ -645,7 +645,11 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
                case 0x2039: replacement = 0x3C; break;  /* Single left-pointing angle quotation mark -> < */
                case 0x203A: replacement = 0x3E; break;  /* Single right-pointing angle quotation mark -> > */
                case 0x2122: replacement_str = "TM"; break;  /* Trade mark sign -> TM */
-               case 0x00A0: replacement = 0x20; break;  /* Non-breaking space -> space */
+               case 0x00A0: 
+                  /* Preserve non-breaking space in preformat mode to maintain column alignment */
+                  if(doc->pflags&DPF_PREFORMAT) replacement = 0xA0;
+                  else replacement = 0x20;  /* Non-breaking space -> space */
+                  break;
                case 0x00A9: replacement = 0xA9; break;  /* Copyright sign -> 0xA9 */
                case 0x00AE: replacement = 0xAE; break;  /* Registered sign -> 0xAE */
                default:
@@ -1715,7 +1719,9 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
                      skipnewline=FALSE;
                   }
                   else
-                  {  if(!Addtobuffer(&doc->args,"\xa0",1)) return FALSE;
+                  {  /* In preformat mode, preserve all spaces as non-breaking spaces */
+                     /* This ensures column alignment is maintained in <pre> blocks */
+                     if(!Addtobuffer(&doc->args,"\xa0",1)) return FALSE;
                      ta->length++;
                      doc->charcount++;
                      skipnewline=FALSE;

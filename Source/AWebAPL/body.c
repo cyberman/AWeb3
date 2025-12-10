@@ -1059,7 +1059,7 @@ if(SetSignal(0,0)&SIGBREAKF_CTRL_C) return 0;
       parentHeight = amlp->height;
       
       /* Try to get parent object dimensions if available */
-      parentObj = Agetattr((void *)bd, AOBJ_Layoutparent);
+      parentObj = (void *)Agetattr((struct Aobject *)bd, AOBJ_Layoutparent);
       if(parentObj)
       {  long pw, ph;
          Agetattrs(parentObj, AOBJ_Width, &pw, AOBJ_Height, &ph, TAG_END);
