@@ -591,7 +591,7 @@ void Garbagecollect(struct Jcontext *jc)
          }
       }
       /* Move surviving objects to objects list */
-      while(jo=(struct Jobject *)RemHead(&jc->tmp))
+      while(jo=REMHEAD(&jc->tmp))
       {  ADDTAIL(&jc->objects,jo);
       }
    }
