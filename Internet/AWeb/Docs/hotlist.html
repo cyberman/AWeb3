@@ -87,6 +87,30 @@ You can load another AWeb hotlist using the <code>Hotlist / Other...</code>
 menu item. The hotlist will be shown as document, not in the hotlist
 viewer window.
 
+<h3>Importing Mozilla/Netscape bookmarks</h3>
+AWeb can automatically import bookmarks from Mozilla, Firefox, Netscape,
+and other browsers that use the standard Netscape Bookmark File Format.
+To import your bookmarks:
+<ol>
+<li>Export your bookmarks from your browser as an HTML file (usually
+    named "bookmarks.html" or similar).
+<li>Rename or copy the exported file to replace your AWeb hotlist file
+    (by default <code>AWeb:aweb.hotlist</code>), or specify it using the
+    <code>HOTLIST</code> tooltype or argument.
+<li>Start AWeb. The hotlist loader will automatically detect the Mozilla
+    format and import all bookmarks, including nested folders.
+</ol>
+<p>
+The import process preserves:
+<ul>
+<li>All bookmark URLs and titles
+<li>Folder structure and nesting
+<li>Creation dates (when available)
+</ul>
+<p>
+After importing, you can use the <a href=hotlistmgr.html>hotlist manager</a>
+to organize and edit the imported bookmarks just like any AWeb hotlist.
+
 <p>
 <hr>
 <a href=aweb.html><img src=back.gif width=32 height=16 alt="<-" border=0></a> Back to
