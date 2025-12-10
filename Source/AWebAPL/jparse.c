@@ -44,28 +44,20 @@ static struct Keyworddef keywordtab[]=
    "address",     JT_ADDRESS,
 #endif
    "break",       JT_BREAK,
-   "case",        JT_CASE,
-   "catch",       JT_CATCH,
    "continue",    JT_CONTINUE,
 #ifdef JSDEBUG
    "debug",       JT_DEBUG,
 #endif
-   "default",     JT_DEFAULT,
    "delete",      JT_DELETE,
    "do",          JT_DO,
    "else",        JT_ELSE,
-   "finally",     JT_FINALLY,
    "for",         JT_FOR,
    "function",    JT_FUNCTION,
    "if",          JT_IF,
    "in",          JT_IN,
-   "instanceof",  JT_INSTANCEOF,
    "new",         JT_NEW,
    "return",      JT_RETURN,
-   "switch",      JT_SWITCH,
    "this",        JT_THIS,
-   "throw",       JT_THROW,
-   "try",         JT_TRY,
    "typeof",      JT_TYPEOF,
    "var",         JT_VAR,
    "void",        JT_VOID,
@@ -321,14 +313,7 @@ struct Token *Nexttoken(struct Parser *pa)
       case '=':
          pa->next++;
          switch(*pa->next)
-         {  case '=':
-               pa->next++;
-               if(*pa->next=='=')
-               {  token.id=JT_EXEQ;pa->next++;break;
-               }
-               else
-               {  token.id=JT_EQ;break;
-               }
+         {  case '=':   token.id=JT_EQ;pa->next++;break;
             default:    token.id=JT_ASSIGN;break;
          }
          break;
@@ -377,14 +362,7 @@ struct Token *Nexttoken(struct Parser *pa)
       case '!':
          pa->next++;
          switch(*pa->next)
-         {  case '=':
-               pa->next++;
-               if(*pa->next=='=')
-               {  token.id=JT_NEXEQ;pa->next++;break;
-               }
-               else
-               {  token.id=JT_NE;break;
-               }
+         {  case '=':   token.id=JT_NE;pa->next++;break;
             default:    token.id=JT_NOT;break;
          }
          break;

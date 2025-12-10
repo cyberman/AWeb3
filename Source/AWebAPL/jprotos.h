@@ -280,23 +280,6 @@ extern void Initstring(struct Jcontext *jc);
 extern struct Jobject *Newstring(struct Jcontext *jc,UBYTE *svalue);
 
 /*-----------------------------------------------------------------------*/
-/*-- jerror -------------------------------------------------------------*/
-/*-----------------------------------------------------------------------*/
-
-__asm __saveds void Initerror(
-   register __a0 struct Jcontext *jc,
-   register __a1 struct Jobject *jscope);
-
-__asm __saveds struct Jobject *Newerror(
-   register __a0 struct Jcontext *jc,
-   register __a1 UBYTE *message);
-
-__asm __saveds struct Jobject *Newnativeerror(
-   register __a0 struct Jcontext *jc,
-   register __a1 UBYTE *type,
-   register __a2 UBYTE *message);
-
-/*-----------------------------------------------------------------------*/
 /*--        -------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
 
