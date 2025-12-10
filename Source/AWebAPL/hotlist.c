@@ -142,6 +142,307 @@ static void Readhotgroup(struct Hotitem *owner,void *hlist,long fh,
 #endif
 }
 
+/* Case-insensitive character comparison */
+static BOOL charequal(UBYTE a,UBYTE b)
+{  if(a==b) return TRUE;
+   if(a>='A' && a<='Z') a=a-'A'+'a';
+   if(b>='A' && b<='Z') b=b-'A'+'a';
+   return BOOLVAL(a==b);
+}
+
+/* Extract attribute value from HTML tag line (case-insensitive attribute name) */
+static UBYTE *Gethtmlattr(UBYTE *line,UBYTE *attrname)
+{  UBYTE *p,*q,*val;
+   long len,attrlen;
+   long i;
+   BOOL match;
+   if(!line || !attrname) return NULL;
+   p=line;
+   attrlen=strlen(attrname);
+   while(*p)
+   {  /* Case-insensitive search for attribute name */
+      match=TRUE;
+      for(i=0;i<attrlen && p[i];i++)
+      {  if(!charequal(p[i],attrname[i]))
+         {  match=FALSE;
+            break;
+         }
+      }
+      if(match && (p[attrlen]==' ' || p[attrlen]=='\t' || p[attrlen]=='='))
+      {  p+=attrlen;
+         while(*p==' ' || *p=='\t') p++;
+         if(*p=='=')
+         {  p++;
+            while(*p==' ' || *p=='\t') p++;
+            if(*p=='"')
+            {  p++;
+               q=p;
+               while(*q && *q!='"' && *q!='>') q++;
+               if(*q=='"')
+               {  len=q-p;
+                  if(len>0 && len<MAXURLSIZE)
+                  {  if(val=ALLOCTYPE(UBYTE,len+1,MEMF_PUBLIC))
+                     {  strncpy(val,p,len);
+                        val[len]='\0';
+                        return val;
+                     }
+                  }
+               }
+            }
+            else if(*p!='>' && *p!=' ' && *p!='\t')
+            {  q=p;
+               while(*q && *q!=' ' && *q!='\t' && *q!='>') q++;
+               len=q-p;
+               if(len>0 && len<MAXURLSIZE)
+               {  if(val=ALLOCTYPE(UBYTE,len+1,MEMF_PUBLIC))
+                  {  strncpy(val,p,len);
+                     val[len]='\0';
+                     return val;
+                  }
+               }
+            }
+         }
+      }
+      p++;
+   }
+   return NULL;
+}
+
+/* Extract text content from HTML tag, removing HTML entities */
+static UBYTE *Gethtmltext(UBYTE *line)
+{  UBYTE *p,*q,*result,*out;
+   long len,outlen;
+   BOOL intag;
+   if(!line) return NULL;
+   len=strlen(line);
+   if(result=ALLOCTYPE(UBYTE,len+1,MEMF_PUBLIC))
+   {  p=line;
+      out=result;
+      outlen=0;
+      intag=FALSE;
+      while(*p && outlen<len)
+      {  if(*p=='<')
+         {  intag=TRUE;
+            p++;
+            while(*p && *p!='>') p++;
+            if(*p=='>') p++;
+            intag=FALSE;
+         }
+         else if(*p=='&')
+         {  if(STRNIEQUAL(p,"&lt;",4))
+            {  *out++='<';
+               outlen++;
+               p+=4;
+            }
+            else if(STRNIEQUAL(p,"&gt;",4))
+            {  *out++='>';
+               outlen++;
+               p+=4;
+            }
+            else if(STRNIEQUAL(p,"&amp;",5))
+            {  *out++='&';
+               outlen++;
+               p+=5;
+            }
+            else if(STRNIEQUAL(p,"&quot;",6))
+            {  *out++='"';
+               outlen++;
+               p+=6;
+            }
+            else if(STRNIEQUAL(p,"&#",2))
+            {  p+=2;
+               while(*p>='0' && *p<='9') p++;
+               if(*p==';') p++;
+            }
+            else
+            {  q=p+1;
+               while(*q && *q!=';' && *q!=' ' && *q!='\t' && *q!='<') q++;
+               if(*q==';') p=q+1;
+               else p=q;
+            }
+         }
+         else if(!intag)
+         {  *out++=*p++;
+            outlen++;
+         }
+         else
+         {  p++;
+         }
+      }
+      *out='\0';
+      /* Trim whitespace */
+      p=result;
+      while(*p==' ' || *p=='\t' || *p=='\n' || *p=='\r') p++;
+      if(p>result)
+      {  q=result;
+         while(*p) *q++=*p++;
+         *q='\0';
+      }
+      p=result+strlen(result)-1;
+      while(p>=result && (*p==' ' || *p=='\t' || *p=='\n' || *p=='\r')) *p--='\0';
+      if(*result)
+      {  return result;
+      }
+      FREE(result);
+   }
+   return NULL;
+}
+
+/* Parse Mozilla/Netscape bookmarks HTML format */
+static void Readmozillahotlist(long fh,UBYTE *buffer)
+{  
+#ifndef DEMOVERSION
+   struct Hotitem *hi,*currentgroup;
+   struct Hotbase *hb;
+   UBYTE *url,*title,*adddate;
+   UBYTE *p,*q;
+   long l;
+   ULONG date=0;
+   BOOL indl=FALSE;
+   currentgroup=NULL;
+   Seek(fh,0,OFFSET_BEGINNING);
+   while(FGets(fh,buffer,MAXURLSIZE+1))
+   {  l=strlen(buffer);
+      if(l>0 && buffer[l-1]=='\n') buffer[l-1]='\0';
+      if(l>0 && buffer[l-1]=='\r') buffer[l-1]='\0';
+      /* Skip whitespace lines */
+      p=buffer;
+      while(*p==' ' || *p=='\t') p++;
+      if(!*p) continue;
+      /* Check for <DL><p> - start of folder */
+      if(STRNIEQUAL(p,"<DL><p>",7) || STRNIEQUAL(p,"<DL>",4))
+      {  indl=TRUE;
+         continue;
+      }
+      /* Check for </DL><p> - end of folder */
+      if(STRNIEQUAL(p,"</DL><p>",8) || STRNIEQUAL(p,"</DL>",5))
+      {  if(currentgroup)
+         {  currentgroup=currentgroup->owner;
+         }
+         indl=FALSE;
+         continue;
+      }
+      /* Check for <DT><H3> - folder/group */
+      if(STRNIEQUAL(p,"<DT><H3",7))
+      {  title=Gethtmltext(p);
+         adddate=Gethtmlattr(p,"ADD_DATE");
+         if(adddate)
+         {  sscanf(adddate,"%lu",&date);
+            FREE(adddate);
+         }
+         if(title && *title)
+         {  if(hi=ALLOCSTRUCT(Hotitem,1,MEMF_PUBLIC|MEMF_CLEAR))
+            {  hi->nodetype=HNT_ITEM;
+               hi->type=HITEM_GROUP;
+               hi->name=title;
+               hi->owner=currentgroup;
+               NEWLIST(&hi->subitems);
+               if(currentgroup)
+               {  ADDTAIL(&currentgroup->subitems,hi);
+               }
+               else
+               {  ADDTAIL(&hotlist,hi);
+               }
+               currentgroup=hi;
+            }
+            else
+            {  FREE(title);
+            }
+         }
+         continue;
+      }
+      /* Check for <DT><A HREF=...> - bookmark entry */
+      if(STRNIEQUAL(p,"<DT><A",6))
+      {  url=Gethtmlattr(p,"HREF");
+         adddate=Gethtmlattr(p,"ADD_DATE");
+         if(adddate)
+         {  sscanf(adddate,"%lu",&date);
+            FREE(adddate);
+         }
+         /* Get title from text content after the tag */
+         q=strchr(p,'>');
+         if(q)
+         {  q++;
+            title=Gethtmltext(q);
+            /* If title not found on same line, try next line */
+            if((!title || !*title) && FGets(fh,buffer,MAXURLSIZE+1))
+            {  l=strlen(buffer);
+               if(l>0 && buffer[l-1]=='\n') buffer[l-1]='\0';
+               if(l>0 && buffer[l-1]=='\r') buffer[l-1]='\0';
+               q=buffer;
+               while(*q==' ' || *q=='\t') q++;
+               /* Check if this line contains </A> - if so, extract title before it */
+               {  UBYTE *endtag;
+                  endtag=strstr(q,"</A>");
+                  if(endtag)
+                  {  *endtag='\0';
+                     title=Gethtmltext(q);
+                  }
+                  else
+                  {  title=Gethtmltext(q);
+                  }
+               }
+            }
+         }
+         if(url && *url)
+         {  if(!title || !*title) title=Dupstr(url,-1);
+            hb=Findbase(title,url);
+            if(hb && date) hb->date=date;
+            if(hb && (hi=ALLOCSTRUCT(Hotitem,1,MEMF_PUBLIC|MEMF_CLEAR)))
+            {  hi->nodetype=HNT_ITEM;
+               hi->type=HITEM_ENTRY;
+               hi->base=hb;
+               hi->owner=currentgroup;
+               NEWLIST(&hi->subitems);
+               hb->used++;
+               if(currentgroup)
+               {  ADDTAIL(&currentgroup->subitems,hi);
+               }
+               else
+               {  ADDTAIL(&hotlist,hi);
+               }
+            }
+         }
+         if(url) FREE(url);
+         if(title) FREE(title);
+         date=0;
+         continue;
+      }
+   }
+#endif
+}
+
+/* Detect if file is Mozilla bookmarks format */
+static BOOL Ismozillabookmarks(long fh)
+{  UBYTE buffer[512];
+   long pos;
+   BOOL result=FALSE;
+   long i;
+   pos=Seek(fh,0,OFFSET_CURRENT);
+   Seek(fh,0,OFFSET_BEGINNING);
+   /* Check first few lines for DOCTYPE or DL tag */
+   for(i=0;i<10 && !result && FGets(fh,buffer,sizeof(buffer));i++)
+   {  /* Check for DOCTYPE declaration */
+      if(STRNIEQUAL(buffer,"<!DOCTYPE NETSCAPE-Bookmark-file-1",34))
+      {  result=TRUE;
+         break;
+      }
+      /* Check for <DL> tag (case-insensitive) */
+      {  UBYTE *p;
+         p=buffer;
+         while(*p)
+         {  if((*p=='<' || *p==' ') && STRNIEQUAL(p+1,"DL>",3))
+            {  result=TRUE;
+               break;
+            }
+            p++;
+         }
+      }
+   }
+   Seek(fh,pos,OFFSET_BEGINNING);
+   return result;
+}
+
 static void Readawebhotlist(void)
 {  
 #ifndef DEMOVERSION
@@ -149,7 +450,10 @@ static void Readawebhotlist(void)
    UBYTE *iobuffer;
    if(iobuffer=ALLOCTYPE(UBYTE,MAXURLSIZE+512,MEMF_PUBLIC))
    {  if(fh=Open(hotlistname,MODE_OLDFILE))
-      {  if(FGets(fh,iobuffer,MAXURLSIZE+1) && iobuffer[0]=='@')
+      {  if(Ismozillabookmarks(fh))
+         {  Readmozillahotlist(fh,iobuffer);
+         }
+         else if(FGets(fh,iobuffer,MAXURLSIZE+1) && iobuffer[0]=='@')
          {  Readhotgroup(NULL,&hotlist,fh,iobuffer);
          }
          Close(fh);
