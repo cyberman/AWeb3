@@ -35,6 +35,7 @@
 #include "frprivate.h"
 #include "body.h"
 #include "table.h"
+#include "fetch.h"
 #include <reaction/reaction.h>
 #include <intuition/gadgetclass.h>
 #include <intuition/imageclass.h>
@@ -910,6 +911,18 @@ static void Setnewwinhis(struct Frame *fr,void *whis,BOOL noreferer)
    else if(!Nestedurl(fr,url))
    {  /* New document, forget about pending clientpull */
       fr->pullurl=NULL;
+      /* Terminate any outstanding connections from the previous document */
+      if(oldurl && oldurl!=url)
+      {  UBYTE *oldurlstr;
+         Auspecial(oldurl,AUMST_CANCELFETCH);
+         /* Cancel all fetches that have the old URL as their referer (images, CSS, etc.) */
+         oldurlstr=(UBYTE *)Agetattr(oldurl,AOURL_Url);
+         if(oldurlstr) Cancelfetchesbyreferer(oldurlstr);
+      }
+      /* Also cancel all fetches for the current winhis to ensure all related connections are terminated */
+      if(fr->whis)
+      {  Asetattrs(fr->whis,AOWHS_Cancel,TRUE,TAG_END);
+      }
       if(fr->inputcopy) Adisposeobject(fr->inputcopy);
       if((fr->flags&FRMF_TOPFRAME) && fr->win)
       {  Asetattrs(fr->win,AOWIN_Activeurl,url,TAG_END);
@@ -1025,6 +1038,18 @@ static void Reloadframe(struct Frame *fr,void *url)
     * temporarily moved URL, the copy will attach itself to the source of
     * the second URL, and if relocation has changed for the reload of the
     * first URL, the copy will never notice the new source */
+   /* Terminate any outstanding connections from the previous document before reloading */
+   if(url)
+   {  UBYTE *urlstr;
+      Auspecial(url,AUMST_CANCELFETCH);
+      /* Cancel all fetches that have this URL as their referer (images, CSS, etc.) */
+      urlstr=(UBYTE *)Agetattr(url,AOURL_Url);
+      if(urlstr) Cancelfetchesbyreferer(urlstr);
+   }
+   /* Also cancel all fetches for the current winhis to ensure all related connections are terminated */
+   if(fr->whis)
+   {  Asetattrs(fr->whis,AOWHS_Cancel,TRUE,TAG_END);
+   }
    if(Agetattr(fr->win,AOWIN_Noproxy)) loadflags|=AUMLF_NOPROXY;
    Auload(url,loadflags,url,NULL,fr);
    if(fr->inputcopy) Adisposeobject(fr->inputcopy);

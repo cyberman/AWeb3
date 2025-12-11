@@ -1214,6 +1214,37 @@ static long Dispatch(struct Fetch *fch,struct Amessage *amsg)
 
 /*------------------------------------------------------------------------*/
 
+/* Cancel all fetches that have the specified referer URL string */
+void Cancelfetchesbyreferer(UBYTE *refererurl)
+{  struct Fetch *fch,*next;
+   if(!refererurl) return;
+   /* Check all fetch lists: running, netqueue, localqueue, channels */
+   for(fch=running.first;fch->next;fch=next)
+   {  next=fch->next;
+      if(fch->referer && STRIEQUAL(fch->referer,refererurl))
+      {  Asetattrs(fch,AOFCH_Cancel,TRUE,TAG_END);
+      }
+   }
+   for(fch=netqueue.first;fch->next;fch=next)
+   {  next=fch->next;
+      if(fch->referer && STRIEQUAL(fch->referer,refererurl))
+      {  Asetattrs(fch,AOFCH_Cancel,TRUE,TAG_END);
+      }
+   }
+   for(fch=localqueue.first;fch->next;fch=next)
+   {  next=fch->next;
+      if(fch->referer && STRIEQUAL(fch->referer,refererurl))
+      {  Asetattrs(fch,AOFCH_Cancel,TRUE,TAG_END);
+      }
+   }
+   for(fch=channels.first;fch->next;fch=next)
+   {  next=fch->next;
+      if(fch->referer && STRIEQUAL(fch->referer,refererurl))
+      {  Asetattrs(fch,AOFCH_Cancel,TRUE,TAG_END);
+      }
+   }
+}
+
 BOOL Installfetch(void)
 {  NEWLIST(&netqueue);
    NEWLIST(&localqueue);
