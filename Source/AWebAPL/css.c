@@ -2311,14 +2311,6 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             {  Asetattrs(body, AOBDY_Cursor, cursorStr, TAG_END);
             }
          }
-         /* Apply text-transform */
-         else if(stricmp((char *)prop->name,"text-transform") == 0)
-         {  UBYTE *transformStr;
-            transformStr = Dupstr(prop->value, -1);
-            if(transformStr)
-            {  Asetattrs(body, AOBDY_TextTransform, transformStr, TAG_END);
-            }
-         }
          /* Apply white-space */
          else if(stricmp((char *)prop->name,"white-space") == 0)
          {  UBYTE *whitespaceStr;

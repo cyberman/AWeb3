@@ -911,6 +911,27 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                         }
                      }
                   }
+                  /* Apply text-transform */
+                  else if(stricmp((char *)prop->name,"text-transform") == 0)
+                  {  UBYTE *transformStr;
+                     transformStr = Dupstr(prop->value, -1);
+                     if(transformStr)
+                     {  Asetattrs(body, AOBDY_TextTransform, transformStr, TAG_END);
+                        /* Also set document-level text-transform for compatibility */
+                        if(stricmp((char *)transformStr, "uppercase") == 0)
+                        {  doc->texttransform = 1;
+                        }
+                        else if(stricmp((char *)transformStr, "lowercase") == 0)
+                        {  doc->texttransform = 2;
+                        }
+                        else if(stricmp((char *)transformStr, "capitalize") == 0)
+                        {  doc->texttransform = 3;
+                        }
+                        else if(stricmp((char *)transformStr, "none") == 0)
+                        {  doc->texttransform = 0;
+                        }
+                     }
+                  }
                   /* Apply margin shorthand */
                   else if(stricmp((char *)prop->name,"margin") == 0)
                   {  UBYTE *marginP;
