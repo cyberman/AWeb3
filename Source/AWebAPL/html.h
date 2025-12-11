@@ -116,6 +116,9 @@ enum TAG_ATTRIBUTES
 /* Forward declarations */
 struct Document;
 
+/* Parse color value (hex or color name) and return RRGGBB value in ptr */
+void Gethexcolor(struct Document *doc,UBYTE *p,ULONG *ptr);
+
 /* Create the background image with this url */
 void *Backgroundimg(struct Document *doc,UBYTE *urlname);
 

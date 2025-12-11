@@ -2077,9 +2077,9 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
          }
          /* Apply background-color */
          else if(stricmp((char *)prop->name,"background-color") == 0)
-         {  /* Parse hex color */
-            colorrgb = ParseHexColor(prop->value);
-            if(colorrgb != ~0)
+         {  /* Parse color (hex or color name) */
+            Gethexcolor(doc,prop->value,&colorrgb);
+            if(colorrgb != (ULONG)~0)
             {  /* Use Finddoccolor from docprivate.h */
                ci = Finddoccolor(doc,colorrgb);
                if(ci)
@@ -2421,8 +2421,8 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
               * Link colors are handled at the document level via ApplyCSSToLinkColors.
               * Setting color on the body would incorrectly affect all body text, not just the link. */
             if(!tagname || stricmp((char *)tagname,"A") != 0)
-            {  colorrgb = ParseHexColor(prop->value);
-               if(colorrgb != ~0)
+            {  Gethexcolor(doc,prop->value,&colorrgb);
+               if(colorrgb != (ULONG)~0)
                {  ci = Finddoccolor(doc,colorrgb);
                   if(ci)
                   {  Asetattrs(body,AOBDY_Fontcolor,ci,TAG_END);

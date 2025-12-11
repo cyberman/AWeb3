@@ -797,6 +797,37 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      {  fontSize = 1; /* Relative: one size larger */
                         isRelative = TRUE;
                      }
+                     else
+                     {  /* Try to parse as pixel/length value (e.g., "14px", "1.2em") */
+                        long sizeValue;
+                        sizeValue = ParseCSSLengthValue(prop->value,&num);
+                        if(num.type == NUMBER_NUMBER && sizeValue > 0)
+                        {  /* Map pixel values to AWeb sizes (1-7)
+                             * Approximate mapping: <10px=1, 10-12px=2, 13-14px=3, 15-16px=4, 17-18px=5, 19-22px=6, >22px=7 */
+                           if(sizeValue < 10)
+                           {  fontSize = 1;
+                           }
+                           else if(sizeValue <= 12)
+                           {  fontSize = 2;
+                           }
+                           else if(sizeValue <= 14)
+                           {  fontSize = 3;
+                           }
+                           else if(sizeValue <= 16)
+                           {  fontSize = 4;
+                           }
+                           else if(sizeValue <= 18)
+                           {  fontSize = 5;
+                           }
+                           else if(sizeValue <= 22)
+                           {  fontSize = 6;
+                           }
+                           else
+                           {  fontSize = 7;
+                           }
+                        }
+                        /* Note: em, ex, % values would need parent font size context - not implemented yet */
+                     }
                      
                      if(fontSize != 0)
                      {  /* Apply font size to body */
@@ -890,8 +921,9 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      if(!tagname || stricmp((char *)tagname,"A") != 0)
                      {  ULONG colorrgb;
                         struct Colorinfo *ci;
-                        colorrgb = ParseHexColor(prop->value);
-                        if(colorrgb != ~0)
+                        /* Use Gethexcolor to support both hex colors (#rrggbb) and color names (brown, black, etc.) */
+                        Gethexcolor(doc,prop->value,&colorrgb);
+                        if(colorrgb != (ULONG)~0)
                         {  ci = Finddoccolor(doc,colorrgb);
                            if(ci)
                            {  Asetattrs(body,AOBDY_Fontcolor,ci,TAG_END);
@@ -903,8 +935,9 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   else if(stricmp((char *)prop->name,"background-color") == 0)
                   {  ULONG colorrgb;
                      struct Colorinfo *ci;
-                     colorrgb = ParseHexColor(prop->value);
-                     if(colorrgb != ~0)
+                     /* Use Gethexcolor to support both hex colors (#rrggbb) and color names (brown, black, etc.) */
+                     Gethexcolor(doc,prop->value,&colorrgb);
+                     if(colorrgb != (ULONG)~0)
                      {  ci = Finddoccolor(doc,colorrgb);
                         if(ci)
                         {  Asetattrs(body,AOBDY_Bgcolor,COLOR(ci),TAG_END);
@@ -1700,7 +1733,7 @@ static void Scanhexnumber(UBYTE *p,ULONG *ptr,BOOL strict)
 
 /* Scan (p) for a color name or a hexadecimal color number, 
  * and return the resulting RRGGBB value in (ptr) */
-static void Gethexcolor(struct Document *doc,UBYTE *p,ULONG *ptr)
+void Gethexcolor(struct Document *doc,UBYTE *p,ULONG *ptr)
 {  BOOL gotone=FALSE;
    if(*p=='#') Scanhexnumber(p+1,ptr,STRICT);
    else
