@@ -22,6 +22,7 @@
 #include "button.h"
 #include "form.h"
 #include "body.h"
+#include "text.h"
 #include "application.h"
 #include "url.h"
 #include "window.h"
@@ -35,6 +36,26 @@
 #include <proto/intuition.h>
 #include <proto/utility.h>
 #include <proto/bevel.h>
+
+/* Forward declarations */
+struct Element;
+
+/* Minimal Body structure to access contents.first (full definition in body.c) */
+/* LIST(Element) expands to: struct { struct Element *first; struct Element *tail; struct Element *last; } */
+struct BodyMinimal
+{  struct Aobject object;
+   long aox,aoy,aow,aoh;
+   void *frame;
+   void *cframe;
+   void *pool;
+   void *parent;
+   void *tcell;
+   struct
+   {  struct Element *first;
+      struct Element *tail;
+      struct Element *last;
+   } contents;  /* LIST(Element) */
+};
 
 /*------------------------------------------------------------------------*/
 
@@ -162,27 +183,27 @@ static long Measurebutton(struct Button *but,struct Ammeasure *amm)
     * There is no other way the size can change anyway. */
    if(!but->aow || (but->flags&BUTF_REMEASURE))
    {  if(but->body)
-      {  if(but->flags&BUTF_COMPLETE)
-         {  struct Ammresult ammr={0};
-            Ameasure(but->body,amm->width,amm->height,0,0,amm->text,&ammr);
-            but->aow=ammr.width;
-            but->minw=ammr.minwidth;
-            but->maxw=ammr.width;
-            if(amm->ammr)
-            {  amm->ammr->width=ammr.width;
-               if(but->eltflags&(ELTF_NOBR|ELTF_PREFORMAT))
-               {  amm->ammr->minwidth=amm->addwidth+ammr.minwidth;
-                  amm->ammr->addwidth=amm->ammr->minwidth;
-               }
-               else
-               {  amm->ammr->minwidth=ammr.minwidth;
-               }
+      {  /* BUTTON element - ALWAYS measure the body, NEVER use but->value */
+         struct Ammresult ammr={0};
+         Ameasure(but->body,amm->width,amm->height,0,0,amm->text,&ammr);
+         but->aow=ammr.width;
+         but->minw=ammr.minwidth;
+         but->maxw=ammr.width;
+         if(amm->ammr)
+         {  amm->ammr->width=ammr.width;
+            if(but->eltflags&(ELTF_NOBR|ELTF_PREFORMAT))
+            {  amm->ammr->minwidth=amm->addwidth+ammr.minwidth;
+               amm->ammr->addwidth=amm->ammr->minwidth;
             }
-            but->flags&=~BUTF_REMEASURE;
+            else
+            {  amm->ammr->minwidth=ammr.minwidth;
+            }
          }
+         but->flags&=~BUTF_REMEASURE;
       }
       else
-      {  struct TextFont *font=Getbuttonfont(but);
+      {  /* INPUT type="button" elements, measure based on value attribute */
+         struct TextFont *font=Getbuttonfont(but);
          SetFont(mrp,font);
          SetSoftStyle(mrp,0,0x0f);
          but->aow=Textlength(mrp,but->value,strlen(but->value))+2*bevelw+8;
@@ -200,41 +221,48 @@ static long Measurebutton(struct Button *but,struct Ammeasure *amm)
 
 static long Layoutbutton(struct Button *but,struct Amlayout *aml)
 {  if(but->body)
-   {  if(but->flags&BUTF_COMPLETE)
-      {  long winw,bodyw;
-         if(!(aml->flags&(AMLF_BREAK|AMLF_RETRY)))
-         {  /* Make button its max width unless we are first in the line, then make it fit. */
-            if(aml->flags&AMLF_FIRST)
-            {  winw=aml->width-aml->startx-2*bevelw;
-               if(but->maxw<winw) bodyw=but->maxw;
-               else if(but->minw>winw) bodyw=but->minw;
-               else bodyw=winw;
-            }
-            else
-            {  bodyw=but->maxw;
-            }
-            Alayout(but->body,bodyw,aml->height,0,aml->text,0,NULL);
-            but->aow=Agetattr(but->body,AOBJ_Width)+2*bevelw;
-            but->aoh=Agetattr(but->body,AOBJ_Height)+2*bevelh;
+   {  /* For BUTTON elements, layout the body even if not complete yet.
+       * This allows buttons with simple text content to be laid out and rendered. */
+      long winw,bodyw;
+      if(!(aml->flags&(AMLF_BREAK|AMLF_RETRY)))
+      {  /* Make button its max width unless we are first in the line, then make it fit. */
+         if(aml->flags&AMLF_FIRST)
+         {  /* Subtract bevels AND the 8px padding to find max available width for body */
+            winw=aml->width-aml->startx-2*bevelw-8;
+            /* Extract raw body width from our padded maxw */
+            bodyw=but->maxw-2*bevelw-8;
+            if(bodyw>winw) bodyw=winw;
+            if(bodyw<but->minw-2*bevelw-8) bodyw=but->minw-2*bevelw-8;
          }
-         AmethodasA(AOTP_FIELD,but,aml);
+         else
+         {  /* Extract raw body width from our padded maxw */
+            bodyw=but->maxw-2*bevelw-8;
+         }
+         /* Layout the body with the calculated content width */
+         Alayout(but->body,bodyw,aml->height,0,aml->text,0,NULL);
+         /* FIX: Final width is BodyWidth + Bevels + 8px Padding */
+         but->aow=Agetattr(but->body,AOBJ_Width)+2*bevelw+8;
+         but->aoh=Agetattr(but->body,AOBJ_Height)+2*bevelh;
       }
+      AmethodasA(AOTP_FIELD,but,aml);
    }
    else
-   {  AmethodasA(AOTP_FIELD,but,aml);
+   {  /* For INPUT type="button" elements, use field layout */
+      AmethodasA(AOTP_FIELD,but,aml);
    }
    return 0;
 }
 
 static long Alignbutton(struct Button *but,struct Amalign *ama)
 {  if(but->body)
-   {  if(but->flags&BUTF_COMPLETE)
-      {  AmethodasA(AOTP_FIELD,but,ama);
-         Amove(but->body,but->aox+bevelw,but->aoy+bevelh);
-      }
+   {  /* For BUTTON elements, align the body even if not complete yet.
+       * This allows buttons with simple text content to be aligned and rendered. */
+      AmethodasA(AOTP_FIELD,but,ama);
+      Amove(but->body,but->aox+bevelw,but->aoy+bevelh);
    }
    else
-   {  AmethodasA(AOTP_FIELD,but,ama);
+   {  /* For INPUT type="button" elements, use field alignment */
+      AmethodasA(AOTP_FIELD,but,ama);
    }
    return 0;
 }
@@ -278,16 +306,58 @@ static long Renderbutton(struct Button *but,struct Amrender *amr)
          TAG_END);
       DrawImageState(rp,bevel,but->aox+coo->dx,but->aoy+coo->dy,state,coo->dri);
       if(but->body)
-      {  if(but->flags&BUTF_COMPLETE)
+      {  /* BUTTON element - extract text from body the same way measurement does and render it.
+          * Measurement uses Ameasure(but->body,amm->text) which reads from amm->text->buffer.
+          * We need to read from the same buffer (amr->text) using the same textpos/textlen. */
+         struct BodyMinimal *bd;
+         void *child;
+         void *nextchild;
+         long textpos,textlen;
+         UBYTE *textptr;
+         BOOL rendered=FALSE;
+         bd=(struct BodyMinimal *)but->body;
+         child=bd->contents.first;
+         if(child && amr->text)
+         {  nextchild=((struct Aobject *)child)->next;
+            /* Single element if: first==last OR next is NULL OR next points to list tail */
+            if((bd->contents.first==bd->contents.last) || !nextchild || (nextchild==bd->contents.last))
+            {  if(((struct Aobject *)child)->objecttype==AOTP_TEXT)
+               {  textpos=(long)Agetattr(child,AOELT_Textpos);
+                  textlen=(long)Agetattr(child,AOELT_Textlength);
+                  if(textpos>=0 && textlen>0 && textpos+textlen<=amr->text->length)
+                  {  textptr=amr->text->buffer+textpos;
+                     /* Render the text directly, same way measurement reads it from amm->text->buffer */
+                     SetFont(rp,font);
+                     SetSoftStyle(rp,0,0x0f);
+                     SetAPen(rp,coo->dri->dri_Pens[TEXTPEN]);
+                     textw=Textlength(rp,textptr,textlen);
+                     buttonw=but->aow-2*bevelw-8;
+                     if(textw<=buttonw)
+                     {  textx=(buttonw-textw)/2;
+                        textl=textlen;  /* Use full text length when it fits */
+                     }
+                     else
+                     {  /* Text doesn't fit, find out how much fits */
+                        textl=TextFit(rp,textptr,textlen,&te,NULL,1,buttonw,but->aoh);
+                        textx=0;
+                     }
+                     Move(rp,but->aox+coo->dx+bevelw+4+textx,but->aoy+coo->dy+bevelh+1+rp->TxBaseline);
+                     Text(rp,textptr,textl);
+                     rendered=TRUE;
+                  }
+               }
+            }
+         }
+         /* If we didn't render text above, fall back to rendering the body */
+         if(!rendered && but->flags&BUTF_COMPLETE)
          {  if(bpen==~0) bpen=coo->dri->dri_Pens[BACKGROUNDPEN];
             Asetattrs(but->body,AOBDY_Forcebgcolor,bpen,TAG_END);
-            /* Always render the entire button contents since the bevel has cleared
-             * the background */
             Arender(but->body,coo,0,0,AMRMAX,AMRMAX,0,amr->text);
          }
       }
       else
-      {  SetFont(rp,font);
+      {  /* INPUT type="button" elements (custom=FALSE), render the value attribute */
+         SetFont(rp,font);
          SetSoftStyle(rp,0,0x0f);
          SetAPen(rp,coo->dri->dri_Pens[TEXTPEN]);
          /* With JS the value can have changed after measure */
@@ -315,6 +385,29 @@ static long Setbutton(struct Button *but,struct Amset *ams)
 {  long result;
    struct TagItem *tag,*tstate=ams->tags;
    BOOL newcframe=FALSE,newframe=FALSE,newwin=FALSE,custom=FALSE;
+   BOOL complete_in_tags=FALSE;
+   /* First pass: check if AOBUT_Complete is in the tags and if this is a custom button */
+   while(tag=NextTagItem(&tstate))
+   {  if(tag->ti_Tag==AOBUT_Custom && tag->ti_Data) custom=TRUE;
+      if(tag->ti_Tag==AOBUT_Complete && tag->ti_Data) complete_in_tags=TRUE;
+   }
+   /* Reset tag iterator for second pass */
+   tstate=ams->tags;
+   while(tag=NextTagItem(&tstate))
+   {  switch(tag->ti_Tag)
+      {  case AOBUT_Custom:
+            if(tag->ti_Data && !but->body)
+            {  custom=TRUE;
+               /* For BUTTON elements, clear any value that might have been set from VALUE attribute.
+                * BUTTON elements use inner text, not VALUE attribute. */
+               if(but->value) FREE(but->value);
+               but->value=NULL;
+            }
+            break;
+      }
+   }
+   /* Reset tag iterator for second pass */
+   tstate=ams->tags;
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
       {  case AOBUT_Type:
@@ -352,14 +445,144 @@ static long Setbutton(struct Button *but,struct Amset *ams)
             if(but->onblur) FREE(but->onblur);
             but->onblur=Dupstr((UBYTE *)tag->ti_Data,-1);
             break;
+         case AOFLD_Value:
+            /* For custom buttons (BUTTON elements), ignore VALUE attribute - use inner text instead.
+             * For INPUT buttons, let the superclass handle it. */
+            if(!custom && !Agetattr(but,AOBUT_Custom))
+            {  /* Let superclass handle it for INPUT buttons */
+            }
+            else
+            {  /* For BUTTON elements, ignore VALUE attribute - don't set but->value from it */
+               if(but->value) FREE(but->value);
+               but->value=NULL;
+            }
+            break;
          case AOBJ_Pool:
             but->pool=(void *)tag->ti_Data;
             break;
          case AOBUT_Custom:
-            if(tag->ti_Data && !but->body) custom=TRUE;
+            if(tag->ti_Data && !but->body)
+            {  custom=TRUE;
+               /* For BUTTON elements, clear any value that might have been set from VALUE attribute.
+                * BUTTON elements use inner text, not VALUE attribute. */
+               if(but->value) FREE(but->value);
+               but->value=NULL;
+            }
             break;
          case AOBUT_Complete:
             SETFLAG(but->flags,BUTF_COMPLETE,tag->ti_Data);
+            /* When button body is complete, extract plain text from it for rendering.
+             * For BUTTON elements, always use the inner text (content between tags),
+             * not the VALUE attribute. This allows BUTTON elements to work like INPUT buttons
+             * for simple text content.
+             * IMPORTANT: For custom buttons, ALWAYS extract text and overwrite any existing value
+             * (including defaults that might have been set earlier). */
+            if(tag->ti_Data && but->body && (custom || Agetattr(but,AOBUT_Custom)))
+            {  struct BodyMinimal *bd;
+               void *child;
+               void *nextchild;
+               UBYTE *text;
+               long textpos,textlen;
+               struct Buffer *textbuf;
+               long totaltextlen;
+               UBYTE *p;
+               long start,end;
+               bd=(struct BodyMinimal *)but->body;
+               /* Extract text from body - handle single text element or concatenate multiple text elements */
+               child=bd->contents.first;
+               if(child)
+               {  /* First, check if we have a single text element (most common case) */
+                  nextchild=((struct Aobject *)child)->next;
+                  if((bd->contents.first==bd->contents.last) || !nextchild || (nextchild==bd->contents.last))
+                  {  /* Single child - check if it's a text element */
+                     if(((struct Aobject *)child)->objecttype==AOTP_TEXT)
+                     {  textpos=(long)Agetattr(child,AOELT_Textpos);
+                        textlen=(long)Agetattr(child,AOELT_Textlength);
+                        textbuf=(struct Buffer *)Agetattr(child,AOTXT_Text);
+                        if(textbuf && textpos>=0 && textlen>0 && textpos+textlen<=textbuf->length)
+                        {  text=ALLOCTYPE(UBYTE,textlen+1,0);
+                           if(text)
+                           {  memcpy(text,textbuf->buffer+textpos,textlen);
+                              text[textlen]='\0';
+                              /* Trim leading and trailing whitespace */
+                              p=text;
+                              while(*p && isspace(*p)) p++;
+                              start=p-text;
+                              end=textlen;
+                              while(end>start && isspace(text[end-1])) end--;
+                              if(end>start)
+                              {  if(start>0 || end<textlen)
+                                 {  memmove(text,text+start,end-start);
+                                    text[end-start]='\0';
+                                 }
+                                 /* For BUTTON elements, always use inner text, not VALUE attribute.
+                                  * ALWAYS free any existing value (including defaults) and replace with extracted inner text.
+                                  * This ensures we never use defaults for custom buttons. */
+                                 if(but->value) FREE(but->value);
+                                 but->value=text;
+                                 /* Trigger re-measure so button width is calculated based on extracted text */
+                                 but->flags|=BUTF_REMEASURE;
+                                 /* Mark that we've extracted text so defaults are never set */
+                                 custom=TRUE;
+                              }
+                              else
+                              {  FREE(text);
+                              }
+                           }
+                        }
+                     }
+                  }
+                  else
+                  {  /* Multiple children - try to concatenate all text elements */
+                     totaltextlen=0;
+                     for(child=bd->contents.first;child;child=((struct Aobject *)child)->next)
+                     {  if(((struct Aobject *)child)->objecttype==AOTP_TEXT)
+                        {  textlen=(long)Agetattr(child,AOELT_Textlength);
+                           if(textlen>0) totaltextlen+=textlen;
+                        }
+                     }
+                     if(totaltextlen>0)
+                     {  text=ALLOCTYPE(UBYTE,totaltextlen+1,0);
+                        if(text)
+                        {  UBYTE *dest=text;
+                           for(child=bd->contents.first;child;child=((struct Aobject *)child)->next)
+                           {  if(((struct Aobject *)child)->objecttype==AOTP_TEXT)
+                              {  textpos=(long)Agetattr(child,AOELT_Textpos);
+                                 textlen=(long)Agetattr(child,AOELT_Textlength);
+                                 textbuf=(struct Buffer *)Agetattr(child,AOTXT_Text);
+                                 if(textbuf && textpos>=0 && textlen>0 && textpos+textlen<=textbuf->length)
+                                 {  memcpy(dest,textbuf->buffer+textpos,textlen);
+                                    dest+=textlen;
+                                 }
+                              }
+                           }
+                           *dest='\0';
+                           /* Trim leading and trailing whitespace */
+                           p=text;
+                           while(*p && isspace(*p)) p++;
+                           start=p-text;
+                           end=totaltextlen;
+                           while(end>start && isspace(text[end-1])) end--;
+                           if(end>start)
+                           {  if(start>0 || end<totaltextlen)
+                              {  memmove(text,text+start,end-start);
+                                 text[end-start]='\0';
+                              }
+                              /* ALWAYS free any existing value (including defaults) and replace with extracted inner text */
+                              if(but->value) FREE(but->value);
+                              but->value=text;
+                              but->flags|=BUTF_REMEASURE;
+                              /* Mark that we've extracted text so defaults are never set */
+                              custom=TRUE;
+                           }
+                           else
+                           {  FREE(text);
+                           }
+                        }
+                     }
+                  }
+               }
+            }
             break;
          case AOBJ_Layoutparent:
             but->parent=(void *)tag->ti_Data;
@@ -367,13 +590,77 @@ static long Setbutton(struct Button *but,struct Amset *ams)
          case AOBJ_Changedchild:
             if((void *)tag->ti_Data==but->body)
             {  Asetattrs(but->parent,AOBJ_Changedchild,but,TAG_END);
+               /* When content is added to button body, try to extract text immediately.
+                * This ensures we get the text as soon as it's available, not just when complete. */
+               if(but->body && Agetattr(but,AOBUT_Custom) && !but->value)
+               {  struct BodyMinimal *bd;
+                  void *child;
+                  void *nextchild;
+                  UBYTE *text;
+                  long textpos,textlen;
+                  struct Buffer *textbuf;
+                  UBYTE *p;
+                  long start,end;
+                  bd=(struct BodyMinimal *)but->body;
+                  child=bd->contents.first;
+                  if(child)
+                  {  nextchild=((struct Aobject *)child)->next;
+                     if((bd->contents.first==bd->contents.last) || !nextchild || (nextchild==bd->contents.last))
+                     {  if(((struct Aobject *)child)->objecttype==AOTP_TEXT)
+                        {  textpos=(long)Agetattr(child,AOELT_Textpos);
+                           textlen=(long)Agetattr(child,AOELT_Textlength);
+                           textbuf=(struct Buffer *)Agetattr(child,AOTXT_Text);
+                           if(textbuf && textpos>=0 && textlen>0 && textpos+textlen<=textbuf->length)
+                           {  text=ALLOCTYPE(UBYTE,textlen+1,0);
+                              if(text)
+                              {  memcpy(text,textbuf->buffer+textpos,textlen);
+                                 text[textlen]='\0';
+                                 p=text;
+                                 while(*p && isspace(*p)) p++;
+                                 start=p-text;
+                                 end=textlen;
+                                 while(end>start && isspace(text[end-1])) end--;
+                                 if(end>start)
+                                 {  if(start>0 || end<textlen)
+                                    {  memmove(text,text+start,end-start);
+                                       text[end-start]='\0';
+                                    }
+                                    but->value=text;
+                                    but->flags|=BUTF_REMEASURE;
+                                 }
+                                 else
+                                 {  FREE(text);
+                                 }
+                              }
+                           }
+                        }
+                     }
+                  }
+               }
             }
             break;
       }
    }
    /* Superclass does AOM_ADDCHILD which needs type */
    result=Amethodas(AOTP_FIELD,but,AOM_SET,ams->tags);
-   if(!but->value)
+   /* Determine if this is a custom button (BUTTON element, not INPUT) */
+   if(!custom) custom=Agetattr(but,AOBUT_Custom)?TRUE:FALSE;
+   /* For custom buttons (BUTTON elements), clear any value that was set from AOFLD_Value.
+    * BUTTON elements use inner text, not VALUE attribute. The superclass may have set
+    * but->value to NULL or empty from AOFLD_Value, which would trigger defaults below.
+    * We prevent that by ensuring but->value stays NULL for custom buttons until text is extracted.
+    * BUT: If AOBUT_Complete was already processed above and extracted text, don't clear it! */
+   if(custom && !complete_in_tags)
+   {  /* For BUTTON elements, we don't use VALUE attribute - clear it if it was set */
+      if(but->value)
+      {  FREE(but->value);
+         but->value=NULL;
+      }
+   }
+   /* Only set default values for INPUT type="button" elements (custom=FALSE).
+    * BUTTON elements (custom=TRUE) should use their inner text content, not defaults.
+    * Also don't set defaults if AOBUT_Complete was processed (text extraction happened). */
+   if(!but->value && !custom && !complete_in_tags)
    {  switch(but->type)
       {  case BUTTP_SUBMIT:
             but->value=Dupstr(AWEBSTR(MSG_AWEB_FORMSUBMIT),-1);
@@ -395,6 +682,9 @@ static long Setbutton(struct Button *but,struct Amset *ams)
          AOBDY_Leftmargin,2,
          AOBDY_Topmargin,1,
          TAG_END);
+      /* Note: Button body should inherit font and color from document context
+       * automatically when text is added to it. If text is not visible, the issue
+       * may be elsewhere (e.g., text not being added to body, or rendering issue). */
    }
    if(but->body && (newcframe || newframe || newwin))
    {  Asetattrs(but->body,
@@ -416,6 +706,26 @@ static long Getbutton(struct Button *but,struct Amset *ams)
             PUTATTR(tag,but->type);
             break;
          case AOBUT_Body:
+            /* If this is a custom button but body doesn't exist yet, create it */
+            if(!but->body && Agetattr(but,AOBUT_Custom))
+            {  /* Body should have been created in Setbutton, but create it now if missing */
+               void *pool,*frame,*cframe,*win;
+               pool=(void *)Agetattr(but,AOBJ_Pool);
+               frame=(void *)Agetattr(but,AOBJ_Frame);
+               cframe=(void *)Agetattr(but,AOBJ_Cframe);
+               win=(void *)Agetattr(but,AOBJ_Window);
+               if(pool)
+               {  but->body=Anewobject(AOTP_BODY,
+                     AOBJ_Pool,pool,
+                     AOBJ_Frame,frame,
+                     AOBJ_Cframe,cframe,
+                     AOBJ_Window,win,
+                     AOBJ_Layoutparent,but,
+                     AOBDY_Leftmargin,2,
+                     AOBDY_Topmargin,1,
+                     TAG_END);
+               }
+            }
             PUTATTR(tag,but->body);
             break;
       }
