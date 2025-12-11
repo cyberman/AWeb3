@@ -850,8 +850,9 @@ static BOOL Readblock(struct Httpinfo *hi)
          }
          else if(errno_value == ECONNRESET)
          {  debug_printf("DEBUG: Readblock: Connection reset by peer (errno=ECONNRESET)\n");
-            /* Connection was reset - report as connection error */
-            Tcperror(hi->fd, TCPERR_NOCONNECT_RESET, hostname_str);
+            /* Connection was reset - but don't report error yet */
+            /* The main loop will check if all data was received before reporting error */
+            /* This handles the case where server closes connection after sending all data */
          }
          else if(errno_value == ECONNREFUSED)
          {  debug_printf("DEBUG: Readblock: Connection refused (errno=ECONNREFUSED)\n");
@@ -4368,7 +4369,26 @@ static BOOL Readdata(struct Httpinfo *hi)
             {  if(total_bytes_received < hi->partlength)
                {  debug_printf("DEBUG: ERROR: Transfer incomplete! Received %ld/%ld bytes (missing %ld bytes)\n", 
                          total_bytes_received, hi->partlength, hi->partlength - total_bytes_received);
-                  Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+                  /* Check if this was due to connection reset - report appropriate error */
+                  {  long errno_value;
+                     UBYTE *hostname_str;
+                     if(hi->socketbase)
+                     {  struct Library *saved_socketbase = SocketBase;
+                        SocketBase = hi->socketbase;
+                        errno_value = Errno();
+                        SocketBase = saved_socketbase;
+                     }
+                     else
+                     {  errno_value = 0;
+                     }
+                     hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"unknown";
+                     if(errno_value == ECONNRESET)
+                     {  Tcperror(hi->fd, TCPERR_NOCONNECT_RESET, hostname_str);
+                     }
+                     else
+                     {  Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
+                     }
+                  }
                }
                else if(total_bytes_received > hi->partlength)
                {  debug_printf("DEBUG: WARNING: Received more bytes than Content-Length! Received %ld/%ld bytes (extra %ld bytes)\n", 
@@ -4376,6 +4396,28 @@ static BOOL Readdata(struct Httpinfo *hi)
                }
                else
                {  debug_printf("DEBUG: Transfer complete: Received exactly %ld/%ld bytes\n", total_bytes_received, hi->partlength);
+                  /* Transfer complete - connection reset is expected when server closes connection */
+                  /* Don't report error for ECONNRESET when all data was successfully received */
+               }
+            }
+            else
+            {  /* For chunked or unknown length transfers, check if connection reset occurred */
+               /* and report error if it did (since we can't verify completeness) */
+               {  long errno_value;
+                  UBYTE *hostname_str;
+                  if(hi->socketbase)
+                  {  struct Library *saved_socketbase = SocketBase;
+                     SocketBase = hi->socketbase;
+                     errno_value = Errno();
+                     SocketBase = saved_socketbase;
+                  }
+                  else
+                  {  errno_value = 0;
+                  }
+                  if(errno_value == ECONNRESET)
+                  {  hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"unknown";
+                     Tcperror(hi->fd, TCPERR_NOCONNECT_RESET, hostname_str);
+                  }
                }
             }
             
