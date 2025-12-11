@@ -19,12 +19,12 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <HTML>
 <HEAD>
-<TITLE>AWeb JavaScript 1.1 Compatibility Test Page</TITLE>
+<TITLE>AWeb JavaScript Compatibility Test Page</TITLE>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
-<META NAME="Description" CONTENT="Comprehensive JavaScript 1.1 compatibility test for AWeb">
+<META NAME="Description" CONTENT="Comprehensive JavaScript compatibility test for AWeb">
 <SCRIPT LANGUAGE="JavaScript">
 <!--
-// JavaScript 1.1 Test Functions
+// JavaScript 1.5 (ECMAScript 3) Test Functions
 
 // Window Object Tests
 function testAlert() {
@@ -248,19 +248,220 @@ function onMouseOut() {
     window.status = "";
 }
 
+// ECMAScript 3 Features Tests - COMMENTED OUT (JS 1.5 features not yet implemented)
+/*
+function testTryCatch() {
+    var result = "Try/Catch Test:\n";
+    try {
+        var x = 10;
+        var y = 0;
+        var z = x / y; // This should work (Infinity)
+        result += "Division result: " + z + "\n";
+        throw new Error("Test error message");
+    } catch (e) {
+        result += "Caught error: " + e.message + "\n";
+    } finally {
+        result += "Finally block executed\n";
+    }
+    window.alert(result);
+}
+
+function testThrow() {
+    var result = "Throw Test:\n";
+    try {
+        throw new TypeError("This is a TypeError");
+    } catch (e) {
+        result += "Caught: " + e.name + " - " + e.message + "\n";
+    }
+    try {
+        throw new RangeError("This is a RangeError");
+    } catch (e) {
+        result += "Caught: " + e.name + " - " + e.message + "\n";
+    }
+    window.alert(result);
+}
+
+function testSwitch() {
+    var day = new Date().getDay();
+    var dayName;
+    switch (day) {
+        case 0:
+            dayName = "Sunday";
+            break;
+        case 1:
+            dayName = "Monday";
+            break;
+        case 2:
+            dayName = "Tuesday";
+            break;
+        case 3:
+            dayName = "Wednesday";
+            break;
+        case 4:
+            dayName = "Thursday";
+            break;
+        case 5:
+            dayName = "Friday";
+            break;
+        case 6:
+            dayName = "Saturday";
+            break;
+        default:
+            dayName = "Unknown";
+    }
+    window.alert("Switch Test:\nToday is " + dayName + " (day " + day + ")");
+}
+
+function testInstanceof() {
+    var result = "Instanceof Test:\n";
+    var arr = [1, 2, 3];
+    var str = "Hello";
+    var num = 42;
+    var obj = new Object();
+    var date = new Date();
+    
+    result += "arr instanceof Array: " + (arr instanceof Array) + "\n";
+    result += "str instanceof String: " + (str instanceof String) + "\n";
+    result += "num instanceof Number: " + (num instanceof Number) + "\n";
+    result += "obj instanceof Object: " + (obj instanceof Object) + "\n";
+    result += "date instanceof Date: " + (date instanceof Date) + "\n";
+    result += "date instanceof Object: " + (date instanceof Object) + "\n";
+    
+    window.alert(result);
+}
+
+function testStrictEquality() {
+    var result = "Strict Equality Test:\n";
+    result += "5 === 5: " + (5 === 5) + "\n";
+    result += "5 === '5': " + (5 === '5') + "\n";
+    result += "5 !== '5': " + (5 !== '5') + "\n";
+    result += "null === undefined: " + (null === undefined) + "\n";
+    result += "null !== undefined: " + (null !== undefined) + "\n";
+    result += "true === true: " + (true === true) + "\n";
+    result += "true === 1: " + (true === 1) + "\n";
+    window.alert(result);
+}
+
+function testErrorObjects() {
+    var result = "Error Objects Test:\n";
+    try {
+        throw new Error("Generic error");
+    } catch (e) {
+        result += "Error: " + e.name + " - " + e.message + "\n";
+    }
+    try {
+        throw new TypeError("Type error");
+    } catch (e) {
+        result += "TypeError: " + e.name + " - " + e.message + "\n";
+    }
+    try {
+        throw new RangeError("Range error");
+    } catch (e) {
+        result += "RangeError: " + e.name + " - " + e.message + "\n";
+    }
+    try {
+        throw new SyntaxError("Syntax error");
+    } catch (e) {
+        result += "SyntaxError: " + e.name + " - " + e.message + "\n";
+    }
+    window.alert(result);
+}
+
+// Enhanced Array Methods Tests
+function testArrayConcat() {
+    var arr1 = [1, 2, 3];
+    var arr2 = [4, 5, 6];
+    var arr3 = arr1.concat(arr2);
+    window.alert("Array.concat() Test:\n" + 
+                 "arr1: " + arr1.join(", ") + "\n" +
+                 "arr2: " + arr2.join(", ") + "\n" +
+                 "arr1.concat(arr2): " + arr3.join(", "));
+}
+
+function testArrayPopPush() {
+    var arr = [1, 2, 3];
+    var popped = arr.pop();
+    var newLength = arr.push(4, 5);
+    window.alert("Array.pop()/push() Test:\n" +
+                 "After pop(): " + arr.join(", ") + " (popped: " + popped + ")\n" +
+                 "After push(4,5): " + arr.join(", ") + " (length: " + newLength + ")");
+}
+
+function testArrayShiftUnshift() {
+    var arr = [2, 3, 4];
+    var shifted = arr.shift();
+    var newLength = arr.unshift(0, 1);
+    window.alert("Array.shift()/unshift() Test:\n" +
+                 "After shift(): " + arr.join(", ") + " (shifted: " + shifted + ")\n" +
+                 "After unshift(0,1): " + arr.join(", ") + " (length: " + newLength + ")");
+}
+
+function testArraySlice() {
+    var arr = [0, 1, 2, 3, 4, 5];
+    var slice1 = arr.slice(1, 4);
+    var slice2 = arr.slice(-3);
+    window.alert("Array.slice() Test:\n" +
+                 "Original: " + arr.join(", ") + "\n" +
+                 "slice(1,4): " + slice1.join(", ") + "\n" +
+                 "slice(-3): " + slice2.join(", "));
+}
+
+function testArraySplice() {
+    var arr = [0, 1, 2, 3, 4, 5];
+    var removed = arr.splice(2, 2, 'a', 'b');
+    window.alert("Array.splice() Test:\n" +
+                 "After splice(2,2,'a','b'): " + arr.join(", ") + "\n" +
+                 "Removed: " + removed.join(", "));
+}
+
+function testArrayToLocaleString() {
+    var arr = [new Date(), 1234.56, "test"];
+    var result = arr.toLocaleString();
+    window.alert("Array.toLocaleString() Test:\n" +
+                 "Array: [Date, 1234.56, 'test']\n" +
+                 "toLocaleString(): " + result);
+}
+
+// Object.prototype Methods Tests
+function testObjectMethods() {
+    var obj = {name: "test", value: 42};
+    var obj2 = {name: "test2"};
+    var result = "Object.prototype Methods Test:\n";
+    result += "obj.hasOwnProperty('name'): " + obj.hasOwnProperty('name') + "\n";
+    result += "obj.hasOwnProperty('toString'): " + obj.hasOwnProperty('toString') + "\n";
+    result += "obj.propertyIsEnumerable('name'): " + obj.propertyIsEnumerable('name') + "\n";
+    result += "obj.isPrototypeOf(obj2): " + obj.isPrototypeOf(obj2) + "\n";
+    result += "Object.prototype.isPrototypeOf(obj): " + Object.prototype.isPrototypeOf(obj) + "\n";
+    window.alert(result);
+}
+*/
+
+// Formless Input Tests
+function testFormlessInput() {
+    window.status = "Formless input button clicked! This button works outside a form.";
+}
+
+function testImageOnclick() {
+    window.alert("Image onclick handler works! This demonstrates onclick support for IMG tags.");
+}
+
+function testObjectOnclick() {
+    window.alert("Object onclick handler works! This demonstrates onclick support for OBJECT tags.");
+}
+
 // Page Load Handler
-window.onLoad = function() {
-    window.defaultStatus = "AWeb JavaScript 1.1 Compatibility Test - All features loaded";
+window.onload = function() {
+    window.defaultStatus = "AWeb JavaScript Compatibility Test - All features loaded";
 };
 
 //-->
 </SCRIPT>
 </HEAD>
-<BODY BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000" ONLOAD="window.defaultStatus='JavaScript 1.1 Test Page Loaded'">
+<BODY BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000" ONLOAD="window.defaultStatus='JavaScript Test Page Loaded'">
 
-<H1><IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)">&nbsp; JavaScript 1.1 Compatibility Test</H1>
+<H1><IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)">&nbsp; JavaScript Compatibility Test</H1>
 
-<P>This page tests AWeb's compatibility with <STRONG>JavaScript 1.1</STRONG> (ECMAScript 1, based on Netscape JavaScript 1.1). Each test includes a description of what it tests, how to run it, what results you should expect, and the interactive test itself.</P>
+<P>This page tests AWeb's JavaScript compatibility. Each test includes a description of what it tests, how to run it, what results you should expect, and the interactive test itself.</P>
 
 <HR>
 
@@ -268,6 +469,7 @@ window.onLoad = function() {
 <CENTER>
 <H2>Quick Navigation</H2>
 <A HREF="#core">Core Language</A> |
+<!-- <A HREF="#ecmascript3">ECMAScript 3 Features</A> | -->
 <A HREF="#window">Window Object</A> |
 <A HREF="#document">Document Object</A> |
 <A HREF="#history">History Object</A> |
@@ -312,7 +514,6 @@ document.write("<P><STRONG>Function test:</STRONG> testFunction(5, 3) = " + test
 <H3>Not Supported</H3>
 <UL>
 <LI>Regular Expressions (RegExp object) - Very limited or no support</LI>
-<LI>Exception handling (try/catch/finally) - Not supported</LI>
 <LI>ES6 features (let/const, arrow functions, classes) - Not supported</LI>
 <LI>Modern Array methods (forEach, map, filter, etc.) - Not supported</LI>
 </UL>
@@ -320,6 +521,93 @@ document.write("<P><STRONG>Function test:</STRONG> testFunction(5, 3) = " + test
 <P><A HREF="#top">Back to top</A></P>
 
 <HR>
+
+<!-- ECMAScript 3 (JavaScript 1.5) Features - COMMENTED OUT (not yet implemented)
+<A NAME="ecmascript3"></A>
+<H2>ECMAScript 3 (JavaScript 1.5) Features</H2>
+
+<H3>Test 1: try/catch/finally</H3>
+<P><STRONG>What it tests:</STRONG> Exception handling with try/catch/finally blocks for robust error handling.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test try/catch/finally" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that a try block executed, an error was caught, and the finally block executed.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testTryCatch()" VALUE="Test try/catch/finally">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2: throw Statement</H3>
+<P><STRONG>What it tests:</STRONG> The throw statement for throwing custom exceptions with Error objects.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test throw" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that TypeError and RangeError exceptions were thrown and caught correctly.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testThrow()" VALUE="Test throw">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 3: switch/case/default</H3>
+<P><STRONG>What it tests:</STRONG> Multi-way branching with switch statements, case labels, and default cases.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test switch" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the current day of the week determined using a switch statement.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testSwitch()" VALUE="Test switch/case/default">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 4: instanceof Operator</H3>
+<P><STRONG>What it tests:</STRONG> The instanceof operator for type checking objects and constructors.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test instanceof" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing instanceof checks for Array, String, Number, Object, and Date types.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testInstanceof()" VALUE="Test instanceof">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 5: Strict Equality (=== and !==)</H3>
+<P><STRONG>What it tests:</STRONG> The strict equality operators (=== and !==) that compare both value and type.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Strict Equality" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that 5 === 5 is true, but 5 === '5' is false (different types), demonstrating type-strict comparison.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testStrictEquality()" VALUE="Test Strict Equality (===, !=)">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 6: Error Objects</H3>
+<P><STRONG>What it tests:</STRONG> Native Error object constructors including Error, TypeError, RangeError, SyntaxError, ReferenceError, URIError, and EvalError.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Error Objects" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that different error types can be created and caught, each with their own name and message properties.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testErrorObjects()" VALUE="Test Error Objects">
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+-->
 
 <A NAME="window"></A>
 <H2>Window Object</H2>
@@ -690,7 +978,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
-<H3>Test 2: Array Object Methods</H3>
+<H3>Test 2: Array Object Methods (Basic)</H3>
 <P><STRONG>What it tests:</STRONG> Array object methods including length, join(), reverse(), and sort().</P>
 <P><STRONG>How to run:</STRONG> Click the "Test Array Methods" button below.</P>
 <P><STRONG>Expected results:</STRONG> An alert dialog should appear showing:
@@ -709,6 +997,99 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TD>
 </TR>
 </TABLE>
+
+<!-- Enhanced Array Methods Tests - COMMENTED OUT (JS 1.5 features not yet implemented)
+<H3>Test 2a: Array.concat()</H3>
+<P><STRONG>What it tests:</STRONG> The Array.concat() method that concatenates arrays.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Array.concat()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that two arrays [1,2,3] and [4,5,6] were concatenated into [1,2,3,4,5,6].</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testArrayConcat()" VALUE="Test Array.concat()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2b: Array.pop() and Array.push()</H3>
+<P><STRONG>What it tests:</STRONG> The Array.pop() method removes and returns the last element, and Array.push() adds elements to the end.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Array.pop()/push()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that pop() removed the last element and push() added new elements, returning the new length.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testArrayPopPush()" VALUE="Test Array.pop()/push()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2c: Array.shift() and Array.unshift()</H3>
+<P><STRONG>What it tests:</STRONG> The Array.shift() method removes and returns the first element, and Array.unshift() adds elements to the beginning.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Array.shift()/unshift()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that shift() removed the first element and unshift() added new elements to the beginning, returning the new length.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testArrayShiftUnshift()" VALUE="Test Array.shift()/unshift()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2d: Array.slice()</H3>
+<P><STRONG>What it tests:</STRONG> The Array.slice() method extracts a portion of an array without modifying the original.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Array.slice()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that slice() extracted elements from the array, including negative index support.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testArraySlice()" VALUE="Test Array.slice()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2e: Array.splice()</H3>
+<P><STRONG>What it tests:</STRONG> The Array.splice() method removes and/or inserts elements at a specific position.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Array.splice()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that splice() removed elements and inserted new ones, returning the removed elements.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testArraySplice()" VALUE="Test Array.splice()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2f: Array.toLocaleString()</H3>
+<P><STRONG>What it tests:</STRONG> The Array.toLocaleString() method converts array elements to locale-aware strings.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Array.toLocaleString()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that toLocaleString() converted array elements (including Date objects) to locale-aware string representations.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testArrayToLocaleString()" VALUE="Test Array.toLocaleString()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2g: Object.prototype Methods</H3>
+<P><STRONG>What it tests:</STRONG> Object.prototype methods including hasOwnProperty(), propertyIsEnumerable(), and isPrototypeOf().</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Object Methods" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that these methods correctly identify own properties, enumerable properties, and prototype relationships.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testObjectMethods()" VALUE="Test Object.prototype Methods">
+</TD>
+</TR>
+</TABLE>
+-->
 
 <H3>Test 3: Math Object</H3>
 <P><STRONG>What it tests:</STRONG> Math object constants and methods including PI, E, random(), round(), floor(), ceil(), max(), min(), abs(), and sqrt().</P>
@@ -764,7 +1145,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 <UL>
 <LI>RegExp object - Regular expressions not supported</LI>
 <LI>JSON object - JSON parsing/stringifying not supported</LI>
-<LI>Modern Array methods (forEach, map, filter, etc.) - Not supported</LI>
+<LI>Modern Array methods (forEach, map, filter, reduce, etc.) - Not supported</LI>
 <LI>Advanced String methods (split, replace, match, etc.) - Limited or not supported</LI>
 </UL>
 
@@ -792,6 +1173,49 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 <P><STRONG>What it tests:</STRONG> The ONCLICK event handler that triggers when an element is clicked.</P>
 <P><STRONG>How to run:</STRONG> Click any of the test buttons on this page - they all use ONCLICK handlers.</P>
 <P><STRONG>Expected results:</STRONG> When you click a button, the associated JavaScript function should execute. For example, clicking "Test Alert" should show an alert dialog.</P>
+
+<H3>Test 2a: ONCLICK for Buttons Outside Forms</H3>
+<P><STRONG>What it tests:</STRONG> The ONCLICK event handler works for input buttons that are not inside a form element.</P>
+<P><STRONG>How to run:</STRONG> Click the button below (it's outside any form).</P>
+<P><STRONG>Expected results:</STRONG> The status bar should show "Formless input button clicked! This button works outside a form." This demonstrates that AWeb supports formless input elements for JavaScript events.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testFormlessInput()" VALUE="Formless Button (Outside Form)">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2b: ONCLICK for Images</H3>
+<P><STRONG>What it tests:</STRONG> The ONCLICK event handler works for IMG elements.</P>
+<P><STRONG>How to run:</STRONG> Click the image below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear saying "Image onclick handler works! This demonstrates onclick support for IMG tags."</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<IMG SRC="aweb.iff" WIDTH="96" HEIGHT="46" ALT="(logo)" ONCLICK="testImageOnclick()" STYLE="cursor: pointer; border: 2px solid blue;">
+<BR><SMALL>Click the image above</SMALL>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2c: ONCLICK for Objects</H3>
+<P><STRONG>What it tests:</STRONG> The ONCLICK event handler works for OBJECT elements.</P>
+<P><STRONG>How to run:</STRONG> Click the object below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear saying "Object onclick handler works! This demonstrates onclick support for OBJECT tags."</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<OBJECT DATA="aweb.iff" WIDTH="96" HEIGHT="46" TYPE="image/iff" ONCLICK="testObjectOnclick()" STYLE="cursor: pointer; border: 2px solid green;">
+<IMG SRC="aweb.iff" WIDTH="96" HEIGHT="46" ALT="(logo)">
+</OBJECT>
+<BR><SMALL>Click the object above</SMALL>
+</TD>
+</TR>
+</TABLE>
 
 <H3>Test 3: ONFOCUS and ONBLUR</H3>
 <P><STRONG>What it tests:</STRONG> Focus event handlers that trigger when a form field gains or loses keyboard focus.</P>
@@ -854,7 +1278,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 <A NAME="compatibility"></A>
 <H2>Compatibility Summary</H2>
 
-<H3>JavaScript 1.1 Features Fully Supported</H3>
+<H3>JavaScript Features Fully Supported</H3>
 <UL>
 <LI>Core language features (variables, functions, control structures)</LI>
 <LI>Window object (alert, confirm, prompt, status, setTimeout, setInterval)</LI>
@@ -863,45 +1287,67 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 <LI>Navigator object (appName, userAgent, javaEnabled, etc.)</LI>
 <LI>Location object (href, protocol, host, reload, etc.)</LI>
 <LI>String object (basic methods)</LI>
-<LI>Array object (basic methods)</LI>
+<LI>Array object (basic methods: join, reverse, sort)</LI>
 <LI>Math object (basic methods)</LI>
 <LI>Date object (basic methods)</LI>
 <LI>Event handlers (onclick, onload, onmouseover, etc.)</LI>
+<LI>onclick support for buttons outside forms - Fully supported</LI>
+<LI>onclick support for IMG and OBJECT elements - Fully supported</LI>
 </UL>
 
-<H3>JavaScript 1.1 Features Partially Supported</H3>
+<!-- JavaScript 1.5 (ECMAScript 3) Features - COMMENTED OUT (not yet implemented)
+<H3>JavaScript 1.5 (ECMAScript 3) Features Fully Supported</H3>
+<UL>
+<LI>Core language features (variables, functions, control structures)</LI>
+<LI><STRONG>ECMAScript 3 features:</STRONG>
+  <UL>
+  <LI>Exception handling (try/catch/finally) - Fully supported</LI>
+  <LI>throw statement - Fully supported</LI>
+  <LI>switch/case/default statements - Fully supported</LI>
+  <LI>instanceof operator - Fully supported</LI>
+  <LI>Strict equality operators (===, !==) - Fully supported</LI>
+  <LI>Error objects (Error, TypeError, RangeError, SyntaxError, ReferenceError, URIError, EvalError) - Fully supported</LI>
+  </UL>
+</LI>
+<LI>Array object (basic methods plus: concat, pop, push, shift, unshift, slice, splice, toLocaleString)</LI>
+<LI>Object.prototype methods (hasOwnProperty, propertyIsEnumerable, isPrototypeOf, toLocaleString)</LI>
+</UL>
+-->
+
+<H3>JavaScript Features Partially Supported</H3>
 <UL>
 <LI>window.open() and window.close() - Basic support with limitations</LI>
 <LI>document.getElementById() - May have limited support</LI>
 <LI>document.cookie - Basic support</LI>
-<LI>switch statement - May have limitations</LI>
 <LI>Keyboard events - Limited support</LI>
 </UL>
 
-<H3>JavaScript 1.1 Features Not Supported</H3>
+<H3>JavaScript Features Not Supported</H3>
 <UL>
 <LI>Regular Expressions (RegExp object) - Not supported</LI>
-<LI>Exception handling (try/catch/finally) - Not supported</LI>
 <LI>Full DOM Level 1 - Very limited implementation</LI>
 <LI>document.createElement() and DOM manipulation - Not supported</LI>
 <LI>JSON parsing/stringifying - Not supported</LI>
-<LI>Modern Array methods (forEach, map, filter, etc.) - Not supported</LI>
+<LI>Modern Array methods (forEach, map, filter, reduce, etc.) - Not supported</LI>
 <LI>Advanced String methods (split, replace, match, etc.) - Limited or not supported</LI>
 <LI>Event bubbling and capturing - Not supported</LI>
 <LI>addEventListener() / removeEventListener() - Not supported</LI>
 <LI>XMLHttpRequest (AJAX) - Not supported</LI>
 <LI>ES6 features (let/const, arrow functions, classes) - Not supported</LI>
+<LI>ECMAScript 3 features (try/catch/finally, throw, switch/case, instanceof, strict equality, Error objects) - Not yet implemented</LI>
+<LI>Enhanced Array methods (concat, pop, push, shift, unshift, slice, splice, toLocaleString) - Not yet implemented</LI>
+<LI>Object.prototype methods (hasOwnProperty, propertyIsEnumerable, isPrototypeOf) - Not yet implemented</LI>
 </UL>
 
-<H3>JavaScript 1.1 vs Modern JavaScript</H3>
-<P>AWeb implements JavaScript 1.1, which is based on ECMAScript 1 (1997). This is significantly older than modern JavaScript (ES6+, 2015+). Many features that are standard in modern browsers are not available in AWeb's JavaScript implementation.</P>
+<H3>JavaScript Compatibility Notes</H3>
+<P>AWeb implements JavaScript with support for core language features and basic browser object model functionality. ECMAScript 3 (JavaScript 1.5) features such as exception handling, switch statements, strict equality, and Error objects are planned but not yet implemented.</P>
 
 <P><A HREF="#top">Back to top</A></P>
 
 <HR>
 
 <CENTER>
-<P><SMALL>Last Updated: 2025 - AWeb 3 JavaScript 1.1 Compatibility Test</SMALL></P>
+<P><SMALL>Last Updated: 2025 - AWeb 3 JavaScript Compatibility Test</SMALL></P>
 <P><A HREF="aweb.html">Back to AWeb documentation index</A></P>
 </CENTER>
 

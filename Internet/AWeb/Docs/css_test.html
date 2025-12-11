@@ -138,7 +138,8 @@
 </TR>
 </TABLE>
 
-<H3>text-transform - PASS</H3>
+<H3>text-transform - FAIL</H3>
+<P><STRONG>Note:</STRONG> text-transform is parsed and stored, but full rendering support may be limited. The property is applied to document-level text transformation.</P>
 <P><STRONG>What you should see:</STRONG> Text transformed to uppercase, lowercase, and capitalize.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -153,6 +154,7 @@
 </TABLE>
 
 <H3>white-space - PASS</H3>
+<P><STRONG>Note:</STRONG> white-space: nowrap is fully supported via the AOBDY_Nobr attribute.</P>
 <P><STRONG>What you should see:</STRONG> Text with nowrap preventing line breaks.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -164,7 +166,7 @@
 </TR>
 </TABLE>
 
-<H3>line-height - FAIL</H3>
+<H3>line-height - TODO</H3>
 <P><STRONG>What you should see:</STRONG> Text with different line heights. Higher line-height values create more space between lines.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -238,22 +240,23 @@
 </TR>
 </TABLE>
 
-<H3>position, top, left - FAIL</H3>
-<P><STRONG>What you should see:</STRONG> Elements positioned using absolute, relative, static, or fixed positioning. Note: Full positioning support may be limited.</P>
+<H3>position, top, left, right, bottom - TODO</H3>
+<P><STRONG>What you should see:</STRONG> Elements positioned using absolute, relative, static, or fixed positioning. Right and bottom positioning are now supported.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
 <TD>
 <STRONG>Test:</STRONG><BR>
 <DIV STYLE="position: static; background-color: #e8e8e8; padding: 10px; margin: 5px;">This DIV uses position: static (default positioning).</DIV>
-<DIV STYLE="position: relative; background-color: #e8e8e8; padding: 10px; margin: 5px;">This DIV uses position: relative.</DIV>
+<DIV STYLE="position: relative; top: 10px; left: 20px; background-color: #e8e8e8; padding: 10px; margin: 5px;">This DIV uses position: relative with top: 10px and left: 20px offset.</DIV>
 <DIV STYLE="position: absolute; top: 0px; left: 0px; background-color: #e8e8e8; padding: 10px; margin: 5px;">This DIV uses position: absolute with top: 0px and left: 0px.</DIV>
-<DIV STYLE="position: fixed; background-color: #e8e8e8; padding: 10px; margin: 5px;">This DIV uses position: fixed.</DIV>
+<DIV STYLE="position: fixed; top: 0px; right: 0px; background-color: #e8e8e8; padding: 10px; margin: 5px;">This DIV uses position: fixed with top: 0px and right: 0px.</DIV>
+<DIV STYLE="position: absolute; bottom: 0px; right: 0px; background-color: #ccccff; padding: 10px; margin: 5px; width: 200px;">This DIV uses position: absolute with bottom: 0px and right: 0px (positioned at bottom-right).</DIV>
 </TD>
 </TR>
 </TABLE>
 
-<H3>margin shorthand - FAIL</H3>
+<H3>margin shorthand - TODO</H3>
 <P><STRONG>What you should see:</STRONG> Paragraphs with margin shorthand property. The margin property can accept 1-4 values to set all margins at once.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -285,7 +288,23 @@
 </TR>
 </TABLE>
 
-<H3>background-image</H3>
+<H3>border - TODO</H3>
+<P><STRONG>What you should see:</STRONG> Elements with borders of different widths, colors, and styles.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DIV STYLE="border: 1px solid #000000; padding: 10px; background-color: #e8e8e8; margin: 5px;">This DIV has a 1px solid black border.</DIV>
+<DIV STYLE="border: 3px solid #ff0000; padding: 10px; background-color: #e8e8e8; margin: 5px;">This DIV has a 3px solid red border.</DIV>
+<DIV STYLE="border: 2px dashed #0000ff; padding: 10px; background-color: #e8e8e8; margin: 5px;">This DIV has a 2px dashed blue border.</DIV>
+<DIV STYLE="border: 4px dotted #00ff00; padding: 10px; background-color: #e8e8e8; margin: 5px;">This DIV has a 4px dotted green border.</DIV>
+<DIV STYLE="border-width: 5px; border-style: solid; border-color: #8B7355; padding: 10px; background-color: #e8e8e8; margin: 5px;">This DIV uses separate border-width, border-style, and border-color properties.</DIV>
+</TD>
+</TR>
+</TABLE>
+
+<H3>background-image - TODO</H3>
 <P><STRONG>What you should see:</STRONG> Elements with background images. Note: Requires a valid image URL to test.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -369,7 +388,7 @@
 </TR>
 </TABLE>
 
-<H3>background-color in table cells - PASS</H3>
+<H3>background-color in table cells - FAIL</H3>
 <P><STRONG>What you should see:</STRONG> Table cells with different background colors. Each cell should have a distinct background color.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -391,7 +410,7 @@
 </TABLE>
 
 <H3>Combined table cell styles - FAIL</H3>
-<P><STRONG>What you should see:</STRONG> Table cells with multiple CSS properties applied simultaneously - width, height, alignment, background color, and padding.</P>
+<P><STRONG>What you should see:</STRONG> Table cells with multiple CSS properties applied simultaneously - width, height, alignment, background color, padding, and vertical-align.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
@@ -515,7 +534,7 @@
 </TR>
 </TABLE>
 
-<H3>list-style-type for ordered lists - PASS</H3>
+<H3>list-style-type for ordered lists - PASS except for the 'no numbering' style which still shpws numbering</H3>
 <P><STRONG>What you should see:</STRONG> Ordered lists with different numbering styles - decimal, lower-alpha, upper-alpha, lower-roman, upper-roman, and none.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -639,18 +658,7 @@
 <P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
 
 <HR>
-
-
-
-<P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
-
-<HR>
-
-<CENTER>
-<P><SMALL>Last Updated: 2025 - AWeb 3 CSS1/CSS2 Compatibility Test</SMALL></P>
-<P><A HREF="stylesheet_test.html">External Stylesheet Tests</A> | <A HREF="aweb.html">Back to AWeb documentation index</A></P>
-</CENTER>
-
+    
 </BODY>
 </HTML>
 
