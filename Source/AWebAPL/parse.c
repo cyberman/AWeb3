@@ -680,6 +680,12 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
                {  /* Soft hyphen (U+00AD) - skip it */
                   skip_char = TRUE;
                }
+               else if(p[1] == 0xA0)
+               {  /* Non-breaking space (U+00A0) */
+                  /* Preserve non-breaking space in preformat mode to maintain column alignment */
+                  if(doc->pflags&DPF_PREFORMAT) replacement = 0xA0;
+                  else replacement = 0x20;  /* Non-breaking space -> space */
+               }
                else
                {  /* Map directly to Latin-1 */
                   replacement = p[1];
@@ -1749,12 +1755,59 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
                   }
                }
                else
-               {  if(doc->args.buffer[doc->args.length-1]!=' ')
-                  {  if(!skipnewline || (*p!='\n' && *p!='\r'))
-                     {  if(!Addtobuffer(&doc->args," ",1)) return FALSE;
-                        ta->length++;
+               {  /* HTML5 spec: Preserve whitespace after line break or block boundary */
+                  /* Check if we're preserving leading whitespace after a break */
+                  if(doc->htmlmode!=HTML_STRICT && (doc->pflags&DPF_AFTERBREAK))
+                  {  /* HTML5 spec: Preserve ALL leading whitespace after break - convert spaces/tabs to non-breaking spaces */
+                     /* This handles spaces and tabs that occur after a <br> tag or block boundary */
+                     /* Only preserve if this is truly leading whitespace - check if ta->length is 0 or 1 (sentinel only) */
+                     /* or if the last character we added was whitespace/nbsp (continuing a whitespace sequence) */
+                     BOOL isLeading = (ta->length <= 1) || 
+                                      (doc->args.length > 0 && 
+                                       (doc->args.buffer[doc->args.length-1] == ' ' || 
+                                        doc->args.buffer[doc->args.length-1] == '\xa0'));
+                     
+                     if(isLeading && (*p==' ' || *p=='\t'))
+                     {  /* Preserve this whitespace as non-breaking space */
+                        if(*p==' ')
+                        {  if(!Addtobuffer(&doc->args,"\xa0",1)) return FALSE;
+                           ta->length++;
+                        }
+                        else
+                        {  /* Tab: add nbsp to fill up to next multiple of 8 */
+                           i=8-(doc->charcount%8);
+                           if(!Addtobuffer(&doc->args,"\xa0\xa0\xa0\xa0\xa0\xa0\xa0\xa0",i))
+                              return FALSE;
+                           ta->length+=i;
+                           doc->charcount+=i;
+                        }
                         skipnewline=FALSE;
+                        /* Keep flag set so we continue preserving whitespace until non-whitespace is encountered */
                      }
+                     else
+                     {  /* Non-whitespace or not leading - clear flag and handle normally */
+                        doc->pflags&=~DPF_AFTERBREAK;
+                        /* Fall through to normal whitespace handling */
+                        if(doc->args.buffer[doc->args.length-1]!=' ')
+                        {  if(!skipnewline || (*p!='\n' && *p!='\r'))
+                           {  if(!Addtobuffer(&doc->args," ",1)) return FALSE;
+                              ta->length++;
+                              skipnewline=FALSE;
+                           }
+                        }
+                     }
+                  }
+                  else
+                  {  /* Normal whitespace collapsing */
+                     if(doc->args.buffer[doc->args.length-1]!=' ')
+                        {  if(!skipnewline || (*p!='\n' && *p!='\r'))
+                           {  if(!Addtobuffer(&doc->args," ",1)) return FALSE;
+                              ta->length++;
+                              skipnewline=FALSE;
+                           }
+                        }
+                     /* Clear flag when we process whitespace normally */
+                     doc->pflags&=~DPF_AFTERBREAK;
                   }
                }
             }
@@ -1763,6 +1816,8 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
                ta->length++;
                if(doc->pflags&DPF_PREFORMAT) doc->charcount++;
                skipnewline=FALSE;
+               /* Clear flag when non-whitespace content is encountered */
+               doc->pflags&=~DPF_AFTERBREAK;
             }
             p++;
             if(p<end && *p=='<') break;

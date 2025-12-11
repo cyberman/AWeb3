@@ -158,6 +158,7 @@ struct Document
 #define DPF_DIDSCRIPT      0x00004000  /* a script was in a language understood by us */
 #define DPF_SUSPEND        0x00008000  /* waiting for extension, suspend parsing */
 #define DPF_NORLDOCEXT     0x00010000  /* don't reload the next extension */
+#define DPF_AFTERBREAK     0x00020000  /* preserve whitespace after line break or block boundary */
 
 #define DPM_BODY           0        /* parsing normal body contents */
 #define DPM_TITLE          1        /* parsing <TITLE> */
