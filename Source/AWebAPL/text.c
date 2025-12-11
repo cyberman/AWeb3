@@ -472,7 +472,8 @@ static long Rendertext(struct Text *tx,struct Amrender *amr)
          }
       }
       else pen=coo->textcolor;
-      if(prefs.docolors && tx->color && tx->color->pen>=0) pen=tx->color->pen;
+      /* Always apply text color if set, regardless of background images setting */
+      if(tx->color && tx->color->pen>=0) pen=tx->color->pen;
       SetAPen(rp,pen);
       blinkoff=(tx->flags&TXTF_BLINKING) && !(tx->flags&TXTF_BLINKON);
       for(ts=tx->sections;ts;ts=ts->next)

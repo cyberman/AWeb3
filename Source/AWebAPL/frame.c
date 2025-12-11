@@ -289,10 +289,13 @@ static BOOL Nestedurl(struct Frame *fr,void *url)
 /*-----------------------------------------------------------------------*/
 
 /* Set coords pen numbers. */
-#define PICKCOLOR(c1,c2) ((prefs.docolors && (c1)>=0)?(c1):(c2))
+/* PICKBGCOLOR: Background color logic - always prefer document color if set,
+ * otherwise use white when docolors is off, browsebg when docolors is on */
+#define PICKBGCOLOR(c1,browsebg,white) (((c1)>=0)?(c1):(prefs.docolors?(browsebg):(white)))
 
 static void Setcolors(struct Frame *fr,struct Coords *coo)
 {  long bg=1,text=1,link=1,vlink=1,alink=1;
+   long whitebg=1;
    if(fr->flags&FRMF_NOBACKGROUND)
    {  Agetattrs(Aweb(),
          AOAPP_Whitepen,&bg,
@@ -305,17 +308,26 @@ static void Setcolors(struct Frame *fr,struct Coords *coo)
    else
    {  Agetattrs(Aweb(),
          AOAPP_Browsebgpen,&bg,
+         AOAPP_Whitepen,&whitebg,
          AOAPP_Textpen,&text,
          AOAPP_Linkpen,&link,
          AOAPP_Vlinkpen,&vlink,
          AOAPP_Alinkpen,&alink,
          TAG_END);
-      coo->bgcolor=PICKCOLOR(fr->bgcolor,bg);
-      coo->textcolor=PICKCOLOR(fr->textcolor,text);
-      coo->linkcolor=PICKCOLOR(fr->linkcolor,link);
-      coo->vlinkcolor=PICKCOLOR(fr->vlinkcolor,vlink);
-      coo->alinkcolor=PICKCOLOR(fr->alinkcolor,alink);
-      coo->bgimage=fr->bgimage;
+      /* Background color: use document color if set, otherwise white when docolors is off, browsebg when on */
+      coo->bgcolor=PICKBGCOLOR(fr->bgcolor,bg,whitebg);
+      /* Text and link colors: always use document colors if set, regardless of docolors setting */
+      coo->textcolor=(fr->textcolor>=0)?fr->textcolor:text;
+      coo->linkcolor=(fr->linkcolor>=0)?fr->linkcolor:link;
+      coo->vlinkcolor=(fr->vlinkcolor>=0)?fr->vlinkcolor:vlink;
+      coo->alinkcolor=(fr->alinkcolor>=0)?fr->alinkcolor:alink;
+      /* Background image: only set if docolors is enabled */
+      if(prefs.docolors)
+      {  coo->bgimage=fr->bgimage;
+      }
+      else
+      {  coo->bgimage=NULL;
+      }
    }
 }
 

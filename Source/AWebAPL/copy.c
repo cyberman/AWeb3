@@ -640,7 +640,8 @@ static long Rendercopy(struct Copy *cop,struct Amrender *amr)
             {  SetFont(coo->rp,cop->font);
                SetSoftStyle(coo->rp,cop->style,0x0f);
                len=TextFit(coo->rp,cop->text->buffer+cop->textpos,cop->length,&te,NULL,1,w,h);
-               if(prefs.docolors && cop->color && cop->color->pen>=0) pen=cop->color->pen;
+               /* Always apply text color if set, regardless of background images setting */
+               if(cop->color && cop->color->pen>=0) pen=cop->color->pen;
                else pen=coo->textcolor;
                SetAPen(coo->rp,pen);
                if(len>0)

@@ -1185,14 +1185,16 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
          if(bodyMaxY < clipMaxY) clipMaxY = bodyMaxY;
       }
       
-      if(prefs.docolors && (bd->bgcolor>=0 || bd->bgimage)
-      && !(bd->flags&BDYF_NOBACKGROUND))
-      {  if(bd->bgcolor>=0)
-         {  coo->bgcolor=bd->bgcolor;
-         }
-         coo->bgimage=bd->bgimage;
+      /* Always apply background color if set, regardless of docolors setting */
+      if(bd->bgcolor>=0 && !(bd->flags&BDYF_NOBACKGROUND))
+      {  coo->bgcolor=bd->bgcolor;
+      }
+      /* Only apply background image if docolors is enabled */
+      if(prefs.docolors && bd->bgimage && !(bd->flags&BDYF_NOBACKGROUND))
+      {  coo->bgimage=bd->bgimage;
          coo->bgalign=bd->bgalign;
       }
+      /* Fallback: apply bgcolor even when docolors is off if FORCEBGCOLOR flag is set */
       if(!prefs.docolors && (bd->flags&BDYF_FORCEBGCOLOR) && bd->bgcolor>=0)
       {  coo->bgcolor=bd->bgcolor;
       }
@@ -1972,12 +1974,15 @@ static long Dragrenderbody(struct Body *bd,struct Amdragrender *amd)
    if(amd->coords && amd->coords->win)
    {  bgcolor=amd->coords->bgcolor;
       bgimage=amd->coords->bgimage;
-      if(prefs.docolors && (bd->bgcolor>=0 || bd->bgimage))
-      {  if(bd->bgcolor>=0)
-         {  amd->coords->bgcolor=bd->bgcolor;
-         }
-         amd->coords->bgimage=bd->bgimage;
+      /* Always apply background color if set, regardless of docolors setting */
+      if(bd->bgcolor>=0)
+      {  amd->coords->bgcolor=bd->bgcolor;
       }
+      /* Only apply background image if docolors is enabled */
+      if(prefs.docolors && bd->bgimage)
+      {  amd->coords->bgimage=bd->bgimage;
+      }
+      /* Fallback: apply bgcolor even when docolors is off if FORCEBGCOLOR flag is set */
       if(!prefs.docolors && (bd->flags&BDYF_FORCEBGCOLOR) && bd->bgcolor>=0)
       {  amd->coords->bgcolor=bd->bgcolor;
       }
@@ -2086,13 +2091,15 @@ void *Bodyframe(struct Body *bd)
 void Bodycoords(struct Body *bd,struct Coords *coo)
 {  if(bd->objecttype==AOTP_BODY)
    {  Framecoords(bd->cframe,coo);
-      if(prefs.docolors && (bd->bgcolor>=0 || bd->bgimage)
-      && !(bd->flags&BDYF_NOBACKGROUND))
-      {  if(bd->bgcolor>=0)
-         {  coo->bgcolor=bd->bgcolor;
-         }
-         coo->bgimage=bd->bgimage;
+      /* Always apply background color if set, regardless of docolors setting */
+      if(bd->bgcolor>=0 && !(bd->flags&BDYF_NOBACKGROUND))
+      {  coo->bgcolor=bd->bgcolor;
       }
+      /* Only apply background image if docolors is enabled */
+      if(prefs.docolors && bd->bgimage && !(bd->flags&BDYF_NOBACKGROUND))
+      {  coo->bgimage=bd->bgimage;
+      }
+      /* Fallback: apply bgcolor even when docolors is off if FORCEBGCOLOR flag is set */
       if(!prefs.docolors && (bd->flags&BDYF_FORCEBGCOLOR) && bd->bgcolor>=0)
       {  coo->bgcolor=bd->bgcolor;
       }
