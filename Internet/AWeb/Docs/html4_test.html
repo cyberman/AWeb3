@@ -24,7 +24,7 @@
 <META NAME="Description" CONTENT="Comprehensive HTML 4.0 compatibility test for AWeb">
 <META NAME="Keywords" CONTENT="HTML 4.0, compatibility, test, AWeb">
 </HEAD>
-<BODY BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
+<BODY BACKGROUND="awebbg.iff" BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
 
 <H1><IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)">&nbsp; HTML 4.0 Compatibility Test</H1>
 
@@ -65,6 +65,32 @@
 <P>This is normal text. <INS>This text was inserted</INS> and should appear in red with underline.</P>
 <P>This is normal text. <DEL>This text was deleted</DEL> and should appear in grey with strikethrough.</P>
 <P>Example of both: This sentence has <INS>inserted text</INS> and <DEL>deleted text</DEL> in it.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Fully Supported - PRE Element with HTML Tags</H3>
+<UL>
+<LI>PRE element - Fully supported (see html-tz.html#PRE) - Preserves whitespace and column alignment</LI>
+<LI>Whitespace normalization in PRE blocks - Non-breaking spaces (0xA0) are preserved in preformat mode to maintain column alignment, especially when HTML tags appear inside preformatted content</LI>
+</UL>
+
+<H3>PRE Element Test: Column Alignment with HTML Tags</H3>
+<P><STRONG>What it tests:</STRONG> The PRE element should preserve whitespace and maintain column alignment even when HTML tags (like links) appear inside the preformatted content. This is critical for displaying formatted text like file listings, code examples, or tabular data with embedded links.</P>
+<P><STRONG>How to run:</STRONG> View this page - the columns in the PRE block below should be properly aligned, with the links maintaining the same column positions as if they were plain text.</P>
+<P><STRONG>Expected results:</STRONG> All columns should align vertically. The filename, category, size, and description columns should line up correctly, even though HTML &lt;A&gt; tags are embedded in the content. Spaces between elements should be preserved as non-breaking spaces to maintain alignment.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<PRE>
+<a href="#top">file1.lha</a>            <a href="#top">comm/misc</a>  1.9M  OS4 <a href="#top">Direct file transfer vi...</a>    
+<a href="#top">file21.lha</a>           <a href="#top">comm/net</a>   352K  OS3 <a href="#top">get https files for the...</a>    
+<a href="#top">file231.lha</a>          <a href="#top">comm/net</a>  4325K  OS3 <a href="#top">SSH2 suite, client/serv...</a>          
+<a href="#top">file3421.lha</a>         <a href="#top">dev/c</a>      925K  OS3 <a href="#top">Open source video game ...</a>            
+<a href="#top">file24321.lha</a>        <a href="#top">dev/misc</a>  8.42M  OS3 <a href="#top">Game Creator with AGA s...</a>            
+</PRE>
+<P><STRONG>Note:</STRONG> The columns should align perfectly. If the alignment is broken, it indicates that whitespace normalization in PRE blocks is not working correctly. The spaces between the links should be preserved as non-breaking spaces (0xA0) to maintain column alignment.</P>
 </TD>
 </TR>
 </TABLE>
@@ -127,7 +153,7 @@
 <TR>
 <TD>
 <STRONG>Test:</STRONG><BR>
-<IFRAME SRC="test.html" WIDTH="400" HEIGHT="200" NAME="iframe1" FRAMEBORDER="1" SCROLLING="yes">
+<IFRAME SRC="html.html" WIDTH="400" HEIGHT="200" NAME="iframe1" FRAMEBORDER="1" SCROLLING="yes">
 Your browser does not support inline frames.
 </IFRAME>
 </TD>
@@ -590,6 +616,44 @@ Your browser does not support OBJECT tags.
 <H3>Test Examples</H3>
 <P>This paragraph would use inline STYLE attribute, but CSS support is limited in AWeb.</P>
 
+<H4>Color Tests: Hex vs Names</H4>
+<P><STRONG>What you should see:</STRONG> Text colors using both hex values and CSS color names. Each pair should show the same color.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="color: #ff0000; padding: 10px; background-color: #ffffff;">Hex: This text should be red (#ff0000).</P>
+<P STYLE="color: red; padding: 10px; background-color: #ffffff;">Name: This text should be red (color name).</P>
+<P STYLE="color: #0000ff; padding: 10px; background-color: #ffffff;">Hex: This text should be blue (#0000ff).</P>
+<P STYLE="color: blue; padding: 10px; background-color: #ffffff;">Name: This text should be blue (color name).</P>
+<P STYLE="color: #008000; padding: 10px; background-color: #ffffff;">Hex: This text should be green (#008000).</P>
+<P STYLE="color: green; padding: 10px; background-color: #ffffff;">Name: This text should be green (color name).</P>
+<P STYLE="color: #000000; padding: 10px; background-color: #ffffff;">Hex: This text should be black (#000000).</P>
+<P STYLE="color: black; padding: 10px; background-color: #ffffff;">Name: This text should be black (color name).</P>
+<P STYLE="color: #A52A2A; padding: 10px; background-color: #ffffff;">Hex: This text should be brown (#A52A2A).</P>
+<P STYLE="color: brown; padding: 10px; background-color: #ffffff;">Name: This text should be brown (color name).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H4>Background Color Tests: Hex vs Names</H4>
+<P><STRONG>What you should see:</STRONG> Background colors using both hex values and CSS color names. Each pair should show the same background color.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="background-color: #ffcccc; padding: 10px;">Hex: This paragraph should have a light red background (#ffcccc).</P>
+<P STYLE="background-color: #ffcccc; color: red; padding: 10px;">Name: This paragraph should have a light red background with red text (color name).</P>
+<P STYLE="background-color: #ccccff; padding: 10px;">Hex: This paragraph should have a light blue background (#ccccff).</P>
+<P STYLE="background-color: #ccccff; color: blue; padding: 10px;">Name: This paragraph should have a light blue background with blue text (color name).</P>
+<P STYLE="background-color: #ccffcc; padding: 10px;">Hex: This paragraph should have a light green background (#ccffcc).</P>
+<P STYLE="background-color: #ccffcc; color: green; padding: 10px;">Name: This paragraph should have a light green background with green text (color name).</P>
+</TD>
+</TR>
+</TABLE>
+
 <H3>Not Supported</H3>
 <UL>
 <LI>Full CSS1 implementation - Many properties not supported</LI>
@@ -743,7 +807,6 @@ Example XML declaration:
 <LI>XHTML support is automatically enabled when XHTML DOCTYPE or XML declaration is detected</LI>
 <LI>Self-closing tag syntax works in both HTML and XHTML modes for compatibility</LI>
 <LI>CDATA sections are properly extracted and displayed as text content</LI>
-<LI>XHTML Mobile Profile (XHTML-MP) documents are automatically recognized</LI>
 </UL>
 
 <P><A HREF="#top">Back to top</A></P>
@@ -765,29 +828,25 @@ Example XML declaration:
 <LI>OBJECT and PARAM elements</LI>
 <LI>Scripting integration (SCRIPT, NOSCRIPT)</LI>
 <LI>Event handlers on HTML elements</LI>
-<LI>Character entities (HTML 4.0 set)</LI>
-</UL>
-
-<H3>HTML 4.0 Features Partially Supported</H3>
-<UL>
-<LI>STYLE element and basic CSS1 - Limited CSS rendering support</LI>
+<LI>Character entities (HTML 4.0 set with some newer entities that map well to Latin-1)</LI>
 <LI>EMBED, BGSOUND - Tolerant mode only (browser extensions)</LI>
 </UL>
 
+
 <H3>HTML 4.0 Features Not Supported</H3>
 <UL>
-<LI>Full CSS1/CSS2 implementation</LI>
-<LI>External stylesheets (limited support)</LI>
+<LI>Full CSS1/CSS2 implementation (Coming in AWeb 3.6)</LI>
+<LI>External stylesheets (Coming in AWeb 3.6)</LI>
 <LI>LABEL, FIELDSET, LEGEND elements</LI>
 <LI>OPTGROUP element</LI>
 <LI>INPUT TYPE="image"</LI>
 <LI>Table accessibility attributes (SUMMARY, SCOPE, HEADERS, ABBR)</LI>
 <LI>Form accessibility attributes</LI>
 <LI>APPLET element (deprecated)</LI>
-<LI>Internationalization features (limited)</LI>
+<LI>Internationalization features</LI>
 </UL>
 
-<H3>XHTML Support (New)</H3>
+<H3>XHTML Support (New in AWeb 3.6)</H3>
 <UL>
 <LI>XHTML 1.0, 1.1, and XHTML-MP - Fully supported</LI>
 <LI>Self-closing tags - Fully supported</LI>
