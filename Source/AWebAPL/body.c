@@ -96,6 +96,7 @@ struct Body
    long borderwidth;        /* CSS border width */
    struct Colorinfo *bordercolor; /* CSS border color */
    UBYTE *borderstyle;      /* CSS border style */
+   struct Colorinfo *linktextcolor; /* Text color for current link (from CSS class-based selectors or inline styles) */
    long right;             /* CSS right position */
    long bottom;            /* CSS bottom position */
    UBYTE *cursor;          /* CSS cursor type */
@@ -1528,6 +1529,9 @@ static long Setbody(struct Body *bd,struct Amset *ams)
             }
             bd->id = (UBYTE *)tag->ti_Data;
             break;
+         case AOBDY_LinkTextColor:
+            bd->linktextcolor = (struct Colorinfo *)tag->ti_Data;
+            break;
          case AOBDY_Position:
             if(bd->position && bd->position != (UBYTE *)tag->ti_Data)
             {  FREE(bd->position);
@@ -1692,6 +1696,7 @@ static struct Body *Newbody(struct Amset *ams)
       bd->borderwidth = 0;
       bd->bordercolor = NULL;
       bd->borderstyle = NULL;
+      bd->linktextcolor = NULL;
       bd->right = -1;
       bd->bottom = -1;
       bd->cursor = NULL;
@@ -1808,6 +1813,9 @@ static long Getbody(struct Body *bd,struct Amset *ams)
          case AOBDY_PaddingLeft:
             PUTATTR(tag,bd->paddingleft);
             break;
+         case AOBDY_LinkTextColor:
+            PUTATTR(tag,bd->linktextcolor);
+            break;
          case AOBDY_BorderWidth:
             PUTATTR(tag,bd->borderwidth);
             break;
@@ -1874,6 +1882,10 @@ static long Addchild(struct Body *bd,struct Amadd *ama)
       {  valign=VALIGN_SUP;
          supfp=Getfontprefs(bd,bd->bld->font.first->next,NULL);
          supof=Addopenfont(bd,supfp->font);
+      }
+      /* Use link text color if link is active and custom color is set */
+      if(bd->bld->link && bd->linktextcolor)
+      {  ci = bd->linktextcolor;
       }
       Asetattrs(ama->child,
          AOELT_Link,bd->bld->link,

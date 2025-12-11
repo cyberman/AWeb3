@@ -190,6 +190,9 @@
 #define AOBDY_WhiteSpace   (AOBDY_Dummy+57)  /* SET,GET */
    /* (UBYTE *) CSS white-space: "nowrap", "normal", "pre", etc. */
 
+#define AOBDY_LinkTextColor (AOBDY_Dummy+58)  /* SET,GET */
+   /* (struct Colorinfo *) Text color for current link (from CSS class-based selectors or inline styles) */
+
 /*--- body support structures ---*/
 
 /* global references */

@@ -133,6 +133,7 @@ struct Document
    UBYTE *jdomain;            /* JS domain property */
    void *cssstylesheet;       /* CSS stylesheet for this document */
    struct Colorinfo *parabgcolor;  /* Background color for current paragraph (from CSS) */
+   struct Colorinfo *linktextcolor; /* Text color for current link (from CSS class-based selectors or inline styles) */
    short texttransform;       /* Text transform: 0=none, 1=uppercase, 2=lowercase, 3=capitalize */
    float lineheight;          /* Line height multiplier (from CSS line-height) */
    UBYTE *currentlistclass;   /* Class of current list (for descendant selector support) */

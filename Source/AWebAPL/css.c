@@ -3023,10 +3023,25 @@ void ApplyInlineCSSToLink(struct Document *doc,void *link,void *body,UBYTE *styl
          {  if(stricmp((char *)prop->value,"none") == 0)
             {  Asetattrs(link,AOLNK_NoDecoration,TRUE,TAG_END);
             }
+            else if(stricmp((char *)prop->value,"underline") == 0)
+            {  /* Remove no-decoration flag if underline is explicitly set */
+               Asetattrs(link,AOLNK_NoDecoration,FALSE,TAG_END);
+            }
          }
-         /* Note: color is not handled here for inline styles on links.
-          * Link colors are handled at the document level via ApplyCSSToLinkColors.
-          * Setting color on the body would incorrectly affect all body text, not just the link. */
+         /* Apply color to link (for inline styles) */
+         else if(stricmp((char *)prop->name,"color") == 0)
+         {  ULONG colorrgb;
+            struct Colorinfo *ci;
+            colorrgb = ParseHexColor(prop->value);
+            if(colorrgb != ~0)
+            {  ci = Finddoccolor(doc,colorrgb);
+               if(ci && body)
+               {  /* Store link text color on body - will be applied to text elements when created */
+                  Asetattrs(body,AOBDY_LinkTextColor,ci,TAG_END);
+               }
+            }
+         }
+         /* Note: a:link and a:visited colors are handled at the document level via ApplyCSSToLinkColors */
       }
       
       /* Free the property */
@@ -3199,6 +3214,8 @@ void ApplyCSSToLink(struct Document *doc,void *link,void *body)
    struct CSSStylesheet *sheet;
    BOOL matches;
    BOOL isVisited;
+   UBYTE *linkClass;
+   UBYTE *linkId;
    
    if(!doc || !link || !doc->cssstylesheet)
    {  /* debug_printf("CSS: ApplyCSSToLink skipped - doc=%p link=%p stylesheet=%p\n",
@@ -3211,7 +3228,15 @@ void ApplyCSSToLink(struct Document *doc,void *link,void *body)
    sheet = (struct CSSStylesheet *)doc->cssstylesheet;
    isVisited = (BOOL)Agetattr(link,AOLNK_Visited);
    
-   /* Find matching rules for 'a' element with pseudo-classes */
+   /* Get class and ID from body element associated with link */
+   linkClass = NULL;
+   linkId = NULL;
+   if(body)
+   {  linkClass = (UBYTE *)Agetattr(body,AOBDY_Class);
+      linkId = (UBYTE *)Agetattr(body,AOBDY_Id);
+   }
+   
+   /* Find matching rules for 'a' element with pseudo-classes and class/ID selectors */
    for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
        (struct MinNode *)rule->node.mln_Succ;
        rule = (struct CSSRule *)rule->node.mln_Succ)
@@ -3223,6 +3248,20 @@ void ApplyCSSToLink(struct Document *doc,void *link,void *body)
          /* Match element name - must be 'a' */
          if(sel->type & CSS_SEL_ELEMENT && sel->name)
          {  if(stricmp((char *)sel->name,"a") != 0)
+            {  matches = FALSE;
+            }
+         }
+         
+         /* Match class */
+         if(matches && sel->type & CSS_SEL_CLASS && sel->class)
+         {  if(!MatchClassAttribute(linkClass, sel->class))
+            {  matches = FALSE;
+            }
+         }
+         
+         /* Match ID */
+         if(matches && sel->type & CSS_SEL_ID && sel->id)
+         {  if(!linkId || stricmp((char *)sel->id,(char *)linkId) != 0)
             {  matches = FALSE;
             }
          }
@@ -3257,9 +3296,26 @@ void ApplyCSSToLink(struct Document *doc,void *link,void *body)
                      {  /* debug_printf("CSS: Setting link NoDecoration=TRUE\n"); */
                         Asetattrs(link,AOLNK_NoDecoration,TRUE,TAG_END);
                      }
+                     else if(stricmp((char *)prop->value,"underline") == 0)
+                     {  /* Remove no-decoration flag if underline is explicitly set */
+                        Asetattrs(link,AOLNK_NoDecoration,FALSE,TAG_END);
+                     }
+                  }
+                  /* Apply color to link (for class-based selectors like .link-red) */
+                  else if(stricmp((char *)prop->name,"color") == 0)
+                  {  ULONG colorrgb;
+                     struct Colorinfo *ci;
+                     colorrgb = ParseHexColor(prop->value);
+                     if(colorrgb != ~0)
+                     {  ci = Finddoccolor(doc,colorrgb);
+                        if(ci && body)
+                        {  /* Store link text color on body - will be applied to text elements when created */
+                           Asetattrs(body,AOBDY_LinkTextColor,ci,TAG_END);
+                        }
+                     }
                   }
                   /* Note: font-family is inherited from parent elements, not set on links */
-                  /* Note: color is handled by ApplyCSSToLinkColors for document-level colors */
+                  /* Note: a:link and a:visited colors are handled by ApplyCSSToLinkColors for document-level colors */
                }
             }
          }

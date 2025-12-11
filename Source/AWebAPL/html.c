@@ -626,6 +626,8 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      else if(tagname && stricmp((char *)tagname,"P") == 0)
                      {  Asetattrs(body,AOBDY_Align,align,TAG_END);
                      }
+                     /* For table cells (TD/TH), text-align is handled by ApplyCSSToTableCellFromRules */
+                     /* which applies it to the table object, not the body */
                   }
                   /* Apply font-family - handle comma-separated list */
                   else if(stricmp((char *)prop->name,"font-family") == 0)
@@ -3326,6 +3328,9 @@ static BOOL Doanchor(struct Document *doc,struct Tagattr *ta)
    }
    if(!Ensurebody(doc)) return FALSE;
    body = Docbodync(doc);
+   /* Set class and ID on body for A tags (so ApplyCSSToLink can access them) */
+   if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
+   if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
    /* Apply CSS to anchor based on class/ID */
    ApplyCSSToBody(doc,body,class,id,"A");
    if((href || onclick || onmouseover || onmouseout) && doc->doctype==DOCTP_BODY)
@@ -3364,10 +3369,10 @@ static BOOL Doanchor(struct Document *doc,struct Tagattr *ta)
       ADDTAIL(&doc->links,link);
       Asetattrs(Docbody(doc),AOBDY_Link,link,TAG_END);
       /* Apply CSS from stylesheet to link */
-      ApplyCSSToLink(doc,link,Docbody(doc));
+      ApplyCSSToLink(doc,link,body);
       /* Apply inline CSS if present (overrides stylesheet) */
       if(styleAttr)
-      {  ApplyInlineCSSToLink(doc,link,Docbody(doc),styleAttr);
+      {  ApplyInlineCSSToLink(doc,link,body,styleAttr);
       }
    }
    if(name && doc->doctype==DOCTP_BODY)
@@ -3389,7 +3394,11 @@ static BOOL Doanchor(struct Document *doc,struct Tagattr *ta)
 /*** </A> ***/
 static BOOL Doanchorend(struct Document *doc)
 {  if(doc->doctype==DOCTP_BODY)
-   {  Asetattrs(Docbodync(doc),AOBDY_Link,NULL,TAG_END);
+   {  void *body;
+      body = Docbodync(doc);
+      Asetattrs(body,AOBDY_Link,NULL,TAG_END);
+      /* Clear link text color when link ends */
+      Asetattrs(body,AOBDY_LinkTextColor,NULL,TAG_END);
    }
    return TRUE;
 }
