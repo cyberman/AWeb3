@@ -546,7 +546,9 @@ static long Updatesaveiff(struct Saveiff *sif,struct Amset *ams)
       }
       if(!(sif->flags&SIFF_NOICON) && sif->name && prefs.saveicons)
       {  struct DiskObject *dob;
-         if(dob=GetDefDiskObject(WBPROJECT))
+         /* Use GetDiskObjectNew() which queries DefIcons if running,
+          * providing file-type-specific default icons */
+         if(dob=GetDiskObjectNew(sif->name))
          {  PutDiskObject(sif->name,dob);
             FreeDiskObject(dob);
          }

@@ -79,7 +79,9 @@ static void Saveiconfile(struct File *fil)
 #ifndef DEMOVERSION
    struct DiskObject *dob;
    if(prefs.saveicons && fil->icontype)
-   {  if(dob=GetDefDiskObject(WBPROJECT))
+   {  /* Use GetDiskObjectNew() which queries DefIcons if running,
+        * providing file-type-specific default icons */
+      if(dob=GetDiskObjectNew(fil->name))
       {  if(fil->icontype==FILEICON_TEXT)
          {  dob->do_DefaultTool=programname;
          }
