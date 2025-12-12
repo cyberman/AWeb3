@@ -89,6 +89,9 @@ struct Httpinfo
    UBYTE *userid;             /* Userid from URL */
    UBYTE *passwd;             /* Password from URL */
    BOOL connection_reused;   /* TRUE if connection was reused from pool */
+   long bytes_received;      /* Bytes received so far (for Range request retry) */
+   BOOL server_supports_range; /* TRUE if server supports Range requests (Accept-Ranges: bytes) */
+   long full_file_size;      /* Full file size from Content-Range header (for 206 responses) */
 };
 
 #define HTTPIF_AUTH        0x0001   /* Tried with a known to be valid auth */
@@ -105,6 +108,7 @@ struct Httpinfo
 #define HTTPIF_GZIPDECODING 0x0200  /* decoding gziped response has begun */
 #define HTTPIF_DATA_PROCESSED 0x0400 /* data has already been processed to prevent duplication */
 #define HTTPIF_CHUNKED 0x0800        /* response uses chunked transfer encoding */
+#define HTTPIF_RANGE_REQUEST 0x4000  /* Using Range request to resume partial download */
 
 static UBYTE *httprequest="GET %.7000s HTTP/1.1\r\n";
 
@@ -676,15 +680,18 @@ static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **requ
    }
    if(hi->hostport)
       p+=sprintf(p,host,hi->hostport);
-   if(fd->validate)
-   {  UBYTE date[32];
-      Makedate(fd->validate,date);
-      p+=sprintf(p,ifmodifiedsince,date);
-   }
-   
-   // If ETag exists verify this else try time
-   if(fd->etag && strlen(fd->etag)>0)
-   {  p+=sprintf(p,ifnonematch,fd->etag);
+   /* Skip conditional headers for Range requests - they cause 304 instead of 206 */
+   if(!(hi->flags & HTTPIF_RANGE_REQUEST))
+   {  if(fd->validate)
+      {  UBYTE date[32];
+         Makedate(fd->validate,date);
+         p+=sprintf(p,ifmodifiedsince,date);
+      }
+      
+      /* If ETag exists verify this else try time */
+      if(fd->etag && strlen(fd->etag)>0)
+      {  p+=sprintf(p,ifnonematch,fd->etag);
+      }
    }
    
    if(hi->auth && hi->auth->cookie)
@@ -701,6 +708,13 @@ static long Buildrequest(struct Fetchdriver *fd,struct Httpinfo *hi,UBYTE **requ
    }
    else if(fd->postmsg)
    {  p+=sprintf(p,httppostcontent,strlen(fd->postmsg));
+   }
+   /* Add Range header if resuming a partial download */
+   if((hi->flags & HTTPIF_RANGE_REQUEST) && hi->bytes_received > 0 && hi->server_supports_range)
+   {  /* Request remaining bytes: bytes=XXXX- */
+      /* Note: We don't specify end byte, server will send until end of file */
+      p+=sprintf(p, "Range: bytes=%ld-\r\n", hi->bytes_received);
+      debug_printf("DEBUG: Buildrequest: Adding Range header: bytes=%ld-\n", hi->bytes_received);
    }
    if(prefs.cookies && (cookies=Findcookies(fd->name,hi->flags&HTTPIF_SSL)))
    {  long len=strlen(cookies);
@@ -1157,6 +1171,48 @@ static BOOL Readheaders(struct Httpinfo *hi)
             debug_printf("DEBUG: Server sent Connection: keep-alive\n");
          }
       }
+      else if(STRNIEQUAL(hi->fd->block,"Accept-Ranges:",14))
+      {  /* Parse Accept-Ranges header to detect Range request support */
+         UBYTE *p;
+         for(p=hi->fd->block+14;*p && isspace(*p);p++);
+         
+         /* Check if server supports Range requests (Accept-Ranges: bytes) */
+         if(STRNIEQUAL(p, "bytes", 5))
+         {  hi->server_supports_range = TRUE;
+            debug_printf("DEBUG: Server supports Range requests (Accept-Ranges: bytes)\n");
+         }
+         else
+         {  hi->server_supports_range = FALSE;
+            debug_printf("DEBUG: Server does not support Range requests (Accept-Ranges: %s)\n", p);
+         }
+      }
+      else if(STRNIEQUAL(hi->fd->block,"Content-Range:",14))
+      {  long start;  /* C89: Declare all variables at start */
+         long end;
+         long total;
+         UBYTE *p;
+         
+         /* Parse Content-Range header for 206 Partial Content responses */
+         /* Format: bytes start-end/total or bytes asterisk-slash-total/total */
+         for(p=hi->fd->block+14;*p && isspace(*p);p++);
+         
+         if(STRNIEQUAL(p, "bytes ", 6))
+         {  p += 6;
+            /* Parse range: start-end/total */
+            if(sscanf(p, "%ld-%ld/%ld", &start, &end, &total) == 3)
+            {  debug_printf("DEBUG: Content-Range: bytes %ld-%ld/%ld\n", start, end, total);
+               /* Store full file size for completion check */
+               hi->full_file_size = total;
+               /* Update partlength to reflect the actual range size (Content-Length) */
+               hi->partlength = end - start + 1;
+               /* bytes_received should already be set to start value */
+            }
+            else if(sscanf(p, "*/%ld", &total) == 1)
+            {  /* Unsatisfiable range: asterisk followed by -total/total */
+               debug_printf("DEBUG: Content-Range: bytes */%ld (unsatisfiable)\n", total);
+            }
+         }
+      }
       else if(STRNIEQUAL(hi->fd->block,"ETag:",5))
       {  UBYTE *p,*q;
          for(p=hi->fd->block+5;*p && isspace(*p);p++);
@@ -1280,9 +1336,22 @@ static BOOL Readresponse(struct Httpinfo *hi)
          }
          else if(stat==303) hi->movedto=AOURL_Seeother;
          else if(stat==304)
-         {  Updatetaskattrs(
+         {  /* 304 Not Modified - if we're doing a Range request, this means server ignored Range header */
+            if(hi->flags & HTTPIF_RANGE_REQUEST)
+            {  debug_printf("DEBUG: Readresponse: Got 304 Not Modified with Range request - server ignored Range header\n");
+               /* Server ignored Range request, treat as error and fall back to full download */
+               hi->flags &= ~HTTPIF_RANGE_REQUEST;
+               hi->bytes_received = 0;  /* Reset to start from beginning */
+            }
+            Updatetaskattrs(
                AOURL_Notmodified,TRUE,
                TAG_END);
+         }
+         else if(stat==206)
+         {  /* 206 Partial Content - Range request successful */
+            debug_printf("DEBUG: Readresponse: Received 206 Partial Content (Range request)\n");
+            hi->flags |= HTTPIF_RANGE_REQUEST;
+            /* Content-Range header will be parsed in Readheaders() */
          }
       }
       else
@@ -1378,11 +1447,26 @@ static BOOL Readdata(struct Httpinfo *hi)
    long compressed_bytes_consumed=0; /* Track how much compressed data we've consumed for Content-Length validation */
    long total_compressed_read=0; /* Track total compressed bytes READ from network (before copying to gzipbuffer) */
    long total_bytes_received=0; /* Track total bytes received for non-gzip transfers with Content-Length */
+   long expected_total_size;  /* Expected total size (full file size for Range requests, partlength for regular) */
    
    debug_printf("DEBUG: Readdata: ENTRY - blocklength=%ld, flags=0x%04X, parttype='%s', sock=%ld, partlength=%ld\n",
           hi->blocklength, hi->flags, hi->parttype ? (char *)hi->parttype : "(null)", hi->sock, hi->partlength);
    
-   /* Note: total_bytes_received starts at 0 and is incremented as we process data blocks */
+   /* Initialize total_bytes_received from hi->bytes_received if using Range request */
+   /* Also calculate expected_total_size for proper completion checking */
+   if(hi->flags & HTTPIF_RANGE_REQUEST)
+   {  total_bytes_received = hi->bytes_received;
+      /* For Range requests, use full_file_size if available, otherwise use partlength */
+      expected_total_size = (hi->full_file_size > 0) ? hi->full_file_size : hi->partlength;
+      debug_printf("DEBUG: Readdata: Resuming with Range request, starting from byte %ld, expected total=%ld\n", hi->bytes_received, expected_total_size);
+   }
+   else
+   {  total_bytes_received = 0;
+      hi->bytes_received = 0;  /* Reset for new transfer */
+      expected_total_size = hi->partlength; /* For non-range, partlength is the full content length */
+   }
+   
+   /* Note: total_bytes_received starts at 0 (or bytes_received for Range) and is incremented as we process data blocks */
    /* This ensures accurate tracking without double-counting initial blocklength */
 
    if(hi->boundary)
@@ -3354,7 +3438,8 @@ static BOOL Readdata(struct Httpinfo *hi)
             /* Only track if not processing gzip (gzip tracks compressed_bytes_consumed separately) */
             if(!(hi->flags & HTTPIF_GZIPDECODING) && !(hi->flags & HTTPIF_GZIPENCODED))
             {  total_bytes_received += blocklength;
-               debug_printf("DEBUG: Total bytes received so far: %ld/%ld\n", total_bytes_received, hi->partlength > 0 ? hi->partlength : -1);
+               hi->bytes_received = total_bytes_received;  /* Update persistent counter for Range retry */
+               debug_printf("DEBUG: Total bytes received so far: %ld/%ld\n", total_bytes_received, expected_total_size > 0 ? expected_total_size : hi->partlength);
             }
             
             /* Include content type if available to prevent defaulting to octet-stream */
@@ -4341,7 +4426,8 @@ static BOOL Readdata(struct Httpinfo *hi)
                /* Track bytes received for Content-Length validation (non-gzip transfers) */
                if(!(hi->flags & HTTPIF_GZIPDECODING) && !(hi->flags & HTTPIF_GZIPENCODED))
                {  total_bytes_received += hi->blocklength;
-                  debug_printf("DEBUG: Total bytes received (including final block): %ld/%ld\n", total_bytes_received, hi->partlength > 0 ? hi->partlength : -1);
+                  hi->bytes_received = total_bytes_received;  /* Update persistent counter for Range retry */
+                  debug_printf("DEBUG: Total bytes received (including final block): %ld/%ld\n", total_bytes_received, expected_total_size > 0 ? expected_total_size : hi->partlength);
                }
                
                /* Process the data we already have before breaking */
@@ -4366,9 +4452,15 @@ static BOOL Readdata(struct Httpinfo *hi)
             /* If we have a Content-Length but didn't receive all bytes, report error */
             if(!(hi->flags & HTTPIF_GZIPDECODING) && !(hi->flags & HTTPIF_GZIPENCODED) && 
                !(hi->flags & HTTPIF_CHUNKED) && hi->partlength > 0)
-            {  if(total_bytes_received < hi->partlength)
+            {  /* For Range requests (206), compare against full file size, not range size */
+               long expected_size = (hi->flags & HTTPIF_RANGE_REQUEST && hi->full_file_size > 0) ? 
+                                    hi->full_file_size : hi->partlength;
+               if(total_bytes_received < expected_size)
                {  debug_printf("DEBUG: ERROR: Transfer incomplete! Received %ld/%ld bytes (missing %ld bytes)\n", 
-                         total_bytes_received, hi->partlength, hi->partlength - total_bytes_received);
+                         total_bytes_received, expected_size, expected_size - total_bytes_received);
+                  /* Store bytes_received for potential Range request retry */
+                  hi->bytes_received = total_bytes_received;
+                  
                   /* Check if this was due to connection reset - report appropriate error */
                   {  long errno_value;
                      UBYTE *hostname_str;
@@ -4383,19 +4475,26 @@ static BOOL Readdata(struct Httpinfo *hi)
                      }
                      hostname_str = hi->hostname ? hi->hostname : (UBYTE *)"unknown";
                      if(errno_value == ECONNRESET)
-                     {  Tcperror(hi->fd, TCPERR_NOCONNECT_RESET, hostname_str);
+                     {  /* If server supports Range requests, set flag for retry */
+                        if(hi->server_supports_range && total_bytes_received > 0)
+                        {  debug_printf("DEBUG: Server supports Range requests, will retry with Range header\n");
+                           /* Don't report error yet - let retry mechanism handle it */
+                        }
+                        else
+                        {  Tcperror(hi->fd, TCPERR_NOCONNECT_RESET, hostname_str);
+                        }
                      }
                      else
                      {  Updatetaskattrs(AOURL_Error, TRUE, TAG_END);
                      }
                   }
                }
-               else if(total_bytes_received > hi->partlength)
-               {  debug_printf("DEBUG: WARNING: Received more bytes than Content-Length! Received %ld/%ld bytes (extra %ld bytes)\n", 
-                         total_bytes_received, hi->partlength, total_bytes_received - hi->partlength);
+               else if(total_bytes_received > expected_size)
+               {  debug_printf("DEBUG: WARNING: Received more bytes than expected! Received %ld/%ld bytes (extra %ld bytes)\n", 
+                         total_bytes_received, expected_size, total_bytes_received - expected_size);
                }
                else
-               {  debug_printf("DEBUG: Transfer complete: Received exactly %ld/%ld bytes\n", total_bytes_received, hi->partlength);
+               {  debug_printf("DEBUG: Transfer complete: Received exactly %ld/%ld bytes\n", total_bytes_received, expected_size);
                   /* Transfer complete - connection reset is expected when server closes connection */
                   /* Don't report error for ECONNRESET when all data was successfully received */
                }
@@ -4429,8 +4528,11 @@ static BOOL Readdata(struct Httpinfo *hi)
          /* Continue reading until Content-Length is met or error occurs */
          if(!(hi->flags & HTTPIF_GZIPDECODING) && !(hi->flags & HTTPIF_GZIPENCODED) && 
             !(hi->flags & HTTPIF_CHUNKED) && hi->partlength > 0)
-         {  if(total_bytes_received >= hi->partlength)
-            {  debug_printf("DEBUG: Content-Length complete: Received %ld/%ld bytes\n", total_bytes_received, hi->partlength);
+         {  /* For Range requests (206), compare against full file size, not range size */
+            long expected_size = (hi->flags & HTTPIF_RANGE_REQUEST && hi->full_file_size > 0) ? 
+                                 hi->full_file_size : hi->partlength;
+            if(total_bytes_received >= expected_size)
+            {  debug_printf("DEBUG: Content-Length complete: Received %ld/%ld bytes\n", total_bytes_received, expected_size);
                /* Content-Length met - exit loop */
                break;
             }
@@ -5347,8 +5449,14 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
    hi->nextscanpos=0;
    if(fd->flags&FDVF_SSL) hi->flags|=HTTPIF_SSL;
    hi->fd=fd;
-   debug_printf("DEBUG: Httpretrieve: Initialized - flags=0x%04X, blocklength=%ld\n",
-          hi->flags, hi->blocklength);
+   /* Initialize Range request support fields */
+   if(!(hi->flags & HTTPIF_RANGE_REQUEST))
+   {  hi->bytes_received = 0;  /* Only reset if not using Range request */
+   }
+   hi->server_supports_range = FALSE;  /* Will be set from Accept-Ranges header */
+   hi->full_file_size = 0;  /* Will be set from Content-Range header for 206 responses */
+   debug_printf("DEBUG: Httpretrieve: Initialized - flags=0x%04X, blocklength=%ld, bytes_received=%ld\n",
+          hi->flags, hi->blocklength, hi->bytes_received);
 #ifdef DEVELOPER
    if(STRNEQUAL(fd->name,"&&&&",4)
    ||STRNIEQUAL(fd->name,"http://&&&&",11)
@@ -5638,6 +5746,42 @@ static void Httpretrieve(struct Httpinfo *hi,struct Fetchdriver *fd)
                      Httpresponse(hi,TRUE);
                      debug_printf("DEBUG: Httpretrieve: Httpresponse() returned - status=%ld, blocklength=%ld\n",
                                  hi->status, hi->blocklength);
+                     
+                     /* Check for incomplete transfer and retry with Range request if supported */
+                     if(hi->status == 0 && hi->bytes_received > 0 && hi->server_supports_range && 
+                        hi->partlength > 0 && hi->bytes_received < hi->partlength && retry_count == 0)
+                     {  debug_printf("DEBUG: Incomplete transfer detected (%ld/%ld bytes). Retrying with Range request.\n",
+                                   hi->bytes_received, hi->partlength);
+                        
+                        /* Cleanup current connection */
+#ifndef DEMOVERSION
+                        if(hi->assl)
+                        {  Assl_closessl(hi->assl);
+                           Assl_cleanup(hi->assl);
+                           FREE(hi->assl);
+                           hi->assl = NULL;
+                        }
+#endif
+                        if(hi->sock >= 0 && hi->socketbase)
+                        {  a_close(hi->sock, hi->socketbase);
+                        }
+                        hi->sock = -1;
+                        hi->connection_reused = FALSE;
+                        
+                        /* Set Range request flag for retry */
+                        hi->flags |= HTTPIF_RANGE_REQUEST;
+                        
+                        /* Clear error flag to allow retry */
+                        Updatetaskattrs(AOURL_Error, FALSE, TAG_END);
+                        
+                        /* Free request buffer if allocated */
+                        if(request != fd->block) FREE(request);
+                        
+                        /* Trigger retry loop */
+                        retry_count++;
+                        try_again = TRUE;
+                        continue; /* Jump to start of do-while */
+                     }
                      
                      /* If status is 0 (no headers read) or specific socket error */
                      /* AND we reused a connection AND we haven't retried yet... */
@@ -5961,6 +6105,12 @@ void Httptask(struct Fetchdriver *fd)
          if(hi.status >= 200 && hi.status < 300 && !hi.movedto)
          {  redirect_count=0; /* Reset redirect counter on successful completion */
             debug_printf("DEBUG: Httptask: Successful response (status=%ld), resetting redirect_count\n", hi.status);
+            /* Clear Range request flag after successful completion */
+            if(hi.flags & HTTPIF_RANGE_REQUEST)
+            {  debug_printf("DEBUG: Httptask: Range request completed successfully, clearing flag\n");
+               hi.flags &= ~HTTPIF_RANGE_REQUEST;
+               hi.bytes_received = 0;  /* Reset for next transfer */
+            }
          }
          
          debug_printf("DEBUG: Httptask: Breaking loop normally (status=%ld)\n", hi.status);
