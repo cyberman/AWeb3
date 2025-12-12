@@ -1750,14 +1750,26 @@ static BOOL Readdata(struct Httpinfo *hi)
                      }
                   }
                   else if(total_chunk_data > gzip_buffer_size)
-                  {  /* Chunked data is larger than buffer - allocate max buffer size */
-                     gzipbuffer = ALLOCTYPE(UBYTE, gzip_buffer_size, 0);
+                  {  /* Chunked data is larger than buffer - allocate full size needed */
+                     /* Allocate the full total_chunk_data size to avoid truncation */
+                     long original_total = total_chunk_data;  /* C89: Declare at start */
+                     gzipbuffer = ALLOCTYPE(UBYTE, total_chunk_data, 0);
                      if(!gzipbuffer)
-                     {  debug_printf("DEBUG: Chunked+gzip: Failed to allocate max buffer of size %ld\n", gzip_buffer_size);
-                        total_chunk_data = 0;
+                     {  debug_printf("DEBUG: Chunked+gzip: Failed to allocate buffer of size %ld, trying fallback size %ld\n", total_chunk_data, gzip_buffer_size);
+                        /* Fallback to smaller buffer if allocation fails */
+                        gzipbuffer = ALLOCTYPE(UBYTE, gzip_buffer_size, 0);
+                        if(!gzipbuffer)
+                        {  debug_printf("DEBUG: Chunked+gzip: Failed to allocate fallback buffer of size %ld\n", gzip_buffer_size);
+                           total_chunk_data = 0;
+                        }
+                        else
+                        {  debug_printf("DEBUG: Chunked+gzip: Using fallback buffer size %ld (original was %ld)\n", gzip_buffer_size, original_total);
+                           total_chunk_data = gzip_buffer_size;
+                        }
                      }
                      else
-                     {  total_chunk_data = gzip_buffer_size;
+                     {  /* Successfully allocated full size - keep total_chunk_data as is */
+                        debug_printf("DEBUG: Chunked+gzip: Allocated full buffer size %ld (exceeds default %ld)\n", total_chunk_data, gzip_buffer_size);
                      }
                   }
                   else
@@ -1793,6 +1805,8 @@ static BOOL Readdata(struct Httpinfo *hi)
                   
                   if(gzipbuffer && total_chunk_data > 0)
                   {  debug_printf("DEBUG: Chunked+gzip: Successfully allocated buffer of size %ld\n", total_chunk_data);
+                     /* Update gzip_buffer_size to match actual allocated buffer size */
+                     gzip_buffer_size = total_chunk_data;
                   }
                   
                   if(gzipbuffer)
