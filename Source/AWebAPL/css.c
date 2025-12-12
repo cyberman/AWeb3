@@ -48,6 +48,7 @@ static UBYTE* ParseIdentifier(UBYTE **p);
 static UBYTE* ParseValue(UBYTE **p);
 static BOOL MatchSelector(struct CSSSelector *sel,void *element);
 static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty *prop);
+static void FreeCSSRule(struct CSSRule *rule);
 static void FreeCSSStylesheetInternal(struct CSSStylesheet *sheet);
 void MergeCSSStylesheet(struct Document *doc,UBYTE *css);
 void SkipWhitespace(UBYTE **p);
@@ -466,7 +467,7 @@ static struct CSSRule* ParseRule(struct Document *doc,UBYTE **p)
             {  css_debug_printf("ParseRule: ParseSelector failed but pointer advanced (pos %ld->%ld)\n",
                                oldp - ruleStart, *p - ruleStart);
             }
-            FREE(rule);
+            FreeCSSRule(rule);
             return NULL;
          }
          
@@ -482,7 +483,7 @@ static struct CSSRule* ParseRule(struct Document *doc,UBYTE **p)
    if(**p != '{')
    {  css_debug_printf("ParseRule: Expected '{' but found 0x%02x at position %ld\n",
                       **p, *p - ruleStart);
-      FREE(rule);
+      FreeCSSRule(rule);
       return NULL;
    }
    (*p)++; /* Skip '{' */
@@ -582,7 +583,7 @@ static struct CSSRule* ParseRule(struct Document *doc,UBYTE **p)
    }
    
    css_debug_printf("ParseRule: ERROR - Expected '}' but found 0x%02x, freeing rule\n", **p);
-   FREE(rule);
+   FreeCSSRule(rule);
    return NULL;
 }
 
@@ -614,13 +615,15 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
       if(rootId && stricmp((char *)rootId, "root") == 0)
       {  /* Check if next char is whitespace, comma, or brace (end of selector) */
          if(!*rootCheck || isspace(*rootCheck) || *rootCheck == ',' || *rootCheck == '{' || *rootCheck == '}')
-         {  sel->type = CSS_SEL_ROOT;
+         {  FREE(rootId);
+            sel->type = CSS_SEL_ROOT;
             sel->specificity = 1; /* :root has element-level specificity */
             *p = rootCheck;
             SkipWhitespace(p);
             return sel;
          }
       }
+      if(rootId) FREE(rootId);
    }
    
    /* Parse element name, class, or ID */
@@ -631,6 +634,7 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
       if(class)
       {  sel->type = CSS_SEL_CLASS;
          sel->class = Dupstr(class,-1);
+         FREE(class);
          sel->specificity = 10; /* Class specificity */
       }
       else
@@ -645,6 +649,7 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
          if(name)
          {  sel->type |= CSS_SEL_ELEMENT;
             sel->name = Dupstr(name,-1);
+            FREE(name);
             sel->specificity += 1; /* Element adds to specificity */
          }
       }
@@ -656,6 +661,7 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
       if(id)
       {  sel->type = CSS_SEL_ID;
          sel->id = Dupstr(id,-1);
+         FREE(id);
          sel->specificity = 100; /* ID specificity */
       }
       else
@@ -669,6 +675,7 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
       if(name)
       {  sel->type = CSS_SEL_ELEMENT;
          sel->name = Dupstr(name,-1);
+         FREE(name);
          sel->specificity = 1; /* Element specificity */
       }
       else
@@ -707,9 +714,11 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
                      FREE(oldClass);
                      sel->class = newClass;
                   }
+                  FREE(class);
                }
                else
                {  sel->class = Dupstr(class,-1);
+                  FREE(class);
                }
                sel->specificity += 10; /* Each class adds 10 to specificity */
             }
@@ -720,6 +729,7 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
             if(id)
             {  sel->type |= CSS_SEL_ID;
                sel->id = Dupstr(id,-1);
+               FREE(id);
                sel->specificity += 100;
                break; /* ID can only appear once, stop parsing classes */
             }
@@ -738,6 +748,7 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
          if(pseudoName)
          {  sel->type |= CSS_SEL_PSEUDOEL;
             sel->pseudoElement = Dupstr(pseudoName,-1);
+            FREE(pseudoName);
             sel->specificity += 1; /* Pseudo-element adds element-level specificity */
          }
       }
@@ -748,6 +759,7 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
          if(pseudoName)
          {  sel->type |= CSS_SEL_PSEUDO;
             sel->pseudo = Dupstr(pseudoName,-1);
+            FREE(pseudoName);
             sel->specificity += 10; /* Pseudo-class adds to specificity */
          }
       }
@@ -775,6 +787,7 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
          attrName = ParseIdentifier(p);
          if(attrName)
          {  attr->name = Dupstr(attrName,-1);
+            FREE(attrName);
             SkipWhitespace(p);
             
             /* Check for operator */
@@ -832,6 +845,7 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
                   attrValue = ParseIdentifier(p);
                   if(attrValue)
                   {  attr->value = Dupstr(attrValue,-1);
+                     FREE(attrValue);
                   }
                }
             }
@@ -925,6 +939,7 @@ static struct CSSProperty* ParseProperty(struct Document *doc,UBYTE **p)
       return NULL;
    }
    prop->name = Dupstr(name,-1);
+   FREE(name);
    
    SkipWhitespace(p);
    if(**p != ':')
@@ -940,6 +955,7 @@ static struct CSSProperty* ParseProperty(struct Document *doc,UBYTE **p)
    value = ParseValue(p);
    if(value)
    {  prop->value = Dupstr(value,-1);
+      FREE(value);
    }
    else
    {  /* ParseValue failed - make sure pointer advanced */
@@ -1189,7 +1205,7 @@ static BOOL MatchAttributeSelector(struct CSSAttribute *attr, UBYTE *elemAttrVal
    
    if(!attr || !attr->name) return FALSE;
    
-   if(!elemAttrValue) return (attr->operator == CSS_ATTR_NONE) ? TRUE : FALSE; /* [attr] matches if attribute exists */
+   if(!elemAttrValue) return (BOOL)((attr->operator == CSS_ATTR_NONE) ? TRUE : FALSE); /* [attr] matches if attribute exists */
    
    attrVal = elemAttrValue;
    
@@ -1201,19 +1217,19 @@ static BOOL MatchAttributeSelector(struct CSSAttribute *attr, UBYTE *elemAttrVal
       case CSS_ATTR_EQUAL:
          /* [attr=value] - exact match */
          if(!attr->value) return FALSE;
-         return (stricmp((char *)attrVal, (char *)attr->value) == 0) ? TRUE : FALSE;
+         return (BOOL)((stricmp((char *)attrVal, (char *)attr->value) == 0) ? TRUE : FALSE);
          
       case CSS_ATTR_CONTAINS:
          /* [attr*=value] - contains substring */
          if(!attr->value) return FALSE;
-         return (stristr_case(attrVal, attr->value) != NULL) ? TRUE : FALSE;
+         return (BOOL)((stristr_case(attrVal, attr->value) != NULL) ? TRUE : FALSE);
          
       case CSS_ATTR_STARTS:
          /* [attr^=value] - starts with */
          if(!attr->value) return FALSE;
          len = strlen((char *)attr->value);
-         return (strlen((char *)attrVal) >= len && 
-                 strnicmp((char *)attrVal, (char *)attr->value, len) == 0) ? TRUE : FALSE;
+         return (BOOL)((strlen((char *)attrVal) >= len && 
+                 strnicmp((char *)attrVal, (char *)attr->value, len) == 0) ? TRUE : FALSE);
          
       case CSS_ATTR_ENDS:
          /* [attr$=value] - ends with */
@@ -1221,7 +1237,7 @@ static BOOL MatchAttributeSelector(struct CSSAttribute *attr, UBYTE *elemAttrVal
          len = strlen((char *)attr->value);
          {  long attrLen = strlen((char *)attrVal);
             if(attrLen < len) return FALSE;
-            return (stricmp((char *)(attrVal + attrLen - len), (char *)attr->value) == 0) ? TRUE : FALSE;
+            return (BOOL)((stricmp((char *)(attrVal + attrLen - len), (char *)attr->value) == 0) ? TRUE : FALSE);
          }
          
       case CSS_ATTR_WORD:
@@ -1267,7 +1283,7 @@ static BOOL MatchSelectorComponent(struct CSSSelector *sel, void *element)
    /* Match :root selector - matches HTML element */
    if(sel->type & CSS_SEL_ROOT)
    {  elemName = (UBYTE *)Agetattr(element,AOELT_TagName);
-      return (elemName && stricmp((char *)elemName, "html") == 0) ? TRUE : FALSE;
+      return (BOOL)((elemName && stricmp((char *)elemName, "html") == 0) ? TRUE : FALSE);
    }
    
    /* Get element attributes */
@@ -1335,7 +1351,7 @@ static BOOL MatchSelectorComponentBody(struct CSSSelector *sel, void *body)
    /* Match :root selector - matches HTML element */
    if(sel->type & CSS_SEL_ROOT)
    {  bodyName = (UBYTE *)Agetattr(body,AOBDY_TagName);
-      return (bodyName && stricmp((char *)bodyName, "html") == 0) ? TRUE : FALSE;
+      return (BOOL)((bodyName && stricmp((char *)bodyName, "html") == 0) ? TRUE : FALSE);
    }
    
    /* Get body attributes */
@@ -1407,7 +1423,7 @@ static BOOL MatchSelectorComponentGeneric(struct CSSSelector *sel, void *obj)
       else
       {  name = (UBYTE *)Agetattr(obj, AOELT_TagName);
       }
-      return (name && stricmp((char *)name, "html") == 0) ? TRUE : FALSE;
+      return (BOOL)((name && stricmp((char *)name, "html") == 0) ? TRUE : FALSE);
    }
    
    /* Check object type to determine which attributes to use */
@@ -1887,37 +1903,45 @@ void FreeCSSStylesheet(struct Document *doc)
    }
 }
 
+/* Free a single CSS rule and all its selectors and properties */
+static void FreeCSSRule(struct CSSRule *rule)
+{  struct CSSSelector *sel;
+   struct CSSProperty *prop;
+   
+   if(!rule) return;
+   
+   /* Remove and free all selectors from the rule's list */
+   while((sel = (struct CSSSelector *)REMHEAD(&rule->selectors)))
+   {  if(sel->name) FREE(sel->name);
+      if(sel->class) FREE(sel->class);
+      if(sel->id) FREE(sel->id);
+      if(sel->pseudo) FREE(sel->pseudo);
+      if(sel->pseudoElement) FREE(sel->pseudoElement);
+      if(sel->attr)
+      {  if(sel->attr->name) FREE(sel->attr->name);
+         if(sel->attr->value) FREE(sel->attr->value);
+         FREE(sel->attr);
+      }
+      FREE(sel);
+   }
+   /* Remove and free all properties from the rule's list */
+   while((prop = (struct CSSProperty *)REMHEAD(&rule->properties)))
+   {  if(prop->name) FREE(prop->name);
+      if(prop->value) FREE(prop->value);
+      FREE(prop);
+   }
+   FREE(rule);
+}
+
 /* Free CSS stylesheet structure */
 static void FreeCSSStylesheetInternal(struct CSSStylesheet *sheet)
 {  struct CSSRule *rule;
-   struct CSSSelector *sel;
-   struct CSSProperty *prop;
    
    if(!sheet) return;
    
    /* Remove and free all rules from the list */
    while((rule = (struct CSSRule *)REMHEAD(&sheet->rules)))
-   {  /* Remove and free all selectors from the rule's list */
-      while((sel = (struct CSSSelector *)REMHEAD(&rule->selectors)))
-      {  if(sel->name) FREE(sel->name);
-         if(sel->class) FREE(sel->class);
-         if(sel->id) FREE(sel->id);
-         if(sel->pseudo) FREE(sel->pseudo);
-         if(sel->pseudoElement) FREE(sel->pseudoElement);
-         if(sel->attr)
-         {  if(sel->attr->name) FREE(sel->attr->name);
-            if(sel->attr->value) FREE(sel->attr->value);
-            FREE(sel->attr);
-         }
-         FREE(sel);
-      }
-      /* Remove and free all properties from the rule's list */
-      while((prop = (struct CSSProperty *)REMHEAD(&rule->properties)))
-      {  if(prop->name) FREE(prop->name);
-         if(prop->value) FREE(prop->value);
-         FREE(prop);
-      }
-      FREE(rule);
+   {  FreeCSSRule(rule);
    }
    
    FREE(sheet);
