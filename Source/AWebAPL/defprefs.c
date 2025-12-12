@@ -1145,8 +1145,14 @@ static void Adddeffontalias(UBYTE *alias,short size,UBYTE *font,short fsize)
 }
 
 static void Adddefmenu(USHORT type,ULONG msg,UBYTE *cmd)
-{  char *title=Getmainstr(msg);
+{  char *title = NULL;
    UBYTE scut='\0';
+
+   if(msg)
+   {
+       title = Getmainstr(msg);
+   }
+
    if(!title) title="";
    if(title[0] && title[1]=='/')
    {  scut=title[0];
