@@ -3120,7 +3120,12 @@ static BOOL Readdata(struct Httpinfo *hi)
                   }
                   
                   debug_printf("DEBUG: Chunked+gzip: Finished discarding remaining chunks\n");
-                  result = !eof;
+                  /* If Readblock() failed but gzip decompression completed successfully, */
+                  /* treat as successful completion (server may have closed connection early) */
+                  /* The actual data is already decompressed, so missing chunk boundaries is OK */
+                  /* Note: If we exited the loop because Readblock() failed (not because final chunk found), */
+                  /* we still treat it as success since gzip decompression already completed */
+                  result = TRUE;  /* Always success if gzip decompression completed */
                   break;
                }
                
