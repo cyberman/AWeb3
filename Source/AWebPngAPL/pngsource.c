@@ -173,6 +173,8 @@ static UBYTE Readbyte(struct Decoder *decoder)
    UBYTE retval=0;
    if(!decoder) return 0;
    if(!decoder->source) return 0;
+   /* Check for EOF first - if already set, return immediately */
+   if(decoder->flags&DECOF_EOF) return 0;
    for(;;)
    {  wait=FALSE;
       while(!(decoder->flags&DECOF_STOP) && (tm=Gettaskmsg()))
