@@ -33,6 +33,8 @@ struct Imgsource
    long width,height,depth;   /* Bitmap dimensions */
    USHORT flags;
    void *task;                /* The processing task */
+   UBYTE *bmpdata;            /* BMP data for ICO decoder (DTST_MEMORY) */
+   long bmpdatasize;          /* Size of BMP data */
 };
 
 #define IMSF_EOF        0x0001   /* EOF was reached on input */

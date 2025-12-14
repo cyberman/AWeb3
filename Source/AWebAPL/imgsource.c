@@ -41,6 +41,10 @@
 #include <proto/utility.h>
 #include <proto/icon.h>
 #include <dos/dosextens.h>
+#include <dos/dos.h>
+#include <datatypes/datatypes.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #ifdef DEVELOPER
 extern BOOL usetemp;
@@ -277,6 +281,509 @@ static BOOL Makebitmapfromicon(struct Imgprocess *imp,struct DiskObject *dob)
    return result;
 }
 
+/* ICO file structures */
+struct IcoHeader
+{  USHORT reserved;  /* Should be 0 */
+   USHORT type;      /* 1=ICO, 2=CUR */
+   USHORT count;     /* Number of images */
+};
+
+struct IcoDirEntry
+{  UBYTE width;      /* 0 means 256 */
+   UBYTE height;     /* 0 means 256 */
+   UBYTE colors;     /* 0 means no palette or 256 colors */
+   UBYTE reserved;
+   USHORT planes;    /* Usually 1 */
+   USHORT bitcount;  /* Bits per pixel */
+   ULONG size;       /* Size of image data */
+   ULONG offset;     /* Offset to image data */
+};
+
+/* BMP/DIB header structures */
+struct BmpFileHeader
+{  UBYTE signature[2];  /* "BM" */
+   ULONG filesize;
+   ULONG reserved;
+   ULONG dataoffset;
+};
+
+struct BmpInfoHeader
+{  ULONG size;          /* Size of this header */
+   LONG width;
+   LONG height;         /* Positive = bottom-up, negative = top-down */
+   USHORT planes;       /* Usually 1 */
+   USHORT bitcount;     /* Bits per pixel */
+   ULONG compression;   /* 0=BI_RGB, 1=BI_RLE8, 2=BI_RLE4, 3=BI_BITFIELDS */
+   ULONG imagesize;
+   LONG xpelspermeter;
+   LONG ypelspermeter;
+   ULONG colorsused;
+   ULONG colorsimportant;
+};
+
+/* Create a bitmap from an ICO file using BMP datatype */
+static BOOL Makebitmapfromico(struct Imgprocess *imp)
+{  BOOL result=FALSE;
+   long fh;
+   struct IcoHeader icoheader;
+   struct IcoDirEntry *entries=NULL;
+   struct IcoDirEntry *bestentry=NULL;
+   long bestscore=10000;  /* Lower is better */
+   long i;
+   UBYTE *imagedata=NULL;
+   UBYTE *bmpdata=NULL;
+   UBYTE *andmask=NULL;
+   long imagesize;
+   long bmpsize;
+   long maskoffset;
+   long maskrowbytes;
+   long maskbytesperrow;
+   long width,height;
+   long bpp;
+   long palettesize;
+   struct BmpInfoHeader bmpinfo;
+   long bmpwidth,bmpheight;
+   long bmprowbytes;
+   UBYTE *src,*dst;
+   long x,y;
+   void *dto=NULL;
+   struct gpLayout gpl={0};
+   void *maskplane=NULL;
+   ULONG flags;
+   
+   printf("Makebitmapfromico: starting, filename=%s\n",imp->ims->filename?(char *)imp->ims->filename:"NULL");
+   
+   if(!imp->ims->filename) return FALSE;
+   
+   fh=Open(imp->ims->filename,MODE_OLDFILE);
+   if(!fh) return FALSE;
+   
+   /* Read ICO header (little-endian format) */
+   {  UBYTE headerbuf[6];
+      if(Read(fh,headerbuf,6)!=6)
+      {  Close(fh);
+         return FALSE;
+      }
+      /* Convert from little-endian to big-endian */
+      icoheader.reserved=(USHORT)(headerbuf[0]|(headerbuf[1]<<8));
+      icoheader.type=(USHORT)(headerbuf[2]|(headerbuf[3]<<8));
+      icoheader.count=(USHORT)(headerbuf[4]|(headerbuf[5]<<8));
+   }
+   
+   /* Check signature: reserved=0, type=1 (ICO) */
+   printf("Makebitmapfromico: header reserved=%d type=%d count=%d\n",
+      icoheader.reserved,icoheader.type,icoheader.count);
+   if(icoheader.reserved!=0 || icoheader.type!=1 || icoheader.count==0)
+   {  Close(fh);
+      printf("Makebitmapfromico: invalid ICO header\n");
+      return FALSE;
+   }
+   
+   /* Limit to reasonable number of entries */
+   if(icoheader.count>256) icoheader.count=256;
+   
+   /* Read directory entries (little-endian format) */
+   entries=ALLOCSTRUCT(IcoDirEntry,icoheader.count,0);
+   if(!entries)
+   {  Close(fh);
+      return FALSE;
+   }
+   
+   {  UBYTE entrybuf[16];
+      long i;
+      for(i=0;i<icoheader.count;i++)
+      {  if(Read(fh,entrybuf,16)!=16)
+         {  FREE(entries);
+            Close(fh);
+            return FALSE;
+         }
+         /* Convert from little-endian to big-endian */
+         entries[i].width=entrybuf[0];
+         entries[i].height=entrybuf[1];
+         entries[i].colors=entrybuf[2];
+         entries[i].reserved=entrybuf[3];
+         entries[i].planes=(USHORT)(entrybuf[4]|(entrybuf[5]<<8));
+         entries[i].bitcount=(USHORT)(entrybuf[6]|(entrybuf[7]<<8));
+         entries[i].size=(ULONG)(entrybuf[8]|(entrybuf[9]<<8)|(entrybuf[10]<<16)|(entrybuf[11]<<24));
+         entries[i].offset=(ULONG)(entrybuf[12]|(entrybuf[13]<<8)|(entrybuf[14]<<16)|(entrybuf[15]<<24));
+      }
+   }
+   
+   /* Find best image: prefer 16x16 or 32x32, otherwise closest */
+   for(i=0;i<icoheader.count;i++)
+   {  long w=entries[i].width ? entries[i].width : 256;
+      long h=entries[i].height ? entries[i].height : 256;
+      long score;
+      
+      /* Prefer 16x16 or 32x32 for favicons */
+      if(w==16 && h==16) score=0;
+      else if(w==32 && h==32) score=1;
+      else if(w==h)
+      {  long dw=abs(w-16);
+         long dh=abs(h-16);
+         score=100+dw+dh;  /* Prefer square, close to 16 */
+      }
+      else
+      {  long dw=abs(w-16);
+         long dh=abs(h-16);
+         score=1000+dw+dh;
+      }
+      
+      if(score<bestscore)
+      {  bestscore=score;
+         bestentry=&entries[i];
+      }
+   }
+   
+   if(!bestentry)
+   {  FREE(entries);
+      Close(fh);
+      return FALSE;
+   }
+   
+   width=bestentry->width ? bestentry->width : 256;
+   height=bestentry->height ? bestentry->height : 256;
+   printf("Makebitmapfromico: selected image %dx%d, dir bitcount=%d, size=%ld, offset=%ld\n",
+      width,height,bestentry->bitcount,bestentry->size,bestentry->offset);
+   
+   /* Read image data */
+   imagesize=bestentry->size;
+   if(imagesize<=0 || imagesize>1024*1024)  /* Sanity check: max 1MB */
+   {  FREE(entries);
+      Close(fh);
+      return FALSE;
+   }
+   
+   if(Seek(fh,bestentry->offset,OFFSET_BEGINNING)!=bestentry->offset)
+   {  FREE(entries);
+      Close(fh);
+      return FALSE;
+   }
+   
+   imagedata=AllocMem(imagesize,MEMF_PUBLIC|MEMF_CLEAR);
+   if(!imagedata)
+   {  FREE(entries);
+      Close(fh);
+      return FALSE;
+   }
+   
+   if(Read(fh,imagedata,imagesize)!=imagesize)
+   {  FreeMem(imagedata,imagesize);
+      FREE(entries);
+      Close(fh);
+      return FALSE;
+   }
+   
+   Close(fh);
+   FREE(entries);
+   
+   /* Check if this is PNG data (PNG signature) */
+   if(imagesize>=8 && imagedata[0]==0x89 && imagedata[1]==0x50 &&
+      imagedata[2]==0x4e && imagedata[3]==0x47)
+   {  /* PNG data in ICO - fall back to DataTypes */
+      FreeMem(imagedata,imagesize);
+      return FALSE;
+   }
+   
+   /* Parse BMP/DIB header */
+   if(imagesize<sizeof(struct BmpInfoHeader))
+   {  FreeMem(imagedata,imagesize);
+      return FALSE;
+   }
+   
+   /* Read BMP info header (starts immediately in ICO, no file header, little-endian format) */
+   {  UBYTE *p=imagedata;
+      bmpinfo.size=(ULONG)(p[0]|(p[1]<<8)|(p[2]<<16)|(p[3]<<24));
+      bmpinfo.width=(LONG)(p[4]|(p[5]<<8)|(p[6]<<16)|(p[7]<<24));
+      bmpinfo.height=(LONG)(p[8]|(p[9]<<8)|(p[10]<<16)|(p[11]<<24));
+      bmpinfo.planes=(USHORT)(p[12]|(p[13]<<8));
+      bmpinfo.bitcount=(USHORT)(p[14]|(p[15]<<8));
+      bmpinfo.compression=(ULONG)(p[16]|(p[17]<<8)|(p[18]<<16)|(p[19]<<24));
+      bmpinfo.imagesize=(ULONG)(p[20]|(p[21]<<8)|(p[22]<<16)|(p[23]<<24));
+      bmpinfo.xpelspermeter=(LONG)(p[24]|(p[25]<<8)|(p[26]<<16)|(p[27]<<24));
+      bmpinfo.ypelspermeter=(LONG)(p[28]|(p[29]<<8)|(p[30]<<16)|(p[31]<<24));
+      bmpinfo.colorsused=(ULONG)(p[32]|(p[33]<<8)|(p[34]<<16)|(p[35]<<24));
+      bmpinfo.colorsimportant=(ULONG)(p[36]|(p[37]<<8)|(p[38]<<16)|(p[39]<<24));
+   }
+   
+   /* Handle different BMP header sizes */
+   if(bmpinfo.size<sizeof(struct BmpInfoHeader))
+   {  FreeMem(imagedata,imagesize);
+      return FALSE;
+   }
+   
+   bmpwidth=abs(bmpinfo.width);
+   bmpheight=abs(bmpinfo.height);
+   /* ICO stores BMP height as 2x actual height (XOR mask + AND mask) */
+   /* The actual image height is half of the BMP height */
+   bpp=bmpinfo.bitcount;
+   printf("Makebitmapfromico: BMP info header size=%ld, width=%ld, height=%ld (actual=%ld), bitcount=%d, compression=%ld\n",
+      bmpinfo.size,bmpwidth,bmpheight,bmpheight/2,bmpinfo.bitcount,bmpinfo.compression);
+   
+   /* Calculate palette size */
+   palettesize=0;
+   if(bpp<=8 && bmpinfo.colorsused==0)
+   {  palettesize=(1<<bpp);  /* Full palette */
+   }
+   else if(bmpinfo.colorsused>0)
+   {  palettesize=bmpinfo.colorsused;
+   }
+   
+   /* Calculate image data size (XOR mask only, exclude AND mask) */
+   /* BMP height in ICO is 2x actual height, so XOR mask is half */
+   /* Actual image height for row calculation */
+   /* Row bytes calculation: DWORD-aligned (4-byte boundary) */
+   if(bpp==1)
+   {  bmprowbytes=((bmpwidth+31)/32)*4;  /* 1-bit: bits aligned to DWORD */
+   }
+   else if(bpp==4)
+   {  bmprowbytes=((bmpwidth+1)/2+3)/4*4;  /* 4-bit: 2 pixels per byte, DWORD aligned */
+   }
+   else if(bpp==8)
+   {  bmprowbytes=(bmpwidth+3)/4*4;  /* 8-bit: bytes aligned to DWORD */
+   }
+   else if(bpp==16)
+   {  bmprowbytes=(bmpwidth*2+3)/4*4;  /* 16-bit: 2 bytes per pixel, DWORD aligned */
+   }
+   else if(bpp==24)
+   {  bmprowbytes=(bmpwidth*3+3)/4*4;  /* 24-bit: 3 bytes per pixel, DWORD aligned */
+   }
+   else if(bpp==32)
+   {  bmprowbytes=bmpwidth*4;  /* 32-bit: 4 bytes per pixel, already DWORD aligned */
+   }
+   else
+   {  bmprowbytes=((bmpwidth*bpp+31)/32)*4;  /* Generic: bits aligned to DWORD */
+   }
+   maskrowbytes=(bmpwidth+7)/8;  /* 1-bit mask, byte aligned */
+   /* XOR mask size is half the BMP height (the other half is AND mask) */
+   {  long actualheight=bmpheight/2;
+      maskoffset=bmpinfo.size+palettesize*4+bmprowbytes*actualheight;
+      /* Size of BMP data (header + palette + XOR mask, excluding AND mask) */
+      bmpsize=bmpinfo.size+palettesize*4+bmprowbytes*actualheight;
+   }
+   printf("Makebitmapfromico: palette size=%ld, bmprowbytes=%ld, bmpsize=%ld, maskoffset=%ld\n",
+      palettesize,bmprowbytes,bmpsize,maskoffset);
+   
+   /* Create complete BMP file: file header + DIB data */
+   bmpdata=AllocMem(sizeof(struct BmpFileHeader)+bmpsize,MEMF_PUBLIC|MEMF_CLEAR);
+   if(!bmpdata)
+   {  FreeMem(imagedata,imagesize);
+      return FALSE;
+   }
+   
+   /* Write BMP file header (little-endian format) */
+   {  ULONG filesize=sizeof(struct BmpFileHeader)+bmpsize;
+      ULONG dataoffset=sizeof(struct BmpFileHeader)+bmpinfo.size+palettesize*4;
+      bmpdata[0]='B';
+      bmpdata[1]='M';
+      bmpdata[2]=(UBYTE)(filesize&0xff);
+      bmpdata[3]=(UBYTE)((filesize>>8)&0xff);
+      bmpdata[4]=(UBYTE)((filesize>>16)&0xff);
+      bmpdata[5]=(UBYTE)((filesize>>24)&0xff);
+      bmpdata[6]=0;  /* Reserved */
+      bmpdata[7]=0;
+      bmpdata[8]=0;
+      bmpdata[9]=0;
+      bmpdata[10]=(UBYTE)(dataoffset&0xff);
+      bmpdata[11]=(UBYTE)((dataoffset>>8)&0xff);
+      bmpdata[12]=(UBYTE)((dataoffset>>16)&0xff);
+      bmpdata[13]=(UBYTE)((dataoffset>>24)&0xff);
+   }
+   {  ULONG filesize_le=(ULONG)(bmpdata[2]|(bmpdata[3]<<8)|(bmpdata[4]<<16)|(bmpdata[5]<<24));
+      ULONG dataoffset_le=(ULONG)(bmpdata[10]|(bmpdata[11]<<8)|(bmpdata[12]<<16)|(bmpdata[13]<<24));
+      printf("Makebitmapfromico: BMP file header: signature=%.2s, filesize=%ld, dataoffset=%ld\n",
+         bmpdata,filesize_le,dataoffset_le);
+   }
+   
+   /* Reconstruct BMP info header with correct height for standalone BMP */
+   /* ICO stores height as 2x (XOR+AND masks), but standalone BMP needs actual image height */
+   {  UBYTE *dib=bmpdata+sizeof(struct BmpFileHeader);
+      long actualheight=bmpheight/2;
+      ULONG newimagesize;
+      
+      /* Copy info header from ICO */
+      memcpy(dib,imagedata,bmpinfo.size);
+      
+      /* Fix height field - write actual image height in little-endian */
+      /* BMP height is signed: positive = bottom-up (normal), negative = top-down */
+      /* ICO always uses bottom-up, so we use positive height */
+      {  LONG signedheight=(LONG)actualheight;  /* Ensure positive (bottom-up) */
+         dib[8]=(UBYTE)(signedheight&0xff);
+         dib[9]=(UBYTE)((signedheight>>8)&0xff);
+         dib[10]=(UBYTE)((signedheight>>16)&0xff);
+         dib[11]=(UBYTE)((signedheight>>24)&0xff);
+      }
+      
+      /* Update imagesize field if it was set (offset 20-23) */
+      if(bmpinfo.imagesize==0 || bmpinfo.imagesize==bmprowbytes*bmpheight)
+      {  newimagesize=bmprowbytes*actualheight;
+         dib[20]=(UBYTE)(newimagesize&0xff);
+         dib[21]=(UBYTE)((newimagesize>>8)&0xff);
+         dib[22]=(UBYTE)((newimagesize>>16)&0xff);
+         dib[23]=(UBYTE)((newimagesize>>24)&0xff);
+      }
+      
+      /* Copy palette and pixel data */
+      /* ICO format: DIB header + palette + XOR mask + AND mask */
+      /* BMP format: DIB header + palette + XOR mask (no AND mask) */
+      /* Both formats store rows bottom-up, so pixel data order is the same */
+      if(bmpinfo.size<bmpsize)
+      {  long palettesize_bytes=palettesize*4;
+         long pixeldatasize=bmprowbytes*actualheight;
+         long total_copy_size=bmpsize-bmpinfo.size;
+         
+         /* Verify we have enough data in ICO */
+         if(bmpinfo.size+total_copy_size<=imagesize)
+         {  /* Copy palette and pixel data together (they're contiguous in both formats) */
+            memcpy(dib+bmpinfo.size,imagedata+bmpinfo.size,total_copy_size);
+            printf("Makebitmapfromico: Copied %ld bytes (palette %ld + pixels %ld)\n",
+               total_copy_size,palettesize_bytes,pixeldatasize);
+         }
+         else
+         {  printf("Makebitmapfromico: ERROR - not enough data: need %ld, have %ld\n",
+               bmpinfo.size+total_copy_size,imagesize);
+         }
+      }
+      
+      printf("Makebitmapfromico: Reconstructed BMP DIB: size=%ld, width=%ld, height=%ld (was %ld)\n",
+         bmpinfo.size,bmpwidth,actualheight,bmpheight);
+   }
+   
+   /* Debug: Check BMP file structure */
+   printf("Makebitmapfromico: BMP file start: %02x %02x %02x %02x %02x %02x %02x %02x\n",
+      bmpdata[0],bmpdata[1],bmpdata[2],bmpdata[3],bmpdata[4],bmpdata[5],bmpdata[6],bmpdata[7]);
+   {  UBYTE *dib=bmpdata+sizeof(struct BmpFileHeader);
+      printf("Makebitmapfromico: BMP DIB header: size=%02x%02x%02x%02x, width=%02x%02x%02x%02x, height=%02x%02x%02x%02x\n",
+         dib[0],dib[1],dib[2],dib[3],
+         dib[4],dib[5],dib[6],dib[7],
+         dib[8],dib[9],dib[10],dib[11]);
+   }
+   
+   /* Extract AND mask for transparency if available */
+   if(maskoffset+maskrowbytes*height<=imagesize)
+   {  andmask=imagedata+maskoffset;
+   }
+   
+   /* Use BMP datatype to decode the image */
+   printf("Makebitmapfromico: Creating datatype object, bmpdata=%p, size=%ld\n",
+      bmpdata,sizeof(struct BmpFileHeader)+bmpsize);
+   /* Try without picture-specific attributes first to see if datatype can identify BMP */
+   dto=NewDTObject(NULL,
+         DTA_SourceType,DTST_MEMORY,
+         DTA_SourceAddress,bmpdata,
+         DTA_SourceSize,sizeof(struct BmpFileHeader)+bmpsize,
+         TAG_END);
+   if(!dto)
+   {  printf("Makebitmapfromico: Auto-detect failed (IoErr=%ld), trying with GID_PICTURE\n",IoErr());
+      dto=NewDTObject(NULL,
+            DTA_SourceType,DTST_MEMORY,
+            DTA_SourceAddress,bmpdata,
+            DTA_SourceSize,sizeof(struct BmpFileHeader)+bmpsize,
+            DTA_GroupID,GID_PICTURE,
+            TAG_END);
+   }
+   if(dto)
+   {  /* Set picture-specific attributes after object creation */
+      Asetattrs(dto,
+         PDTA_Remap,TRUE,
+         PDTA_Screen,imp->screen,
+         PDTA_FreeSourceBitMap,TRUE,
+         PDTA_DestMode,PMODE_V43,
+         PDTA_UseFriendBitMap,TRUE,
+         OBP_Precision,PRECISION_IMAGE,
+         TAG_END);
+      printf("Makebitmapfromico: Datatype object created successfully, dto=%p\n",dto);
+      gpl.MethodID=DTM_PROCLAYOUT;
+      gpl.gpl_GInfo=NULL;
+      gpl.gpl_Initial=TRUE;
+      printf("Makebitmapfromico: Calling DTM_PROCLAYOUT\n");
+      if(DoMethodA(dto,(Msg)&gpl))
+      {  
+         printf("Makebitmapfromico: DTM_PROCLAYOUT succeeded, getting attributes\n");
+         if(GetDTAttrs(dto,
+            DTA_NominalHoriz,&imp->width,
+            DTA_NominalVert,&imp->height,
+            PDTA_DestBitMap,&imp->bitmap,
+            PDTA_MaskPlane,&maskplane,
+            TAG_END)
+         && imp->bitmap)
+         {  
+            printf("Makebitmapfromico: Got bitmap successfully: %dx%d, bitmap=%p, maskplane=%p\n",
+               imp->width,imp->height,imp->bitmap,maskplane);
+            imp->depth=GetBitMapAttr(imp->bitmap,BMA_DEPTH);
+            imp->memsize=imp->width*imp->height*imp->depth/8;
+            flags=GetBitMapAttr(imp->bitmap,BMA_FLAGS);
+            printf("Makebitmapfromico: Bitmap depth=%ld, flags=0x%lx\n",imp->depth,flags);
+            
+            /* Use AND mask from ICO if datatype didn't provide one */
+            if(!maskplane && andmask && (flags&BMF_STANDARD))
+            {  maskbytesperrow=GetBitMapAttr(imp->bitmap,BMA_WIDTH)/8;
+               if(imp->mask=ALLOCTYPE(UBYTE,maskbytesperrow*height,
+                  MEMF_PUBLIC|MEMF_CLEAR))
+               {  /* Copy AND mask (inverted for Amiga convention) */
+                  for(y=0;y<height && y<bmpheight;y++)
+                  {  src=andmask+(bmpheight-1-y)*maskrowbytes;  /* BMP is bottom-up */
+                     dst=imp->mask+y*maskbytesperrow;
+                     for(x=0;x<maskbytesperrow && x<maskrowbytes;x++)
+                     {  dst[x]=~src[x];  /* Invert for Amiga mask convention */
+                     }
+                  }
+                  imp->ourmask=TRUE;
+                  imp->memsize+=maskbytesperrow*height;
+               }
+            }
+            else if(maskplane)
+            {  imp->mask=maskplane;
+               imp->memsize*=2;
+            }
+            
+            imp->dto=dto;  /* Keep datatype object for cleanup */
+            /* Store bmpdata pointer so we can free it when datatype is disposed */
+            imp->ims->bmpdata=bmpdata;
+            imp->ims->bmpdatasize=sizeof(struct BmpFileHeader)+bmpsize;
+            bmpdata=NULL;  /* Don't free it here - will be freed in Disposedto */
+            result=TRUE;
+            printf("Makebitmapfromico: Success! result=TRUE\n");
+         }
+         else
+         {  
+            printf("Makebitmapfromico: Failed to get bitmap from datatype (bitmap=%p)\n",imp->bitmap);
+            DisposeDTObject(dto);
+            dto=NULL;
+         }
+      }
+      else
+      {  
+         printf("Makebitmapfromico: DTM_PROCLAYOUT failed\n");
+         DisposeDTObject(dto);
+         dto=NULL;
+      }
+   }
+   else
+   {  
+      long err=IoErr();
+      printf("Makebitmapfromico: Failed to create datatype object, IoErr()=%ld\n",err);
+      if(err==DTERROR_UNKNOWN_DATATYPE)
+      {  printf("Makebitmapfromico: Unknown datatype - BMP datatype may not be installed\n");
+      }
+      else if(err==ERROR_OBJECT_WRONG_TYPE)
+      {  printf("Makebitmapfromico: Object wrong type - data may not be recognized as BMP\n");
+      }
+      else if(err==ERROR_REQUIRED_ARG_MISSING)
+      {  printf("Makebitmapfromico: Required argument missing\n");
+      }
+      else if(err==DTERROR_COULDNT_OPEN)
+      {  printf("Makebitmapfromico: Couldn't open data object\n");
+      }
+   }
+   
+   /* Free bmpdata only if we didn't store it for later cleanup */
+   if(bmpdata) FreeMem(bmpdata,sizeof(struct BmpFileHeader)+bmpsize);
+   FreeMem(imagedata,imagesize);
+   
+   return result;
+}
+
 /* Create a datatype object and the mask */
 static BOOL Makeobject(struct Imgprocess *imp)
 {  BOOL result=FALSE;
@@ -303,6 +810,16 @@ static BOOL Makeobject(struct Imgprocess *imp)
          {  result=Makebitmapfromicon(imp,dob);
             FreeDiskObject(dob);
             return result;
+         }
+      }
+      else if(len>=4)
+      {  ext=filename+len-4;
+         if(STRNIEQUAL(ext,".ico",4))
+         {  /* Try to load as ICO file */
+            if(Makebitmapfromico(imp))
+            {  return TRUE;
+            }
+            /* Fall through to DataTypes if builtin decoder fails */
          }
       }
    }
@@ -414,6 +931,12 @@ static void Disposedto(struct Imgsource *ims)
 {  if(ims->dto)
    {  DisposeDTObject(ims->dto);
       ims->dto=NULL;
+   }
+   /* Free BMP data if it was allocated for ICO decoder */
+   if(ims->bmpdata)
+   {  FreeMem(ims->bmpdata,ims->bmpdatasize);
+      ims->bmpdata=NULL;
+      ims->bmpdatasize=0;
    }
    if(ims->mask && (ims->flags&IMSF_OURMASK))
    {  FREE(ims->mask);
