@@ -171,6 +171,8 @@ static UBYTE Readbyte(struct Decoder *decoder)
    struct Datablock *db;
    BOOL wait;
    UBYTE retval=0;
+   if(!decoder) return 0;
+   if(!decoder->source) return 0;
    for(;;)
    {  wait=FALSE;
       while(!(decoder->flags&DECOF_STOP) && (tm=Gettaskmsg()))
@@ -178,114 +180,85 @@ static UBYTE Readbyte(struct Decoder *decoder)
          {  tstate=((struct Amset *)tm->amsg)->tags;
             while(tag=NextTagItem(&tstate))
             {  switch(tag->ti_Tag)
-               {  case AOTSK_Stop:
-                     if(tag->ti_Data) decoder->flags|=DECOF_STOP;
-                     break;
-                  case AOPNG_Data:
-                     /* Ignore these now */
-                     break;
-               }
-            }
-         }
-         Replytaskmsg(tm);
-      }
-      /* Only continue if we shouldn't stop */
-      if(decoder->flags&DECOF_STOP) break;
-      ObtainSemaphore(&decoder->source->sema);
-      if(decoder->current)
-      {  if(decoder->currentbyte>=decoder->current->length)
-         {  /* End of block reached, move to next */
-            db=decoder->current->next;
-         }
-         else
-         {  /* Still data in current block */
-            ReleaseSemaphore(&decoder->source->sema);
-            if(!(decoder->flags&DECOF_EOF))
-            {  retval=decoder->current->data[decoder->currentbyte];
-               decoder->currentbyte++;
-            }
-            break;
-         }
-      }
-      else
-      {  /* No current block yet */
-         db=decoder->source->data.first;
-      }
-      if(db && db->next)
-      {  /* We have a valid block */
-         decoder->current=db;
-         decoder->currentbyte=0;
-         ReleaseSemaphore(&decoder->source->sema);
-         if(!(decoder->flags&DECOF_EOF) && decoder->current)
-         {  retval=decoder->current->data[decoder->currentbyte];
-            decoder->currentbyte++;
-         }
-         break;
-      }
-      else if(decoder->source->flags&PNGSF_EOF)
-      {  /* EOF reached */
-         decoder->flags|=DECOF_EOF;
-         ReleaseSemaphore(&decoder->source->sema);
-         break;
-      }
-      else
-      {  /* No more blocks; wait for next block */
-         wait=TRUE;
-         ReleaseSemaphore(&decoder->source->sema);
-      }
+                   {  case AOTSK_Stop:
+                         if(tag->ti_Data) decoder->flags|=DECOF_STOP;
+                         break;
+                      case AOPNG_Data:
+                         /* Ignore these now */
+                         break;
+                   }
+                }
+             }
+             Replytaskmsg(tm);
+          }
+          /* Only continue if we shouldn't stop */
+          if(decoder->flags&DECOF_STOP) break;
+          if(decoder->current)
+          {  if(++decoder->currentbyte>=decoder->current->length)
+             {  /* End of block reached */
+                ObtainSemaphore(&decoder->source->sema);
+                db=decoder->current->next;
+                if(db && db->next)
+                {  decoder->current=db;
+                   decoder->currentbyte=0;
+                }
+                else if(decoder->source->flags&PNGSF_EOF)
+                {  decoder->flags|=DECOF_EOF;
+                }
+                else
+                {  /* No more blocks; wait for next block */
+                   wait=TRUE;
+                }
+                ReleaseSemaphore(&decoder->source->sema);
+             }
+          }
+          else
+          {  /* No current block yet */
+             if(!decoder->source)
+             {  decoder->flags|=DECOF_EOF;
+                return 0;
+             }
+             ObtainSemaphore(&decoder->source->sema);
+             db=decoder->source->data.first;
+             if(db && db->next)
+             {  decoder->current=db;
+                decoder->currentbyte=0;
+             }
+             else if(decoder->source->flags&PNGSF_EOF)
+             {  decoder->flags|=DECOF_EOF;
+             }
+             else
+             {  /* No block yet; wait for next block */
+                wait=TRUE;
+             }
+             ReleaseSemaphore(&decoder->source->sema);
+          }
       if(!wait)
-      {  break;
-      }
-      /* Check for EOF again before waiting - network might have finished */
-      ObtainSemaphore(&decoder->source->sema);
-      if(decoder->source->flags&PNGSF_EOF)
-      {  /* EOF reached while waiting */
-         decoder->flags|=DECOF_EOF;
-         ReleaseSemaphore(&decoder->source->sema);
+      {  if(!(decoder->flags&DECOF_EOF))
+         {  if(!decoder->current)
+            {  decoder->flags|=DECOF_EOF;
+               return 0;
+            }
+            if(!decoder->current->data)
+            {  decoder->flags|=DECOF_EOF;
+               return 0;
+            }
+            if(decoder->currentbyte >= decoder->current->length)
+            {  decoder->flags|=DECOF_EOF;
+               return 0;
+            }
+            if(decoder->currentbyte < 0)
+            {  decoder->flags|=DECOF_EOF;
+               return 0;
+            }
+            retval=decoder->current->data[decoder->currentbyte];
+         }
          break;
       }
-      /* Check if new data arrived - need to check the right place based on current state */
-      if(decoder->current)
-      {  /* We have a current block - check if there's a next one */
-         db=decoder->current->next;
-      }
-      else
-      {  /* No current block - check if there's any data at all */
-         db=decoder->source->data.first;
-      }
-      if(db && db->next)
-      {  /* New data available - don't wait */
-         ReleaseSemaphore(&decoder->source->sema);
-         continue; /* Loop back to process the new data */
-      }
-      ReleaseSemaphore(&decoder->source->sema);
-      Waittask(0);
-      /* Check for EOF and new data again after waiting */
-      ObtainSemaphore(&decoder->source->sema);
-      if(decoder->source->flags&PNGSF_EOF)
-      {  /* EOF reached while we were waiting */
-         decoder->flags|=DECOF_EOF;
-         ReleaseSemaphore(&decoder->source->sema);
-         break;
-      }
-      /* Check if new data arrived while we were waiting */
-      if(decoder->current)
-      {  /* We have a current block - check if there's a next one */
-         db=decoder->current->next;
-      }
-      else
-      {  /* No current block - check if there's any data at all */
-         db=decoder->source->data.first;
-      }
-      if(db && db->next)
-      {  /* New data available */
-         ReleaseSemaphore(&decoder->source->sema);
-         continue; /* Loop back to process the new data */
-      }
-      ReleaseSemaphore(&decoder->source->sema);
-   }
-   return retval;
-}
+          Waittask(0);
+       }
+       return retval;
+    }
 
 /* Read or skip a number of bytes. Returns TRUE if ok, FALSE of EOF reached before
  * end of block, or task should stop. If block is passed as NULL, data is skipped. */
@@ -389,12 +362,24 @@ static BOOL Parsepngimage(struct Decoder *decoder)
    UBYTE *trow=NULL;
    BOOL error=FALSE,transpixel;
    
+   if(AwebPluginBase)
+   {  Aprintf("PNG: Parsepngimage called, decoder=0x%08lx\n", (ULONG)decoder);
+   }
    if((png=png_create_read_struct(PNG_LIBPNG_VER_STRING,NULL,NULL,NULL))
    && (pnginfo=png_create_info_struct(png)))
-   {  if(!setjmp(png->jmpbuf))
+   {  if(AwebPluginBase)
+      {  Aprintf("PNG: Parsepngimage: PNG structures created\n");
+      }
+      if(!setjmp(png->jmpbuf))
       {  /* Normal fallthrough */
+         if(AwebPluginBase)
+         {  Aprintf("PNG: Parsepngimage: Setting read function and reading info\n");
+         }
          png_set_read_fn(png,decoder,Readpngdata);
          png_read_info(png,pnginfo);
+         if(AwebPluginBase)
+         {  Aprintf("PNG: Parsepngimage: png_read_info completed\n");
+         }
          png_get_IHDR(png,pnginfo,&width,&height,&bitdepth,&colortype,
             &interlace,NULL,NULL);
          decoder->width=width;
@@ -711,17 +696,46 @@ static __saveds __asm void Decodetask(register __a0 struct Pngsource *is)
 {  struct Decoder decoderdata,*decoder=&decoderdata;
    struct Task *task=FindTask(NULL);
    
+   if(AwebPluginBase)
+   {  Aprintf("PNG: Decodetask started, is=0x%08lx\n", (ULONG)is);
+   }
+   if(!is)
+   {  if(AwebPluginBase)
+      {  Aprintf("PNG: Decodetask: ERROR - is (Pngsource) is NULL!\n");
+      }
+      return;
+   }
    memset(&decoderdata,0,sizeof(decoderdata));
    decoder->source=is;
+   if(AwebPluginBase)
+   {  Aprintf("PNG: Decodetask: decoder->source set to 0x%08lx\n", (ULONG)decoder->source);
+   }
    if(decoder->source->flags&PNGSF_LOWPRI)
    {  SetTaskPri(task,task->ln_Pri-1);
    }
    
-   if(!Parsepngimage(decoder)) goto err;
+   if(AwebPluginBase)
+   {  Aprintf("PNG: Decodetask: Calling Parsepngimage\n");
+   }
+   if(!Parsepngimage(decoder))
+   {  if(AwebPluginBase)
+      {  Aprintf("PNG: Decodetask: Parsepngimage failed\n");
+      }
+      goto err;
+   }
+   if(AwebPluginBase)
+   {  Aprintf("PNG: Decodetask: Parsepngimage succeeded, returning\n");
+   }
    return;
 
 err:
+   if(AwebPluginBase)
+   {  Aprintf("PNG: Decodetask: ERROR path, setting Error flag\n");
+   }
    Updatetaskattrs(AOPNG_Error,TRUE,TAG_END);
+   if(AwebPluginBase)
+   {  Aprintf("PNG: Decodetask: ERROR path done, exiting\n");
+   }
 }
 
 /*--------------------------------------------------------------------*/
@@ -902,46 +916,89 @@ static ULONG Srcupdatesource(struct Pngsource *ps,struct Amsrcupdate *amsrcupdat
    UBYTE *data=NULL;
    long datalength=0;
    BOOL eof=FALSE;
+   if(AwebPluginBase)
+   {  Aprintf("PNG: Srcupdatesource called, ps=0x%08lx, amsrcupdate=0x%08lx\n", (ULONG)ps, (ULONG)amsrcupdate);
+   }
    AmethodasA(AOTP_SOURCEDRIVER,ps,amsrcupdate);
    tstate=amsrcupdate->tags;
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
       {  case AOURL_Data:
             data=(UBYTE *)tag->ti_Data;
+            if(AwebPluginBase)
+            {  Aprintf("PNG: Srcupdatesource: Got AOURL_Data, data=0x%08lx\n", (ULONG)data);
+            }
             break;
          case AOURL_Datalength:
             datalength=tag->ti_Data;
+            if(AwebPluginBase)
+            {  Aprintf("PNG: Srcupdatesource: Got AOURL_Datalength, datalength=%ld\n", datalength);
+            }
             break;
          case AOURL_Eof:
             if(tag->ti_Data)
             {  eof=TRUE;
                ps->flags|=PNGSF_EOF;
+               if(AwebPluginBase)
+               {  Aprintf("PNG: Srcupdatesource: Got AOURL_Eof, setting EOF flag\n");
+               }
             }
             break;
       }
    }
    if(data && datalength)
    {  struct Datablock *db;
+      if(AwebPluginBase)
+      {  Aprintf("PNG: Srcupdatesource: Allocating datablock, datalength=%ld\n", datalength);
+      }
       if(db=AllocVec(sizeof(struct Datablock),MEMF_PUBLIC|MEMF_CLEAR))
       {  if(db->data=AllocVec(datalength,MEMF_PUBLIC))
          {  memmove(db->data,data,datalength);
             db->length=datalength;
+            if(AwebPluginBase)
+            {  Aprintf("PNG: Srcupdatesource: Adding datablock to list, db=0x%08lx\n", (ULONG)db);
+            }
             ObtainSemaphore(&ps->sema);
             ADDTAIL(&ps->data,db);
             ReleaseSemaphore(&ps->sema);
+            if(AwebPluginBase)
+            {  Aprintf("PNG: Srcupdatesource: Datablock added\n");
+            }
          }
          else
-         {  FreeVec(db);
+         {  if(AwebPluginBase)
+            {  Aprintf("PNG: Srcupdatesource: ERROR - Failed to allocate data buffer\n");
+            }
+            FreeVec(db);
+         }
+      }
+      else
+      {  if(AwebPluginBase)
+         {  Aprintf("PNG: Srcupdatesource: ERROR - Failed to allocate Datablock structure\n");
          }
       }
       if(!ps->task)
-      {  Startdecoder(ps);
+      {  if(AwebPluginBase)
+         {  Aprintf("PNG: Srcupdatesource: Starting decoder task\n");
+         }
+         Startdecoder(ps);
       }
    }
    if((data && datalength) || eof)
    {  if(ps->task)
-      {  Asetattrsasync(ps->task,AOPNG_Data,TRUE,TAG_END);
+      {  if(AwebPluginBase)
+         {  Aprintf("PNG: Srcupdatesource: Signaling task with AOPNG_Data\n");
+         }
+         Asetattrsasync(ps->task,AOPNG_Data,TRUE,TAG_END);
       }
+      else
+      {  if(AwebPluginBase)
+         {  Aprintf("PNG: Srcupdatesource: WARNING - ps->task is NULL, cannot signal\n");
+         }
+      }
+   }
+   if(AwebPluginBase)
+   {  Aprintf("PNG: Srcupdatesource: Returning\n");
    }
    return 0;
 }

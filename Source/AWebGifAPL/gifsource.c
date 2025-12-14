@@ -41,6 +41,7 @@
 
 /* External library base */
 extern struct Library *P96Base;
+extern struct Library *AwebPluginBase;
 
 /* Workaround for missing AOSDV_Displayed, not part of plugin API */
 #define AOSRC_Displayed    (AOSRC_Dummy+2)
@@ -173,6 +174,22 @@ static UBYTE Readbyte(struct Decoder *decoder)
    struct Datablock *db;
    BOOL wait;
    UBYTE retval=0;
+   static int readbyte_count=0;
+   if(AwebPluginBase && (readbyte_count++ % 100 == 0))
+   {  Aprintf("GIF: Readbyte called, decoder=0x%08lx, count=%d\n", (ULONG)decoder, readbyte_count);
+   }
+   if(!decoder)
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Readbyte: ERROR - decoder is NULL!\n");
+      }
+      return 0;
+   }
+   if(!decoder->source)
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Readbyte: ERROR - decoder->source is NULL!\n");
+      }
+      return 0;
+   }
    for(;;)
    {  wait=FALSE;
       while(!(decoder->flags&DECOF_STOP) && (tm=Gettaskmsg()))
@@ -198,7 +215,7 @@ static UBYTE Readbyte(struct Decoder *decoder)
          {  /* End of block reached */
             ObtainSemaphore(&decoder->source->sema);
             db=decoder->current->next;
-            if(db->next)
+            if(db && db->next)
             {  decoder->current=db;
                decoder->currentbyte=0;
             }
@@ -214,28 +231,86 @@ static UBYTE Readbyte(struct Decoder *decoder)
       }
       else
       {  /* No current block yet */
+         if(!decoder->source)
+         {  if(AwebPluginBase)
+            {  Aprintf("GIF: Readbyte: ERROR - decoder->source is NULL in else branch!\n");
+            }
+            decoder->flags|=DECOF_EOF;
+            return 0;
+         }
          ObtainSemaphore(&decoder->source->sema);
          db=decoder->source->data.first;
-         if(db->next)
+         if(db && db->next)
          {  decoder->current=db;
             decoder->currentbyte=0;
+            if(AwebPluginBase && readbyte_count <= 10)
+            {  Aprintf("GIF: Readbyte: Got first block, current=0x%08lx, length=%ld\n", (ULONG)decoder->current, decoder->current ? decoder->current->length : 0);
+            }
          }
          else if(decoder->source->flags&GIFSF_EOF)
-         {  decoder->flags|=DECOF_EOF;
+         {  if(AwebPluginBase && readbyte_count <= 10)
+            {  Aprintf("GIF: Readbyte: EOF flag set\n");
+            }
+            decoder->flags|=DECOF_EOF;
          }
          else
          {  /* No block yet; wait for next block */
+            if(AwebPluginBase && readbyte_count <= 10)
+            {  Aprintf("GIF: Readbyte: No block yet, waiting...\n");
+            }
             wait=TRUE;
          }
          ReleaseSemaphore(&decoder->source->sema);
       }
       if(!wait)
       {  if(!(decoder->flags&DECOF_EOF))
-         {  retval=decoder->current->data[decoder->currentbyte];
+         {  if(!decoder->current)
+            {  if(AwebPluginBase)
+               {  Aprintf("GIF: Readbyte: ERROR - current is NULL!\n");
+               }
+               decoder->flags|=DECOF_EOF;
+               return 0;
+            }
+            if(!decoder->current->data)
+            {  if(AwebPluginBase)
+               {  Aprintf("GIF: Readbyte: ERROR - current->data is NULL!\n");
+               }
+               decoder->flags|=DECOF_EOF;
+               return 0;
+            }
+            if(decoder->currentbyte >= decoder->current->length)
+            {  if(AwebPluginBase)
+               {  Aprintf("GIF: Readbyte: ERROR - currentbyte %ld >= length %ld!\n", decoder->currentbyte, decoder->current->length);
+               }
+               decoder->flags|=DECOF_EOF;
+               return 0;
+            }
+            if(decoder->currentbyte < 0)
+            {  if(AwebPluginBase)
+               {  Aprintf("GIF: Readbyte: ERROR - currentbyte %ld < 0!\n", decoder->currentbyte);
+               }
+               decoder->flags|=DECOF_EOF;
+               return 0;
+            }
+            retval=decoder->current->data[decoder->currentbyte];
+            if(AwebPluginBase && readbyte_count <= 10)
+            {  Aprintf("GIF: Readbyte: Returning byte %d at offset %ld\n", retval, decoder->currentbyte);
+            }
+         }
+         else
+         {  if(AwebPluginBase && readbyte_count <= 10)
+            {  Aprintf("GIF: Readbyte: EOF flag set, returning 0\n");
+            }
          }
          break;
       }
+      if(AwebPluginBase && readbyte_count <= 10)
+      {  Aprintf("GIF: Readbyte: Waiting for data...\n");
+      }
       Waittask(0);
+   }
+   if(AwebPluginBase && readbyte_count <= 10)
+   {  Aprintf("GIF: Readbyte: Exiting, returning %d\n", retval);
    }
    return retval;
 }
@@ -244,10 +319,22 @@ static UBYTE Readbyte(struct Decoder *decoder)
  * end of block, or task should stop. If block is passed as NULL, data is skipped. */
 static BOOL Readblock(struct Decoder *decoder,UBYTE *block,long length)
 {  UBYTE c;
+   if(AwebPluginBase && length > 0)
+   {  Aprintf("GIF: Readblock called, decoder=0x%08lx, length=%ld, block=0x%08lx\n", (ULONG)decoder, length, (ULONG)block);
+   }
    while(length && !(decoder->flags&(DECOF_STOP|DECOF_EOF)))
    {  c=Readbyte(decoder);
+      if(decoder->flags&(DECOF_STOP|DECOF_EOF))
+      {  if(AwebPluginBase)
+         {  Aprintf("GIF: Readblock: EOF or STOP flag set, returning FALSE\n");
+         }
+         return FALSE;
+      }
       if(block) *block++=c;
       length--;
+   }
+   if(AwebPluginBase && length == 0)
+   {  Aprintf("GIF: Readblock: Done, read all %ld bytes\n", length);
    }
    return (BOOL)!(decoder->flags&(DECOF_STOP|DECOF_EOF));
 }
@@ -358,6 +445,7 @@ static void Setcodesize(struct Decoder *d,int codesize)
    d->nextcode=d->eofcode+1;
    d->rembits=0;
    d->outsp=0;
+   d->remaining=0;  /* Initialize remaining bytes counter */
 }
 
 /*--------------------------------------------------------------------*/
@@ -408,13 +496,33 @@ static BOOL Skipgifdata(struct Decoder *decoder)
 static BOOL Parsegifgeneral(struct Decoder *decoder)
 {  UBYTE buffer[20];
    int gctsize,i;
-
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Parsegifgeneral called, decoder=0x%08lx\n", (ULONG)decoder);
+   }
    /* Check signature */
-   if(!Readblock(decoder,buffer,GIFHDR_SIZEOF)) return FALSE;
-   if(strncmp(buffer,"GIF87a",6) && strncmp(buffer,"GIF89a",6)) return FALSE;
+   if(!Readblock(decoder,buffer,GIFHDR_SIZEOF))
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Parsegifgeneral: Readblock failed for header\n");
+      }
+      return FALSE;
+   }
+   if(strncmp(buffer,"GIF87a",6) && strncmp(buffer,"GIF89a",6))
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Parsegifgeneral: Invalid GIF signature\n");
+      }
+      return FALSE;
+   }
 
    /* Logical screen descriptor */
-   if(!Readblock(decoder,buffer,GIFLSD_SIZEOF)) return FALSE;
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Parsegifgeneral: Reading logical screen descriptor\n");
+   }
+   if(!Readblock(decoder,buffer,GIFLSD_SIZEOF))
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Parsegifgeneral: Readblock failed for logical screen descriptor\n");
+      }
+      return FALSE;
+   }
    decoder->width=BIGEND(buffer+GIFLSD_WIDTH);
 
    /* olsen: due to how the decoder works, a picture cannot be
@@ -434,14 +542,28 @@ static BOOL Parsegifgeneral(struct Decoder *decoder)
    decoder->background=buffer[GIFLSD_BACKGROUND];
    decoder->source->width=decoder->width;
    decoder->source->height=decoder->height;
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Parsegifgeneral: width=%ld, height=%ld\n", decoder->width, decoder->height);
+   }
    gctsize=1<<((buffer[GIFLSD_PACKED]&0x07)+1);
    if(buffer[GIFLSD_PACKED]&0x80)
    {  /* Global color table. */
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Parsegifgeneral: Reading global color table, size=%d\n", gctsize);
+      }
       buffer[3]=0;
       for(i=0;i<gctsize;i++)
-      {  if(!Readblock(decoder,buffer,3)) return FALSE;
+      {  if(!Readblock(decoder,buffer,3))
+         {  if(AwebPluginBase)
+            {  Aprintf("GIF: Parsegifgeneral: Readblock failed for color table\n");
+            }
+            return FALSE;
+         }
          decoder->source->globalcolorrgb[i]=*(ULONG *)buffer;
       }
+   }
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Parsegifgeneral: Done, returning TRUE\n");
    }
    return TRUE;
 }
@@ -475,6 +597,9 @@ static BOOL Buildgifimage(struct Decoder *decoder)
    UBYTE *trow=NULL;
    BOOL phaseready;
    BOOL mergemask=FALSE;
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Buildgifimage called, decoder=0x%08lx, bitmap=0x%08lx\n", (ULONG)decoder, (ULONG)decoder->bitmap);
+   }
 
    if(decoder->flags&DECOF_SAVEPREVIOUS)
    {  struct Gifimage *gi=decoder->source->images.last->prev;
@@ -521,20 +646,22 @@ static BOOL Buildgifimage(struct Decoder *decoder)
       }
       else
       {  if(decoder->flags&DECOF_CYBERDEEP)
-         {  ULONG bgcolor=decoder->colorrgb[decoder->background]>>8;
-            ULONG *fillbuf;
+         {  UBYTE *fillbuf;
             struct RenderInfo fillri;
-            long y;
-            if(fillbuf=(ULONG *)AllocMem(decoder->width*sizeof(ULONG),MEMF_CLEAR))
-            {  for(y=0;y<decoder->width;y++) fillbuf[y]=bgcolor;
-               fillri.Memory=(UBYTE *)fillbuf;
-               fillri.BytesPerRow=decoder->width*sizeof(ULONG);
+            long y,x;
+            ULONG bgcolor=decoder->colorrgb[decoder->background]>>8;
+            if(fillbuf=(UBYTE *)AllocMem(decoder->width*3,MEMF_CLEAR))
+            {  for(x=0;x<decoder->width;x++)
+               {  memmove(fillbuf+3*x,(UBYTE *)(&bgcolor),3);
+               }
+               fillri.Memory=fillbuf;
+               fillri.BytesPerRow=decoder->width*3;
                fillri.RGBFormat=RGBFB_R8G8B8;
                for(y=0;y<decoder->height;y++)
                {  p96WritePixelArray(&fillri,0,0,
                      &decoder->rp,0,y,decoder->width,1);
                }
-               FreeMem(fillbuf,decoder->width*sizeof(ULONG));
+               FreeMem(fillbuf,decoder->width*3);
             }
          }
          else
@@ -581,6 +708,15 @@ static BOOL Buildgifimage(struct Decoder *decoder)
             {  ReadPixelLine8(&decoder->rp,decoder->ileft,row,decoder->iwidth,
                   decoder->chunky,&decoder->temprp);
             }
+         }
+      }
+      else if(!mergemask)
+      {  /* Clear chunky buffer when not merging - ensures clean data */
+         if(decoder->flags&DECOF_CYBERDEEP)
+         {  memset(decoder->chunky,0,decoder->iwidth*3);
+         }
+         else
+         {  memset(decoder->chunky,0,decoder->iwidth);
          }
       }
       for(x=0;x<decoder->iwidth;x++)
@@ -655,20 +791,22 @@ static BOOL Buildgifimage(struct Decoder *decoder)
       case 2:  /* restore to background */
          if(decoder->saverp.BitMap)
          {  if(decoder->flags&DECOF_CYBERDEEP)
-            {  ULONG bgcolor=decoder->colorrgb[decoder->background]>>8;
-               ULONG *fillbuf;
+            {  UBYTE *fillbuf;
                struct RenderInfo fillri;
-               long y;
-               if(fillbuf=(ULONG *)AllocMem(decoder->iwidth*sizeof(ULONG),MEMF_CLEAR))
-               {  for(y=0;y<decoder->iwidth;y++) fillbuf[y]=bgcolor;
-                  fillri.Memory=(UBYTE *)fillbuf;
-                  fillri.BytesPerRow=decoder->iwidth*sizeof(ULONG);
+               long y,x;
+               ULONG bgcolor=decoder->colorrgb[decoder->background]>>8;
+               if(fillbuf=(UBYTE *)AllocMem(decoder->iwidth*3,MEMF_CLEAR))
+               {  for(x=0;x<decoder->iwidth;x++)
+                  {  memmove(fillbuf+3*x,(UBYTE *)(&bgcolor),3);
+                  }
+                  fillri.Memory=fillbuf;
+                  fillri.BytesPerRow=decoder->iwidth*3;
                   fillri.RGBFormat=RGBFB_R8G8B8;
                   for(y=0;y<decoder->iheight;y++)
                   {  p96WritePixelArray(&fillri,0,0,
                         &decoder->saverp,decoder->ileft,decoder->itop+y,decoder->iwidth,1);
                   }
-                  FreeMem(fillbuf,decoder->iwidth*sizeof(ULONG));
+                  FreeMem(fillbuf,decoder->iwidth*3);
                }
             }
             else
@@ -685,6 +823,9 @@ static BOOL Buildgifimage(struct Decoder *decoder)
          break;
    }
 
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Buildgifimage: Done, returning TRUE\n");
+   }
    return TRUE;
 }
 
@@ -695,6 +836,9 @@ static BOOL Parsegifimage(struct Decoder *decoder)
    int lctsize,i,delay=100;
    struct Gifimage *gi;
    BOOL error=FALSE;
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Parsegifimage called, decoder=0x%08lx\n", (ULONG)decoder);
+   }
    decoder->flags&=~(DECOF_TRANSPARENT|DECOF_INTERLACED|DECOF_CYBERMAP|DECOF_CYBERDEEP);
    decoder->disposal=0;
    for(;;)
@@ -764,8 +908,21 @@ static BOOL Parsegifimage(struct Decoder *decoder)
    decoder->itop=BIGEND(buffer+GIFID_TOP);
    decoder->iwidth=BIGEND(buffer+GIFID_WIDTH);
    decoder->iheight=BIGEND(buffer+GIFID_HEIGHT);
-   if(decoder->ileft+decoder->iwidth>decoder->width) return FALSE;
-   if(decoder->itop+decoder->iheight>decoder->height) return FALSE;
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Parsegifimage: ileft=%ld, itop=%ld, iwidth=%ld, iheight=%ld\n", decoder->ileft, decoder->itop, decoder->iwidth, decoder->iheight);
+   }
+   if(decoder->ileft+decoder->iwidth>decoder->width)
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Parsegifimage: Image width exceeds screen width\n");
+      }
+      return FALSE;
+   }
+   if(decoder->itop+decoder->iheight>decoder->height)
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Parsegifimage: Image height exceeds screen height\n");
+      }
+      return FALSE;
+   }
    if(buffer[GIFID_PACKED]&0x40) decoder->flags|=DECOF_INTERLACED;
    lctsize=1<<((buffer[GIFID_PACKED]&0x07)+1);
    memmove(decoder->colorrgb,decoder->source->globalcolorrgb,sizeof(decoder->colorrgb));
@@ -784,8 +941,14 @@ static BOOL Parsegifimage(struct Decoder *decoder)
 
    /* olsen: code size must be in valid bounds. */
    if(c < 2 || c > 9)
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Parsegifimage: Invalid code size %d\n", c);
+      }
       return(FALSE);
-
+   }
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Parsegifimage: Setting code size to %d\n", c);
+   }
    Setcodesize(decoder,c);
 
    /* Hereafter comes the image data. First allocate a bitmap.
@@ -793,22 +956,48 @@ static BOOL Parsegifimage(struct Decoder *decoder)
     * planes, the colours may be remapped to pen numbers up to 255. */
    decoder->bitmap=NULL;
    decoder->mask=NULL;
-   if(P96Base)
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Parsegifimage: Allocating bitmap, width=%ld, height=%ld\n", decoder->width, decoder->height);
+   }
+   if(P96Base && decoder->source->friendbitmap)
    {  decoder->depth=p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_DEPTH);
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Parsegifimage: P96 depth=%ld, friendbitmap=0x%08lx\n", decoder->depth, (ULONG)decoder->source->friendbitmap);
+      }
       decoder->bitmap=p96AllocBitMap(decoder->width,decoder->height,decoder->depth,
          BMF_MINPLANES|BMF_CLEAR,decoder->source->friendbitmap,RGBFB_NONE);
-      if(p96GetBitMapAttr(decoder->bitmap,P96BMA_ISP96))
+      if(decoder->bitmap && p96GetBitMapAttr(decoder->bitmap,P96BMA_ISP96))
       {  decoder->flags|=DECOF_CYBERMAP;
          if(decoder->depth>8)
          {  decoder->flags|=DECOF_CYBERDEEP;
          }
+         if(AwebPluginBase)
+         {  Aprintf("GIF: Parsegifimage: P96 bitmap allocated, flags=0x%04x\n", decoder->flags);
+         }
+      }
+      else if(AwebPluginBase)
+      {  Aprintf("GIF: Parsegifimage: P96 bitmap allocation failed, bitmap=0x%08lx\n", (ULONG)decoder->bitmap);
       }
    }
    else
-   {  decoder->bitmap=AllocBitMap(decoder->width,decoder->height,8,BMF_CLEAR,NULL);
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Parsegifimage: Allocating standard bitmap, P96Base=0x%08lx, friendbitmap=0x%08lx\n", (ULONG)P96Base, (ULONG)(decoder->source ? decoder->source->friendbitmap : 0));
+      }
+      decoder->bitmap=AllocBitMap(decoder->width,decoder->height,8,BMF_CLEAR,NULL);
       decoder->depth=8;
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Parsegifimage: AllocBitMap returned 0x%08lx\n", (ULONG)decoder->bitmap);
+      }
    }
-   if(!decoder->bitmap) return FALSE;
+   if(!decoder->bitmap)
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Parsegifimage: Bitmap allocation failed for %ldx%ld\n", decoder->width, decoder->height);
+      }
+      return FALSE;
+   }
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Parsegifimage: Bitmap allocated successfully, bitmap=0x%08lx\n", (ULONG)decoder->bitmap);
+   }
    if(decoder->flags&DECOF_TRANSPARENT)
    {  if(decoder->flags&DECOF_CYBERMAP)
       {  decoder->maskw=p96GetBitMapAttr(decoder->bitmap,P96BMA_WIDTH)/8;
@@ -821,7 +1010,15 @@ static BOOL Parsegifimage(struct Decoder *decoder)
    }
 
    /* Save our bitmap and dimensions. */
-   if(!(gi=(struct Gifimage *)AllocVec(sizeof(struct Gifimage),MEMF_PUBLIC|MEMF_CLEAR))) return FALSE;
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Parsegifimage: Allocating Gifimage structure\n");
+   }
+   if(!(gi=(struct Gifimage *)AllocVec(sizeof(struct Gifimage),MEMF_PUBLIC|MEMF_CLEAR)))
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Parsegifimage: Gifimage allocation failed\n");
+      }
+      return FALSE;
+   }
    gi->bitmap=decoder->bitmap;
    gi->mask=decoder->mask;
    gi->delay=delay;
@@ -854,7 +1051,13 @@ static BOOL Parsegifimage(struct Decoder *decoder)
             decoder->renderinfo.BytesPerRow=decoder->chunkyw;
             decoder->renderinfo.RGBFormat=RGBFB_R8G8B8;
          }
-         error=!Buildgifimage(decoder);
+         if(AwebPluginBase)
+   {  Aprintf("GIF: Parsegifimage: Calling Buildgifimage\n");
+   }
+   error=!Buildgifimage(decoder);
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Parsegifimage: Buildgifimage returned, error=%ld\n", error);
+   }
          FreeVec(decoder->chunky);
       }
    }
@@ -875,43 +1078,90 @@ static BOOL Parsegifimage(struct Decoder *decoder)
    /* Skip remaining characters of data block, and following spurious blocks */
    if(decoder->remaining)
    {  if(!Readblock(decoder,NULL,decoder->remaining)) return FALSE;
-      decoder->remaining=NULL;
+      decoder->remaining=0;
    }
-   if(!Skipgifdata(decoder)) return FALSE;
-
+   if(!Skipgifdata(decoder))
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Parsegifimage: Skipgifdata failed\n");
+      }
+      return FALSE;
+   }
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Parsegifimage: Done, returning %ld\n", (BOOL)!error);
+   }
    return (BOOL)!error;
 }
 
 
 /* Main subtask process. */
-static void Decodetask(struct Gifsource *is)
+static __saveds __asm void Decodetask(register __a0 struct Gifsource *is)
 {
    struct Decoder decoderdata,*decoder=&decoderdata;
    struct Task *task=FindTask(NULL);
 
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Decodetask started, is=0x%08lx\n", (ULONG)is);
+   }
+   if(!is)
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Decodetask: ERROR - is (Gifsource) is NULL!\n");
+      }
+      return;
+   }
    memset(&decoderdata,0,sizeof(decoderdata));
    decoder->source=is;
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Decodetask: decoder->source set to 0x%08lx\n", (ULONG)decoder->source);
+   }
    if(decoder->source->flags&GIFSF_LOWPRI)
    {  SetTaskPri(task,max(-128,task->tc_Node.ln_Pri-1)); /* olsen: keep this in range */
    }
    InitRastPort(&decoder->saverp);
 
-   if(!Parsegifgeneral(decoder)) goto err;
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Decodetask: Calling Parsegifgeneral\n");
+   }
+   if(!Parsegifgeneral(decoder))
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Decodetask: Parsegifgeneral failed\n");
+      }
+      goto err;
+   }
    while(!(decoder->flags&DECOF_EOF))
-   {  if(!Parsegifimage(decoder)) goto err;
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Decodetask: Calling Parsegifimage\n");
+      }
+      if(!Parsegifimage(decoder))
+      {  if(AwebPluginBase)
+         {  Aprintf("GIF: Decodetask: Parsegifimage failed\n");
+         }
+         goto err;
+      }
       if(decoder->flags&DECOF_EOF) break;
       if(decoder->source->flags&GIFSF_NOANIMATE) break;
       decoder->flags|=DECOF_ANIMFRAME;
    }
 
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Decodetask: Decoding complete, setting Decodeready\n");
+   }
    Updatetaskattrs(AOGIF_Decodeready,TRUE,TAG_END);
    if(decoder->saverp.BitMap) FreeBitMap(decoder->saverp.BitMap);
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Decodetask: Done, exiting\n");
+   }
    return;
 
 err:
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Decodetask: ERROR path, setting Error flag\n");
+   }
    Updatetaskattrs(AOGIF_Error,TRUE,TAG_END);
    if(decoder->saverp.BitMap) FreeBitMap(decoder->saverp.BitMap);
    if(decoder->savemask) FreeVec(decoder->savemask);
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Decodetask: ERROR path done, exiting\n");
+   }
 }
 
 /*--------------------------------------------------------------------*/
@@ -933,6 +1183,9 @@ static void Savesource(struct Gifsource *gs,struct Aobject *file)
  * currenty valid. */
 static void Startdecoder(struct Gifsource *gs)
 {  struct Screen *screen=NULL;
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Startdecoder called, gs=0x%08lx\n", (ULONG)gs);
+   }
    if(Agetattr(Aweb(),AOAPP_Screenvalid))
    {  Agetattrs(Aweb(),
          AOAPP_Screen,&screen,
@@ -1071,6 +1324,9 @@ static void Nextanimation(struct Gifsource *gs)
 static ULONG Setsource(struct Gifsource *gs,struct Amset *amset)
 {  struct TagItem *tag,*tstate;
    UBYTE *arg,*p;
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Setsource called, gs=0x%08lx, amset=0x%08lx\n", (ULONG)gs, (ULONG)amset);
+   }
    Amethodas(AOTP_SOURCEDRIVER,(struct Aobject *)gs,AOM_SET,amset->tags);
    tstate=amset->tags;
    while(tag=NextTagItem(&tstate))
@@ -1159,19 +1415,45 @@ static ULONG Setsource(struct Gifsource *gs,struct Amset *amset)
 
 static struct Gifsource *Newsource(struct Amset *amset)
 {  struct Gifsource *gs;
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Newsource called, amset=0x%08lx\n", (ULONG)amset);
+   }
    if(gs=Allocobject(PluginBase->sourcedriver,sizeof(struct Gifsource),amset))
-   {  InitSemaphore(&gs->sema);
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Newsource: Allocobject succeeded, gs=0x%08lx\n", (ULONG)gs);
+      }
+      InitSemaphore(&gs->sema);
       NEWLIST(&gs->data);
       NEWLIST(&gs->images);
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Newsource: Calling Aaddchild\n");
+      }
       Aaddchild(Aweb(),(struct Aobject *)gs,AOREL_APP_USE_SCREEN);
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Newsource: Aaddchild returned\n");
+      }
       gs->progress=4;
       gs->maxloops=-1;
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Newsource: Calling Setsource\n");
+      }
       Setsource(gs,amset);
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Newsource: Setsource returned\n");
+      }
       /* Workaround for missing AOSDV_Displayed in pre-0.132 */
       if(!(gs->flags&GIFSF_DISPLAYED))
       {  if(Agetattr(gs->source,AOSRC_Displayed))
          {  Asetattrs((struct Aobject *)gs, AOSDV_Displayed, TRUE, TAG_END);
          }
+      }
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Newsource: returning gs=0x%08lx\n", (ULONG)gs);
+      }
+   }
+   else
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Newsource: Allocobject failed\n");
       }
    }
    return gs;
@@ -1179,6 +1461,9 @@ static struct Gifsource *Newsource(struct Amset *amset)
 
 static ULONG Getsource(struct Gifsource *gs,struct Amset *amset)
 {  struct TagItem *tag,*tstate;
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Getsource called, gs=0x%08lx, amset=0x%08lx\n", (ULONG)gs, (ULONG)amset);
+   }
    AmethodasA(AOTP_SOURCEDRIVER,(struct Aobject *)gs, (struct Amessage *)amset);
    tstate=amset->tags;
    while(tag=NextTagItem(&tstate))
@@ -1199,6 +1484,9 @@ static ULONG Srcupdatesource(struct Gifsource *gs,struct Amsrcupdate *amsrcupdat
    UBYTE *data=NULL;
    long datalength=0;
    BOOL eof=FALSE;
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Srcupdatesource called, gs=0x%08lx, amsrcupdate=0x%08lx\n", (ULONG)gs, (ULONG)amsrcupdate);
+   }
    AmethodasA(AOTP_SOURCEDRIVER,(struct Aobject *)gs,(struct Amessage *)amsrcupdate);
    tstate=amsrcupdate->tags;
    while(tag=NextTagItem(&tstate))
@@ -1247,6 +1535,9 @@ static ULONG Updatesource(struct Gifsource *gs,struct Amset *amset)
 {  struct TagItem *tag,*tstate;
    BOOL notify=FALSE,animframe=FALSE;
    long readyfrom=0,readyto=-1;
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Updatesource called, gs=0x%08lx, amset=0x%08lx\n", (ULONG)gs, (ULONG)amset);
+   }
    tstate=amset->tags;
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
@@ -1342,7 +1633,10 @@ static ULONG Updatesource(struct Gifsource *gs,struct Amset *amset)
 }
 
 static ULONG Addchildsource(struct Gifsource *gs,struct Amadd *amadd)
-{  if(amadd->relation==AOREL_SRC_COPY)
+{  if(AwebPluginBase)
+   {  Aprintf("GIF: Addchildsource called, gs=0x%08lx, amadd=0x%08lx, relation=%ld\n", (ULONG)gs, (ULONG)amadd, amadd ? amadd->relation : 0);
+   }
+   if(amadd->relation==AOREL_SRC_COPY)
    {  ObtainSemaphore(&gs->sema);
       if(gs->current && gs->current->bitmap)
       {  Asetattrs(amadd->child,
@@ -1364,21 +1658,35 @@ static ULONG Addchildsource(struct Gifsource *gs,struct Amadd *amadd)
 }
 
 static void Disposesource(struct Gifsource *gs)
-{  if(gs->task)
-   {  Adisposeobject(gs->task);
+{  if(AwebPluginBase)
+   {  Aprintf("GIF: Disposesource called, gs=0x%08lx\n", (ULONG)gs);
+   }
+   if(gs->task)
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Disposesource: Disposing task\n");
+      }
+      Adisposeobject(gs->task);
    }
    if(gs->timer)
-   {  Adisposeobject(gs->timer);
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Disposesource: Disposing timer\n");
+      }
+      Adisposeobject(gs->timer);
    }
    Releaseimage(gs);
    Releasedata(gs);
    Aremchild(Aweb(), (struct Aobject *)gs, AOREL_APP_USE_SCREEN);
    Amethodas(AOTP_SOURCEDRIVER, (struct Aobject *)gs, AOM_DISPOSE);
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Disposesource: Done\n");
+   }
 }
 
-__asm __saveds ULONG Dispatchsource(register __a0 struct Aobject *obj, register __a1 struct Amessage *amsg)
-{  struct Gifsource *gs=(struct Gifsource *)obj;
-   ULONG result=0;
+__saveds __asm ULONG Dispatchsource(register __a0 struct Gifsource *gs, register __a1 struct Amessage *amsg)
+{  ULONG result=0;
+   if(AwebPluginBase && amsg)
+   {  Aprintf("GIF: Dispatchsource called, gs=0x%08lx, method=0x%08lx\n", (ULONG)gs, amsg->method);
+   }
    switch(amsg->method)
    {  case AOM_NEW:
          result=(ULONG)Newsource((struct Amset *)amsg);

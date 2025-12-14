@@ -23,7 +23,6 @@
 extern struct AwebPngBase *PluginBase;
 
 /* Library bases */
-extern struct Library *Picasso96Base;
 extern struct Library *AwebPluginBase;
 
 /* Declarations of the OO dispatcher functions */

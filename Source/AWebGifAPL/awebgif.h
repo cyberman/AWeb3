@@ -1,6 +1,6 @@
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2025 amigazen project
@@ -24,20 +24,18 @@
 extern struct Library *SysBase;         /* Defined in startup.c */
 extern struct Library *DOSBase;
 extern struct Library *AwebPluginBase;
-extern struct Library *GfxBase;
-extern struct Library *IntuitionBase;
-extern struct Library *UtilityBase;
+extern struct Library *P96Base;
 
 /* Pointer to our own library base */
 extern struct AwebGifBase *PluginBase;
 
 /* Declarations of the OO dispatcher functions */
-extern __asm ULONG Dispatchsource(
-   register __a0 struct Aobject *,
+extern __saveds __asm ULONG Dispatchsource(
+   register __a0 struct Gifsource *,
    register __a1 struct Amessage *);
 
-extern __asm ULONG Dispatchcopy(
-   register __a0 struct Aobject *,
+extern __saveds __asm ULONG Dispatchcopy(
+   register __a0 struct Gifcopy *,
    register __a1 struct Amessage *);
 
 /* Declaration of common flags */

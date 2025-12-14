@@ -35,29 +35,29 @@
 #include <proto/exec.h>
 
 /* Function declarations for the library entry points */
-__asm struct Library *Initlib(
+__asm __saveds struct Library *Initlib(
    register __a6 struct ExecBase *sysbase,
    register __a0 struct SegList *seglist,
    register __d0 struct Library *libbase);
 
-__asm struct Library *Openlib(
+__asm __saveds struct Library *Openlib(
    register __a6 struct Library *libbase);
 
-__asm struct SegList *Closelib(
+__asm __saveds struct SegList *Closelib(
    register __a6 struct Library *libbase);
 
-__asm struct SegList *Expungelib(
+__asm __saveds struct SegList *Expungelib(
    register __a6 struct Library *libbase);
 
-__asm ULONG Extfunclib(void);
+__asm __saveds ULONG Extfunclib(void);
 
-extern __asm ULONG Initplugin(
+extern __asm __saveds ULONG Initplugin(
    register __a0 struct Plugininfo *pi);
 
-extern __asm void Queryplugin(
+extern __asm __saveds void Queryplugin(
    register __a0 struct Pluginquery *pq);
 
-extern __asm void Commandplugin(
+extern __asm __saveds void Commandplugin(
    register __a0 struct Plugincommand *pc);
 
 /* Function declarations for project dependent hook functions */
@@ -74,7 +74,7 @@ static APTR libseglist;
 struct ExecBase *SysBase;
 
 /* Return error when run as a program */
-LONG __asm Libstart(void)
+LONG __saveds __asm Libstart(void)
 {  return -1;
 }
 
@@ -120,7 +120,7 @@ struct Resident __aligned romtag=
  * node is already initialized from the data in the ROM tag, except
  * for the revision.
  * Store vital pointers, and call the Initpluginlib hook function. */
-__asm struct Library *Initlib(
+__asm __saveds struct Library *Initlib(
    register __a6 struct ExecBase *sysbase,
    register __a0 struct SegList *seglist,
    register __d0 struct Library *libbase)
@@ -137,14 +137,14 @@ __asm struct Library *Initlib(
    return libbase;
 }
 
-__asm struct Library *Openlib(
+__asm __saveds struct Library *Openlib(
    register __a6 struct Library *libbase)
 {  libbase->lib_OpenCnt++;
    libbase->lib_Flags&=~LIBF_DELEXP;
    return libbase;
 }
 
-__asm struct SegList *Closelib(
+__asm __saveds struct SegList *Closelib(
    register __a6 struct Library *libbase)
 {  libbase->lib_OpenCnt--;
    if(libbase->lib_OpenCnt==0 && (libbase->lib_Flags&LIBF_DELEXP))
@@ -153,7 +153,7 @@ __asm struct SegList *Closelib(
    return NULL;
 }
 
-__asm struct SegList *Expungelib(
+__asm __saveds struct SegList *Expungelib(
    register __a6 struct Library *libbase)
 {  if(libbase->lib_OpenCnt==0)
    {  ULONG size=libbase->lib_NegSize+libbase->lib_PosSize;
@@ -167,7 +167,7 @@ __asm struct SegList *Expungelib(
    return NULL;
 }
 
-__asm ULONG Extfunclib(void)
+__asm __saveds ULONG Extfunclib(void)
 {  return 0;
 }
 

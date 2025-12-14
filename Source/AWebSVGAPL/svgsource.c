@@ -33,6 +33,17 @@
 #include <proto/dos.h>
 #include <proto/intuition.h>
 
+/* Forward declarations for task functions - available through awebplugin.library */
+/* struct Taskmsg is defined in <libraries/awebplugin.h> */
+extern struct Taskmsg *Gettaskmsg(void);
+extern void Replytaskmsg(struct Taskmsg *msg);
+extern BOOL Checktaskbreak(void);
+extern ULONG Waittask(ULONG signals);
+extern long Updatetaskattrs(ULONG tag,...);
+
+/* Workaround for missing AOSDV_Displayed, not part of plugin API */
+#define AOSRC_Displayed    (AOSRC_Dummy+2)
+
 /* A struct Datablock holds one block of data. */
 struct Datablock
 {  NODE(Datablock);
@@ -81,64 +92,11 @@ static void Startparser(struct Svgsource *ss)
    }
 }
 
-/* Read the next byte from data blocks */
-/* Note: Reserved for future streaming parser implementation */
-#if 0
-UBYTE Readbyte(struct Parser *parser)
-{  struct Datablock *db;
-   BOOL wait;
-   UBYTE retval=0;
-   for(;;)
-   {  wait=FALSE;
-      if(parser->current)
-      {  if(++parser->currentbyte>=parser->current->length)
-         {  ObtainSemaphore(&parser->source->sema);
-            db=parser->current->next;
-            if(db->next)
-            {  parser->current=db;
-               parser->currentbyte=0;
-            }
-            else if(parser->source->flags&SVGSF_EOF)
-            {  parser->flags|=PARF_EOF;
-            }
-            else
-            {  wait=TRUE;
-            }
-            ReleaseSemaphore(&parser->source->sema);
-         }
-      }
-      else
-      {  ObtainSemaphore(&parser->source->sema);
-         db=parser->source->data.first;
-         if(db->next)
-         {  parser->current=db;
-            parser->currentbyte=0;
-         }
-         else if(parser->source->flags&SVGSF_EOF)
-         {  parser->flags|=PARF_EOF;
-         }
-         else
-         {  wait=TRUE;
-         }
-         ReleaseSemaphore(&parser->source->sema);
-      }
-      if(!wait)
-      {  if(!(parser->flags&PARF_EOF))
-         {  retval=parser->current->data[parser->currentbyte];
-         }
-         break;
-      }
-      Waittask(0);
-   }
-   return retval;
-}
-#endif
-
 /* Parser task - parses SVG and creates bitmap */
 static void Parsertask(struct Svgsource *ss)
 {  struct Datablock *db;
-   UBYTE *buffer;
-   long buflen;
+   UBYTE *buffer=NULL;
+   long buflen=0;
    LONG token;
    UBYTE *name;
    LONG namelen;
@@ -149,7 +107,35 @@ static void Parsertask(struct Svgsource *ss)
    LONG width=100,height=100;
    LONG svgwidth=0,svgheight=0;
    LONG x,y,w,h,cx,cy,r,rx,ry,x1,y1,x2,y2;
-   UBYTE fillpen=1,strokepen=0;
+   UBYTE fillpen=1;
+
+   /* Wait for EOF before parsing - we need complete XML */
+   /* Process task messages while waiting (like GIF plugin does) */
+   while(!(ss->flags&SVGSF_EOF))
+   {  struct Taskmsg *tm;
+      struct TagItem *tag,*tstate;
+      if(Checktaskbreak()) goto cleanup;
+      /* Process any waiting task messages */
+      while((tm=Gettaskmsg()))
+      {  if(tm->amsg && tm->amsg->method==AOM_SET)
+         {  tstate=((struct Amset *)tm->amsg)->tags;
+            while((tag=NextTagItem(&tstate)))
+            {  switch(tag->ti_Tag)
+               {  case AOTSK_Stop:
+                     if(tag->ti_Data) goto cleanup;
+                     break;
+                  case AOSVG_Data:
+                     /* Data notification - check if EOF is set now */
+                     break;
+               }
+            }
+         }
+         Replytaskmsg(tm);
+      }
+      /* Check EOF flag after processing messages */
+      if(ss->flags&SVGSF_EOF) break;
+      Waittask(0);
+   }
 
    /* Collect all data into a buffer for XML parsing */
    ObtainSemaphore(&ss->sema);
@@ -165,13 +151,14 @@ static void Parsertask(struct Svgsource *ss)
    if(!buffer) goto cleanup;
    buffer[buflen]=0;
 
-   ObtainSemaphore(&ss->sema);
-   buflen=0;
-   for(db=ss->data.first;db->next;db=db->next)
-   {  CopyMem(db->data,buffer+buflen,db->length);
-      buflen+=db->length;
+   {  long buflen2=0;
+      ObtainSemaphore(&ss->sema);
+      for(db=ss->data.first;db->next;db=db->next)
+      {  CopyMem(db->data,buffer+buflen2,db->length);
+         buflen2+=db->length;
+      }
+      ReleaseSemaphore(&ss->sema);
    }
-   ReleaseSemaphore(&ss->sema);
 
    /* Get screen for bitmap creation */
    if(Agetattr(Aweb(),AOAPP_Screenvalid))
@@ -222,6 +209,15 @@ static void Parsertask(struct Svgsource *ss)
       SetAPen(&rp,0);
       RectFill(&rp,0,0,width-1,height-1);
 
+      /* TEST: Draw something simple to verify rendering works */
+      SetAPen(&rp,1);  /* Pen 1 should be visible */
+      RectFill(&rp,10,10,width-11,height-11);  /* Draw a rectangle */
+      SetAPen(&rp,2);  /* Pen 2 */
+      Move(&rp,20,20);
+      Draw(&rp,width-21,height-21);  /* Draw a diagonal line */
+      Move(&rp,width-21,20);
+      Draw(&rp,20,height-21);  /* Draw another diagonal line */
+
       /* Create VRastPort for vector rendering */
       vrp=MakeVRastPortTags(VRP_RastPort,&rp,
                             VRP_XScale,0x10000,
@@ -237,13 +233,38 @@ static void Parsertask(struct Svgsource *ss)
       XmlInitParser(&xml,buffer,buflen);
       SetAPen(&rp,fillpen);
 
+      /* Skip to first element inside <svg> */
+      token=XmlGetToken(&xml);
+      while(token!=XMLTOK_EOF && token!=XMLTOK_ERROR)
+      {  if(token==XMLTOK_START_TAG)
+         {  name=XmlGetTokenName(&xml,&namelen);
+            if(namelen==3 && Strnicmp(name,"svg",3)==0)
+            {  /* Skip <svg> tag and its attributes */
+               while((token=XmlGetToken(&xml))==XMLTOK_ATTR);
+               /* Now we should be at the content or end tag */
+               token=XmlGetToken(&xml);
+               break;
+            }
+            else
+            {  /* Found a non-svg element, process it */
+               break;
+            }
+         }
+         else if(token==XMLTOK_EMPTY_TAG)
+         {  /* Found an empty element, process it */
+            break;
+         }
+         else
+         {  token=XmlGetToken(&xml);
+         }
+      }
+
       /* Parse SVG elements */
-      while((token=XmlGetToken(&xml))!=XMLTOK_EOF && token!=XMLTOK_ERROR)
+      while(token!=XMLTOK_EOF && token!=XMLTOK_ERROR)
       {  if(token==XMLTOK_START_TAG || token==XMLTOK_EMPTY_TAG)
          {  name=XmlGetTokenName(&xml,&namelen);
             x=y=w=h=cx=cy=r=rx=ry=x1=y1=x2=y2=0;
             fillpen=1;
-            strokepen=0;
 
             /* Parse attributes */
             while((token=XmlGetToken(&xml))==XMLTOK_ATTR)
@@ -309,38 +330,60 @@ static void Parsertask(struct Svgsource *ss)
                VAreaEllipse(vrp,cx,cy,rx,ry);
             }
             else if(namelen==4 && Strnicmp(name,"line",4)==0)
-            {  SetAPen(&rp,strokepen);
+            {  SetAPen(&rp,1);
                VDrawLine(vrp,x1,y1,x2,y2);
             }
          }
+         token=XmlGetToken(&xml);
       }
 
-      /* Save bitmap to source */
+      /* Save bitmap to source - MUST be set before Updatetaskattrs */
       ObtainSemaphore(&ss->sema);
       ss->width=width;
       ss->height=height;
       ss->bitmap=bitmap;
-      bitmap=NULL;
+      bitmap=NULL;  /* Don't free it, it's now owned by ss */
       ss->flags|=SVGSF_IMAGEREADY;
       ReleaseSemaphore(&ss->sema);
 
-      /* Notify that bitmap is ready */
-      Anotifyset(ss->source,
-                 AOSVG_Width,width,
-                 AOSVG_Height,height,
-                 AOSVG_Bitmap,ss->bitmap,
-                 AOSVG_Imgready,TRUE,
-                 TAG_END);
+      /* Notify that bitmap is ready via task update - send all attributes together */
+      /* Note: Updatesource will use ss->bitmap which is already set above */
+      Updatetaskattrs(
+         AOSVG_Width,width,
+         AOSVG_Height,height,
+         AOSVG_Imgready,TRUE,
+         AOSVG_Parseready,TRUE,
+         TAG_END);
    }
 
 cleanup:
    if(vrp) FreeVRastPort(vrp);
    if(bitmap) FreeBitMap(bitmap);
-   if(buffer) FreeMem(buffer,buflen+1);
-   Asetattrs(ss->source,AOSVG_Parseready,TRUE,AOSVG_Jsready,TRUE,TAG_END);
+   if(buffer && buflen>0) FreeMem(buffer,buflen+1);
+   if(!ss->bitmap)
+   {  Updatetaskattrs(AOSVG_Error,TRUE,TAG_END);
+   }
+   return;
 }
 
 /* Source driver dispatcher */
+static ULONG Getsource(struct Svgsource *ss,struct Amset *amset)
+{  struct TagItem *tag,*tstate;
+   AmethodasA(AOTP_SOURCEDRIVER,(struct Aobject *)ss,(struct Amessage *)amset);
+   tstate=amset->tags;
+   while((tag=NextTagItem(&tstate)))
+   {  switch(tag->ti_Tag)
+      {  case AOSDV_Source:
+            PUTATTR(tag,ss->source);
+            break;
+         case AOSDV_Saveable:
+            PUTATTR(tag,(ss->flags&SVGSF_EOF)?TRUE:FALSE);
+            break;
+      }
+   }
+   return 0;
+}
+
 static ULONG Setsource(struct Svgsource *ss,struct Amset *amset)
 {  struct TagItem *tag,*tstate;
    Amethodas(AOTP_SOURCEDRIVER,(struct Aobject *)ss,AOM_SET,amset->tags);
@@ -350,16 +393,121 @@ static ULONG Setsource(struct Svgsource *ss,struct Amset *amset)
       {  case AOSDV_Source:
             ss->source=(struct Aobject *)tag->ti_Data;
             break;
+         case AOSDV_Displayed:
+            if(tag->ti_Data)
+            {  ss->flags|=SVGSF_DISPLAYED;
+               if(ss->data.first->next && !ss->bitmap && !ss->task)
+               {  Startparser(ss);
+               }
+            }
+            else
+            {  ss->flags&=~SVGSF_DISPLAYED;
+            }
+            break;
+         case AOAPP_Screenvalid:
+            if(tag->ti_Data)
+            {  if(ss->data.first->next && (ss->flags&SVGSF_DISPLAYED) && !ss->task)
+               {  Startparser(ss);
+               }
+            }
+            else
+            {  if(ss->task)
+               {  Adisposeobject(ss->task);
+                  ss->task=NULL;
+               }
+               if(ss->bitmap)
+               {  FreeBitMap(ss->bitmap);
+                  ss->bitmap=NULL;
+               }
+               if(ss->mask)
+               {  FreeVec(ss->mask);
+                  ss->mask=NULL;
+               }
+               ss->width=0;
+               ss->height=0;
+               ss->flags&=~(SVGSF_IMAGEREADY);
+               ss->memory=0;
+               Asetattrs(ss->source,AOSRC_Memory,0,TAG_END);
+            }
+            break;
       }
+   }
+   return 0;
+}
+
+static ULONG Updatesource(struct Svgsource *ss,struct Amset *amset)
+{  struct TagItem *tag,*tstate;
+   BOOL notify=FALSE;
+   BOOL parseready=FALSE;
+   tstate=amset->tags;
+   while((tag=NextTagItem(&tstate)))
+   {  switch(tag->ti_Tag)
+      {  case AOSVG_Width:
+            ss->width=tag->ti_Data;
+            notify=TRUE;
+            break;
+         case AOSVG_Height:
+            ss->height=tag->ti_Data;
+            notify=TRUE;
+            break;
+         case AOSVG_Bitmap:
+            /* Bitmap is already set in Parsertask, but handle it if sent */
+            ObtainSemaphore(&ss->sema);
+            if(tag->ti_Data) ss->bitmap=(struct BitMap *)tag->ti_Data;
+            notify=TRUE;
+            ReleaseSemaphore(&ss->sema);
+            break;
+         case AOSVG_Mask:
+            ss->mask=(UBYTE *)tag->ti_Data;
+            notify=TRUE;
+            break;
+         case AOSVG_Imgready:
+            if(tag->ti_Data)
+            {  ss->flags|=SVGSF_IMAGEREADY;
+               notify=TRUE;
+            }
+            else
+            {  ss->flags&=~SVGSF_IMAGEREADY;
+            }
+            break;
+         case AOSVG_Parseready:
+            if(tag->ti_Data)
+            {  ss->flags|=SVGSF_IMAGEREADY;
+               parseready=TRUE;
+               notify=TRUE;
+            }
+            break;
+         case AOSVG_Error:
+            break;
+         case AOSVG_Memory:
+            ss->memory+=tag->ti_Data;
+            Asetattrs(ss->source,
+               AOSRC_Memory,ss->memory,
+               TAG_END);
+            break;
+      }
+   }
+   /* After processing all tags, notify copy drivers if we have a complete image */
+   /* This matches the PNG plugin pattern - use the bitmap already stored in ss */
+   if(notify && ss->bitmap)
+   {  Anotifyset(ss->source,
+         AOSVG_Bitmap,ss->bitmap,
+         AOSVG_Mask,ss->mask,
+         AOSVG_Width,ss->width,
+         AOSVG_Height,ss->height,
+         AOSVG_Imgready,(ss->flags&SVGSF_IMAGEREADY)?TRUE:FALSE,
+         AOSVG_Jsready,parseready?TRUE:FALSE,
+         TAG_END);
    }
    return 0;
 }
 
 static struct Svgsource *Newsource(struct Amset *amset)
 {  struct Svgsource *ss;
-   if(ss=(struct Svgsource *)Allocobject(PluginBase->sourcedriver,sizeof(struct Svgsource),amset))
-   {  NEWLIST(&ss->data);
-      InitSemaphore(&ss->sema);
+   if(ss=Allocobject(PluginBase->sourcedriver,sizeof(struct Svgsource),amset))
+   {  InitSemaphore(&ss->sema);
+      NEWLIST(&ss->data);
+      Aaddchild(Aweb(),(struct Aobject *)ss,AOREL_APP_USE_SCREEN);
       ss->width=0;
       ss->height=0;
       ss->bitmap=NULL;
@@ -369,34 +517,55 @@ static struct Svgsource *Newsource(struct Amset *amset)
       ss->source=NULL;
       ss->task=NULL;
       Setsource(ss,amset);
+      /* Workaround for missing AOSDV_Displayed in pre-0.132 */
+      if(!(ss->flags&SVGSF_DISPLAYED))
+      {  if(Agetattr(ss->source,AOSRC_Displayed))
+         {  Asetattrs((struct Aobject *)ss,AOSDV_Displayed,TRUE,TAG_END);
+         }
+      }
    }
    return ss;
 }
 
-static void Disposesource(struct Svgsource *ss)
+static void Releasedata(struct Svgsource *ss)
 {  struct Datablock *db;
-   if(ss->bitmap) FreeBitMap(ss->bitmap);
-   if(ss->mask) FreeMem(ss->mask,ss->width*ss->height);
    while((db=REMHEAD(&ss->data)))
-   {  FreeMem(db->data,db->length);
-      FreeMem(db,sizeof(struct Datablock));
+   {  if(db->data) FreeVec(db->data);
+      FreeVec(db);
    }
-   AmethodasA(AOTP_SOURCEDRIVER,(struct Aobject *)ss,AOM_DISPOSE);
+}
+
+static void Disposesource(struct Svgsource *ss)
+{  if(ss->task)
+   {  Adisposeobject(ss->task);
+      ss->task=NULL;
+   }
+   if(ss->bitmap) FreeBitMap(ss->bitmap);
+   if(ss->mask) FreeVec(ss->mask);
+   ss->bitmap=NULL;
+   ss->mask=NULL;
+   ss->width=0;
+   ss->height=0;
+   ss->flags&=~(SVGSF_IMAGEREADY);
+   ss->memory=0;
+   Asetattrs(ss->source,AOSRC_Memory,0,TAG_END);
+   Releasedata(ss);
+   Aremchild(Aweb(),(struct Aobject *)ss,AOREL_APP_USE_SCREEN);
+   Amethodas(AOTP_SOURCEDRIVER,(struct Aobject *)ss,AOM_DISPOSE);
 }
 
 static ULONG Addchildsource(struct Svgsource *ss,struct Amadd *amadd)
 {  if(amadd->relation==AOREL_SRC_COPY)
-   {  ObtainSemaphore(&ss->sema);
-      if(ss->bitmap && (ss->flags&SVGSF_IMAGEREADY))
+   {  if(ss->bitmap)
       {  Asetattrs(amadd->child,
             AOSVG_Bitmap,ss->bitmap,
             AOSVG_Mask,ss->mask,
             AOSVG_Width,ss->width,
             AOSVG_Height,ss->height,
-            AOSVG_Imgready,TRUE,
+            AOSVG_Imgready,ss->flags&SVGSF_IMAGEREADY,
+            AOSVG_Jsready,ss->flags&SVGSF_IMAGEREADY,
             TAG_END);
       }
-      ReleaseSemaphore(&ss->sema);
    }
    return 0;
 }
@@ -406,8 +575,8 @@ static ULONG Srcupdatesource(struct Svgsource *ss,struct Amsrcupdate *amsrcupdat
    UBYTE *data=NULL;
    long datalength=0;
    struct Datablock *db;
-   BOOL eof_received=FALSE;
-
+   BOOL eof=FALSE;
+   AmethodasA(AOTP_SOURCEDRIVER,(struct Aobject *)ss,(struct Amessage *)amsrcupdate);
    tstate=amsrcupdate->tags;
    while((tag=NextTagItem(&tstate)))
    {  switch(tag->ti_Tag)
@@ -419,31 +588,33 @@ static ULONG Srcupdatesource(struct Svgsource *ss,struct Amsrcupdate *amsrcupdat
             break;
          case AOURL_Eof:
             if(tag->ti_Data)
-            {  ss->flags|=SVGSF_EOF;
-               eof_received=TRUE;
+            {  eof=TRUE;
+               ss->flags|=SVGSF_EOF;
             }
             break;
       }
    }
-   if(data && datalength>0)
-   {  db=(struct Datablock *)AllocMem(sizeof(struct Datablock),MEMF_ANY);
-      if(db)
-      {  db->data=(UBYTE *)AllocMem(datalength,MEMF_ANY);
-         if(db->data)
-         {  CopyMem(data,db->data,datalength);
+   if(data && datalength)
+   {  if(db=AllocVec(sizeof(struct Datablock),MEMF_PUBLIC|MEMF_CLEAR))
+      {  if(db->data=AllocVec(datalength,MEMF_PUBLIC))
+         {  memmove(db->data,data,datalength);
             db->length=datalength;
             ObtainSemaphore(&ss->sema);
             ADDTAIL(&ss->data,db);
             ReleaseSemaphore(&ss->sema);
          }
          else
-         {  FreeMem(db,sizeof(struct Datablock));
+         {  FreeVec(db);
          }
       }
+      if(!ss->task)
+      {  Startparser(ss);
+      }
    }
-   /* Start parser when EOF is received */
-   if(eof_received && !ss->task)
-   {  Startparser(ss);
+   if((data && datalength) || eof)
+   {  if(ss->task)
+      {  Asetattrsasync(ss->task,AOSVG_Data,TRUE,TAG_END);
+      }
    }
    return 0;
 }
@@ -458,11 +629,17 @@ __asm __saveds ULONG Dispatchsource(register __a0 struct Aobject *obj,register _
       case AOM_SET:
          result=Setsource(ss,(struct Amset *)amsg);
          break;
+      case AOM_GET:
+         result=Getsource(ss,(struct Amset *)amsg);
+         break;
       case AOM_DISPOSE:
          Disposesource(ss);
          break;
       case AOM_SRCUPDATE:
          result=Srcupdatesource(ss,(struct Amsrcupdate *)amsg);
+         break;
+      case AOM_UPDATE:
+         result=Updatesource(ss,(struct Amset *)amsg);
          break;
       case AOM_ADDCHILD:
          result=Addchildsource(ss,(struct Amadd *)amsg);

@@ -1,6 +1,6 @@
 /**********************************************************************
  * 
- * This file is part of the AWeb-II distribution
+ * This file is part of the AWeb distribution
  *
  * Copyright (C) 2002 Yvon Rozijn
  * Changes Copyright (C) 2025 amigazen project
@@ -33,31 +33,34 @@
 #include <exec/libraries.h>
 #include <exec/resident.h>
 #include <proto/exec.h>
+#include <proto/awebplugin.h>
+
+/* External library base for debug output */
+extern struct Library *AwebPluginBase;
 
 /* Function declarations for the library entry points */
-__asm struct Library *Initlib(
+__asm __saveds struct Library *Initlib(
    register __a6 struct ExecBase *sysbase,
    register __a0 struct SegList *seglist,
    register __d0 struct Library *libbase);
 
-__asm struct Library *Openlib(
+__asm __saveds struct Library *Openlib(
    register __a6 struct Library *libbase);
 
-__asm struct SegList *Closelib(
+__asm __saveds struct SegList *Closelib(
    register __a6 struct Library *libbase);
 
-__asm struct SegList *Expungelib(
+__asm __saveds struct SegList *Expungelib(
    register __a6 struct Library *libbase);
 
-__asm ULONG Extfunclib(void);
+__asm __saveds ULONG Extfunclib(void);
 
-extern __asm ULONG Initplugin(
-   register __a0 struct Plugininfo *pi);
+extern __asm __saveds ULONG Initplugin(register __a0 struct Plugininfo *pi);
 
-extern __asm void Queryplugin(
+extern __asm __saveds void Queryplugin(
    register __a0 struct Pluginquery *pq);
 
-extern __asm void Commandplugin(
+extern __asm __saveds void Commandplugin(
    register __a0 struct Plugincommand *pc);
 
 /* Function declarations for project dependent hook functions */
@@ -74,7 +77,7 @@ static APTR libseglist;
 struct ExecBase *SysBase;
 
 /* Return error when run as a program */
-LONG __asm Libstart(void)
+LONG __saveds __asm Libstart(void)
 {  return -1;
 }
 
@@ -120,7 +123,7 @@ struct Resident __aligned romtag=
  * node is already initialized from the data in the ROM tag, except
  * for the revision.
  * Store vital pointers, and call the Initpluginlib hook function. */
-__asm struct Library *Initlib(
+__asm __saveds struct Library *Initlib(
    register __a6 struct ExecBase *sysbase,
    register __a0 struct SegList *seglist,
    register __d0 struct Library *libbase)
@@ -128,46 +131,85 @@ __asm struct Library *Initlib(
    PluginBase=libbase;
    libbase->lib_Revision=PLUGIN_REVISION;
    libseglist=seglist;
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Initlib called, sysbase=0x%08lx, seglist=0x%08lx, libbase=0x%08lx\n", (ULONG)sysbase, (ULONG)seglist, (ULONG)libbase);
+   }
    if(!Initpluginlib(libbase))
-   {  Expungepluginlib(libbase);
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Initlib: Initpluginlib failed, expunging\n");
+      }
+      Expungepluginlib(libbase);
       /* olsen: the following line was missing. */
       FreeMem ((APTR)((ULONG)(libbase) - (ULONG)(libbase->lib_NegSize)), libbase->lib_NegSize + libbase->lib_PosSize);
       libbase=NULL;
    }
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Initlib returning 0x%08lx\n", (ULONG)libbase);
+   }
    return libbase;
 }
 
-__asm struct Library *Openlib(
+__asm __saveds struct Library *Openlib(
    register __a6 struct Library *libbase)
-{  libbase->lib_OpenCnt++;
+{  if(AwebPluginBase)
+   {  Aprintf("GIF: Openlib called, libbase=0x%08lx, OpenCnt=%ld\n", (ULONG)libbase, libbase->lib_OpenCnt);
+   }
+   libbase->lib_OpenCnt++;
    libbase->lib_Flags&=~LIBF_DELEXP;
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Openlib returning, OpenCnt=%ld\n", libbase->lib_OpenCnt);
+   }
    return libbase;
 }
 
-__asm struct SegList *Closelib(
+__asm __saveds struct SegList *Closelib(
    register __a6 struct Library *libbase)
-{  libbase->lib_OpenCnt--;
+{  if(AwebPluginBase)
+   {  Aprintf("GIF: Closelib called, libbase=0x%08lx, OpenCnt=%ld\n", (ULONG)libbase, libbase->lib_OpenCnt);
+   }
+   libbase->lib_OpenCnt--;
    if(libbase->lib_OpenCnt==0 && (libbase->lib_Flags&LIBF_DELEXP))
-   {  return Expungelib(libbase);
+   {  if(AwebPluginBase)
+      {  Aprintf("GIF: Closelib: Expunging library\n");
+      }
+      return Expungelib(libbase);
+   }
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Closelib returning NULL, OpenCnt=%ld\n", libbase->lib_OpenCnt);
    }
    return NULL;
 }
 
-__asm struct SegList *Expungelib(
+__asm __saveds struct SegList *Expungelib(
    register __a6 struct Library *libbase)
-{  if(libbase->lib_OpenCnt==0)
+{  if(AwebPluginBase)
+   {  Aprintf("GIF: Expungelib called, libbase=0x%08lx, OpenCnt=%ld\n", (ULONG)libbase, libbase->lib_OpenCnt);
+   }
+   if(libbase->lib_OpenCnt==0)
    {  ULONG size=libbase->lib_NegSize+libbase->lib_PosSize;
       UBYTE *ptr=(UBYTE *)libbase-libbase->lib_NegSize;
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Expungelib: Removing library, size=%ld\n", size);
+      }
       Remove((struct Node *)libbase);
       Expungepluginlib(libbase);
       FreeMem(ptr,size);
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Expungelib: Done, returning seglist\n");
+      }
       return libseglist;
    }
    libbase->lib_Flags|=LIBF_DELEXP;
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Expungelib: Marked for deletion, returning NULL\n");
+   }
    return NULL;
 }
 
-__asm ULONG Extfunclib(void)
-{  return 0;
+__asm __saveds ULONG Extfunclib(void)
+{  if(AwebPluginBase)
+   {  Aprintf("GIF: Extfunclib called\n");
+   }
+   return 0;
 }
 

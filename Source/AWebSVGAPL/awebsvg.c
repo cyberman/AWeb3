@@ -39,9 +39,8 @@ ULONG Initpluginlib(struct AwebSvgBase *base)
    IntuitionBase=OpenLibrary("intuition.library",39);
    UtilityBase=OpenLibrary("utility.library",39);
    AwebPluginBase=OpenLibrary("awebplugin.library",0);
-   /* olsen: I need StrToLong() in the library. */
    DOSBase=OpenLibrary("dos.library",37);
-   return (ULONG)(GfxBase && IntuitionBase && UtilityBase && AwebPluginBase && DOSBase != NULL);
+   return (ULONG)(GfxBase && IntuitionBase && UtilityBase && AwebPluginBase && DOSBase);
 }
 
 void Expungepluginlib(struct AwebSvgBase *base)
@@ -75,7 +74,6 @@ __asm void Queryplugin(register __a0 struct Pluginquery *pq)
 
 __asm void Commandplugin(register __a0 struct Plugincommand *pc)
 {  if(pc->structsize<sizeof(struct Plugincommand)) return;
-   /* olsen: use utility.library instead of the compiler runtime library. */
    pc->rc=10;
 }
 
