@@ -265,12 +265,16 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
                dox->flags&=~DOXF_EOF;
                dox->flags&=~DOXF_LOADING;
                Freebuffer(&dox->buf);
-               /* Fall through to retry loading */
+               /* Set LOADING flag immediately to prevent race conditions */
+               dox->flags|=DOXF_LOADING;
+               /* Break out to start loading - don't fall through */
+               break;
             }
             /* Only return cached buffer if it's complete (EOF reached) and valid.
              * After a reload, the buffer is freed and DOXF_EOF is cleared, so
-             * we need to reload it instead of returning an invalid buffer. */
-            if((dox->flags&DOXF_EOF) && dox->buf.buffer && dox->buf.length > 0)
+             * we need to reload it instead of returning an invalid buffer.
+             * Also check that buffer has meaningful content (more than just null terminator). */
+            if((dox->flags&DOXF_EOF) && !(dox->flags&DOXF_ERROR) && dox->buf.buffer && dox->buf.length > 1)
             {  if(httpdebug)
                {  printf("[FETCH] Finddocext: Cache HIT - returning cached buffer, length=%ld bytes\n", dox->buf.length);
                }
@@ -296,8 +300,9 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
       if(httpdebug && !found_dox)
       {  printf("[FETCH] Finddocext: Cache MISS - starting async load\n");
       }
-      /* If we found an entry that needs loading, set the LOADING flag before starting the load */
-      if(found_dox)
+      /* If we found an entry that needs loading and LOADING flag isn't already set,
+       * set it before starting the load. (It may already be set if we cleared ERROR above) */
+      if(found_dox && !(found_dox->flags&DOXF_LOADING))
       {  found_dox->flags|=DOXF_LOADING;
       }
    }
