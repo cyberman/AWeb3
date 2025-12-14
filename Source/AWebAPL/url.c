@@ -772,6 +772,13 @@ static void Moveurl(struct Url *url,UBYTE *newurl,BOOL temp,BOOL seeother,void *
             Clearobject(&url->cache);
          }
          else url->flags&=~URLF_TEMPMOVED;
+         /* Redirects with query strings should always refresh to avoid
+          * showing stale cached content when query parameters change */
+         if(strchr(newurl,'?'))
+         {  Asetattrs(url->movedto,
+               AOURL_Volatile,TRUE,
+               TAG_END);
+         }
          if(url->source)
          {  Asetattrs(url->source,
                AOSRC_Movetourl,url->movedto,
