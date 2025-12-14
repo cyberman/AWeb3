@@ -144,17 +144,19 @@ static long Srcupdatedocext(struct Docext *dox,struct Amsrcupdate *ams)
          case AOURL_Reload:
             Freebuffer(&dox->buf);
             /* Clear both EOF and ERROR flags on reload to allow retry */
-            dox->flags&=~(DOXF_EOF|DOXF_ERROR);
+            dox->flags&=~(DOXF_EOF|DOXF_ERROR|DOXF_LOADING);
             break;
          case AOURL_Eof:
             if(tag->ti_Data)
             {  dox->flags|=DOXF_EOF;
+               dox->flags&=~DOXF_LOADING;  /* Load completed successfully */
                eof=TRUE;
             }
             break;
          case AOURL_Error:
             if(tag->ti_Data)
             {  dox->flags|=DOXF_EOF|DOXF_ERROR;
+               dox->flags&=~DOXF_LOADING;  /* Load completed with error */
                eof=TRUE;
             }
             break;
@@ -248,10 +250,12 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
       }
    }
    else
-   {  for(dox=docexts.first;dox->next;dox=dox->next)
+   {  struct Docext *found_dox=NULL;
+      for(dox=docexts.first;dox->next;dox=dox->next)
       {  durl=(void *)Agetattr(dox->url,AOURL_Finalurlptr);
          if(durl==furl)
-         {  if(dox->flags&DOXF_ERROR)
+         {  found_dox=dox;
+            if(dox->flags&DOXF_ERROR)
             {  if(httpdebug)
                {  printf("[FETCH] Finddocext: Cached entry found but in ERROR state, clearing error and retrying\n");
                }
@@ -259,6 +263,7 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
                 * or from a previous page load. This allows CSS to load on new page navigations. */
                dox->flags&=~DOXF_ERROR;
                dox->flags&=~DOXF_EOF;
+               dox->flags&=~DOXF_LOADING;
                Freebuffer(&dox->buf);
                /* Fall through to retry loading */
             }
@@ -271,15 +276,29 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
                }
                return dox->buf.buffer;
             }
+            /* If a load is already in progress, don't start another one - just wait for it to complete */
+            if(dox->flags&DOXF_LOADING)
+            {  if(httpdebug)
+               {  printf("[FETCH] Finddocext: Cached entry found but load already in progress, waiting for completion\n");
+               }
+               /* Add this document to the wait list and return NULL - the existing load will signal when done */
+               Addwaitingdoc(doc,url);
+               return NULL;
+            }
             if(httpdebug)
             {  printf("[FETCH] Finddocext: Cached entry found but buffer not ready (EOF=%d, buffer=%p, length=%ld), loading fresh\n",
                       (dox->flags&DOXF_EOF) ? 1 : 0, dox->buf.buffer, dox->buf.length);
             }
-            /* Buffer not ready yet, fall through to load it */
+            /* Buffer not ready yet, break out to start loading */
+            break;
          }
       }
-      if(httpdebug)
+      if(httpdebug && !found_dox)
       {  printf("[FETCH] Finddocext: Cache MISS - starting async load\n");
+      }
+      /* If we found an entry that needs loading, set the LOADING flag before starting the load */
+      if(found_dox)
+      {  found_dox->flags|=DOXF_LOADING;
       }
    }
    Addwaitingdoc(doc,url);

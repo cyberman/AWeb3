@@ -61,6 +61,7 @@ struct Docext
 
 #define DOXF_EOF        0x0001   /* EOF was reached on input */
 #define DOXF_ERROR      0x0002   /* Extension was in error */
+#define DOXF_LOADING    0x0004   /* Load is currently in progress */
 
 /*--- Document copy driver ---*/
 
