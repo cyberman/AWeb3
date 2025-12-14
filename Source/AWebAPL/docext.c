@@ -130,6 +130,7 @@ static long Srcupdatedocext(struct Docext *dox,struct Amsrcupdate *ams)
    long length=0;
    UBYTE *data=NULL;
    BOOL eof=FALSE;
+   BOOL notmodified=FALSE;
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
       {  case AOURL_Contentlength:
@@ -141,15 +142,22 @@ static long Srcupdatedocext(struct Docext *dox,struct Amsrcupdate *ams)
          case AOURL_Datalength:
             length=tag->ti_Data;
             break;
+         case AOURL_Notmodified:
+            /* 304 Not Modified - server says use cached version. If we already have
+             * a cached buffer, use it. If not, this is an error (server says "use cache"
+             * but we have no cache). */
+            notmodified=TRUE;
+            break;
          case AOURL_Reload:
             Freebuffer(&dox->buf);
             /* Clear both EOF and ERROR flags on reload to allow retry */
-            dox->flags&=~(DOXF_EOF|DOXF_ERROR|DOXF_LOADING);
+            dox->flags&=~(DOXF_EOF|DOXF_ERROR|DOXF_LOADING|DOXF_RETRY);
             break;
          case AOURL_Eof:
             if(tag->ti_Data)
             {  dox->flags|=DOXF_EOF;
                dox->flags&=~DOXF_LOADING;  /* Load completed successfully */
+               dox->flags&=~DOXF_RETRY;     /* Clear RETRY flag on successful completion */
                eof=TRUE;
             }
             break;
@@ -157,6 +165,7 @@ static long Srcupdatedocext(struct Docext *dox,struct Amsrcupdate *ams)
             if(tag->ti_Data)
             {  dox->flags|=DOXF_EOF|DOXF_ERROR;
                dox->flags&=~DOXF_LOADING;  /* Load completed with error */
+               dox->flags&=~DOXF_RETRY;     /* Clear RETRY flag - will be set if buffer invalid */
                eof=TRUE;
             }
             break;
@@ -168,7 +177,58 @@ static long Srcupdatedocext(struct Docext *dox,struct Amsrcupdate *ams)
    }
    if(eof)
    {  Addtobuffer(&dox->buf,"",1);
-      Signaldocs(dox);
+      if(httpdebug)
+      {  void *urlstr;
+         urlstr=(void *)Agetattr(dox->url,AOURL_Url);
+         printf("[FETCH] Srcupdatedocext: EOF reached, URL=%s, notmodified=%d, buffer=%p, length=%ld, flags=0x%04x\n",
+                urlstr ? (char *)urlstr : "NULL", notmodified ? 1 : 0,
+                dox->buf.buffer, dox->buf.length, dox->flags);
+      }
+      /* Handle 304 Not Modified response - server says use cached version.
+       * If we have a cached buffer, it's already valid. If not, this is an error. */
+      if(notmodified)
+      {  if(dox->buf.buffer && dox->buf.length > 1)
+         {  /* We have a cached buffer - 304 means use it, which we already have */
+            if(httpdebug)
+            {  printf("[FETCH] Srcupdatedocext: 304 Not Modified, using existing cached buffer (length=%ld)\n", dox->buf.length);
+            }
+            /* Signal waiting documents with the cached buffer */
+            Signaldocs(dox);
+         }
+         else
+         {  /* 304 but no cached buffer - server says "use cache" but we have none in Docext buffer.
+              * This can happen if the URL cache has the data but Docext buffer was cleared.
+              * Don't set LOADING - just set RETRY and signal. This allows the callback to retry
+              * immediately, or parsing to resume and Dolink to retry naturally. */
+            if(httpdebug)
+            {  printf("[FETCH] Srcupdatedocext: 304 Not Modified but no cached buffer (buffer=%p, length=%ld), setting RETRY flag (no LOADING)\n",
+                      dox->buf.buffer, dox->buf.length);
+            }
+            dox->flags|=DOXF_RETRY;
+            /* Don't set LOADING - allow callback or natural flow to retry */
+            dox->flags&=~DOXF_EOF;
+            if(dox->flags&DOXF_ERROR) dox->flags&=~DOXF_ERROR;  /* Clear error for retry */
+            Signaldocs(dox);
+         }
+      }
+      else if(!dox->buf.buffer || dox->buf.length <= 1)
+      {  /* Buffer is invalid (not a 304 case) - set RETRY flag and LOADING to prevent callback retry,
+           * then signal to resume parsing. The LOADING flag will be cleared when the
+           * natural retry happens in Finddocext. */
+         dox->flags|=DOXF_RETRY;
+         dox->flags|=DOXF_LOADING;  /* Set LOADING to prevent callback from retrying immediately */
+         dox->flags&=~DOXF_EOF;  /* Clear EOF since we're retrying */
+         if(dox->flags&DOXF_ERROR) dox->flags&=~DOXF_ERROR;  /* Clear error for retry */
+         if(httpdebug)
+         {  printf("[FETCH] Srcupdatedocext: EOF with invalid buffer, setting RETRY and LOADING flags, signaling to resume parsing\n");
+         }
+         /* Signal to resume parsing - callback will see LOADING and wait */
+         Signaldocs(dox);
+      }
+      else
+      {  /* Buffer is valid - signal waiting documents */
+         Signaldocs(dox);
+      }
    }
    return 0;
 }
@@ -256,8 +316,20 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
          if(durl==furl)
          {  found_dox=dox;
             if(dox->flags&DOXF_ERROR)
-            {  if(httpdebug)
-               {  printf("[FETCH] Finddocext: Cached entry found but in ERROR state, clearing error and retrying\n");
+            {  /* If ERROR is set but we have valid buffer data, use it instead of retrying.
+                * This handles cases where partial data was received before an error occurred. */
+               if(dox->buf.buffer && dox->buf.length > 1)
+               {  if(httpdebug)
+                  {  printf("[FETCH] Finddocext: Cached entry has ERROR but valid buffer (length=%ld), using it\n", dox->buf.length);
+                  }
+                  /* Clear ERROR and EOF flags, return the valid buffer */
+                  dox->flags&=~DOXF_ERROR;
+                  dox->flags|=DOXF_EOF;  /* Mark as complete since we're using the buffer */
+                  return dox->buf.buffer;
+               }
+               /* ERROR with no valid buffer - clear error and retry */
+               if(httpdebug)
+               {  printf("[FETCH] Finddocext: Cached entry found but in ERROR state with no valid buffer, clearing error and retrying\n");
                }
                /* Clear ERROR flag and retry loading - the error might have been transient
                 * or from a previous page load. This allows CSS to load on new page navigations. */
@@ -276,17 +348,102 @@ UBYTE *Finddocext(struct Document *doc,void *url,BOOL reload)
              * Also check that buffer has meaningful content (more than just null terminator). */
             if((dox->flags&DOXF_EOF) && !(dox->flags&DOXF_ERROR) && dox->buf.buffer && dox->buf.length > 1)
             {  if(httpdebug)
-               {  printf("[FETCH] Finddocext: Cache HIT - returning cached buffer, length=%ld bytes\n", dox->buf.length);
+               {  printf("[FETCH] Finddocext: Cache HIT - returning cached buffer, length=%ld bytes, flags=0x%04x\n",
+                         dox->buf.length, dox->flags);
                }
                return dox->buf.buffer;
             }
-            /* If a load is already in progress, don't start another one - just wait for it to complete */
-            if(dox->flags&DOXF_LOADING)
-            {  if(httpdebug)
-               {  printf("[FETCH] Finddocext: Cached entry found but load already in progress, waiting for completion\n");
+            if(httpdebug && (dox->flags&DOXF_EOF))
+            {  printf("[FETCH] Finddocext: EOF set but buffer invalid - EOF=%d, ERROR=%d, buffer=%p, length=%ld, flags=0x%04x\n",
+                      (dox->flags&DOXF_EOF) ? 1 : 0, (dox->flags&DOXF_ERROR) ? 1 : 0,
+                      dox->buf.buffer, dox->buf.length, dox->flags);
+            }
+            /* If EOF is set but buffer is invalid (empty or just null terminator), the previous
+             * load completed but failed. Clear EOF, set RETRY flag, and return NULL.
+             * The RETRY flag prevents immediate retry from callbacks, but allows retry from
+             * natural flow (e.g., Dolink) when RETRY is set and LOADING is not. */
+            if((dox->flags&DOXF_EOF) && (!dox->buf.buffer || dox->buf.length <= 1))
+            {  /* Clear EOF and set RETRY flag to indicate we need to retry */
+               dox->flags&=~DOXF_EOF;
+               if(dox->flags&DOXF_ERROR) dox->flags&=~DOXF_ERROR;
+               dox->flags|=DOXF_RETRY;
+               if(dox->buf.buffer) Freebuffer(&dox->buf);
+               if(httpdebug)
+               {  printf("[FETCH] Finddocext: Load completed with invalid buffer, clearing EOF, setting RETRY flag, returning NULL\n");
                }
-               /* Add this document to the wait list and return NULL - the existing load will signal when done */
-               Addwaitingdoc(doc,url);
+               return NULL;
+            }
+            /* If RETRY flag is set, we need to retry. If LOADING is also set, wait for current load.
+             * If LOADING is not set, we can retry (either from callback or natural flow). */
+            if(dox->flags&DOXF_RETRY)
+            {  if(dox->flags&DOXF_LOADING)
+               {  /* RETRY flag set but LOADING also set - current load in progress, wait for it */
+                  struct Docref *dr;
+                  void *durl;
+                  void *furl=(void *)Agetattr(url,AOURL_Finalurlptr);
+                  BOOL already_waiting=FALSE;
+                  for(dr=docrefs.first;dr->next;dr=dr->next)
+                  {  durl=(void *)Agetattr(dr->url,AOURL_Finalurlptr);
+                     if(durl==furl && dr->doc==doc)
+                     {  already_waiting=TRUE;
+                        break;
+                     }
+                  }
+                  if(!already_waiting)
+                  {  if(httpdebug)
+                     {  void *urlstr;
+                        urlstr=(void *)Agetattr(url,AOURL_Url);
+                        printf("[FETCH] Finddocext: RETRY flag set but LOADING also set, adding to wait list for URL=%s\n",
+                               urlstr ? (char *)urlstr : "NULL");
+                     }
+                     Addwaitingdoc(doc,url);
+                  }
+                  return NULL;
+               }
+               /* RETRY flag set and no LOADING - retry the load */
+               if(httpdebug)
+               {  void *urlstr;
+                  urlstr=(void *)Agetattr(url,AOURL_Url);
+                  printf("[FETCH] Finddocext: RETRY flag set (flags=0x%04x), clearing RETRY, starting retry load for URL=%s\n",
+                         dox->flags, urlstr ? (char *)urlstr : "NULL");
+               }
+               dox->flags&=~DOXF_RETRY;
+               dox->flags|=DOXF_LOADING;    /* Set LOADING for the new load */
+               if(dox->buf.buffer) Freebuffer(&dox->buf);
+               /* Break out to start loading - LOADING is already set */
+               break;
+            }
+            /* If a load is already in progress, don't start another one - just wait for it to complete.
+             * But check if this document is already in the wait list to avoid adding it multiple times
+             * (which would cause multiple callbacks and infinite loops). */
+            if(dox->flags&DOXF_LOADING)
+            {  /* Check if this document is already waiting for this URL */
+               struct Docref *dr;
+               void *durl;
+               void *furl=(void *)Agetattr(url,AOURL_Finalurlptr);
+               BOOL already_waiting=FALSE;
+               for(dr=docrefs.first;dr->next;dr=dr->next)
+               {  durl=(void *)Agetattr(dr->url,AOURL_Finalurlptr);
+                  if(durl==furl && dr->doc==doc)
+                  {  already_waiting=TRUE;
+                     break;
+                  }
+               }
+               if(!already_waiting)
+               {  if(httpdebug)
+                  {  void *urlstr;
+                     urlstr=(void *)Agetattr(url,AOURL_Url);
+                     printf("[FETCH] Finddocext: Cached entry found but load already in progress (flags=0x%04x), adding to wait list for URL=%s\n",
+                            dox->flags, urlstr ? (char *)urlstr : "NULL");
+                  }
+                  Addwaitingdoc(doc,url);
+               }
+               else if(httpdebug)
+               {  void *urlstr;
+                  urlstr=(void *)Agetattr(url,AOURL_Url);
+                  printf("[FETCH] Finddocext: Cached entry found but load already in progress (flags=0x%04x), already in wait list for URL=%s\n",
+                         dox->flags, urlstr ? (char *)urlstr : "NULL");
+               }
                return NULL;
             }
             if(httpdebug)
