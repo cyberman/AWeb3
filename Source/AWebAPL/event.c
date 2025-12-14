@@ -862,6 +862,28 @@ void Processwindow(void)
                   }
                }
                break;
+            case IDCMP_EXTENDEDMOUSE:
+               /* Mousewheel support requires intuition.library v47+ */
+               if(IntuitionBase && IntuitionBase->lib_Version>=47)
+               {  if(msg->Code == IMSGCODE_INTUIWHEELDATA)
+                  {  struct IntuiWheelData *iwd = (struct IntuiWheelData *)msg->IAddress;
+                     key = 0;
+                     if(iwd->WheelY > 0)
+                     {  key = 0x007b;  /* Wheel down */
+                     }
+                     else if(iwd->WheelY < 0)
+                     {  key = 0x007a;  /* Wheel up */
+                     }
+                     if(key)
+                     {  if(msg->Qualifier&(IEQUALIFIER_LSHIFT|IEQUALIFIER_RSHIFT))
+                           key|=UKEY_SHIFT;
+                        if(msg->Qualifier&(IEQUALIFIER_LALT|IEQUALIFIER_RALT))
+                           key|=UKEY_ALT;
+                        Douserkey(win,key);
+                     }
+                  }
+               }
+               break;
             case IDCMP_CHANGEWINDOW:
                if(win->window->Flags&WFLG_ZOOMED)
                {  win->flags|=WINF_ZOOMED;

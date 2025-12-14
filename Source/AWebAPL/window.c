@@ -652,7 +652,13 @@ static BOOL Openwindow(struct Awindow *win)
    activewindow=win;
    win->window->UserData=(BYTE *)win;
    win->window->UserPort=windowport;
-   ModifyIDCMP(win->window,idcmpflags);
+   /* Add IDCMP_EXTENDEDMOUSE if intuition.library v47+ supports mousewheel */
+   if(IntuitionBase && IntuitionBase->lib_Version>=47)
+   {  ModifyIDCMP(win->window,idcmpflags|IDCMP_EXTENDEDMOUSE);
+   }
+   else
+   {  ModifyIDCMP(win->window,idcmpflags);
+   }
    Newwindowmenus(win,menus);
    if(!(win->downimg=(struct Image *)NewObject(NULL,"sysiclass",
       SYSIA_DrawInfo,drinfo,
