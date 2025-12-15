@@ -1410,7 +1410,17 @@ BOOL Initdefprefs(void)
    if(!Addmimeinfo(&defprefs.mimelist,
       "image","tiff","tif tiff",MDRIVER_INTERNAL,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "image","svg+xml","svg",MDRIVER_INTERNAL,"","")) return FALSE;
+      "image","vnd.microsoft.icon","ico",MDRIVER_INTERNAL,"","")) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
+      "image","x-icon","ico",MDRIVER_INTERNAL,"","")) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
+      "image","svg+xml","svg",
+#ifdef OSVERSION
+      MDRIVER_PLUGIN,"AWeb:awebplugin/awebsvg.awebplugin",""
+#else
+      MDRIVER_INTERNAL,"",""
+#endif
+      )) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
       "image","*","",MDRIVER_INTERNAL,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
