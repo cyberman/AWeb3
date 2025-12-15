@@ -100,6 +100,9 @@ struct Body
    long right;             /* CSS right position */
    long bottom;            /* CSS bottom position */
    UBYTE *cursor;          /* CSS cursor type */
+   BOOL marginleftauto;    /* CSS margin-left: auto (for centering) */
+   BOOL marginrightauto;   /* CSS margin-right: auto (for centering) */
+   float lineheight;       /* CSS line-height multiplier for this body */
    UBYTE *texttransform;  /* CSS text-transform */
    UBYTE *whitespace;      /* CSS white-space */
 };
@@ -805,6 +808,40 @@ static long Layoutbody(struct Body *bd,struct Amlayout *amlp)
       bd->rendery=0;
       child=bd->contents.first;
    }
+   /* Handle margin: auto for horizontal centering BEFORE layout */
+   /* Use max-width if available, otherwise will be calculated after layout */
+   if(bd->marginleftauto && bd->marginrightauto)
+   {  long parentWidth;
+      void *parentObj;
+      long contentWidth;
+      
+      /* Get parent width for centering calculation */
+      parentWidth = amlp->width;
+      parentObj = (void *)Agetattr((struct Aobject *)bd, AOBJ_Layoutparent);
+      if(parentObj)
+      {  long pw;
+         Agetattrs(parentObj, AOBJ_Width, &pw, TAG_END);
+         if(pw > 0) parentWidth = pw;
+      }
+      
+      /* Use max-width if set, otherwise will use actual content width after layout */
+      if(bd->maxwidth > 0)
+      {  contentWidth = bd->maxwidth;
+      }
+      else
+      {  /* Will calculate after we know actual width */
+         contentWidth = 0;
+      }
+      
+      /* Calculate equal left and right margins to center the body */
+      if(contentWidth > 0 && parentWidth > contentWidth)
+      {  long calculatedMargin;
+         calculatedMargin = (parentWidth - contentWidth) / 2;
+         bd->hmargin = calculatedMargin;
+      }
+      /* If max-width not set, we'll calculate margin after layout (see below) */
+   }
+   
    aml.amlr=&amlr;
    bd->aow=Lineswidth(bd);
    /* if floatchild is nonnull, set AMLF_RETRY until this child has been layed out. */
@@ -1021,7 +1058,14 @@ if(SetSignal(0,0)&SIGBREAKF_CTRL_C) return 0;
             }
             first=FALSE;
          }
-         y+=ama.height;
+         /* Apply line-height multiplier if specified */
+         if(bd->lineheight > 0.0)
+         {  /* Multiply line height by line-height value (e.g., 1.6 means 60% more spacing) */
+            y += (long)(ama.height * bd->lineheight);
+         }
+         else
+         {  y += ama.height;
+         }
          if(clrmargin)
          {  y=Findclearmargin(bd,y,clrmargin);
             clrmargin=0;
@@ -1047,6 +1091,41 @@ if(SetSignal(0,0)&SIGBREAKF_CTRL_C) return 0;
    /* Apply max-height constraint */
    if(bd->maxheight >= 0 && bd->aoh > bd->maxheight)
    {  bd->aoh = bd->maxheight;
+   }
+   
+   /* Handle margin: auto for horizontal centering AFTER layout */
+   /* If max-width wasn't set, calculate margin based on actual content width */
+   if(bd->marginleftauto && bd->marginrightauto && bd->maxwidth <= 0)
+   {  /* Both left and right margins are auto - center the body horizontally */
+      long parentWidth;
+      void *parentObj;
+      long calculatedMargin;
+      
+      /* Get parent width for centering calculation */
+      parentWidth = amlp->width;
+      parentObj = (void *)Agetattr((struct Aobject *)bd, AOBJ_Layoutparent);
+      if(parentObj)
+      {  long pw;
+         Agetattrs(parentObj, AOBJ_Width, &pw, TAG_END);
+         if(pw > 0) parentWidth = pw;
+      }
+      
+      /* Calculate equal left and right margins to center the body */
+      /* Use actual content width now that we know it */
+      if(bd->aow > 0 && parentWidth > bd->aow)
+      {  calculatedMargin = (parentWidth - bd->aow) / 2;
+         bd->hmargin = calculatedMargin;
+         /* Note: This will require a re-layout to take effect properly,
+          * but for now we set it for the next layout pass */
+      }
+   }
+   else if(bd->marginleftauto)
+   {  /* Only left margin is auto - this is less common, treat as 0 for now */
+      bd->hmargin = 0;
+   }
+   else if(bd->marginrightauto)
+   {  /* Only right margin is auto - this is less common, treat as 0 for now */
+      /* Right margin is implicit, so we don't need to set it explicitly */
    }
    
    /* Recalculate right/bottom positioning now that we know body dimensions */
@@ -1704,6 +1783,9 @@ static struct Body *Newbody(struct Amset *ams)
       bd->whitespace = NULL;
       bd->bgalign = NULL;
       bd->tcell = NULL;
+      bd->marginleftauto = FALSE;
+      bd->marginrightauto = FALSE;
+      bd->lineheight = 0.0;  /* 0 means use default (no line-height specified) */
       if(Newbodybuild(bd))
       {  Pushfont(bd,STYLE_NORMAL,0,NULL,NULL,FONTW_STYLE);
          bd->bgcolor=-1;
@@ -2022,6 +2104,19 @@ static long Jsetupbody(struct Body *bd,struct Amjsetup *amj)
    {  AmethodA(child,amj);
    }
    return 0;
+}
+
+/* Accessor functions for Body structure fields (for CSS support) */
+void SetBodyMarginLeftAuto(struct Body *bd, BOOL isAuto)
+{  if(bd) bd->marginleftauto = isAuto;
+}
+
+void SetBodyMarginRightAuto(struct Body *bd, BOOL isAuto)
+{  if(bd) bd->marginrightauto = isAuto;
+}
+
+void SetBodyLineHeight(struct Body *bd, float lineheight)
+{  if(bd) bd->lineheight = lineheight;
 }
 
 static long Dispatch(struct Body *bd,struct Amessage *amsg)

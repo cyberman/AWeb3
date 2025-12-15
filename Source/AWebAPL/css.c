@@ -74,7 +74,15 @@ void ParseCSSStylesheet(struct Document *doc,UBYTE *css)
    
    /* debug_printf("CSS: ParseCSSStylesheet called, css length=%ld\n",strlen((char *)css)); */
    
-   /* If there's an existing stylesheet, merge instead of replace */
+   /* On reload, always replace the stylesheet instead of merging.
+    * Check if this is a reload by checking if DPF_RELOADVERIFY is set
+    * and stylesheet exists - if so, free it first to start fresh. */
+   if(doc->cssstylesheet && (doc->pflags & DPF_RELOADVERIFY))
+   {  /* This is a reload - free existing stylesheet and start fresh */
+      FreeCSSStylesheet(doc);
+   }
+   
+   /* If there's an existing stylesheet (and not a reload), merge instead of replace */
    if(doc->cssstylesheet)
    {  MergeCSSStylesheet(doc,css);
       return;
@@ -1177,8 +1185,7 @@ static BOOL MatchClassAttribute(UBYTE *elementClass, UBYTE *selectorClass)
 
 /* Case-insensitive string search (stristr equivalent) */
 static UBYTE *stristr_case(UBYTE *haystack, UBYTE *needle)
-{  UBYTE *p;
-   long haystackLen;
+{  long haystackLen;
    long needleLen;
    long i;
    
@@ -1895,6 +1902,28 @@ void ApplyCSSToElement(struct Document *doc,void *element)
    }
 }
 
+/* Reapply CSS to all existing elements when CSS loads asynchronously */
+/* This ensures CSS is applied deterministically regardless of load timing */
+/* Since we can't directly enumerate all elements, we trigger a document update */
+/* which will cause elements to be re-rendered with CSS applied */
+void ReapplyCSSToAllElements(struct Document *doc)
+{  if(!doc || !doc->cssstylesheet || !doc->body) return;
+   
+   /* Reapply CSS to document body */
+   ApplyCSSToBody(doc, doc->body, NULL, NULL, "BODY");
+   
+   /* Trigger document update via AODOC_Srcupdate to cause re-rendering with CSS applied */
+   /* This ensures elements created before CSS loaded get styled */
+   /* The document update will cause layout/rendering to be recalculated */
+   if(doc->source && doc->source->source)
+   {  /* Mark document as needing update */
+      doc->dflags &= ~DDF_DONE;
+      /* Trigger source update via AODOC_Srcupdate tag */
+      /* This will call Srcupdatedocument which causes re-parsing and re-rendering */
+      Asetattrs(doc, AODOC_Srcupdate, TRUE, TAG_END);
+   }
+}
+
 /* Free CSS stylesheet for a document */
 void FreeCSSStylesheet(struct Document *doc)
 {  if(doc && doc->cssstylesheet)
@@ -2461,9 +2490,14 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             UBYTE *tokenEnd;
             long tokenLen;
             UBYTE *tokenBuf;
+            BOOL marginTopAuto;
+            BOOL marginRightAuto;
+            BOOL marginBottomAuto;
+            BOOL marginLeftAuto;
             marginValue = prop->value;
             marginCount = 0;
             marginTop = marginRight = marginBottom = marginLeft = 0;
+            marginTopAuto = marginRightAuto = marginBottomAuto = marginLeftAuto = FALSE;
             
             /* Parse margin values - can be 1, 2, 3, or 4 values */
             marginP = marginValue;
@@ -2490,33 +2524,106 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             
             /* Apply margin values based on count */
             if(marginCount >= 1)
-            {  marginTop = ParseCSSLengthValue(marginTokens[0],&num);
+            {  /* Check if first token is "auto" */
+               if(stricmp((char *)marginTokens[0], "auto") == 0)
+               {  marginTopAuto = TRUE;
+                  marginTop = 0;
+               }
+               else
+               {  marginTop = ParseCSSLengthValue(marginTokens[0],&num);
+                  marginTopAuto = FALSE;
+               }
+               
                if(marginCount == 1)
                {  /* All sides same */
                   marginRight = marginBottom = marginLeft = marginTop;
+                  marginRightAuto = marginBottomAuto = marginLeftAuto = marginTopAuto;
                }
                else if(marginCount == 2)
                {  /* Top/bottom, left/right */
                   marginBottom = marginTop;
-                  marginRight = ParseCSSLengthValue(marginTokens[1],&num);
-                  marginLeft = marginRight;
+                  marginBottomAuto = marginTopAuto;
+                  /* Check if second token is "auto" */
+                  if(stricmp((char *)marginTokens[1], "auto") == 0)
+                  {  marginRightAuto = TRUE;
+                     marginLeftAuto = TRUE;
+                     marginRight = 0;
+                     marginLeft = 0;
+                  }
+                  else
+                  {  marginRight = ParseCSSLengthValue(marginTokens[1],&num);
+                     marginLeft = marginRight;
+                     marginRightAuto = FALSE;
+                     marginLeftAuto = FALSE;
+                  }
                }
                else if(marginCount == 3)
                {  /* Top, left/right, bottom */
-                  marginRight = ParseCSSLengthValue(marginTokens[1],&num);
-                  marginLeft = marginRight;
-                  marginBottom = ParseCSSLengthValue(marginTokens[2],&num);
+                  /* Check if second token is "auto" */
+                  if(stricmp((char *)marginTokens[1], "auto") == 0)
+                  {  marginRightAuto = TRUE;
+                     marginLeftAuto = TRUE;
+                     marginRight = 0;
+                     marginLeft = 0;
+                  }
+                  else
+                  {  marginRight = ParseCSSLengthValue(marginTokens[1],&num);
+                     marginLeft = marginRight;
+                     marginRightAuto = FALSE;
+                     marginLeftAuto = FALSE;
+                  }
+                  /* Check if third token is "auto" */
+                  if(stricmp((char *)marginTokens[2], "auto") == 0)
+                  {  marginBottomAuto = TRUE;
+                     marginBottom = 0;
+                  }
+                  else
+                  {  marginBottom = ParseCSSLengthValue(marginTokens[2],&num);
+                     marginBottomAuto = FALSE;
+                  }
                }
                else if(marginCount == 4)
                {  /* Top, right, bottom, left */
-                  marginRight = ParseCSSLengthValue(marginTokens[1],&num);
-                  marginBottom = ParseCSSLengthValue(marginTokens[2],&num);
-                  marginLeft = ParseCSSLengthValue(marginTokens[3],&num);
+                  /* Check if second token is "auto" */
+                  if(stricmp((char *)marginTokens[1], "auto") == 0)
+                  {  marginRightAuto = TRUE;
+                     marginRight = 0;
+                  }
+                  else
+                  {  marginRight = ParseCSSLengthValue(marginTokens[1],&num);
+                     marginRightAuto = FALSE;
+                  }
+                  /* Check if third token is "auto" */
+                  if(stricmp((char *)marginTokens[2], "auto") == 0)
+                  {  marginBottomAuto = TRUE;
+                     marginBottom = 0;
+                  }
+                  else
+                  {  marginBottom = ParseCSSLengthValue(marginTokens[2],&num);
+                     marginBottomAuto = FALSE;
+                  }
+                  /* Check if fourth token is "auto" */
+                  if(stricmp((char *)marginTokens[3], "auto") == 0)
+                  {  marginLeftAuto = TRUE;
+                     marginLeft = 0;
+                  }
+                  else
+                  {  marginLeft = ParseCSSLengthValue(marginTokens[3],&num);
+                     marginLeftAuto = FALSE;
+                  }
                }
                
                /* Apply margins */
-               if(marginTop >= 0) Asetattrs(body,AOBDY_Topmargin,marginTop,TAG_END);
-               if(marginLeft >= 0) Asetattrs(body,AOBDY_Leftmargin,marginLeft,TAG_END);
+               if(marginTop >= 0 && !marginTopAuto) Asetattrs(body,AOBDY_Topmargin,marginTop,TAG_END);
+               if(marginLeft >= 0 && !marginLeftAuto) Asetattrs(body,AOBDY_Leftmargin,marginLeft,TAG_END);
+               
+               /* Set auto flags for left and right margins (for centering) */
+               if(marginLeftAuto)
+               {  SetBodyMarginLeftAuto((struct Body *)body, TRUE);
+               }
+               if(marginRightAuto)
+               {  SetBodyMarginRightAuto((struct Body *)body, TRUE);
+               }
                /* Note: margin-right and margin-bottom are not directly supported
                 * by AWeb's body attributes, but we parse them for future use */
             }
@@ -2528,15 +2635,16 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
          }
          /* Apply line-height */
          else if(stricmp((char *)prop->name,"line-height") == 0)
-         {  lineHeightStr = prop->value;
+         {  struct Body *bd;
+            lineHeightStr = prop->value;
             /* Skip whitespace */
             while(*lineHeightStr && isspace(*lineHeightStr)) lineHeightStr++;
             /* Parse unitless value (e.g., 1.42857143) or pixel value (e.g., 20px) */
             if(sscanf((char *)lineHeightStr,"%f",&lineHeightValue) == 1)
-            {  /* Store line-height in document for potential future use */
+            {  /* Store line-height per body for layout calculations */
+               SetBodyLineHeight((struct Body *)body, lineHeightValue);
+               /* Also store in document for backwards compatibility */
                doc->lineheight = lineHeightValue;
-               /* Note: AWeb's layout engine doesn't directly support line-height,
-                * but we parse and store it for potential future implementation */
             }
          }
          /* Apply display */

@@ -195,6 +195,14 @@
 
 /*--- body support structures ---*/
 
+/* Forward declaration of Body structure (defined in body.c) */
+struct Body;
+
+/* Accessor functions for Body structure fields (for CSS support) */
+extern void SetBodyMarginLeftAuto(struct Body *bd, BOOL isAuto);
+extern void SetBodyMarginRightAuto(struct Body *bd, BOOL isAuto);
+extern void SetBodyLineHeight(struct Body *bd, float lineheight);
+
 /* global references */
 extern ULONG bgupdate;
 
