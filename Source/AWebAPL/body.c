@@ -1274,9 +1274,18 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
       {  coo->bgimage=bd->bgimage;
          coo->bgalign=bd->bgalign;
       }
+      else if(bd->bgcolor>=0 && !(bd->flags&BDYF_NOBACKGROUND))
+      {  /* If body has background color but no background image,
+           * clear parent's background image so child's color is used */
+         coo->bgimage=NULL;
+         coo->bgalign=NULL;
+      }
       /* Fallback: apply bgcolor even when docolors is off if FORCEBGCOLOR flag is set */
       if(!prefs.docolors && (bd->flags&BDYF_FORCEBGCOLOR) && bd->bgcolor>=0)
       {  coo->bgcolor=bd->bgcolor;
+         /* Clear background image when forcing background color */
+         coo->bgimage=NULL;
+         coo->bgalign=NULL;
       }
       /* Clear background only if CLEAR requested,
        * or if CLEARBG requested and this body has a different background
@@ -2076,9 +2085,16 @@ static long Dragrenderbody(struct Body *bd,struct Amdragrender *amd)
       if(prefs.docolors && bd->bgimage)
       {  amd->coords->bgimage=bd->bgimage;
       }
+      else if(bd->bgcolor>=0)
+      {  /* If body has background color but no background image,
+           * clear parent's background image so child's color is used */
+         amd->coords->bgimage=NULL;
+      }
       /* Fallback: apply bgcolor even when docolors is off if FORCEBGCOLOR flag is set */
       if(!prefs.docolors && (bd->flags&BDYF_FORCEBGCOLOR) && bd->bgcolor>=0)
       {  amd->coords->bgcolor=bd->bgcolor;
+         /* Clear background image when forcing background color */
+         amd->coords->bgimage=NULL;
       }
       for(child=bd->contents.first;child->next && amd->state!=AMDS_DONE;child=child->next)
       {  result=AmethodA(child,amd);
@@ -2205,10 +2221,20 @@ void Bodycoords(struct Body *bd,struct Coords *coo)
       /* Only apply background image if docolors is enabled */
       if(prefs.docolors && bd->bgimage && !(bd->flags&BDYF_NOBACKGROUND))
       {  coo->bgimage=bd->bgimage;
+         coo->bgalign=bd->bgalign;
+      }
+      else if(bd->bgcolor>=0 && !(bd->flags&BDYF_NOBACKGROUND))
+      {  /* If body has background color but no background image,
+           * clear parent's background image so child's color is used */
+         coo->bgimage=NULL;
+         coo->bgalign=NULL;
       }
       /* Fallback: apply bgcolor even when docolors is off if FORCEBGCOLOR flag is set */
       if(!prefs.docolors && (bd->flags&BDYF_FORCEBGCOLOR) && bd->bgcolor>=0)
       {  coo->bgcolor=bd->bgcolor;
+         /* Clear background image when forcing background color */
+         coo->bgimage=NULL;
+         coo->bgalign=NULL;
       }
    }
    else
