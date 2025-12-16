@@ -263,13 +263,80 @@ static UBYTE Readbyte(struct Decoder *decoder)
     }
 
 /* Read or skip a number of bytes. Returns TRUE if ok, FALSE of EOF reached before
- * end of block, or task should stop. If block is passed as NULL, data is skipped. */
+ * end of block, or task should stop. If block is passed as NULL, data is skipped.
+ * This function reads directly from data blocks in chunks for efficiency.
+ * Optimized to minimize semaphore operations and message handling. */
 static BOOL Readblock(struct Decoder *decoder,UBYTE *block,long length)
-{  UBYTE c;
-   while(length && !(decoder->flags&(DECOF_STOP|DECOF_EOF)))
-   {  c=Readbyte(decoder);
-      if(block) *block++=c;
-      length--;
+{  struct Taskmsg *tm;
+   struct TagItem *tag,*tstate;
+   struct Datablock *db;
+   long available,copylen;
+   BOOL wait;
+   if(!decoder || !decoder->source) return FALSE;
+   if(decoder->flags&(DECOF_STOP|DECOF_EOF)) return FALSE;
+   while(length>0 && !(decoder->flags&(DECOF_STOP|DECOF_EOF)))
+   {  /* Fast path: read from current block without semaphore if we have data */
+      if(decoder->current && decoder->current->data)
+      {  available=decoder->current->length-decoder->currentbyte;
+         if(available>0)
+         {  copylen=(available<length) ? available : length;
+            if(block)
+            {  memmove(block,decoder->current->data+decoder->currentbyte,copylen);
+               block+=copylen;
+            }
+            decoder->currentbyte+=copylen;
+            length-=copylen;
+            continue; /* Continue to read more if needed */
+         }
+      }
+      /* Need to get a new block - now we need semaphore protection */
+      wait=FALSE;
+      /* Check for messages only when we need to wait for data */
+      while(!(decoder->flags&DECOF_STOP) && (tm=Gettaskmsg()))
+      {  if(tm->amsg && tm->amsg->method==AOM_SET)
+         {  tstate=((struct Amset *)tm->amsg)->tags;
+            while(tag=NextTagItem(&tstate))
+            {  switch(tag->ti_Tag)
+               {  case AOTSK_Stop:
+                     if(tag->ti_Data) decoder->flags|=DECOF_STOP;
+                     break;
+                  case AOPNG_Data:
+                     /* Ignore these now */
+                     break;
+               }
+            }
+         }
+         Replytaskmsg(tm);
+      }
+      if(decoder->flags&DECOF_STOP) break;
+      ObtainSemaphore(&decoder->source->sema);
+      if(decoder->current)
+      {  db=decoder->current->next;
+      }
+      else
+      {  db=decoder->source->data.first;
+      }
+      if(db && db->next)
+      {  /* We have a valid next block */
+         decoder->current=db;
+         decoder->currentbyte=0;
+         ReleaseSemaphore(&decoder->source->sema);
+         continue; /* Loop back to read from new block */
+      }
+      else if(!db || (decoder->source->flags&PNGSF_EOF))
+      {  /* EOF reached or no blocks available */
+         decoder->flags|=DECOF_EOF;
+         ReleaseSemaphore(&decoder->source->sema);
+         break;
+      }
+      else
+      {  /* No more blocks; wait for next block */
+         wait=TRUE;
+         ReleaseSemaphore(&decoder->source->sema);
+      }
+      if(wait)
+      {  Waittask(0);
+      }
    }
    return (BOOL)!(decoder->flags&(DECOF_STOP|DECOF_EOF));
 }
@@ -364,24 +431,32 @@ static BOOL Parsepngimage(struct Decoder *decoder)
    UBYTE *trow=NULL;
    BOOL error=FALSE,transpixel;
    
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("PNG: Parsepngimage called, decoder=0x%08lx\n", (ULONG)decoder);
    }
+#endif
    if((png=png_create_read_struct(PNG_LIBPNG_VER_STRING,NULL,NULL,NULL))
    && (pnginfo=png_create_info_struct(png)))
-   {  if(AwebPluginBase)
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
       {  Aprintf("PNG: Parsepngimage: PNG structures created\n");
       }
-      if(!setjmp(png->jmpbuf))
+      #endif
+      if(!setjmp(png_jmpbuf(png)))
       {  /* Normal fallthrough */
+#ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
          {  Aprintf("PNG: Parsepngimage: Setting read function and reading info\n");
          }
+#endif
          png_set_read_fn(png,decoder,Readpngdata);
          png_read_info(png,pnginfo);
+#ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
          {  Aprintf("PNG: Parsepngimage: png_read_info completed\n");
          }
+#endif
          png_get_IHDR(png,pnginfo,&width,&height,&bitdepth,&colortype,
             &interlace,NULL,NULL);
          decoder->width=width;
@@ -482,13 +557,13 @@ static BOOL Parsepngimage(struct Decoder *decoder)
             decoder->renderinfo.BytesPerRow=decoder->width;
             decoder->renderinfo.RGBFormat=RGBFB_CLUT;
          }
-         if(error) longjmp(png->jmpbuf,1);
+         if(error) longjmp(png_jmpbuf(png),1);
          
          /* For normal images, we just need 1 row of data. For interlaced images,
           * we need to remember the entire image because we can't reconstruct
           * the row data from the previous pass just from the bitmap. */
          if(npass==1)
-         {  if(!(buffer=AllocVec(rowbytes,0))) longjmp(png->jmpbuf,1);
+         {  if(!(buffer=AllocVec(rowbytes,0))) longjmp(png_jmpbuf(png),1);
             rows=&buffer;
          }
          else
@@ -507,11 +582,11 @@ static BOOL Parsepngimage(struct Decoder *decoder)
                }
             }
             if(!(rows=AllocVec(decoder->height*sizeof(png_byte *),MEMF_CLEAR)))
-            {  longjmp(png->jmpbuf,1);
+            {  longjmp(png_jmpbuf(png),1);
             }
             for(y=0;y<decoder->height;y++)
             {  if(!(rows[y]=AllocVec(rowbytes,map?0:MEMF_CLEAR)))
-               {  longjmp(png->jmpbuf,1);
+               {  longjmp(png_jmpbuf(png),1);
                }
                if(map) memset(rows[y],map,rowbytes);
             }
@@ -698,46 +773,62 @@ static __saveds __asm void Decodetask(register __a0 struct Pngsource *is)
 {  struct Decoder decoderdata,*decoder=&decoderdata;
    struct Task *task=FindTask(NULL);
    
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("PNG: Decodetask started, is=0x%08lx\n", (ULONG)is);
    }
+#endif
    if(!is)
-   {  if(AwebPluginBase)
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
       {  Aprintf("PNG: Decodetask: ERROR - is (Pngsource) is NULL!\n");
       }
+      #endif
       return;
    }
    memset(&decoderdata,0,sizeof(decoderdata));
    decoder->source=is;
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("PNG: Decodetask: decoder->source set to 0x%08lx\n", (ULONG)decoder->source);
    }
+#endif
    if(decoder->source->flags&PNGSF_LOWPRI)
    {  SetTaskPri(task,task->ln_Pri-1);
    }
    
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("PNG: Decodetask: Calling Parsepngimage\n");
    }
+#endif
    if(!Parsepngimage(decoder))
-   {  if(AwebPluginBase)
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
       {  Aprintf("PNG: Decodetask: Parsepngimage failed\n");
       }
+      #endif
       goto err;
    }
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("PNG: Decodetask: Parsepngimage succeeded, returning\n");
    }
+#endif
    return;
 
 err:
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("PNG: Decodetask: ERROR path, setting Error flag\n");
    }
+#endif
    Updatetaskattrs(AOPNG_Error,TRUE,TAG_END);
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("PNG: Decodetask: ERROR path done, exiting\n");
    }
+#endif
 }
 
 /*--------------------------------------------------------------------*/
@@ -918,90 +1009,116 @@ static ULONG Srcupdatesource(struct Pngsource *ps,struct Amsrcupdate *amsrcupdat
    UBYTE *data=NULL;
    long datalength=0;
    BOOL eof=FALSE;
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("PNG: Srcupdatesource called, ps=0x%08lx, amsrcupdate=0x%08lx\n", (ULONG)ps, (ULONG)amsrcupdate);
    }
+#endif
    AmethodasA(AOTP_SOURCEDRIVER,ps,amsrcupdate);
    tstate=amsrcupdate->tags;
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
       {  case AOURL_Data:
             data=(UBYTE *)tag->ti_Data;
+#ifdef DEBUG_PLUGINS
             if(AwebPluginBase)
             {  Aprintf("PNG: Srcupdatesource: Got AOURL_Data, data=0x%08lx\n", (ULONG)data);
             }
+#endif
             break;
          case AOURL_Datalength:
             datalength=tag->ti_Data;
+#ifdef DEBUG_PLUGINS
             if(AwebPluginBase)
             {  Aprintf("PNG: Srcupdatesource: Got AOURL_Datalength, datalength=%ld\n", datalength);
             }
+#endif
             break;
          case AOURL_Eof:
             if(tag->ti_Data)
             {  eof=TRUE;
                ps->flags|=PNGSF_EOF;
+#ifdef DEBUG_PLUGINS
                if(AwebPluginBase)
                {  Aprintf("PNG: Srcupdatesource: Got AOURL_Eof, setting EOF flag\n");
                }
+#endif
             }
             break;
       }
    }
    if(data && datalength)
    {  struct Datablock *db;
+#ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
       {  Aprintf("PNG: Srcupdatesource: Allocating datablock, datalength=%ld\n", datalength);
       }
+#endif
       if(db=AllocVec(sizeof(struct Datablock),MEMF_PUBLIC|MEMF_CLEAR))
       {  if(db->data=AllocVec(datalength,MEMF_PUBLIC))
          {  memmove(db->data,data,datalength);
             db->length=datalength;
+#ifdef DEBUG_PLUGINS
             if(AwebPluginBase)
             {  Aprintf("PNG: Srcupdatesource: Adding datablock to list, db=0x%08lx\n", (ULONG)db);
             }
+#endif
             ObtainSemaphore(&ps->sema);
             ADDTAIL(&ps->data,db);
             ReleaseSemaphore(&ps->sema);
+#ifdef DEBUG_PLUGINS
             if(AwebPluginBase)
             {  Aprintf("PNG: Srcupdatesource: Datablock added\n");
             }
+#endif
          }
          else
-         {  if(AwebPluginBase)
+         {  #ifdef DEBUG_PLUGINS
+            if(AwebPluginBase)
             {  Aprintf("PNG: Srcupdatesource: ERROR - Failed to allocate data buffer\n");
             }
+            #endif
             FreeVec(db);
          }
       }
       else
-      {  if(AwebPluginBase)
+      {  #ifdef DEBUG_PLUGINS
+         if(AwebPluginBase)
          {  Aprintf("PNG: Srcupdatesource: ERROR - Failed to allocate Datablock structure\n");
          }
+         #endif
       }
       if(!ps->task)
-      {  if(AwebPluginBase)
+      {  #ifdef DEBUG_PLUGINS
+         if(AwebPluginBase)
          {  Aprintf("PNG: Srcupdatesource: Starting decoder task\n");
          }
+         #endif
          Startdecoder(ps);
       }
    }
    if((data && datalength) || eof)
    {  if(ps->task)
-      {  if(AwebPluginBase)
+      {  #ifdef DEBUG_PLUGINS
+         if(AwebPluginBase)
          {  Aprintf("PNG: Srcupdatesource: Signaling task with AOPNG_Data\n");
          }
+         #endif
          Asetattrsasync(ps->task,AOPNG_Data,TRUE,TAG_END);
       }
       else
-      {  if(AwebPluginBase)
+      {  #ifdef DEBUG_PLUGINS
+         if(AwebPluginBase)
          {  Aprintf("PNG: Srcupdatesource: WARNING - ps->task is NULL, cannot signal\n");
          }
+         #endif
       }
    }
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("PNG: Srcupdatesource: Returning\n");
    }
+#endif
    return 0;
 }
 

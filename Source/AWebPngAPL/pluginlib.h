@@ -38,9 +38,9 @@
 #include <exec/libraries.h>
 
 #define PLUGIN_VERSION     1
-#define PLUGIN_REVISION    12
+#define PLUGIN_REVISION    14
 #define PLUGIN_LIBNAME     "awebpng.awebplugin"
-#define PLUGIN_LIBID       "awebpng 1.12 " __AMIGADATE__
+#define PLUGIN_LIBID       "awebpng 1.14 " __AMIGADATE__
 #define PLUGIN_SIZE        sizeof(struct AwebPngBase)
 
 struct AwebPngBase

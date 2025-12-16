@@ -19,6 +19,9 @@
 
 #include <libraries/awebplugin.h>
 
+/* Define DEBUG_PLUGINS to enable debug output via Aprintf() */
+/* #define DEBUG_PLUGINS */
+
 /* Pointer to our own library base */
 extern struct AwebPngBase *PluginBase;
 
