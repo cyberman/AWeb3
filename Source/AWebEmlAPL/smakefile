@@ -1,0 +1,19 @@
+## SAS/C makefile for EML email aweb plugin module
+
+.c.o:
+   sc "$*.c"
+
+awebeml.awebplugin:    startup.o awebeml.o emlparse.o emlrender.o emldecode.o eml.lnk
+   slink with eml.lnk
+
+startup.o:     startup.c pluginlib.h
+
+awebeml.o: awebeml.c pluginlib.h eml.h
+
+emlparse.o: emlparse.c eml.h
+
+emlrender.o: emlrender.c eml.h
+
+emldecode.o: emldecode.c eml.h
+
+

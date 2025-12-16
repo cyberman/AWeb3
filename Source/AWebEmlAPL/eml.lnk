@@ -1,0 +1,7 @@
+FROM     startup.o awebeml.o emlparse.o emlrender.o emldecode.o
+TO       awebeml.awebplugin
+NODEBUG
+LIB      lib:scm.lib lib:sc.lib
+DEFINE   @__chkabort=@__dummy
+NOICONS
+
