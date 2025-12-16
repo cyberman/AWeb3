@@ -20,6 +20,9 @@
 
 #include <libraries/awebplugin.h>
 
+/* Define DEBUG_PLUGINS to enable debug output via Aprintf() */
+/* #define DEBUG_PLUGINS */
+
 /* Base pointers of libraries needed */
 extern struct Library *SysBase;         /* Defined in startup.c */
 extern struct Library *DOSBase;

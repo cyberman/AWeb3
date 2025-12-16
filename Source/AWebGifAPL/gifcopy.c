@@ -293,9 +293,11 @@ static void Scalebitmap(struct Gifcopy *gc,long sfrom,long sheight,long dfrom)
 /*--------------------------------------------------------------------*/
 
 static ULONG Measurecopy(struct Gifcopy *gc,struct Ammeasure *ammeasure)
-{  if(AwebPluginBase)
+{  #ifdef DEBUG_PLUGINS
+   if(AwebPluginBase)
    {  Aprintf("GIF: Measurecopy called, gc=0x%08lx, ammeasure=0x%08lx\n", (ULONG)gc, (ULONG)ammeasure);
    }
+#endif
    if(gc->bitmap)
    {  gc->copydriver.aow=gc->width;
       gc->copydriver.aoh=gc->height;
@@ -308,9 +310,11 @@ static ULONG Measurecopy(struct Gifcopy *gc,struct Ammeasure *ammeasure)
 }
 
 static ULONG Layoutcopy(struct Gifcopy *gc,struct Amlayout *amlayout)
-{  if(AwebPluginBase)
+{  #ifdef DEBUG_PLUGINS
+   if(AwebPluginBase)
    {  Aprintf("GIF: Layoutcopy called, gc=0x%08lx, amlayout=0x%08lx\n", (ULONG)gc, (ULONG)amlayout);
    }
+#endif
    if(gc->bitmap)
    {  gc->copydriver.aow=gc->width;
       gc->copydriver.aoh=gc->height;
@@ -320,9 +324,11 @@ static ULONG Layoutcopy(struct Gifcopy *gc,struct Amlayout *amlayout)
 
 static ULONG Rendercopy(struct Gifcopy *gc,struct Amrender *amrender)
 {  struct Coords *coo;
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("GIF: Rendercopy called, gc=0x%08lx, amrender=0x%08lx, flags=0x%08lx\n", (ULONG)gc, (ULONG)amrender, amrender ? amrender->flags : 0);
    }
+#endif
    if(gc->bitmap && !(amrender->flags&(AMRF_UPDATESELECTED|AMRF_UPDATENORMAL)))
    {  coo=Clipcoords(gc->copydriver.cframe,amrender->coords);
       if(coo && coo->rp)
@@ -348,9 +354,11 @@ static ULONG Setcopy(struct Gifcopy *gc,struct Amset *amset)
    long readyfrom=0,readyto=-1;
    struct BitMap *bitmap=NULL;
    UBYTE *mask=NULL;
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("GIF: Setcopy called, gc=0x%08lx, amset=0x%08lx\n", (ULONG)gc, (ULONG)amset);
    }
+#endif
    Amethodas(AOTP_COPYDRIVER,(struct Aobject *)gc,AOM_SET,amset->tags);
    tstate=amset->tags;
    while(tag=NextTagItem(&tstate))
@@ -557,39 +565,53 @@ static ULONG Setcopy(struct Gifcopy *gc,struct Amset *amset)
 
 static struct Gifcopy *Newcopy(struct Amset *amset)
 {  struct Gifcopy *gc;
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("GIF: Newcopy called, amset=0x%08lx\n", (ULONG)amset);
    }
+#endif
    if(gc=Allocobject(PluginBase->copydriver,sizeof(struct Gifcopy),amset))
-   {  if(AwebPluginBase)
-      {  Aprintf("GIF: Newcopy: Allocobject succeeded, gc=0x%08lx\n", (ULONG)gc);
-      }
+      {  #ifdef DEBUG_PLUGINS
+         if(AwebPluginBase)
+         {  Aprintf("GIF: Newcopy: Allocobject succeeded, gc=0x%08lx\n", (ULONG)gc);
+         }
+         #endif
       gc->ready=-1;
       gc->maxloops=-1;
+      #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
       {  Aprintf("GIF: Newcopy: Calling Setcopy\n");
       }
+      #endif
       Setcopy(gc,amset);
+      #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
       {  Aprintf("GIF: Newcopy: Setcopy returned\n");
       }
+      #endif
+      #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
       {  Aprintf("GIF: Newcopy: returning gc=0x%08lx\n", (ULONG)gc);
       }
+      #endif
    }
    else
-   {  if(AwebPluginBase)
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
       {  Aprintf("GIF: Newcopy: Allocobject failed\n");
       }
+      #endif
    }
    return gc;
 }
 
 static ULONG Getcopy(struct Gifcopy *gc,struct Amset *amset)
 {  struct TagItem *tag,*tstate;
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("GIF: Getcopy called, gc=0x%08lx, amset=0x%08lx\n", (ULONG)gc, (ULONG)amset);
    }
+#endif
    AmethodasA(AOTP_COPYDRIVER,(struct Aobject *)gc,(struct Amessage *)amset);
    tstate=amset->tags;
    while(tag=NextTagItem(&tstate))
@@ -615,9 +637,11 @@ static ULONG Getcopy(struct Gifcopy *gc,struct Amset *amset)
 }
 
 static void Disposecopy(struct Gifcopy *gc)
-{  if(AwebPluginBase)
+{  #ifdef DEBUG_PLUGINS
+   if(AwebPluginBase)
    {  Aprintf("GIF: Disposecopy called, gc=0x%08lx\n", (ULONG)gc);
    }
+#endif
    if(gc->flags&GIFCF_OURBITMAP)
    {  if(gc->bitmap) FreeBitMap(gc->bitmap);
       if(gc->mask) FreeVec(gc->mask);
@@ -628,93 +652,125 @@ static void Disposecopy(struct Gifcopy *gc)
 
 __saveds __asm ULONG Dispatchcopy(register __a0 struct Gifcopy *gc, register __a1 struct Amessage *amsg)
 {  ULONG result=0;
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase && amsg)
    {  Aprintf("GIF: Dispatchcopy called, gc=0x%08lx, method=0x%08lx\n", (ULONG)gc, amsg->method);
    }
+#endif
    if(!amsg)
-   {  if(AwebPluginBase)
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
       {  Aprintf("GIF: Dispatchcopy: ERROR - amsg is NULL!\n");
       }
+      #endif
       return 0;
    }
    switch(amsg->method)
    {  case AOM_NEW:
+         #ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
          {  Aprintf("GIF: Dispatchcopy: AOM_NEW\n");
          }
+         #endif
          result=(long)Newcopy((struct Amset *)amsg);
          break;
       case AOM_SET:
+         #ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
          {  Aprintf("GIF: Dispatchcopy: AOM_SET, gc=0x%08lx\n", (ULONG)gc);
          }
+         #endif
          if(!gc)
-         {  if(AwebPluginBase)
+         {  #ifdef DEBUG_PLUGINS
+            if(AwebPluginBase)
             {  Aprintf("GIF: Dispatchcopy: ERROR - gc is NULL for AOM_SET!\n");
             }
+            #endif
             return 0;
          }
          result=Setcopy(gc,(struct Amset *)amsg);
          break;
       case AOM_GET:
+         #ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
          {  Aprintf("GIF: Dispatchcopy: AOM_GET, gc=0x%08lx\n", (ULONG)gc);
          }
+         #endif
          if(!gc)
-         {  if(AwebPluginBase)
+         {  #ifdef DEBUG_PLUGINS
+            if(AwebPluginBase)
             {  Aprintf("GIF: Dispatchcopy: ERROR - gc is NULL for AOM_GET!\n");
             }
+            #endif
             return 0;
          }
          result=Getcopy(gc,(struct Amset *)amsg);
          break;
       case AOM_MEASURE:
+         #ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
          {  Aprintf("GIF: Dispatchcopy: AOM_MEASURE, gc=0x%08lx, amsg=0x%08lx\n", (ULONG)gc, (ULONG)amsg);
          }
+         #endif
          if(!gc)
-         {  if(AwebPluginBase)
+         {  #ifdef DEBUG_PLUGINS
+            if(AwebPluginBase)
             {  Aprintf("GIF: Dispatchcopy: ERROR - gc is NULL for AOM_MEASURE!\n");
             }
+            #endif
             return 0;
          }
          result=Measurecopy(gc,(struct Ammeasure *)amsg);
+         #ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
          {  Aprintf("GIF: Dispatchcopy: AOM_MEASURE returned %ld\n", result);
          }
+         #endif
          break;
       case AOM_LAYOUT:
+         #ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
          {  Aprintf("GIF: Dispatchcopy: AOM_LAYOUT, gc=0x%08lx\n", (ULONG)gc);
          }
+         #endif
          if(!gc)
-         {  if(AwebPluginBase)
+         {  #ifdef DEBUG_PLUGINS
+            if(AwebPluginBase)
             {  Aprintf("GIF: Dispatchcopy: ERROR - gc is NULL for AOM_LAYOUT!\n");
             }
+            #endif
             return 0;
          }
          result=Layoutcopy(gc,(struct Amlayout *)amsg);
          break;
       case AOM_RENDER:
+         #ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
          {  Aprintf("GIF: Dispatchcopy: AOM_RENDER, gc=0x%08lx\n", (ULONG)gc);
          }
+         #endif
          if(!gc)
-         {  if(AwebPluginBase)
+         {  #ifdef DEBUG_PLUGINS
+            if(AwebPluginBase)
             {  Aprintf("GIF: Dispatchcopy: ERROR - gc is NULL for AOM_RENDER!\n");
             }
+            #endif
             return 0;
          }
          result=Rendercopy(gc,(struct Amrender *)amsg);
          break;
       case AOM_DISPOSE:
+         #ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
          {  Aprintf("GIF: Dispatchcopy: AOM_DISPOSE, gc=0x%08lx\n", (ULONG)gc);
          }
+         #endif
          if(!gc)
-         {  if(AwebPluginBase)
+         {  #ifdef DEBUG_PLUGINS
+            if(AwebPluginBase)
             {  Aprintf("GIF: Dispatchcopy: ERROR - gc is NULL for AOM_DISPOSE!\n");
             }
+            #endif
             return 0;
          }
          Disposecopy(gc);

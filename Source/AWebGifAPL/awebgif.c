@@ -46,11 +46,13 @@ ULONG Initpluginlib(struct AwebGifBase *base)
    DOSBase=OpenLibrary("dos.library",37);
    animate=TRUE;
    result=(ULONG)(GfxBase && IntuitionBase && UtilityBase && AwebPluginBase && DOSBase != NULL);
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("GIF: Initpluginlib: base=0x%08lx, GfxBase=0x%08lx, IntuitionBase=0x%08lx\n", (ULONG)base, (ULONG)GfxBase, (ULONG)IntuitionBase);
       Aprintf("GIF: Initpluginlib: UtilityBase=0x%08lx, P96Base=0x%08lx, AwebPluginBase=0x%08lx\n", (ULONG)UtilityBase, (ULONG)P96Base, (ULONG)AwebPluginBase);
       Aprintf("GIF: Initpluginlib: DOSBase=0x%08lx, result=%ld\n", (ULONG)DOSBase, result);
    }
+#endif
    return result;
 }
 
@@ -67,34 +69,68 @@ void Expungepluginlib(struct AwebGifBase *base)
    if(IntuitionBase) CloseLibrary(IntuitionBase);
    if(GfxBase) CloseLibrary(GfxBase);
    if(DOSBase != NULL) CloseLibrary(DOSBase);
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("GIF: Expungepluginlib: Done, base=0x%08lx\n", (ULONG)base);
    }
+#endif
 }
 
 __asm __saveds ULONG Initplugin(register __a0 struct Plugininfo *pi)
 {  ULONG result;
-   Aprintf("GIF: Initplugin called, pi=0x%08lx, PluginBase=0x%08lx\n", (ULONG)pi, (ULONG)PluginBase);
+#ifdef DEBUG_PLUGINS
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Initplugin called, pi=0x%08lx, PluginBase=0x%08lx\n", (ULONG)pi, (ULONG)PluginBase);
+   }
+#endif
    if(!PluginBase->sourcedriver)
-   {  Aprintf("GIF: Initplugin: Installing sourcedriver\n");
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Initplugin: Installing sourcedriver\n");
+      }
+      #endif
       PluginBase->sourcedriver=Amethod(NULL,AOM_INSTALL,0,Dispatchsource);
-      Aprintf("GIF: Initplugin: sourcedriver=0x%08lx\n", PluginBase->sourcedriver);
+      #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Initplugin: sourcedriver=0x%08lx\n", PluginBase->sourcedriver);
+      }
+      #endif
    }
    else
-   {  Aprintf("GIF: Initplugin: sourcedriver already installed=0x%08lx\n", PluginBase->sourcedriver);
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Initplugin: sourcedriver already installed=0x%08lx\n", PluginBase->sourcedriver);
+      }
+      #endif
    }
    if(!PluginBase->copydriver)
-   {  Aprintf("GIF: Initplugin: Installing copydriver\n");
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Initplugin: Installing copydriver\n");
+      }
+      #endif
       PluginBase->copydriver=Amethod(NULL,AOM_INSTALL,0,Dispatchcopy);
-      Aprintf("GIF: Initplugin: copydriver=0x%08lx\n", PluginBase->copydriver);
+      #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Initplugin: copydriver=0x%08lx\n", PluginBase->copydriver);
+      }
+      #endif
    }
    else
-   {  Aprintf("GIF: Initplugin: copydriver already installed=0x%08lx\n", PluginBase->copydriver);
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Initplugin: copydriver already installed=0x%08lx\n", PluginBase->copydriver);
+      }
+      #endif
    }
    pi->sourcedriver=PluginBase->sourcedriver;
    pi->copydriver=PluginBase->copydriver;
    result=(ULONG)(PluginBase->sourcedriver && PluginBase->copydriver);
-   Aprintf("GIF: Initplugin: returning %ld\n", result);
+#ifdef DEBUG_PLUGINS
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Initplugin: returning %ld\n", result);
+   }
+#endif
    return result;
 }
 
@@ -103,43 +139,95 @@ __asm __saveds ULONG Initplugin(register __a0 struct Plugininfo *pi)
 __asm __saveds void Queryplugin(register __a0 struct Pluginquery *pq)
 {  if(!pq) return;
    if(!AwebPluginBase) return;
-   Aprintf("GIF: Queryplugin called, pq=0x%08lx, structsize=%ld\n", (ULONG)pq, pq->structsize);
+#ifdef DEBUG_PLUGINS
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Queryplugin called, pq=0x%08lx, structsize=%ld\n", (ULONG)pq, pq->structsize);
+   }
+#endif
    if(ISSAFE(pq,command)) 
-   {  Aprintf("GIF: Queryplugin: Setting command=TRUE\n");
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Queryplugin: Setting command=TRUE\n");
+      }
+      #endif
       pq->command=TRUE;
    }
    else
-   {  Aprintf("GIF: Queryplugin: pq->command not safe to access\n");
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Queryplugin: pq->command not safe to access\n");
+      }
+      #endif
    }
-   Aprintf("GIF: Queryplugin: Done\n");
+#ifdef DEBUG_PLUGINS
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Queryplugin: Done\n");
+   }
+#endif
 }   
 
 __asm __saveds void Commandplugin(register __a0 struct Plugincommand *pc)
 {  if(!pc) return;
    if(!AwebPluginBase) return;
-   Aprintf("GIF: Commandplugin called, pc=0x%08lx\n", (ULONG)pc);
+#ifdef DEBUG_PLUGINS
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Commandplugin called, pc=0x%08lx\n", (ULONG)pc);
+   }
+#endif
    if(pc->structsize<sizeof(struct Plugincommand)) 
-   {  Aprintf("GIF: Commandplugin: structsize too small, returning\n");
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Commandplugin: structsize too small, returning\n");
+      }
+      #endif
       return;
    }
-   Aprintf("GIF: Commandplugin: command='%s'\n", pc->command ? (char *)pc->command : "(null)");
+#ifdef DEBUG_PLUGINS
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Commandplugin: command='%s'\n", pc->command ? (char *)pc->command : "(null)");
+   }
+#endif
    /* olsen: use utility.library instead of the compiler runtime library. */
    if(!Stricmp(pc->command,"STARTANIM"))
-   {  Aprintf("GIF: Commandplugin: STARTANIM\n");
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Commandplugin: STARTANIM\n");
+      }
+      #endif
       animate=TRUE;
    }
    else if(!Stricmp(pc->command,"STOPANIM"))
-   {  Aprintf("GIF: Commandplugin: STOPANIM\n");
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Commandplugin: STOPANIM\n");
+      }
+      #endif
       animate=FALSE;
    }
    else if(!Stricmp(pc->command,"ANIM"))
-   {  Aprintf("GIF: Commandplugin: ANIM, animate=%ld\n", animate);
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Commandplugin: ANIM, animate=%ld\n", animate);
+      }
+      #endif
       pc->result=Dupstr(animate?"1":"0",-1);
-      Aprintf("GIF: Commandplugin: result='%s'\n", pc->result ? (char *)pc->result : "(null)");
+      #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Commandplugin: result='%s'\n", pc->result ? (char *)pc->result : "(null)");
+      }
+      #endif
    }
    else
-   {  Aprintf("GIF: Commandplugin: Unknown command, rc=10\n");
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
+      {  Aprintf("GIF: Commandplugin: Unknown command, rc=10\n");
+      }
+      #endif
       pc->rc=10;
    }
-   Aprintf("GIF: Commandplugin: Done\n");
+#ifdef DEBUG_PLUGINS
+   if(AwebPluginBase)
+   {  Aprintf("GIF: Commandplugin: Done\n");
+   }
+#endif
 }

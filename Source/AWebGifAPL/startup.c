@@ -131,85 +131,111 @@ __asm __saveds struct Library *Initlib(
    PluginBase=libbase;
    libbase->lib_Revision=PLUGIN_REVISION;
    libseglist=seglist;
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("GIF: Initlib called, sysbase=0x%08lx, seglist=0x%08lx, libbase=0x%08lx\n", (ULONG)sysbase, (ULONG)seglist, (ULONG)libbase);
    }
+#endif
    if(!Initpluginlib(libbase))
-   {  if(AwebPluginBase)
-      {  Aprintf("GIF: Initlib: Initpluginlib failed, expunging\n");
-      }
+      {  #ifdef DEBUG_PLUGINS
+         if(AwebPluginBase)
+         {  Aprintf("GIF: Initlib: Initpluginlib failed, expunging\n");
+         }
+         #endif
       Expungepluginlib(libbase);
       /* olsen: the following line was missing. */
       FreeMem ((APTR)((ULONG)(libbase) - (ULONG)(libbase->lib_NegSize)), libbase->lib_NegSize + libbase->lib_PosSize);
       libbase=NULL;
    }
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("GIF: Initlib returning 0x%08lx\n", (ULONG)libbase);
    }
+#endif
    return libbase;
 }
 
 __asm __saveds struct Library *Openlib(
    register __a6 struct Library *libbase)
-{  if(AwebPluginBase)
+{  #ifdef DEBUG_PLUGINS
+   if(AwebPluginBase)
    {  Aprintf("GIF: Openlib called, libbase=0x%08lx, OpenCnt=%ld\n", (ULONG)libbase, libbase->lib_OpenCnt);
    }
+#endif
    libbase->lib_OpenCnt++;
    libbase->lib_Flags&=~LIBF_DELEXP;
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("GIF: Openlib returning, OpenCnt=%ld\n", libbase->lib_OpenCnt);
    }
+#endif
    return libbase;
 }
 
 __asm __saveds struct SegList *Closelib(
    register __a6 struct Library *libbase)
-{  if(AwebPluginBase)
+{  #ifdef DEBUG_PLUGINS
+   if(AwebPluginBase)
    {  Aprintf("GIF: Closelib called, libbase=0x%08lx, OpenCnt=%ld\n", (ULONG)libbase, libbase->lib_OpenCnt);
    }
+#endif
    libbase->lib_OpenCnt--;
    if(libbase->lib_OpenCnt==0 && (libbase->lib_Flags&LIBF_DELEXP))
-   {  if(AwebPluginBase)
-      {  Aprintf("GIF: Closelib: Expunging library\n");
-      }
+      {  #ifdef DEBUG_PLUGINS
+         if(AwebPluginBase)
+         {  Aprintf("GIF: Closelib: Expunging library\n");
+         }
+         #endif
       return Expungelib(libbase);
    }
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("GIF: Closelib returning NULL, OpenCnt=%ld\n", libbase->lib_OpenCnt);
    }
+#endif
    return NULL;
 }
 
 __asm __saveds struct SegList *Expungelib(
    register __a6 struct Library *libbase)
-{  if(AwebPluginBase)
+{  #ifdef DEBUG_PLUGINS
+   if(AwebPluginBase)
    {  Aprintf("GIF: Expungelib called, libbase=0x%08lx, OpenCnt=%ld\n", (ULONG)libbase, libbase->lib_OpenCnt);
    }
+#endif
    if(libbase->lib_OpenCnt==0)
    {  ULONG size=libbase->lib_NegSize+libbase->lib_PosSize;
       UBYTE *ptr=(UBYTE *)libbase-libbase->lib_NegSize;
+      #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
       {  Aprintf("GIF: Expungelib: Removing library, size=%ld\n", size);
       }
+      #endif
       Remove((struct Node *)libbase);
       Expungepluginlib(libbase);
       FreeMem(ptr,size);
+      #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
       {  Aprintf("GIF: Expungelib: Done, returning seglist\n");
       }
+      #endif
       return libseglist;
    }
    libbase->lib_Flags|=LIBF_DELEXP;
+#ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("GIF: Expungelib: Marked for deletion, returning NULL\n");
    }
+#endif
    return NULL;
 }
 
 __asm __saveds ULONG Extfunclib(void)
-{  if(AwebPluginBase)
+{  #ifdef DEBUG_PLUGINS
+   if(AwebPluginBase)
    {  Aprintf("GIF: Extfunclib called\n");
    }
+#endif
    return 0;
 }
 
