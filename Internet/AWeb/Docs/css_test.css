@@ -248,6 +248,100 @@
     padding: 10px;
 }
 
+/* Color tests: hex vs names */
+.color-red-hex {
+    color: #ff0000;
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+.color-red-name {
+    color: red;
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+.color-blue-hex {
+    color: #0000ff;
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+.color-blue-name {
+    color: blue;
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+.color-green-hex {
+    color: #008000;
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+.color-green-name {
+    color: green;
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+.color-black-hex {
+    color: #000000;
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+.color-black-name {
+    color: black;
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+.color-brown-hex {
+    color: #A52A2A;
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+.color-brown-name {
+    color: brown;
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+.bg-color-red-hex {
+    background-color: #ffcccc;
+    padding: 10px;
+}
+
+.bg-color-red-name {
+    background-color: #ffcccc;
+    color: red;
+    padding: 10px;
+}
+
+.bg-color-blue-hex {
+    background-color: #ccccff;
+    padding: 10px;
+}
+
+.bg-color-blue-name {
+    background-color: #ccccff;
+    color: blue;
+    padding: 10px;
+}
+
+.bg-color-green-hex {
+    background-color: #ccffcc;
+    padding: 10px;
+}
+
+.bg-color-green-name {
+    background-color: #ccffcc;
+    color: green;
+    padding: 10px;
+}
+
 /* Layout Properties */
 .padding-5 {
     padding: 5px;
@@ -292,6 +386,34 @@
     background-color: #e8e8e8;
     padding: 10px;
     margin: 5px;
+}
+
+.position-relative-offset {
+    position: relative;
+    top: 10px;
+    left: 20px;
+    background-color: #e8e8e8;
+    padding: 10px;
+    margin: 5px;
+}
+
+.position-fixed-right {
+    position: fixed;
+    top: 0px;
+    right: 0px;
+    background-color: #e8e8e8;
+    padding: 10px;
+    margin: 5px;
+}
+
+.position-absolute-bottom-right {
+    position: absolute;
+    bottom: 0px;
+    right: 0px;
+    background-color: #ccccff;
+    padding: 10px;
+    margin: 5px;
+    width: 200px;
 }
 
 .margin-10 {
@@ -359,6 +481,44 @@
     background-image: url('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
     padding: 20px;
     background-color: #e8e8e8;
+}
+
+/* Border Properties */
+.border-solid-black {
+    border: 1px solid #000000;
+    padding: 10px;
+    background-color: #e8e8e8;
+    margin: 5px;
+}
+
+.border-solid-red {
+    border: 3px solid #ff0000;
+    padding: 10px;
+    background-color: #e8e8e8;
+    margin: 5px;
+}
+
+.border-dashed-blue {
+    border: 2px dashed #0000ff;
+    padding: 10px;
+    background-color: #e8e8e8;
+    margin: 5px;
+}
+
+.border-dotted-green {
+    border: 4px dotted #00ff00;
+    padding: 10px;
+    background-color: #e8e8e8;
+    margin: 5px;
+}
+
+.border-separate {
+    border-width: 5px;
+    border-style: solid;
+    border-color: #8B7355;
+    padding: 10px;
+    background-color: #e8e8e8;
+    margin: 5px;
 }
 
 /* Table Cell Styles */

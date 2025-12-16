@@ -1,0 +1,1039 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML>
+<HEAD>
+<TITLE>Minimal JavaScript Test</TITLE>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+// Minimal test - just a variable declaration
+var x = 1;
+//-->
+</SCRIPT>
+</HEAD>
+<BODY>
+<H1>Minimal JavaScript Test</H1>
+<P>If this page loads, basic JavaScript parsing works.</P>
+
+<H2>Test 1: Variable Declaration</H2>
+<P>Variable x = <SCRIPT LANGUAGE="JavaScript">document.write(x);</SCRIPT></P>
+
+<H2>Test 2: Basic Arithmetic</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var a = 5;
+var b = 3;
+var sum = a + b;
+var product = a * b;
+//-->
+</SCRIPT>
+<P>a = 5, b = 3</P>
+<P>Sum (a + b) = <SCRIPT LANGUAGE="JavaScript">document.write(sum);</SCRIPT></P>
+<P>Product (a * b) = <SCRIPT LANGUAGE="JavaScript">document.write(product);</SCRIPT></P>
+
+<H2>Test 3: String Concatenation</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var greeting = "Hello";
+var name = "World";
+var space = " ";
+var message1 = greeting + space;
+var message = message1 + name;
+// Test chained concatenation in one expression
+var message2 = greeting + space + name;
+//-->
+</SCRIPT>
+<P>Message (two-step): <SCRIPT LANGUAGE="JavaScript">document.write(message);</SCRIPT></P>
+<P>Message (chained): <SCRIPT LANGUAGE="JavaScript">document.write(message2);</SCRIPT></P>
+<P>Direct concat test: <SCRIPT LANGUAGE="JavaScript">document.write("Hello" + " " + "World");</SCRIPT></P>
+<P>Direct concat with vars: <SCRIPT LANGUAGE="JavaScript">document.write(greeting + " " + name);</SCRIPT></P>
+
+<H2>Test 4: Function Call</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+function addNumbers(num1, num2) {
+    return num1 + num2;
+}
+var result = addNumbers(10, 20);
+//-->
+</SCRIPT>
+<P>addNumbers(10, 20) = <SCRIPT LANGUAGE="JavaScript">document.write(result);</SCRIPT></P>
+
+<H2>Test 5: Array Operations</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var arr = new Array(1, 2, 3, 4, 5);
+var firstElement = arr[0];
+var arrayLength = arr.length;
+//-->
+</SCRIPT>
+<P>Array: [1, 2, 3, 4, 5] (created with new Array)</P>
+<P>First element (arr[0]) = <SCRIPT LANGUAGE="JavaScript">document.write(firstElement);</SCRIPT></P>
+<P>Array length = <SCRIPT LANGUAGE="JavaScript">document.write(arrayLength);</SCRIPT></P>
+<P>Array type check: <SCRIPT LANGUAGE="JavaScript">document.write(typeof arr);</SCRIPT></P>
+
+<H2>Test 6: Conditional Statement</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var testValue = 7;
+var isEven = "unknown";
+if (testValue % 2 == 0) {
+    isEven = "yes";
+} else {
+    isEven = "no";
+}
+//-->
+</SCRIPT>
+<P>testValue = 7</P>
+<P>Is testValue even? <SCRIPT LANGUAGE="JavaScript">document.write(isEven);</SCRIPT></P>
+
+<H2>Test 7: Comparison Operators</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var val1 = 5;
+var val2 = 3;
+var gt = val1 > val2;
+var lt = val1 < val2;
+var eq = val1 == val2;
+var ne = val1 != val2;
+//-->
+</SCRIPT>
+<P>val1 = 5, val2 = 3</P>
+<P>val1 > val2: <SCRIPT LANGUAGE="JavaScript">document.write(gt);</SCRIPT></P>
+<P>val1 < val2: <SCRIPT LANGUAGE="JavaScript">document.write(lt);</SCRIPT></P>
+<P>val1 == val2: <SCRIPT LANGUAGE="JavaScript">document.write(eq);</SCRIPT></P>
+<P>val1 != val2: <SCRIPT LANGUAGE="JavaScript">document.write(ne);</SCRIPT></P>
+
+<H2>Test 8: While Loop</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var counter = 0;
+var loopResult = "";
+while (counter < 3) {
+    loopResult = loopResult + counter + " ";
+    counter = counter + 1;
+}
+//-->
+</SCRIPT>
+<P>Loop result (0 to 2): <SCRIPT LANGUAGE="JavaScript">document.write(loopResult);</SCRIPT></P>
+
+<H2>Test 9: For Loop</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var forResult = "";
+for (var i = 0; i < 3; i = i + 1) {
+    forResult = forResult + i + " ";
+}
+//-->
+</SCRIPT>
+<P>For loop result (0 to 2): <SCRIPT LANGUAGE="JavaScript">document.write(forResult);</SCRIPT></P>
+
+<H2>Test 10: Object Property Access</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var obj = new Object();
+obj.name = "Test";
+obj.value = 42;
+//-->
+</SCRIPT>
+<P>obj.name = <SCRIPT LANGUAGE="JavaScript">document.write(obj.name);</SCRIPT></P>
+<P>obj.value = <SCRIPT LANGUAGE="JavaScript">document.write(obj.value);</SCRIPT></P>
+
+<H2>Test 11: String Methods</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var str = "Hello World";
+var upper = str.toUpperCase();
+var lower = str.toLowerCase();
+var len = str.length;
+var char = str.charAt(0);
+//-->
+</SCRIPT>
+<P>Original: "Hello World"</P>
+<P>toUpperCase(): <SCRIPT LANGUAGE="JavaScript">document.write(upper);</SCRIPT></P>
+<P>toLowerCase(): <SCRIPT LANGUAGE="JavaScript">document.write(lower);</SCRIPT></P>
+<P>length: <SCRIPT LANGUAGE="JavaScript">document.write(len);</SCRIPT></P>
+<P>charAt(0): <SCRIPT LANGUAGE="JavaScript">document.write(char);</SCRIPT></P>
+
+<H2>Test 12: Math Object</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var pi = Math.PI;
+var sqrt = Math.sqrt(16);
+var max = Math.max(5, 10);
+var min = Math.min(5, 10);
+var abs = Math.abs(-5);
+//-->
+</SCRIPT>
+<P>Math.PI: <SCRIPT LANGUAGE="JavaScript">document.write(pi);</SCRIPT></P>
+<P>Math.sqrt(16): <SCRIPT LANGUAGE="JavaScript">document.write(sqrt);</SCRIPT></P>
+<P>Math.max(5, 10): <SCRIPT LANGUAGE="JavaScript">document.write(max);</SCRIPT></P>
+<P>Math.min(5, 10): <SCRIPT LANGUAGE="JavaScript">document.write(min);</SCRIPT></P>
+<P>Math.abs(-5): <SCRIPT LANGUAGE="JavaScript">document.write(abs);</SCRIPT></P>
+
+<H2>Test 13: Date Object</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var now = new Date();
+var year = now.getYear();
+var month = now.getMonth();
+var date = now.getDate();
+//-->
+</SCRIPT>
+<P>Current Date object created</P>
+<P>getYear(): <SCRIPT LANGUAGE="JavaScript">document.write(year);</SCRIPT></P>
+<P>getMonth(): <SCRIPT LANGUAGE="JavaScript">document.write(month);</SCRIPT></P>
+<P>getDate(): <SCRIPT LANGUAGE="JavaScript">document.write(date);</SCRIPT></P>
+
+<H2>Test 14: Nested Function Calls</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+function multiply(a, b) {
+    return a * b;
+}
+function addAndMultiply(x, y, z) {
+    return multiply(x + y, z);
+}
+var result = addAndMultiply(2, 3, 4);
+//-->
+</SCRIPT>
+<P>addAndMultiply(2, 3, 4) = (2+3)*4 = <SCRIPT LANGUAGE="JavaScript">document.write(result);</SCRIPT></P>
+
+<H2>Test 15: Array with new Array()</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var arr = new Array(1, 2, 3, 4, 5);
+var first = arr[0];
+var last = arr[4];
+var len = arr.length;
+//-->
+</SCRIPT>
+<P>Array: [1, 2, 3, 4, 5]</P>
+<P>First element: <SCRIPT LANGUAGE="JavaScript">document.write(first);</SCRIPT></P>
+<P>Last element: <SCRIPT LANGUAGE="JavaScript">document.write(last);</SCRIPT></P>
+<P>Array length: <SCRIPT LANGUAGE="JavaScript">document.write(len);</SCRIPT></P>
+
+<H2>Test 16: Logical Operators</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var a = true;
+var b = false;
+var and1 = a && b;
+var and2 = a && a;
+var or1 = a || b;
+var or2 = b || b;
+var not1 = !a;
+var not2 = !b;
+//-->
+</SCRIPT>
+<P>a = true, b = false</P>
+<P>a && b: <SCRIPT LANGUAGE="JavaScript">document.write(and1);</SCRIPT></P>
+<P>a && a: <SCRIPT LANGUAGE="JavaScript">document.write(and2);</SCRIPT></P>
+<P>a || b: <SCRIPT LANGUAGE="JavaScript">document.write(or1);</SCRIPT></P>
+<P>b || b: <SCRIPT LANGUAGE="JavaScript">document.write(or2);</SCRIPT></P>
+<P>!a: <SCRIPT LANGUAGE="JavaScript">document.write(not1);</SCRIPT></P>
+<P>!b: <SCRIPT LANGUAGE="JavaScript">document.write(not2);</SCRIPT></P>
+
+<H2>Test 17: Type Checking (typeof)</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+// Test direct typeof calls first (simpler)
+var typeNumDirect = typeof 42;
+var typeStrDirect = typeof "test";
+var typeBoolDirect = typeof true;
+var typeUndef = typeof undefined;
+// Now test with variables
+var num = 42;
+var str = "hello";
+var bool = true;
+var obj = new Object();
+var arr = new Array(1, 2, 3);
+var func = function() { return 1; };
+var typeNum = typeof num;
+var typeStr = typeof str;
+var typeBool = typeof bool;
+var typeObj = typeof obj;
+var typeArr = typeof arr;
+var typeFunc = typeof func;
+//-->
+</SCRIPT>
+<P><STRONG>Direct typeof tests (simpler):</STRONG></P>
+<P>typeof 42: <SCRIPT LANGUAGE="JavaScript">document.write(typeNumDirect);</SCRIPT></P>
+<P>typeof "test": <SCRIPT LANGUAGE="JavaScript">document.write(typeStrDirect);</SCRIPT></P>
+<P>typeof true: <SCRIPT LANGUAGE="JavaScript">document.write(typeBoolDirect);</SCRIPT></P>
+<P>typeof undefined: <SCRIPT LANGUAGE="JavaScript">document.write(typeUndef);</SCRIPT></P>
+<P><STRONG>typeof with variables:</STRONG></P>
+<P>typeof num (42): <SCRIPT LANGUAGE="JavaScript">document.write(typeNum);</SCRIPT></P>
+<P>typeof str ("hello"): <SCRIPT LANGUAGE="JavaScript">document.write(typeStr);</SCRIPT></P>
+<P>typeof bool (true): <SCRIPT LANGUAGE="JavaScript">document.write(typeBool);</SCRIPT></P>
+<P>typeof obj (new Object()): <SCRIPT LANGUAGE="JavaScript">document.write(typeObj);</SCRIPT></P>
+<P>typeof arr (new Array()): <SCRIPT LANGUAGE="JavaScript">document.write(typeArr);</SCRIPT></P>
+<P>typeof func (function): <SCRIPT LANGUAGE="JavaScript">document.write(typeFunc);</SCRIPT></P>
+
+<H2>Test 18: String indexOf and lastIndexOf</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var str = "Hello World";
+var idx1 = str.indexOf("o");
+var idx2 = str.lastIndexOf("o");
+var idx3 = str.indexOf("x");
+//-->
+</SCRIPT>
+<P>String: "Hello World"</P>
+<P>indexOf("o"): <SCRIPT LANGUAGE="JavaScript">document.write(idx1);</SCRIPT></P>
+<P>lastIndexOf("o"): <SCRIPT LANGUAGE="JavaScript">document.write(idx2);</SCRIPT></P>
+<P>indexOf("x") (not found): <SCRIPT LANGUAGE="JavaScript">document.write(idx3);</SCRIPT></P>
+
+<H2>Test 19: String substring</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var str = "Hello World";
+var sub1 = str.substring(0, 5);
+var sub2 = str.substring(6);
+//-->
+</SCRIPT>
+<P>String: "Hello World"</P>
+<P>substring(0, 5): <SCRIPT LANGUAGE="JavaScript">document.write(sub1);</SCRIPT></P>
+<P>substring(6): <SCRIPT LANGUAGE="JavaScript">document.write(sub2);</SCRIPT></P>
+
+<H2>Test 20: Array join and reverse</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var arr = new Array("a", "b", "c");
+var joined = arr.join(", ");
+arr.reverse();
+var reversed = arr.join(", ");
+//-->
+</SCRIPT>
+<P>Array: ["a", "b", "c"]</P>
+<P>join(", "): <SCRIPT LANGUAGE="JavaScript">document.write(joined);</SCRIPT></P>
+<P>After reverse(), join(", "): <SCRIPT LANGUAGE="JavaScript">document.write(reversed);</SCRIPT></P>
+
+<H2>Test 21: More Math Functions</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var pow = Math.pow(2, 8);
+var round1 = Math.round(3.7);
+var round2 = Math.round(3.2);
+var floor = Math.floor(3.7);
+var ceil = Math.ceil(3.2);
+var random = Math.random();
+//-->
+</SCRIPT>
+<P>Math.pow(2, 8): <SCRIPT LANGUAGE="JavaScript">document.write(pow);</SCRIPT></P>
+<P>Math.round(3.7): <SCRIPT LANGUAGE="JavaScript">document.write(round1);</SCRIPT></P>
+<P>Math.round(3.2): <SCRIPT LANGUAGE="JavaScript">document.write(round2);</SCRIPT></P>
+<P>Math.floor(3.7): <SCRIPT LANGUAGE="JavaScript">document.write(floor);</SCRIPT></P>
+<P>Math.ceil(3.2): <SCRIPT LANGUAGE="JavaScript">document.write(ceil);</SCRIPT></P>
+<P>Math.random(): <SCRIPT LANGUAGE="JavaScript">document.write(random);</SCRIPT> (should be 0-1)</P>
+
+<H2>Test 22: More Date Methods</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var now = new Date();
+var hours = now.getHours();
+var minutes = now.getMinutes();
+var seconds = now.getSeconds();
+var day = now.getDay();
+var time = now.getTime();
+//-->
+</SCRIPT>
+<P>Current Date object</P>
+<P>getHours(): <SCRIPT LANGUAGE="JavaScript">document.write(hours);</SCRIPT></P>
+<P>getMinutes(): <SCRIPT LANGUAGE="JavaScript">document.write(minutes);</SCRIPT></P>
+<P>getSeconds(): <SCRIPT LANGUAGE="JavaScript">document.write(seconds);</SCRIPT></P>
+<P>getDay(): <SCRIPT LANGUAGE="JavaScript">document.write(day);</SCRIPT> (0=Sunday)</P>
+<P>getTime(): <SCRIPT LANGUAGE="JavaScript">document.write(time);</SCRIPT> (milliseconds)</P>
+
+<H2>Test 23: Complex Expressions</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var a = 10;
+var b = 5;
+var c = 2;
+var result1 = a + b * c;
+var result2 = (a + b) * c;
+var result3 = a - b / c;
+var result4 = (a - b) / c;
+//-->
+</SCRIPT>
+<P>a = 10, b = 5, c = 2</P>
+<P>a + b * c (precedence): <SCRIPT LANGUAGE="JavaScript">document.write(result1);</SCRIPT></P>
+<P>(a + b) * c: <SCRIPT LANGUAGE="JavaScript">document.write(result2);</SCRIPT></P>
+<P>a - b / c (precedence): <SCRIPT LANGUAGE="JavaScript">document.write(result3);</SCRIPT></P>
+<P>(a - b) / c: <SCRIPT LANGUAGE="JavaScript">document.write(result4);</SCRIPT></P>
+
+<H2>Test 24: Object with Multiple Properties</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var person = new Object();
+person.name = "John";
+person.age = 30;
+person.city = "New York";
+var name = person.name;
+var age = person.age;
+var city = person.city;
+//-->
+</SCRIPT>
+<P>Object with multiple properties</P>
+<P>person.name: <SCRIPT LANGUAGE="JavaScript">document.write(name);</SCRIPT></P>
+<P>person.age: <SCRIPT LANGUAGE="JavaScript">document.write(age);</SCRIPT></P>
+<P>person.city: <SCRIPT LANGUAGE="JavaScript">document.write(city);</SCRIPT></P>
+
+<H2>Test 25: Function with Multiple Statements</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+function calculate(x, y) {
+    var sum = x + y;
+    var product = x * y;
+    var result = sum + product;
+    return result;
+}
+var calcResult = calculate(3, 4);
+//-->
+</SCRIPT>
+<P>calculate(3, 4) = (3+4) + (3*4) = <SCRIPT LANGUAGE="JavaScript">document.write(calcResult);</SCRIPT></P>
+
+<H2>Test 26: Nested Conditionals</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var score = 85;
+var grade = "F";
+if (score >= 90) {
+    grade = "A";
+} else if (score >= 80) {
+    grade = "B";
+} else if (score >= 70) {
+    grade = "C";
+} else if (score >= 60) {
+    grade = "D";
+}
+//-->
+</SCRIPT>
+<P>score = 85</P>
+<P>Grade: <SCRIPT LANGUAGE="JavaScript">document.write(grade);</SCRIPT></P>
+
+<H2>Test 27: Array Element Assignment</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var arr = new Array(1, 2, 3);
+arr[1] = 99;
+var changed = arr[1];
+var len = arr.length;
+//-->
+</SCRIPT>
+<P>Array: [1, 2, 3]</P>
+<P>After arr[1] = 99, arr[1] = <SCRIPT LANGUAGE="JavaScript">document.write(changed);</SCRIPT></P>
+<P>Array length: <SCRIPT LANGUAGE="JavaScript">document.write(len);</SCRIPT></P>
+
+<H2>Test 28: Modulo Operator</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var mod1 = 10 % 3;
+var mod2 = 15 % 5;
+var mod3 = 7 % 2;
+//-->
+</SCRIPT>
+<P>10 % 3: <SCRIPT LANGUAGE="JavaScript">document.write(mod1);</SCRIPT></P>
+<P>15 % 5: <SCRIPT LANGUAGE="JavaScript">document.write(mod2);</SCRIPT></P>
+<P>7 % 2: <SCRIPT LANGUAGE="JavaScript">document.write(mod3);</SCRIPT></P>
+
+<H2>Test 29: Bitwise Operators</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var a = 5;
+var b = 3;
+var bitAnd = a & b;
+var bitOr = a | b;
+var bitXor = a ^ b;
+//-->
+</SCRIPT>
+<P>a = 5, b = 3</P>
+<P>a & b (bitwise AND): <SCRIPT LANGUAGE="JavaScript">document.write(bitAnd);</SCRIPT></P>
+<P>a | b (bitwise OR): <SCRIPT LANGUAGE="JavaScript">document.write(bitOr);</SCRIPT></P>
+<P>a ^ b (bitwise XOR): <SCRIPT LANGUAGE="JavaScript">document.write(bitXor);</SCRIPT></P>
+
+<H2>Test 30: Shift Operators</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var num = 8;
+var leftShift = num << 2;
+var rightShift = num >> 1;
+//-->
+</SCRIPT>
+<P>num = 8</P>
+<P>num << 2 (left shift): <SCRIPT LANGUAGE="JavaScript">document.write(leftShift);</SCRIPT></P>
+<P>num >> 1 (right shift): <SCRIPT LANGUAGE="JavaScript">document.write(rightShift);</SCRIPT></P>
+
+<H2>Test 31: Assignment Operators</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var x = 10;
+x += 5;
+var addResult = x;
+x = 10;
+x *= 2;
+var multResult = x;
+x = 10;
+x -= 3;
+var subResult = x;
+//-->
+</SCRIPT>
+<P>Initial x = 10</P>
+<P>After x += 5: <SCRIPT LANGUAGE="JavaScript">document.write(addResult);</SCRIPT></P>
+<P>After x *= 2 (from 10): <SCRIPT LANGUAGE="JavaScript">document.write(multResult);</SCRIPT></P>
+<P>After x -= 3 (from 10): <SCRIPT LANGUAGE="JavaScript">document.write(subResult);</SCRIPT></P>
+
+<H2>Test 32: Increment and Decrement</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var a = 5;
+var preInc = ++a;
+var postInc = a++;
+var incResult = a;
+var b = 5;
+var preDec = --b;
+var postDec = b--;
+var decResult = b;
+//-->
+</SCRIPT>
+<P>a = 5, ++a: <SCRIPT LANGUAGE="JavaScript">document.write(preInc);</SCRIPT></P>
+<P>a++, then a: <SCRIPT LANGUAGE="JavaScript">document.write(incResult);</SCRIPT></P>
+<P>b = 5, --b: <SCRIPT LANGUAGE="JavaScript">document.write(preDec);</SCRIPT></P>
+<P>b--, then b: <SCRIPT LANGUAGE="JavaScript">document.write(decResult);</SCRIPT></P>
+
+<H2>Test 33: String charCodeAt</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var str = "ABC";
+var code1 = str.charCodeAt(0);
+var code2 = str.charCodeAt(1);
+var code3 = str.charCodeAt(2);
+//-->
+</SCRIPT>
+<P>String: "ABC"</P>
+<P>charCodeAt(0): <SCRIPT LANGUAGE="JavaScript">document.write(code1);</SCRIPT> (should be 65 for 'A')</P>
+<P>charCodeAt(1): <SCRIPT LANGUAGE="JavaScript">document.write(code2);</SCRIPT> (should be 66 for 'B')</P>
+<P>charCodeAt(2): <SCRIPT LANGUAGE="JavaScript">document.write(code3);</SCRIPT> (should be 67 for 'C')</P>
+
+<H2>Test 34: Array sort</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var arr = new Array(3, 1, 4, 1, 5);
+arr.sort();
+var sorted = arr.join(", ");
+//-->
+</SCRIPT>
+<P>Array: [3, 1, 4, 1, 5]</P>
+<P>After sort(): <SCRIPT LANGUAGE="JavaScript">document.write(sorted);</SCRIPT></P>
+
+<H2>Test 35: Nested Objects</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var person = new Object();
+person.name = "John";
+person.address = new Object();
+person.address.city = "New York";
+person.address.zip = "10001";
+var city = person.address.city;
+var zip = person.address.zip;
+//-->
+</SCRIPT>
+<P>Nested object structure</P>
+<P>person.address.city: <SCRIPT LANGUAGE="JavaScript">document.write(city);</SCRIPT></P>
+<P>person.address.zip: <SCRIPT LANGUAGE="JavaScript">document.write(zip);</SCRIPT></P>
+
+<H2>Test 36: Function Expressions</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var square = function(x) {
+    return x * x;
+};
+var result = square(5);
+//-->
+</SCRIPT>
+<P>square = function(x) { return x * x; }</P>
+<P>square(5): <SCRIPT LANGUAGE="JavaScript">document.write(result);</SCRIPT></P>
+
+<H2>Test 37: Multiple Return Statements</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+function max(a, b) {
+    if (a > b) {
+        return a;
+    }
+    return b;
+}
+var maxVal = max(10, 7);
+//-->
+</SCRIPT>
+<P>max(10, 7): <SCRIPT LANGUAGE="JavaScript">document.write(maxVal);</SCRIPT></P>
+
+<H2>Test 38: Variable Scope</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var global = 10;
+function testScope() {
+    var local = 20;
+    return global + local;
+}
+var scopeResult = testScope();
+//-->
+</SCRIPT>
+<P>global = 10, function has local = 20</P>
+<P>testScope() returns: <SCRIPT LANGUAGE="JavaScript">document.write(scopeResult);</SCRIPT></P>
+
+<H2>Test 39: Math Constants</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var pi = Math.PI;
+var e = Math.E;
+//-->
+</SCRIPT>
+<P>Math.PI: <SCRIPT LANGUAGE="JavaScript">document.write(pi);</SCRIPT></P>
+<P>Math.E: <SCRIPT LANGUAGE="JavaScript">document.write(e);</SCRIPT></P>
+
+<H2>Test 40: Date toString</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var now = new Date();
+var dateStr = now.toString();
+//-->
+</SCRIPT>
+<P>new Date().toString(): <SCRIPT LANGUAGE="JavaScript">document.write(dateStr);</SCRIPT></P>
+
+<H2>Test 41: String length</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var str1 = "Hello";
+var str2 = "World";
+var len1 = str1.length;
+var len2 = str2.length;
+var emptyLen = "".length;
+//-->
+</SCRIPT>
+<P>"Hello".length: <SCRIPT LANGUAGE="JavaScript">document.write(len1);</SCRIPT></P>
+<P>"World".length: <SCRIPT LANGUAGE="JavaScript">document.write(len2);</SCRIPT></P>
+<P>"".length: <SCRIPT LANGUAGE="JavaScript">document.write(emptyLen);</SCRIPT></P>
+
+<H2>Test 42: Array push and pop</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var arr = new Array(1, 2, 3);
+arr.push(4);
+var afterPush = arr.length;
+var popped = arr.pop();
+var afterPop = arr.length;
+//-->
+</SCRIPT>
+<P>Array: [1, 2, 3]</P>
+<P>After push(4), length: <SCRIPT LANGUAGE="JavaScript">document.write(afterPush);</SCRIPT></P>
+<P>pop() returned: <SCRIPT LANGUAGE="JavaScript">document.write(popped);</SCRIPT></P>
+<P>After pop(), length: <SCRIPT LANGUAGE="JavaScript">document.write(afterPop);</SCRIPT></P>
+
+<H2>Test 43: Array shift and unshift</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var arr = new Array(2, 3, 4);
+arr.unshift(1);
+var afterUnshift = arr.length;
+var shifted = arr.shift();
+var afterShift = arr.length;
+//-->
+</SCRIPT>
+<P>Array: [2, 3, 4]</P>
+<P>After unshift(1), length: <SCRIPT LANGUAGE="JavaScript">document.write(afterUnshift);</SCRIPT></P>
+<P>shift() returned: <SCRIPT LANGUAGE="JavaScript">document.write(shifted);</SCRIPT></P>
+<P>After shift(), length: <SCRIPT LANGUAGE="JavaScript">document.write(afterShift);</SCRIPT></P>
+
+<H2>Test 44: Math round, floor, ceil</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var round1 = Math.round(3.7);
+var round2 = Math.round(3.2);
+var floor1 = Math.floor(3.7);
+var ceil1 = Math.ceil(3.2);
+//-->
+</SCRIPT>
+<P>Math.round(3.7): <SCRIPT LANGUAGE="JavaScript">document.write(round1);</SCRIPT></P>
+<P>Math.round(3.2): <SCRIPT LANGUAGE="JavaScript">document.write(round2);</SCRIPT></P>
+<P>Math.floor(3.7): <SCRIPT LANGUAGE="JavaScript">document.write(floor1);</SCRIPT></P>
+<P>Math.ceil(3.2): <SCRIPT LANGUAGE="JavaScript">document.write(ceil1);</SCRIPT></P>
+
+<H2>Test 45: Math pow and random</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var pow1 = Math.pow(2, 3);
+var pow2 = Math.pow(5, 2);
+var random = Math.random();
+//-->
+</SCRIPT>
+<P>Math.pow(2, 3): <SCRIPT LANGUAGE="JavaScript">document.write(pow1);</SCRIPT></P>
+<P>Math.pow(5, 2): <SCRIPT LANGUAGE="JavaScript">document.write(pow2);</SCRIPT></P>
+<P>Math.random(): <SCRIPT LANGUAGE="JavaScript">document.write(random);</SCRIPT> (should be 0-1)</P>
+
+<H2>Test 46: Logical AND and OR</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var and1 = true && true;
+var and2 = true && false;
+var or1 = true || false;
+var or2 = false || false;
+var andNum = 5 && 3;
+var orNum = 0 || 7;
+//-->
+</SCRIPT>
+<P>true && true: <SCRIPT LANGUAGE="JavaScript">document.write(and1);</SCRIPT></P>
+<P>true && false: <SCRIPT LANGUAGE="JavaScript">document.write(and2);</SCRIPT></P>
+<P>true || false: <SCRIPT LANGUAGE="JavaScript">document.write(or1);</SCRIPT></P>
+<P>false || false: <SCRIPT LANGUAGE="JavaScript">document.write(or2);</SCRIPT></P>
+<P>5 && 3: <SCRIPT LANGUAGE="JavaScript">document.write(andNum);</SCRIPT></P>
+<P>0 || 7: <SCRIPT LANGUAGE="JavaScript">document.write(orNum);</SCRIPT></P>
+
+<H2>Test 47: Ternary Operator</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var result1 = (5 > 3) ? "yes" : "no";
+var result2 = (2 > 5) ? "yes" : "no";
+var numResult = (10 > 5) ? 100 : 50;
+//-->
+</SCRIPT>
+<P>(5 > 3) ? "yes" : "no": <SCRIPT LANGUAGE="JavaScript">document.write(result1);</SCRIPT></P>
+<P>(2 > 5) ? "yes" : "no": <SCRIPT LANGUAGE="JavaScript">document.write(result2);</SCRIPT></P>
+<P>(10 > 5) ? 100 : 50: <SCRIPT LANGUAGE="JavaScript">document.write(numResult);</SCRIPT></P>
+
+<H2>Test 48: parseInt and parseFloat</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var int1 = parseInt("42");
+var int2 = parseInt("3.14");
+var float1 = parseFloat("3.14");
+var float2 = parseFloat("42");
+//-->
+</SCRIPT>
+<P>parseInt("42"): <SCRIPT LANGUAGE="JavaScript">document.write(int1);</SCRIPT></P>
+<P>parseInt("3.14"): <SCRIPT LANGUAGE="JavaScript">document.write(int2);</SCRIPT></P>
+<P>parseFloat("3.14"): <SCRIPT LANGUAGE="JavaScript">document.write(float1);</SCRIPT></P>
+<P>parseFloat("42"): <SCRIPT LANGUAGE="JavaScript">document.write(float2);</SCRIPT></P>
+
+<H2>Test 49: String concat</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var str1 = "Hello";
+var str2 = "World";
+var concat1 = str1.concat(" ", str2);
+var concat2 = "A".concat("B", "C");
+//-->
+</SCRIPT>
+<P>str1 = "Hello", str2 = "World"</P>
+<P>str1.concat(" ", str2): <SCRIPT LANGUAGE="JavaScript">document.write(concat1);</SCRIPT></P>
+<P>"A".concat("B", "C"): <SCRIPT LANGUAGE="JavaScript">document.write(concat2);</SCRIPT></P>
+
+<H2>Test 50: Array slice</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var arr = new Array(1, 2, 3, 4, 5);
+var slice1 = arr.slice(1, 3);
+var slice1Str = slice1.join(", ");
+var slice2 = arr.slice(2);
+var slice2Str = slice2.join(", ");
+//-->
+</SCRIPT>
+<P>Array: [1, 2, 3, 4, 5]</P>
+<P>slice(1, 3): <SCRIPT LANGUAGE="JavaScript">document.write(slice1Str);</SCRIPT></P>
+<P>slice(2): <SCRIPT LANGUAGE="JavaScript">document.write(slice2Str);</SCRIPT></P>
+
+<H2>Test 51: Do-While Loop</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var count = 0;
+var sum = 0;
+do {
+    sum += count;
+    count++;
+} while (count < 5);
+//-->
+</SCRIPT>
+<P>do-while loop: sum from 0 to 4</P>
+<P>Result: <SCRIPT LANGUAGE="JavaScript">document.write(sum);</SCRIPT></P>
+
+<H2>Test 52: Function Arguments</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+function sum() {
+    var total = 0;
+    for (var i = 0; i < arguments.length; i++) {
+        total += arguments[i];
+    }
+    return total;
+}
+var result = sum(1, 2, 3, 4, 5);
+//-->
+</SCRIPT>
+<P>sum(1, 2, 3, 4, 5) using arguments: <SCRIPT LANGUAGE="JavaScript">document.write(result);</SCRIPT></P>
+
+<H2>Test 53: Recursive Function</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+function factorial(n) {
+    if (n <= 1) {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}
+var fact5 = factorial(5);
+//-->
+</SCRIPT>
+<P>factorial(5): <SCRIPT LANGUAGE="JavaScript">document.write(fact5);</SCRIPT></P>
+
+<H2>Test 54: Date getTime</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var now = new Date();
+var time = now.getTime();
+//-->
+</SCRIPT>
+<P>new Date().getTime(): <SCRIPT LANGUAGE="JavaScript">document.write(time);</SCRIPT> (milliseconds since epoch)</P>
+
+<H2>Test 55: Object Property Deletion</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var obj = new Object();
+obj.prop1 = "value1";
+obj.prop2 = "value2";
+var beforeDelete = obj.prop1;
+delete obj.prop1;
+var afterDelete = obj.prop1;
+var stillExists = obj.prop2;
+//-->
+</SCRIPT>
+<P>obj.prop1 before delete: <SCRIPT LANGUAGE="JavaScript">document.write(beforeDelete);</SCRIPT></P>
+<P>obj.prop1 after delete: <SCRIPT LANGUAGE="JavaScript">document.write(afterDelete);</SCRIPT></P>
+<P>obj.prop2 still exists: <SCRIPT LANGUAGE="JavaScript">document.write(stillExists);</SCRIPT></P>
+
+<H2>Test 56: For-In Loop</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var obj = new Object();
+obj.name = "John";
+obj.age = 30;
+obj.city = "New York";
+var props = "";
+for (var prop in obj) {
+    props += prop + " ";
+}
+//-->
+</SCRIPT>
+<P>Object properties: name, age, city</P>
+<P>Properties found: <SCRIPT LANGUAGE="JavaScript">document.write(props);</SCRIPT></P>
+
+<H2>Test 57: Break Statement</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var sum = 0;
+for (var i = 0; i < 10; i++) {
+    if (i > 5) {
+        break;
+    }
+    sum += i;
+}
+//-->
+</SCRIPT>
+<P>Loop breaks when i > 5</P>
+<P>Sum (0 to 5): <SCRIPT LANGUAGE="JavaScript">document.write(sum);</SCRIPT></P>
+
+<H2>Test 58: Continue Statement</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var sum = 0;
+for (var i = 0; i < 10; i++) {
+    if (i % 2 == 0) {
+        continue;
+    }
+    sum += i;
+}
+//-->
+</SCRIPT>
+<P>Continue skips even numbers</P>
+<P>Sum of odd numbers (1,3,5,7,9): <SCRIPT LANGUAGE="JavaScript">document.write(sum);</SCRIPT></P>
+
+<H2>Test 59: Global Functions - escape and unescape</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var str = "Hello World!";
+var escaped = escape(str);
+var unescaped = unescape(escaped);
+//-->
+</SCRIPT>
+<P>Original: "Hello World!"</P>
+<P>escaped: <SCRIPT LANGUAGE="JavaScript">document.write(escaped);</SCRIPT></P>
+<P>unescaped: <SCRIPT LANGUAGE="JavaScript">document.write(unescaped);</SCRIPT></P>
+
+<H2>Test 60: Global Function - isNaN</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var nan1 = isNaN("not a number");
+var nan2 = isNaN(42);
+var nan3 = isNaN(NaN);
+//-->
+</SCRIPT>
+<P>isNaN("not a number"): <SCRIPT LANGUAGE="JavaScript">document.write(nan1);</SCRIPT></P>
+<P>isNaN(42): <SCRIPT LANGUAGE="JavaScript">document.write(nan2);</SCRIPT></P>
+<P>isNaN(NaN): <SCRIPT LANGUAGE="JavaScript">document.write(nan3);</SCRIPT></P>
+
+<H2>Test 61: Array concat</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var arr1 = new Array(1, 2, 3);
+var arr2 = new Array(4, 5, 6);
+var concat = arr1.concat(arr2);
+var concatStr = concat.join(", ");
+//-->
+</SCRIPT>
+<P>Array 1: [1, 2, 3]</P>
+<P>Array 2: [4, 5, 6]</P>
+<P>concat result: <SCRIPT LANGUAGE="JavaScript">document.write(concatStr);</SCRIPT></P>
+
+<H2>Test 62: String split</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var str = "apple,banana,cherry";
+var arr = str.split(",");
+var splitStr = arr.join(" | ");
+//-->
+</SCRIPT>
+<P>String: "apple,banana,cherry"</P>
+<P>split(",") result: <SCRIPT LANGUAGE="JavaScript">document.write(splitStr);</SCRIPT></P>
+
+<H2>Test 63: With Statement</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var obj = new Object();
+obj.x = 10;
+obj.y = 20;
+var result;
+with (obj) {
+    result = x + y;
+}
+//-->
+</SCRIPT>
+<P>obj.x = 10, obj.y = 20</P>
+<P>with (obj) { result = x + y; }</P>
+<P>Result: <SCRIPT LANGUAGE="JavaScript">document.write(result);</SCRIPT></P>
+
+<H2>Test 64: Void Operator</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var x = 42;
+var voidResult = void x;
+var voidType = typeof voidResult;
+//-->
+</SCRIPT>
+<P>x = 42</P>
+<P>void x: <SCRIPT LANGUAGE="JavaScript">document.write(voidResult);</SCRIPT></P>
+<P>typeof void x: <SCRIPT LANGUAGE="JavaScript">document.write(voidType);</SCRIPT></P>
+
+<H2>Test 65: Comma Operator</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var a = 1, b = 2, c = 3;
+var commaResult = (a++, b++, c++);
+var afterComma = a + b + c;
+//-->
+</SCRIPT>
+<P>a = 1, b = 2, c = 3</P>
+<P>(a++, b++, c++) returns: <SCRIPT LANGUAGE="JavaScript">document.write(commaResult);</SCRIPT></P>
+<P>After comma: a + b + c = <SCRIPT LANGUAGE="JavaScript">document.write(afterComma);</SCRIPT></P>
+
+<H2>Test 66: Object toString</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var obj = new Object();
+obj.name = "test";
+var objStr = obj.toString();
+//-->
+</SCRIPT>
+<P>new Object().toString(): <SCRIPT LANGUAGE="JavaScript">document.write(objStr);</SCRIPT></P>
+
+<H2>Test 67: Number toString</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var num = 42;
+var numStr = num.toString();
+var num2 = 3.14;
+var num2Str = num2.toString();
+//-->
+</SCRIPT>
+<P>42.toString(): <SCRIPT LANGUAGE="JavaScript">document.write(numStr);</SCRIPT></P>
+<P>3.14.toString(): <SCRIPT LANGUAGE="JavaScript">document.write(num2Str);</SCRIPT></P>
+
+<H2>Test 68: Boolean toString</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var bool1 = true;
+var bool2 = false;
+var bool1Str = bool1.toString();
+var bool2Str = bool2.toString();
+//-->
+</SCRIPT>
+<P>true.toString(): <SCRIPT LANGUAGE="JavaScript">document.write(bool1Str);</SCRIPT></P>
+<P>false.toString(): <SCRIPT LANGUAGE="JavaScript">document.write(bool2Str);</SCRIPT></P>
+
+<H2>Test 69: This Keyword</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var obj = new Object();
+obj.value = 100;
+obj.getValue = function() {
+    return this.value;
+};
+var thisResult = obj.getValue();
+var directValue = obj.value;
+//-->
+</SCRIPT>
+<P>obj.value = 100</P>
+<P>Direct access obj.value: <SCRIPT LANGUAGE="JavaScript">document.write(directValue);</SCRIPT></P>
+<P>obj.getValue() using this: <SCRIPT LANGUAGE="JavaScript">document.write(thisResult);</SCRIPT></P>
+
+<H2>Test 70: Array toString</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var arr = new Array(1, 2, 3);
+var arrStr = arr.toString();
+//-->
+</SCRIPT>
+<P>Array: [1, 2, 3]</P>
+<P>arr.toString(): <SCRIPT LANGUAGE="JavaScript">document.write(arrStr);</SCRIPT></P>
+
+<H2>Test 71: Null and Undefined Handling</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var nullVar = null;
+var undefinedVar;
+var nullType = typeof nullVar;
+var undefinedType = typeof undefinedVar;
+var nullCheck = (nullVar == null);
+var undefinedCheck = (undefinedVar == undefined);
+//-->
+</SCRIPT>
+<P>nullVar = null</P>
+<P>typeof null: <SCRIPT LANGUAGE="JavaScript">document.write(nullType);</SCRIPT></P>
+<P>typeof undefined: <SCRIPT LANGUAGE="JavaScript">document.write(undefinedType);</SCRIPT></P>
+<P>nullVar == null: <SCRIPT LANGUAGE="JavaScript">document.write(nullCheck);</SCRIPT></P>
+<P>undefinedVar == undefined: <SCRIPT LANGUAGE="JavaScript">document.write(undefinedCheck);</SCRIPT></P>
+
+<H2>Test 72: Function length Property</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+function testFunc(a, b, c) {
+    return a + b + c;
+}
+var funcLength = testFunc.length;
+//-->
+</SCRIPT>
+<P>function testFunc(a, b, c) { ... }</P>
+<P>testFunc.length: <SCRIPT LANGUAGE="JavaScript">document.write(funcLength);</SCRIPT></P>
+
+</BODY>
+</HTML>
+
+

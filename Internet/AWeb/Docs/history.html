@@ -25,6 +25,77 @@ Release History
 <body background=awebbg.iff>
 <h1><img src=aweb.iff width=192 height=93 alt=(logo)>&nbsp; Release History</h1>
 
+<h2>AWeb 3.6 Alpha 6</h2>
+
+<h3>Major New Features</h3>
+<ul>
+<li>More CSS properties are now supported, including padding, margin, position, top, left, right, bottom, border, vertical-align, text-align, and combined table cell styles</li>
+<li>CSS colors can now be specified in either hex swatch format or by name</li>
+<li><b>HTTP Range</b> (RFC 7233) support added for fast automatic resume of incomplete requests, should mean fewer page assets failing to load</li>
+<li>In order to support Multipart MIME viewing in the future, AWeb now parses <b>cid:</b> and <b>data:</b> URL types for inline binary attachments</li>
+<li><b>view-source:</b> in the URL bar is now supported, allowing you to view any URL as plain text (but note this does not work correctly with 30x redirects)</li>
+<li><b>Mozilla bookmarks</b> files can now be imported into your AWeb Hotlist</li>
+<li>ICO format images such as any <b>favicon.ico</b> are converted on the fly into regular BMP format images and then passed to DataTypes to render</li>
+<li>AWeb now comes with an ARexx script for easily enabling the <b>Protoweb.org</b> proxy - browse the web as if it's 1999!</li>
+</ul>
+
+<h3>Improvements</h3>
+<ul>
+<li>Connections that are still loading for the current page will immediately be terminated and a new connection will be made when navigating to a new page or reloading</li>
+<li>That same improved connection cancellation now also applies to the Cancel All button in the Network Status window and the Cancel Load menu item and ARexx commands</li>
+<li>When viewing the directory view of the root file:/// it will show volume size and filesystem type rather than the normal directory listing</li>
+<li>All binaries are now built with <b>68020</b> optimization enabled</li>
+<li>All locale catalogs from AWeb 3.4 are now included in the distribution</li>
+<li>Default <b>User-Agent</b> strings for spoofing now reflect a variety of real world browsers</li>
+<li>Added new default <b>MIME types</b> for files common in 2025, and set all MIME types to lowercase as specified in RFC 6838</li>
+<li>The PNG AWebPlugin has been updated to use <b>libpng 1.6.43</b> (but note it is therefore a much bigger binary now)</li>
+<li>Rebuilt with latest <b>AmiSSL 5.25</b> SDK</li>
+<li>AWeb will now prefer <b>CHACHA20-POLY1305</b> ciphers over AES-GCM for better performance on Amiga</li>
+<li>Added support for mousewheel scrolling on OS4 and OS3.2</li>
+</ul>
+
+<h3>Features Reintegrated from AWeb 3.5</h3>
+<ul>
+<li>Reintegrated support for INS and DEL HTML elements</li>
+<li>bgalign implementation for proper table background image alignment</li>
+<li>Reintegrated the optimisation for background image redraws</li>
+<li>Fixed JavaScript Image onerror handling</li>
+<li>Some FORM elements like INPUT and BUTTON can now exist outside of forms and be used as document GUI objects that can trigger JavaScript events</li>
+<li>Saved files will get a DefIcons icon if its running on the system, thanks to using GetDiskObjectNew() instead of GetDefDiskObject()</li>
+<li>Fixed bug with nested tables having the height tag</li>
+<li>Fixed long standing bug with caching of javascript source files that would store empty files in cache</li>
+<li>Fixed problem where onload and onunload would not work when preceded by a script section in the head of the document</li>
+<li>The referer in redirected pages is now set correctly</li>
+<li>AWeb is now aware that printer.device can handle bitmaps greater than 8 bits from version 44, enabling printing from deep screens without requiring Turboprint</li>
+<li>In tolerant mode event handlers such as onclick now allow the form "javascript:code" often used and supported by other browsers</li>
+<li>Non RFC cookie mode extended to allow .domain.com to match domain.com, improving the behaviour of some login systems</li>
+<li>Added Copy Image Url To Clipboard to default Image Popup menu</li>
+<li>Fixed bug where Javascript images could overwrite some document properties</li>
+<li>Fixed bug where transparent GIF animations did not update their backgrounds</li>
+<li>Integrated fixes for known Enforcer hits in original AWeb 3.4 in body.c, defprefs.c and jcomp.c</li>
+<li>Added support for mousewheel scrolling on OS4</li>
+<li>Fixed missing FreeMem call in every AWebPlugin startup.c</li>
+<li>Added onclick event handler support for &lt;IMG&gt; and &lt;OBJECT&gt; elements</li>
+</ul>
+
+<h3>Bug Fixes</h3>
+<ul>
+<li>Fixed refactored SSL_CTX management with shared SSL_CTX and proper reference counting</li>
+<li>Fixed loading cached external CSS stylesheets would fail if server returned a 304 Not Modified response</li>
+<li>Fixed redirects for URLs with query strings now work properly - they are marked as volatile to force refresh since query strings change the URL's intent</li>
+<li>Fixed if external CSS stylesheets were in utf-8 format, the parser would get stuck in an infinite loop</li>
+<li>Fixed long standing bug from AWeb 3.4 where wrong struct member was used to reply to the WBStartup ReplyPort, which could cause unpredictable crashes on launch or DSI errors on OS4</li>
+<li>Fixed when Background images were turned off, the background color and body styles were also not applied</li>
+<li>Fixed BUTTON elements now render their inner text as their label instead of being blank or using the object's value property</li>
+<li>Fixed the GIF AWebPlugin now builds a working binary again that doesn't crash on initialization</li>
+<li>Fixed after integrating the AWeb 3.5 changes for bgalign, child elements no longer rendered their own backgrounds when there was a body background image</li>
+<li>Fixed multiple CSS loading issues with cached files, duplicate merging, and invalid buffer returns</li>
+<li>Fixed CSS rendering issues including link color leaking, background color application, and whitespace normalization in &lt;pre&gt; blocks</li>
+<li>Fixed critical race condition in amissl.c that caused intermittent crashes</li>
+<li>Fixed connection reset error reporting when all data has been received</li>
+<li>Fixed memory leaks and corruption in CSS module</li>
+</ul>
+
 <h2>AWeb 3.6 Alpha 5</h2>
 
 <h3>Major New Features</h3>
@@ -258,27 +329,26 @@ Release History
 
 <h3>General Issues</h3>
 <ul>
-<li>Although the AmiSSL interface code has been completely rewritten to work with AmiSSL 5.20 and properly support asynchronous SSL connections, especially with the use of multiple threads (Tasks), it is still not completely stable</li>
-<li>Using image AWebPlugins with HTTPS connections causes crashes and lockups - for the time being do not use the image plugins, they are not configured by default</li>
+<li>Although the AmiSSL interface code has been completely rewritten to work with AmiSSL 5.25 and properly support asynchronous SSL connections, especially with the use of multiple threads (Tasks), it is still not completely stable</li>
 <li>This version does not currently include most of the changes from the various incomplete 3.5 releases, for now, instead it reimplements the HTTP and AmiSSL client code to a more recent standard. Other features of the 3.5 releases will come later</li>
 <li>Setting the disk cache to 0 or a very small size will prevent images from rendering - this is an issue carried over from the original AWeb</li>
 <li>The documentation is still being updated for release 3.6</li>
 <li>The new support for Markdown documents still has some visual glitches</li>
 <li>The AWebPlugins are deliberately not enabled by default, you will need to enable them manually in the configuration</li>
 <li>Feedback is also particularly welcome on default settings and default programs</li>
+<li>Note that view-source: does not work as you might expect with 30x redirects</li>
 </ul>
 
 <h3>OS4 Specific Issues</h3>
 <p>
-The following issues are specific to running the 3.6 Alpha 5 68K build on OS4:
+The following issues are specific to running the 3.6 Alpha 6 68K build on OS4:
 </p>
 <ul>
 <li>Pages with a background image experience graphics corruption when using the window scroll bars to scroll the page</li>
-<li>Attempts to access HTTPS connections will fail (as a native 68k binary it cannot utilise the PowerPC native AmiSSL library)</li>
-<li>Mousewheel does not scroll</li>
+<li>Attempts to access HTTPS connections will fail</li>
 </ul>
 <p>
-Many of these issues almost certainly have been fixed before in the AWeb 3.5 codebase but they have not been integrated into AWeb 3.6, which is based on AWeb 3.4, at this time.
+Many of these issues almost certainly have been fixed before in the AWeb 3.5 codebase but they have not been integrated into AWeb 3.6, which is based on AWeb 3.4, at this time. Note that mousewheel scrolling on OS4 has been fixed in Alpha 6.
 </p>
 
 <p>
