@@ -1158,15 +1158,56 @@ static BOOL Readheaders(struct Httpinfo *hi)
       }
       else if(STRNIEQUAL(hi->fd->block,"Connection:",11))
       {  /* Parse Connection header to detect keep-alive support */
+         /* Connection header can be a comma-separated list: "Upgrade, close" or "keep-alive, close" */
+         /* We must check ALL tokens, not just the first one */
          UBYTE *p;
+         UBYTE *q;
+         UBYTE *token_start;
+         UBYTE *token_end;
+         BOOL found_close = FALSE;
+         BOOL found_keepalive = FALSE;
+         
          for(p=hi->fd->block+11;*p && isspace(*p);p++);
          
-         /* Case insensitive check using STRNIEQUAL for exact word matching */
-         if(STRNIEQUAL(p, "close", 5))
-         {  hi->flags &= ~HTTPIF_KEEPALIVE;
-            debug_printf("DEBUG: Server sent Connection: close\n");
+         /* Parse comma-separated tokens */
+         while(*p)
+         {  /* Skip leading whitespace */
+            while(*p && isspace(*p)) p++;
+            if(!*p) break;
+            
+            /* Find start of token */
+            token_start = p;
+            
+            /* Find end of token (comma, whitespace, or end of string) */
+            for(q=p;*q && *q!=',' && !isspace(*q);q++);
+            token_end = q;
+            
+            /* Check if this token is "close" (case-insensitive) */
+            if((token_end - token_start == 5) && STRNIEQUAL(token_start, "close", 5))
+            {  found_close = TRUE;
+               debug_printf("DEBUG: Found 'close' in Connection header\n");
+            }
+            /* Check if this token is "keep-alive" (case-insensitive) */
+            else if((token_end - token_start == 10) && STRNIEQUAL(token_start, "keep-alive", 10))
+            {  found_keepalive = TRUE;
+               debug_printf("DEBUG: Found 'keep-alive' in Connection header\n");
+            }
+            
+            /* Skip to next token (past comma if present) */
+            if(*q == ',')
+            {  p = q + 1;
+            }
+            else
+            {  break; /* End of string or no more tokens */
+            }
          }
-         else if(STRNIEQUAL(p, "keep-alive", 10))
+         
+         /* "close" takes precedence - if server says close, connection must be closed */
+         if(found_close)
+         {  hi->flags &= ~HTTPIF_KEEPALIVE;
+            debug_printf("DEBUG: Server sent Connection: close (clearing keep-alive flag)\n");
+         }
+         else if(found_keepalive)
          {  hi->flags |= HTTPIF_KEEPALIVE;
             debug_printf("DEBUG: Server sent Connection: keep-alive\n");
          }
