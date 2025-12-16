@@ -173,6 +173,7 @@ BOOL Checkmimetype(UBYTE *data,long length,UBYTE *type)
       static UBYTE gif89asig[]={ 'G','I','F','8','9','a' };
       static UBYTE pngsig[]={ 0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a };
       static UBYTE jpegsig[]={ 0xff,0xd8 };
+      static UBYTE icosig[]={ 0x00,0x00,0x01,0x00 };
       short l;
       if(STRIEQUAL(type+6,"gif"))
       {  l=MIN(length,sizeof(gif87asig));
@@ -185,6 +186,10 @@ BOOL Checkmimetype(UBYTE *data,long length,UBYTE *type)
       else if(STRIEQUAL(type+6,"png") || STRIEQUAL(type+6,"x-png"))
       {  l=MIN(length,sizeof(pngsig));
          ok=!memcmp(data,pngsig,l);
+      }
+      else if(STRIEQUAL(type+6,"vnd.microsoft.icon") || STRIEQUAL(type+6,"x-icon"))
+      {  l=MIN(length,sizeof(icosig));
+         ok=!memcmp(data,icosig,l);
       }
    }
    return ok;
@@ -234,8 +239,21 @@ UBYTE *Mimetypefromdata(UBYTE *data,long length,UBYTE *deftype)
             }
          }
          else if(p<=end-5 && STRNIEQUAL(p,"<?xml",5))
-         {  /* XML declaration found - treat as XML */
-            type="text/xml";
+         {  /* XML declaration found - skip to closing ?> and check for <svg */
+            UBYTE *q=p+5;
+            while(q<end-1 && !(q[0]=='?' && q[1]=='>')) q++;
+            if(q<end-1) q+=2;  /* Skip past ?> */
+            while(q<end-3 && isspace(*q)) q++;
+            if(q<=end-4 && STRNIEQUAL(q,"<svg",4))
+            {  type="image/svg+xml";
+            }
+            else
+            {  type="text/xml";
+            }
+         }
+         else if(p<=end-4 && STRNIEQUAL(p,"<svg",4))
+         {  /* SVG tag found without XML declaration */
+            type="image/svg+xml";
          }
          else if(STRIEQUAL(deftype,"text/markdown"))
          {  /* Preserve markdown type - markdown files are valid text */
@@ -310,8 +328,21 @@ UBYTE *Mimetypefromdata(UBYTE *data,long length,UBYTE *deftype)
                   }
                }
                else if(p<=end-5 && STRNIEQUAL(p,"<?xml",5))
-               {  /* XML declaration found - treat as XML */
-                  type="text/xml";
+               {  /* XML declaration found - skip to closing ?> and check for <svg */
+                  UBYTE *q=p+5;
+                  while(q<end-1 && !(q[0]=='?' && q[1]=='>')) q++;
+                  if(q<end-1) q+=2;  /* Skip past ?> */
+                  while(q<end-3 && isspace(*q)) q++;
+                  if(q<=end-4 && STRNIEQUAL(q,"<svg",4))
+                  {  type="image/svg+xml";
+                  }
+                  else
+                  {  type="text/xml";
+                  }
+               }
+               else if(p<=end-4 && STRNIEQUAL(p,"<svg",4))
+               {  /* SVG tag found without XML declaration */
+                  type="image/svg+xml";
                }
                else if(Checkmimetype(data,length,"text/plain"))
                {  type="text/plain";
