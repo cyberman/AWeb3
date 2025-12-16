@@ -56,6 +56,7 @@ struct Url
 #define URLF_VOLATILE   0x0010   /* Never use existing copy */
 #define URLF_DEXFETCH   0x0020   /* Current fetch is for docext, don't pass to source */
 #define URLF_WASDUP     0x0040   /* Url was moved because it was duplicate */
+#define URLF_VIEWSOURCE 0x0080   /* view-source: URL - render as plain text */
 
 struct Child
 {  NODE(Child);
@@ -741,6 +742,11 @@ static UBYTE *Urlcontenttype(struct Url *url)
    }
    if(!type) type=(UBYTE *)Agetattr(url->source,AOURL_Contenttype);
    if(!type) type=Mimetypefromext(url->url);
+   /* Check for view-source: URL - force text/plain for text types */
+   /* This overrides cached content types when view-source is active */
+   if(type && Agetattr((void *)url,AOURL_Viewsource) && STRNIEQUAL(type,"text/",5))
+   {  return (UBYTE *)"text/plain";
+   }
    return type;
 }
 
@@ -1057,6 +1063,10 @@ static long Seturl(struct Url *url,struct Amset *ams)
          case AOURL_Volatile:
             SETFLAG(url->flags,URLF_VOLATILE,tag->ti_Data);
             break;
+         case AOURL_Viewsource:
+            if(tag->ti_Data) url->flags|=URLF_VIEWSOURCE;
+            else url->flags&=~URLF_VIEWSOURCE;
+            break;
          case AOBJ_Queueid:
             if(tag->ti_Data==UQID_DUPCHECK)
             {  Dupcheck(url);
@@ -1151,6 +1161,9 @@ static long Geturl(struct Url *url,struct Amset *ams)
             break;
          case AOURL_Finalurlptr:
             PUTATTR(tag,Finalurl2(url));
+            break;
+         case AOURL_Viewsource:
+            PUTATTR(tag,BOOLVAL(url->flags&URLF_VIEWSOURCE));
             break;
       }
    }

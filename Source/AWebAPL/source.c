@@ -279,6 +279,18 @@ static void Adddriver(struct Source *src,UBYTE *data,long length)
    if(type && (STRIEQUAL(type,"application/rss+xml") || STRIEQUAL(type,"application/atom+xml")))
    {  strcpy(src->contenttype,type);
    }
+   
+   /* Check for view-source: URL - force text/plain for any text type resource */
+   /* This must happen AFTER all type determination is complete */
+   if(Agetattr(src->url,AOURL_Viewsource))
+   {  /* view-source: URL - force text/plain for any text type resource */
+      if(type && STRNIEQUAL(type,"text/",5))
+      {  type="text/plain";
+         strcpy(src->contenttype,type);
+         /* Also update the URL object's content type so document source gets the right type */
+         Asetattrs(src->url,AOURL_Contenttype,type,TAG_END);
+      }
+   }
 
    if(src->flags&SRCF_SAVEAS)
    {  src->sdtype=AOTP_SAVEAS;
@@ -786,7 +798,16 @@ static long Srcupdatesource(struct Source *src,struct Amsrcupdate *ams)
    {  switch(tag->ti_Tag)
       {  case AOURL_Contenttype:
             if(tag->ti_Data)
-            {  strncpy(src->contenttype,(UBYTE *)tag->ti_Data,31);
+            {  UBYTE *ct=(UBYTE *)tag->ti_Data;
+               /* Check for view-source: URL - force text/plain for text types */
+               if(Agetattr(src->url,AOURL_Viewsource) && STRNIEQUAL(ct,"text/",5))
+               {  strncpy(src->contenttype,"text/plain",31);
+                  /* Also update the tag data so downstream gets the override */
+                  tag->ti_Data=(ULONG)"text/plain";
+               }
+               else
+               {  strncpy(src->contenttype,ct,31);
+               }
             }
             break;
          case AOURL_Contentlength:

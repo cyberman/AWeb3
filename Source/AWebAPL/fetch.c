@@ -28,6 +28,7 @@
 #include "jslib.h"
 #include "form.h"
 #include "awebtcp.h"
+#include "ciddataurls.h"
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/utility.h>
@@ -75,6 +76,7 @@ struct Fetch
 #define FCHF_IMAGE         0x00004000  /* Fetch counts as image fetch */
 #define FCHF_FORMWARN      0x00008000  /* Warn if form is sent over unsecure link */
 #define FCHF_CHANNEL       0x00010000  /* This is a channel fetch */
+#define FCHF_VIEWSOURCE    0x00020000  /* view-source: URL - render as plain text */
 
 static LIST(Fetch) netqueue;
 static LIST(Fetch) localqueue;
@@ -477,7 +479,20 @@ static UBYTE *Unescape(UBYTE *url)
 /* Find out what driver function to start. In case of external program,
  * do that here and don't fill in a function. */
 static void Driverfunction(struct Fetch *fch)
-{  if(fch->fdbase)
+{  /* Check for view-source: URL scheme - strip prefix and set flags */
+   if(fch->name && STRNIEQUAL(fch->name,"VIEW-SOURCE:",12))
+   {  UBYTE *newurl;
+      /* Strip "view-source:" prefix from URL */
+      newurl=Dupstr(fch->name+12,-1);
+      if(newurl)
+      {  FREE(fch->name);
+         fch->name=newurl;
+         fch->flags|=FCHF_VIEWSOURCE;
+         /* Set view-source flag in URL object */
+         Asetattrs(fch->url,AOURL_Viewsource,TRUE,TAG_END);
+      }
+   }
+   if(fch->fdbase)
    {  CloseLibrary(fch->fdbase);
       fch->fdbase=NULL;
    }
@@ -691,6 +706,22 @@ static void Driverfunction(struct Fetch *fch)
    else if(STRNIEQUAL(fch->name,"X-NIL:",6))
    {  /* Do nothing */
    }
+   else if(STRNIEQUAL(fch->name,"CID:",4))
+   {  fch->driverfun=Cidurltask;
+      fch->fd->name=fch->name+4;  /* Skip "cid:" prefix */
+      Asetattrs(fch->url,
+         AOURL_Cacheable,FALSE,
+         AOURL_Volatile,TRUE,
+         TAG_END);
+   }
+   else if(STRNIEQUAL(fch->name,"DATA:",5))
+   {  fch->driverfun=Dataurltask;
+      fch->fd->name=fch->name+5;  /* Skip "data:" prefix */
+      Asetattrs(fch->url,
+         AOURL_Cacheable,FALSE,
+         AOURL_Volatile,TRUE,
+         TAG_END);
+   }
    else
 #ifdef LOCALONLY
    {  /* Do nothing */
@@ -742,12 +773,13 @@ static BOOL Startdriver(struct Fetch *fch)
    fch->fd->prefs=&prefs;
    fch->fd->prefssema=&prefssema;
    /* Include referer only if it is not localhost, and if not browsing anonymously.
-    * But: if target is x-aweb: or mailto:, always include referer. */
+    * But: if target is x-aweb:, mailto:, or cid:, always include referer. */
    fch->fd->referer=fch->referer;
    ObtainSemaphore(&prefssema);
    if(fch->fd->referer
    && !STRNIEQUAL(fch->name,"X-AWEB:",7)
-   && !STRNIEQUAL(fch->name,"MAILTO:",7))
+   && !STRNIEQUAL(fch->name,"MAILTO:",7)
+   && !STRNIEQUAL(fch->name,"CID:",4))
    {  if(STRNIEQUAL(fch->fd->referer,"FILE://",7)
       || STRNIEQUAL(fch->fd->referer,"X-AWEB:",7)) fch->fd->referer=NULL;
       if(!prefs.referer) fch->fd->referer=NULL;

@@ -191,6 +191,9 @@
 #define AOURL_Linkurl      (AOURL_Dummy+136)
    /* (UBYTE *) Url to link to (moved url for permanently moved original otherwise) */
 
+#define AOURL_Viewsource   (AOURL_Dummy+137)
+   /* (BOOL) This URL was loaded via view-source: scheme - render as plain text */
+
 #define AOURL_    (AOURL_Dummy+)
 #define AOURL_    (AOURL_Dummy+)
 
