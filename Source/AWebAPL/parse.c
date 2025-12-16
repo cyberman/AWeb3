@@ -505,10 +505,9 @@ static struct Attrdes *Findattr(UBYTE *name)
 
 static struct Chardes *Findchar(UBYTE *name)
 {  short i;
-   /* Use linear search with case-insensitive comparison since array
-    * has mixed case entries and is sorted case-sensitively */
+   /* Use linear search with case-sensitive comparison */
    for(i=0;i<NRCHARS;i++)
-   {  if(!stricmp(chars[i].name,name)) return &chars[i];
+   {  if(!strcmp(chars[i].name,name)) return &chars[i];
    }
    return NULL;
 }
@@ -914,7 +913,7 @@ static void Translate(struct Document *doc,struct Buffer *buf,struct Tagattr *ta
             if(cd=Findchar(name))
             {  /* Always convert all entities regardless of HTML mode or character code.
                 * In strict mode, name must be terminated by semicolon or non-alphanumeric. */
-               if(STRIEQUAL(cd->name,name)
+               if(STREQUAL(cd->name,name)
                && (!strict || (q>=end || !isalnum(*q))))
                {  q=p+1+strlen(cd->name); /* +1 because of & */
                   if(q<end)
