@@ -60,10 +60,23 @@
 /* COLOR macro - extract pen number from Colorinfo */
 #define COLOR(ci) ((ci)?((ci)->pen):(-1))
 
+/* External debug flag */
+extern BOOL httpdebug;
+
 /* Simple debug printf - can be enabled/disabled */
 static void debug_printf(const char *format, ...)
 {  va_list args;
    va_start(args, format);
+   vprintf(format, args);
+   va_end(args);
+}
+
+/* PRE tag debug printf - only output if httpdebug is enabled */
+static void pre_debug_printf(const char *format, ...)
+{  va_list args;
+   if(!httpdebug) return;
+   va_start(args, format);
+   printf("[PRE] ");
    vprintf(format, args);
    va_end(args);
 }
@@ -170,9 +183,32 @@ static BOOL Solvebreaks(struct Document *doc)
    return TRUE;
 }
 
+/* Minimal Body structure to access contents.first (full definition in body.c) */
+/* LIST(Element) expands to: struct { struct Element *first; struct Element *tail; struct Element *last; } */
+struct BodyMinimal
+{  struct Aobject object;
+   long aox,aoy,aow,aoh;
+   void *frame;
+   void *cframe;
+   void *pool;
+   void *parent;
+   void *tcell;
+   struct
+   {  struct Element *first;
+      struct Element *tail;
+      struct Element *last;
+   } contents;  /* LIST(Element) */
+};
+
 /* Add element to document contents. If no contents yet, create a body. */
 static BOOL Addelement(struct Document *doc,void *elt)
 {  void *body;
+   struct Aobject *ao;
+   short objtype;
+   UBYTE *tagname;
+   UBYTE *class;
+   UBYTE *id;
+   
    if(!Ensurebody(doc))
    {  Adisposeobject(elt);
       return FALSE;
@@ -189,6 +225,40 @@ static BOOL Addelement(struct Document *doc,void *elt)
       }
       if(body)
       {  Aaddchild(body,elt,0);
+         /* Apply CSS to this element if stylesheet exists */
+         if(doc->cssstylesheet && elt)
+         {  extern BOOL httpdebug;
+            ao = (struct Aobject *)elt;
+            objtype = ao->objecttype;
+            
+            /* Apply CSS based on element type */
+            if(objtype == AOTP_BODY)
+            {  /* Body element - use ApplyCSSToBody */
+               tagname = (UBYTE *)Agetattr(elt, AOBDY_TagName);
+               class = (UBYTE *)Agetattr(elt, AOBDY_Class);
+               id = (UBYTE *)Agetattr(elt, AOBDY_Id);
+               if(httpdebug)
+               {  printf("[CSS] Addelement: Applying CSS to BODY element, tagname=%s, class=%s, id=%s\n",
+                        tagname ? (char *)tagname : "NULL",
+                        class ? (char *)class : "NULL",
+                        id ? (char *)id : "NULL");
+               }
+               ApplyCSSToBody(doc, elt, class, id, tagname);
+            }
+            else
+            {  /* Regular element - use ApplyCSSToElement */
+               if(httpdebug)
+               {  printf("[CSS] Addelement: Applying CSS to element, type=%d, stylesheet=%p\n",
+                        objtype, doc->cssstylesheet);
+               }
+               ApplyCSSToElement(doc, elt);
+            }
+         }
+         else if(httpdebug && elt)
+         {  ao = (struct Aobject *)elt;
+            printf("[CSS] Addelement: Skipping CSS application - stylesheet=%p, element=%p, type=%d\n",
+                  doc->cssstylesheet, elt, ao->objecttype);
+         }
       }
       else
       {  Adisposeobject(elt);
@@ -442,17 +512,25 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
    UBYTE *fontFace;
    short fontSize;
    BOOL isRelative;
+   extern BOOL httpdebug;
+   long ruleCount;
+   long selectorCount;
    
    if(!doc || !body || !doc->cssstylesheet)
-   {  /* debug_printf("CSS: ApplyCSSToBody skipped - doc=%p body=%p stylesheet=%p\n",
-                   doc, body, (doc ? doc->cssstylesheet : NULL)); */
+   {  if(httpdebug)
+      {  printf("[CSS] ApplyCSSToBody: Skipped - doc=%p body=%p stylesheet=%p\n",
+                doc, body, (doc ? doc->cssstylesheet : NULL));
+      }
       return;
    }
    
-   /* debug_printf("CSS: ApplyCSSToBody called - tagname=%s class=%s id=%s\n",
-                (tagname ? (char *)tagname : "NULL"),
-                (class ? (char *)class : "NULL"),
-                (id ? (char *)id : "NULL")); */
+   if(httpdebug)
+   {  printf("[CSS] ApplyCSSToBody: Called - tagname=%s, class=%s, id=%s, body=%p\n",
+             (tagname ? (char *)tagname : "NULL"),
+             (class ? (char *)class : "NULL"),
+             (id ? (char *)id : "NULL"),
+             body);
+   }
    
    isAbsolute = FALSE;
    topValue = NULL;
@@ -462,6 +540,16 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
    sheet = (struct CSSStylesheet *)doc->cssstylesheet;
    
    /* First pass: Find matching CSS rules and determine position type */
+   ruleCount = 0;
+   selectorCount = 0;
+   for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
+       (struct MinNode *)rule->node.mln_Succ;
+       rule = (struct CSSRule *)rule->node.mln_Succ)
+   {  ruleCount++;
+   }
+   if(httpdebug && tagname && stricmp((char *)tagname,"PRE") == 0)
+   {  printf("[CSS] ApplyCSSToBody: Checking %ld rule(s) against PRE element\n", ruleCount);
+   }
    for(rule = (struct CSSRule *)sheet->rules.mlh_Head;
        (struct MinNode *)rule->node.mln_Succ;
        rule = (struct CSSRule *)rule->node.mln_Succ)
@@ -469,6 +557,12 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
          (struct MinNode *)sel->node.mln_Succ;
          sel = (struct CSSSelector *)sel->node.mln_Succ)
       {  matches = TRUE;
+         if(httpdebug && tagname && stricmp((char *)tagname,"PRE") == 0)
+         {  printf("[CSS] ApplyCSSToBody: Checking selector - element=%s, class=%s, id=%s against PRE\n",
+                  sel->name ? (char *)sel->name : "any",
+                  sel->class ? (char *)sel->class : "none",
+                  sel->id ? (char *)sel->id : "none");
+         }
          
          /* debug_printf("CSS: Checking selector: type=0x%lx name=%s class=%s id=%s against element tagname=%s class=%s id=%s\n",
                      (ULONG)sel->type,
@@ -566,11 +660,22 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
          {  /* For body selector, tagname can be "BODY" or NULL (for document body) */
             if(stricmp((char *)sel->name,"body") == 0)
             {  if(tagname && stricmp((char *)tagname,"BODY") != 0)
-               {  matches = FALSE;
+               {  if(httpdebug && tagname && stricmp((char *)tagname,"PRE") == 0)
+                  {  printf("[CSS] ApplyCSSToBody: Selector 'body' doesn't match tagname=%s\n", tagname);
+                  }
+                  matches = FALSE;
                }
             }
             else if(!tagname || stricmp((char *)sel->name,(char *)tagname) != 0)
-            {  matches = FALSE;
+            {  if(httpdebug && tagname && stricmp((char *)tagname,"PRE") == 0)
+               {  printf("[CSS] ApplyCSSToBody: Selector '%s' doesn't match tagname=%s\n",
+                        sel->name ? (char *)sel->name : "NULL", tagname);
+               }
+               matches = FALSE;
+            }
+            else if(httpdebug && tagname && stricmp((char *)tagname,"PRE") == 0)
+            {  printf("[CSS] ApplyCSSToBody: Selector '%s' element name matches tagname=%s\n",
+                     sel->name ? (char *)sel->name : "NULL", tagname);
             }
          }
          
@@ -596,15 +701,25 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
          
          /* If selector matches, apply properties */
          if(matches)
-         {  /* debug_printf("CSS: *** SELECTOR MATCHED! *** Element=%s class=%s id=%s\n",
-                         (sel->name ? (char *)sel->name : "any"),
-                         (sel->class ? (char *)sel->class : "none"),
-                         (sel->id ? (char *)sel->id : "none")); */
+         {  extern BOOL httpdebug;
+            if(httpdebug)
+            {  printf("[CSS] ApplyCSSToBody: Selector matched - element=%s, class=%s, id=%s, tagname=%s\n",
+                     (sel->name ? (char *)sel->name : "any"),
+                     (sel->class ? (char *)sel->class : "none"),
+                     (sel->id ? (char *)sel->id : "none"),
+                     (tagname ? (char *)tagname : "NULL"));
+            }
             for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
                (struct MinNode *)prop->node.mln_Succ;
                prop = (struct CSSProperty *)prop->node.mln_Succ)
             {  if(prop->name && prop->value && prop->value[0] != '\0')
-               {  /* debug_printf("CSS: Applying property: %s = %s\n", prop->name, prop->value); */
+               {  extern BOOL httpdebug;
+                  if(httpdebug)
+                  {  printf("[CSS] ApplyCSSToBody: Applying property %s = %s to tagname=%s\n",
+                           prop->name ? (char *)prop->name : "NULL",
+                           prop->value ? (char *)prop->value : "NULL",
+                           tagname ? (char *)tagname : "NULL");
+                  }
                   /* Apply text-align to body alignment */
                   if(stricmp((char *)prop->name,"text-align") == 0)
                   {  if(stricmp((char *)prop->value,"center") == 0)
@@ -2090,12 +2205,14 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
                {  printf("[STYLE] Dolink: CSS already merged via AODOC_Docextready, skipping duplicate merge\n");
                }
                /* CSS was already merged, just apply to body if needed */
-               if(doc->body && doc->cssstylesheet)
+               /* Safety check: Only apply if document has a frame (not being disposed) */
+               if(doc->body && doc->cssstylesheet && doc->frame)
                {  if(httpdebug)
-                  {  printf("[STYLE] Dolink: Re-applying CSS to body (already merged), body=%p, stylesheet=%p\n",
-                           doc->body, doc->cssstylesheet);
+                  {  printf("[STYLE] Dolink: Re-applying CSS to all elements (already merged), body=%p, stylesheet=%p, frame=%p\n",
+                           doc->body, doc->cssstylesheet, doc->frame);
                   }
-                  ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
+                  /* Reapply CSS to all existing elements to ensure deterministic application */
+                  ReapplyCSSToAllElements(doc);
                   if(doc->win && doc->frame)
                   {  Registerdoccolors(doc);
                   }
@@ -2117,6 +2234,13 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
                   {  printf("[CSS] Dolink: External CSS loaded, calling MergeCSSStylesheet\n");
                   }
                }
+               /* On reload, free existing stylesheet first to start fresh */
+               if((doc->pflags & DPF_RELOADVERIFY) && doc->cssstylesheet)
+               {  if(httpdebug)
+                  {  printf("[STYLE] Dolink: Reload detected, freeing existing stylesheet before merge\n");
+                  }
+                  FreeCSSStylesheet(doc);
+               }
                /* Merge external CSS with existing stylesheet */
                if(httpdebug)
                {  printf("[STYLE] Dolink: Merging CSS into stylesheet (existing=%p)\n", doc->cssstylesheet);
@@ -2127,19 +2251,21 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
                /* Apply link colors from CSS (a:link, a:visited) */
                ApplyCSSToLinkColors(doc);
                /* Always re-apply CSS to body when external CSS loads */
-               if(doc->body && doc->cssstylesheet)
+               /* Safety check: Only apply if document has a frame (not being disposed) */
+               if(doc->body && doc->cssstylesheet && doc->frame)
                {  if(httpdebug)
-                  {  printf("[STYLE] Dolink: Re-applying CSS to body after external CSS load, body=%p, stylesheet=%p\n",
-                            doc->body, doc->cssstylesheet);
+                  {  printf("[STYLE] Dolink: Re-applying CSS to all elements after external CSS load, body=%p, stylesheet=%p, frame=%p\n",
+                            doc->body, doc->cssstylesheet, doc->frame);
                   }
-                  ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
+                  /* Reapply CSS to all existing elements to ensure deterministic application */
+                  ReapplyCSSToAllElements(doc);
                   /* Re-register colors to ensure link colors are updated */
                   if(doc->win && doc->frame)
                   {  Registerdoccolors(doc);
                   }
                }
                else if(httpdebug)
-               {  printf("[STYLE] Dolink: Cannot apply CSS - body=%p, stylesheet=%p\n", doc->body, doc->cssstylesheet);
+               {  printf("[STYLE] Dolink: Cannot apply CSS - body=%p, stylesheet=%p, frame=%p\n", doc->body, doc->cssstylesheet, doc->frame);
                }
             }
          }
@@ -2336,9 +2462,10 @@ static BOOL Docssend(struct Document *doc)
          /* Apply CSS to body if it already exists, or if we merged with existing sheet */
          if(doc->body && doc->cssstylesheet)
          {  if(httpdebug)
-            {  printf("[STYLE] Docssend: Applying CSS to body\n");
+            {  printf("[STYLE] Docssend: Applying CSS to all elements\n");
             }
-            ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
+            /* Reapply CSS to all existing elements to ensure deterministic application */
+            ReapplyCSSToAllElements(doc);
             /* Re-register colors if we merged (to ensure link colors are updated) */
             if(hadExistingSheet && doc->win && doc->frame)
             {  Registerdoccolors(doc);
@@ -2514,6 +2641,7 @@ static BOOL Dobody(struct Document *doc,struct Tagattr *ta)
       }
    }
    /* Apply CSS from stylesheet to body element */
+   /* Note: Child elements get CSS applied when they're added via Addelement() */
    if(doc->body)
    {  extern BOOL httpdebug;
       if(httpdebug)
@@ -2521,6 +2649,15 @@ static BOOL Dobody(struct Document *doc,struct Tagattr *ta)
                 doc->cssstylesheet, doc->body);
       }
       ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
+      /* If CSS exists, always reapply CSS to all existing elements */
+      /* This ensures CSS is applied to elements created before CSS loaded (like PRE) */
+      /* (New children will get CSS applied via Addelement) */
+      if(doc->cssstylesheet)
+      {  if(httpdebug)
+         {  printf("[RENDER] Dobody: Reapplying CSS to all elements (stylesheet=%p)\n", doc->cssstylesheet);
+         }
+         ReapplyCSSToAllElements(doc);
+      }
    }
    if(gotcolor && !gotbg)
    {  /* Set bg to white if no bg is defined but other colors are. */
@@ -2780,6 +2917,10 @@ static BOOL Dotext(struct Document *doc,struct Tagattr *ta)
    UBYTE *transformed;
    long i;
    BOOL needTransform;
+   BOOL isPreformat;
+   BOOL eltPreformat;
+   UBYTE preview[101];
+   long previewLen;
    
    if(ta->length>0)
    {  text = ATTR(doc,ta);
@@ -2828,25 +2969,55 @@ static BOOL Dotext(struct Document *doc,struct Tagattr *ta)
          }
       }
       
+      isPreformat = (BOOL)(doc->pflags & DPF_PREFORMAT);
+      if(isPreformat)
+      {  pre_debug_printf("Dotext: Creating text element with PRE format, length=%ld, textpos=%ld\n",
+                         ta->length, doc->text.length);
+         if(ta->length > 0 && ta->length <= 100)
+         {  previewLen = (ta->length < 100) ? ta->length : 100;
+            memmove(preview, text, previewLen);
+            preview[previewLen] = '\0';
+            pre_debug_printf("Dotext: Text preview: '%.100s'\n", preview);
+         }
+      }
+      
       if(!(elt=Anewobject(AOTP_TEXT,
          AOBJ_Pool,doc->pool,
          AOELT_Textpos,doc->text.length,
          AOELT_Textlength,ta->length,
-         AOELT_Preformat,doc->pflags&DPF_PREFORMAT,
+         AOELT_Preformat,isPreformat,
          AOTXT_Blink,doc->pflags&DPF_BLINK,
          AOTXT_Text,&doc->text,
          (doc->parabgcolor ? AOTXT_Bgcolor : TAG_IGNORE),doc->parabgcolor,
          TAG_END))) 
-      {  if(transformed) FREE(transformed);
+      {  if(isPreformat)
+         {  pre_debug_printf("Dotext: ERROR - Anewobject failed for PRE text\n");
+         }
+         if(transformed) FREE(transformed);
          return FALSE;
       }
+      
+      if(isPreformat)
+      {  eltPreformat = (BOOL)Agetattr(elt, AOELT_Preformat);
+         pre_debug_printf("Dotext: Text element created, AOELT_Preformat=%d (expected 1)\n", eltPreformat);
+      }
+      
       if(!Addelement(doc,elt)) 
-      {  if(transformed) FREE(transformed);
+      {  if(isPreformat)
+         {  pre_debug_printf("Dotext: ERROR - Addelement failed for PRE text\n");
+         }
+         if(transformed) FREE(transformed);
          return FALSE;
       }
       if(!Addtotextbuf(doc,text,ta->length)) 
-      {  if(transformed) FREE(transformed);
+      {  if(isPreformat)
+         {  pre_debug_printf("Dotext: ERROR - Addtotextbuf failed for PRE text\n");
+         }
+         if(transformed) FREE(transformed);
          return FALSE;
+      }
+      if(isPreformat)
+      {  pre_debug_printf("Dotext: PRE text element added successfully, text.length=%ld\n", doc->text.length);
       }
       if(transformed) FREE(transformed);
    }
@@ -2878,27 +3049,96 @@ static BOOL Dowbr(struct Document *doc,struct Tagattr *ta)
 
 /*** <PRE> ***/
 static BOOL Dopre(struct Document *doc,struct Tagattr *ta)
-{  if(!Ensurebody(doc)) return FALSE;
+{  void *body;
+   short style;
+   BOOL fixedfont;
+   UBYTE *class=NULL;
+   UBYTE *id=NULL;
+   struct Tagattr *sentinel;
+   
+   pre_debug_printf("Dopre: Opening <PRE> tag, pflags=0x%lx\n", (ULONG)doc->pflags);
+   
+   if(!Ensurebody(doc))
+   {  pre_debug_printf("Dopre: ERROR - Ensurebody failed\n");
+      return FALSE;
+   }
    Wantbreak(doc,1);
    doc->pflags|=DPF_PREFORMAT;
-   Asetattrs(Docbody(doc),
+   pre_debug_printf("Dopre: Set DPF_PREFORMAT flag, pflags=0x%lx\n", (ULONG)doc->pflags);
+   
+   body = Docbody(doc);
+   
+   /* Extract class and id attributes for CSS matching */
+   sentinel=ta;
+   for(;ta->next;ta=ta->next)
+   {  switch(ta->attr)
+      {  case TAGATTR_CLASS:
+            class=ATTR(doc,ta);
+            break;
+         case TAGATTR_ID:
+            id=ATTR(doc,ta);
+            break;
+      }
+   }
+   
+   /* Set tag name, class, and id on body for CSS matching */
+   if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
+   if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
+   Asetattrs(body,
+      AOBDY_TagName,Dupstr((UBYTE *)"PRE",-1),
       AOBDY_Style,STYLE_PRE,
       AOBDY_Fixedfont,TRUE,
+      AOBDY_WhiteSpace,Dupstr((UBYTE *)"pre",-1),  /* Set white-space: pre by default for PRE elements */
+      AOBDY_Nobr,FALSE,  /* PRE elements should not use no-break (allows line breaks in preformatted text) */
       TAG_END);
+   
+   /* Verify attributes were set */
+   style = (short)Agetattr(body, AOBDY_Style);
+   fixedfont = (BOOL)Agetattr(body, AOBDY_Fixedfont);
+   pre_debug_printf("Dopre: Body style=%d fixedfont=%d\n", style, fixedfont);
+   
    doc->charcount=0;
-   Checkid(doc,ta);
+   pre_debug_printf("Dopre: Reset charcount=0\n");
+   
+   Checkid(doc,sentinel);
+   
+   /* Apply CSS to PRE body based on class/ID */
+   ApplyCSSToBody(doc,body,class,id,"PRE");
+   
+   pre_debug_printf("Dopre: <PRE> tag opened successfully\n");
    return TRUE;
 }
 
 /*** </PRE> ***/
 static BOOL Dopreend(struct Document *doc)
-{  doc->pflags&=~(DPF_PREFORMAT|DPF_LISTING|DPF_XMP);
-   Asetattrs(Docbody(doc),
+{  void *body;
+   BOOL fixedfont;
+   
+   pre_debug_printf("Dopreend: Closing </PRE> tag, pflags=0x%lx charcount=%ld\n",
+                   (ULONG)doc->pflags, doc->charcount);
+   
+   doc->pflags&=~(DPF_PREFORMAT|DPF_LISTING|DPF_XMP);
+   pre_debug_printf("Dopreend: Cleared DPF_PREFORMAT flag, pflags=0x%lx\n", (ULONG)doc->pflags);
+   
+   body = Docbody(doc);
+   Asetattrs(body,
       AOBDY_Fixedfont,FALSE,
       AOBDY_Fontend,TRUE,
       TAG_END);
-   if(doc->charcount) Wantbreak(doc,1);
-   if(!Ensuresp(doc)) return FALSE;
+   
+   /* Verify attributes were set */
+   fixedfont = (BOOL)Agetattr(body, AOBDY_Fixedfont);
+   pre_debug_printf("Dopreend: Body fixedfont=%d (should be 0)\n", fixedfont);
+   
+   if(doc->charcount)
+   {  pre_debug_printf("Dopreend: charcount=%ld, calling Wantbreak\n", doc->charcount);
+      Wantbreak(doc,1);
+   }
+   if(!Ensuresp(doc))
+   {  pre_debug_printf("Dopreend: ERROR - Ensuresp failed\n");
+      return FALSE;
+   }
+   pre_debug_printf("Dopreend: </PRE> tag closed successfully\n");
    return TRUE;
 }
 
@@ -4888,7 +5128,8 @@ static BOOL Dotable(struct Document *doc,struct Tagattr *ta)
       if(!Addelement(doc,elt)) return FALSE;
       if(!Pushtable(doc,elt)) return FALSE;
       /* Apply CSS from external stylesheet */
-      if(doc->cssstylesheet && (class || id))
+      /* Apply CSS even if table has no class/id to support element-only selectors (e.g., "table { background-color: red; }") */
+      if(doc->cssstylesheet)
       {  ApplyCSSToTableFromRules(doc,elt,class,id);
       }
       /* Apply inline CSS if present */
@@ -5562,13 +5803,12 @@ static BOOL Dobuttonend(struct Document *doc)
 
 /*** <BUTTON> ***/
 static BOOL Dobutton(struct Document *doc,struct Tagattr *ta)
-{  if(doc->pflags&DPF_FORM)
-   {  if(doc->button)
-      {  Dobuttonend(doc);
-      }
-      Addbutton(doc,ta,TRUE);
-      Ensuresp(doc);
+{  /* Allow BUTTON elements outside forms for JavaScript onclick handlers */
+   if(doc->button)
+   {  Dobuttonend(doc);
    }
+   Addbutton(doc,ta,TRUE);
+   Ensuresp(doc);
    return TRUE;
 }
 

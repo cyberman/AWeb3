@@ -103,14 +103,21 @@ static void Clickbutton(struct Button *but,BOOL js)
 {  switch(but->type)
    {  case BUTTP_SUBMIT:
          if(!js || Runjavascriptwith(but->cframe,awebonclick,&but->jobject,but->form))
-         {  Amethod(but->form,AFO_SUBMIT,but,0,0);
+         {  /* Only submit if button is inside a form */
+            if(but->form)
+            {  Amethod(but->form,AFO_SUBMIT,but,0,0);
+            }
          }
          break;
       case BUTTP_RESET:
-         Amethod(but->form,AFO_RESET);
+         /* Only reset if button is inside a form */
+         if(but->form)
+         {  Amethod(but->form,AFO_RESET);
+         }
          if(js) Runjavascriptwith(but->cframe,awebonclick,&but->jobject,but->form);
          break;
       case BUTTP_BUTTON:
+         /* BUTTON type is safe outside forms - only runs JavaScript */
          if(js) Runjavascriptwith(but->cframe,awebonclick,&but->jobject,but->form);
          break;
    }
@@ -757,7 +764,7 @@ static long Hittestbutton(struct Button *but,struct Amhittest *amh)
       {  result=AMHR_NEWHIT;
          if(amh->amhr)
          {  amh->amhr->object=but;
-            if(but->type==BUTTP_SUBMIT)
+            if(but->type==BUTTP_SUBMIT && but->form)
             {  void *url=(void *)Agetattr(but->form,AOFOR_Action);
                if(url)
                {  amh->amhr->text=Dupstr((UBYTE *)Agetattr(url,AOURL_Url),-1);
@@ -859,7 +866,10 @@ static long Jsetupbutton(struct Button *but,struct Amjsetup *amj)
    if(but->body)
    {  /* Don't add the label contents to the form object, but wait until
        * we are called again with the document object as parent. */
-      struct Jobject *fjo=(struct Jobject *)Agetattr(but->form,AOBJ_Jobject);
+      struct Jobject *fjo=NULL;
+      if(but->form)
+      {  fjo=(struct Jobject *)Agetattr(but->form,AOBJ_Jobject);
+      }
       if(amj->parent!=fjo)
       {  AmethodA(but->body,amj);
       }
