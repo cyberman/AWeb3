@@ -1067,7 +1067,7 @@ MSG_PROJECT_EDIT (//)
 Edit Source...
 ;
 MSG_PROJECT_INFO (//)
-Info...
+I/Info...
 ;
 MSG_PROJECT_OPENNEWS (//)
 Open News
@@ -1086,13 +1086,13 @@ MSG_CONTROL_LOADNOW (//)
 Load Images
 ;
 MSG_CONTROL_LOADNOWALL (//)
-I/All Images
+All Images
 ;
 MSG_CONTROL_LOADNOWMAPS (//)
 M/Maps Only
 ;
 MSG_CONTROL_NETWORKSTATUS (//)
-?/Network Status...
+Network Status...
 ;
 MSG_DUMMY_2 (//)
 

@@ -6,7 +6,7 @@ FROM     lib:c.o awebview.o locale.o memory.o versionview.o boopsi.o support.o
          popup.o search.o print.o printwin.o info.o saveiff.o
          netstat.o hotlist.o whiswin.o cabrowse.o
          urlview.o source.o copy.o copyjs.o cacheview.o cookieview.o fetchview.o mime.o
-         local.o httpview.o xawebview.o
+         local.o httpview.o xawebview.o ciddataurls.o cidregistry.o
          tcpview.o tcperr.o nameservview.o authorview.o
          awebtcpview.o awebamitcpview.o amisslview.o
          sourcedriver.o docsource.o imgsource.o extprog.o saveas.o soundsource.o

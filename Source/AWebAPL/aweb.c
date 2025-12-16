@@ -28,6 +28,7 @@
 #include "startup.h"
 #include "task.h"
 #include "locale.h"
+#include "cidregistry.h"
 #include <intuition/intuition.h>
 #include <intuition/intuitionbase.h>
 #include <intuition/gadgetclass.h>
@@ -1229,6 +1230,7 @@ static BOOL Initall(void)
    Setloadreqstate(LRQ_FONTS);
    if(!Initprefs2()) return FALSE;
    if(!Initurl()) return FALSE;
+   if(!Initcidregistry()) return FALSE;  /* Initialize CID registry for cid: URLs */
    Setloadreqstate(LRQ_CACHE);
    if(!Initcache()) return FALSE;   /* must be inited before url(2) */
    if(!Initurl2()) return FALSE;
@@ -1283,6 +1285,8 @@ static BOOL Hasprotocol(UBYTE *url)
    if(STRNIEQUAL(url,"NEWS:",5)) return TRUE;
    if(STRNIEQUAL(url,"X-AWEB:",7)) return TRUE;
    if(STRNIEQUAL(url,"ABOUT:",6)) return TRUE;
+   if(STRNIEQUAL(url,"CID:",4)) return TRUE;
+   if(STRNIEQUAL(url,"DATA:",5)) return TRUE;
    return FALSE;
 }
 

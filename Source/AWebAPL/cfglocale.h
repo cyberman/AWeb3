@@ -2113,13 +2113,12 @@ static const char CatCompBlock[] =
 /****************************************************************************/
 
 
-#ifndef LOCALE_H
 struct LocaleInfo
 {
     APTR li_LocaleBase;
     APTR li_Catalog;
-}; 
-#endif /* LOCALE_H */
+};
+
 
 #ifdef CATCOMP_CODE
 

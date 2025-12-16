@@ -50,7 +50,7 @@ aweb:       popup.o search.o print.o printwin.o info.o saveiff.o
 aweb:       netstat.o hotlist.o whiswin.o cabrowse.o
 #  Url related objects
 aweb:       url.o source.o copy.o copyjs.o cache.o cookie.o fetch.o mime.o
-aweb:       local.o http.o xaweb.o
+aweb:       local.o http.o xaweb.o ciddataurls.o cidregistry.o
 #  TCP/SSL drivers
 aweb:       tcp.o tcperr.o nameserv.o author.o awebamitcp.o awebtcp.o amissl.o
 #  zlib compression library
@@ -144,10 +144,14 @@ winrexx.o:  copy.h fetch.h cache.h copydriver.h filereq.h plugin.h
 
 xaweb.o:    xaweb.c aweb.h tcperr.h fetchdriver.h file.h task.h
 
+ciddataurls.o: ciddataurls.c aweb.h fetchdriver.h cidregistry.h tcperr.h task.h
+
+cidregistry.o: cidregistry.c aweb.h cidregistry.h
+
 
 #- AWebView ------------------------------------------------------------------
 
-awebview:       awebview.o locale.o memory.o versionview.o boopsi.o support.o
+awebview:       awebview.o locale.o memory.o versionview.o boopsi.o supportview.o
 awebview:       requestview.o asyncio.o simplerexx.o arexxview.o clip.o tooltip.o
 awebview:       prefs.o defprefsview.o
 #  General objects
@@ -160,7 +164,7 @@ awebview:       popup.o search.o print.o printwin.o info.o saveiff.o
 awebview:       netstat.o hotlist.o whiswin.o cabrowse.o
 #  Url related objects
 awebview:       urlview.o source.o copy.o copyjs.o cacheview.o cookieview.o fetchview.o mime.o
-awebview:       local.o httpview.o xawebview.o
+awebview:       local.o httpview.o xawebview.o ciddataurls.o cidregistry.o
 #  TCP/SSL drivers (compiled with LOCALONLY)
 awebview:       tcpview.o tcperr.o nameservview.o authorview.o
 awebview:       awebtcpview.o awebamitcpview.o amisslview.o
@@ -264,6 +268,10 @@ windowview.o:   window.c aweb.h winprivate.h frame.h winhis.h application.h url.
     @echo "        Compiling window.c (LOCALONLY)..."
     @sc $(DEBUG) DEF=LOCALONLY window.c OBJNAME=windowview.o
 
+supportview.o:  support.c aweb.h object.h task.h source.h
+    @echo "        Compiling support.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY support.c OBJNAME=supportview.o
+
 # Note: AWebView uses separate object files (*view.o) for files that differ
 # when LOCALONLY is defined. This allows building both AWeb and AWebView
 # in the same smake run without conflicts. All network code is excluded
@@ -340,7 +348,7 @@ aweblib/about.aweblib: about.o about.lnk
 
 about.o:   about.c aweblib.h fetchdriver.h task.h
    @echo "        Compiling $*..."
-   @sc $*
+   @sc idir=sslinclude: MemorySize=h IdentifierLength=100 $*
 
 #- gopher --------
 

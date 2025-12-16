@@ -1296,6 +1296,8 @@ static BOOL Hasprotocol(UBYTE *url)
    if(STRNIEQUAL(url,"NEWS:",5)) return TRUE;
    if(STRNIEQUAL(url,"X-AWEB:",7)) return TRUE;
    if(STRNIEQUAL(url,"ABOUT:",6)) return TRUE;
+   if(STRNIEQUAL(url,"CID:",4)) return TRUE;
+   if(STRNIEQUAL(url,"DATA:",5)) return TRUE;
    return FALSE;
 }
 

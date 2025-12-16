@@ -596,6 +596,8 @@ extern void Checkregisterinfo(void);
 
    // local file protocol subtask
 extern void Localfiletask(struct Fetchdriver *fd);
+extern void Cidurltask(struct Fetchdriver *fd);
+extern void Dataurltask(struct Fetchdriver *fd);
 
 /*-----------------------------------------------------------------------*/
 /*-- locale -------------------------------------------------------------*/

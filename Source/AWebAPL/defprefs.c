@@ -1332,7 +1332,7 @@ BOOL Initdefprefs(void)
    Adddeffontalias(alias,6,font,36);
    
    if(!Addmimeinfo(&defprefs.mimelist,
-      "text","html","html htm shtml phtml asp",MDRIVER_INTERNAL,"","")) return FALSE;
+      "text","html","html htm shtml phtml php asp",MDRIVER_INTERNAL,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
       "text","plain","txt",MDRIVER_INTERNAL,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
@@ -1360,6 +1360,14 @@ BOOL Initdefprefs(void)
 #endif
       )) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
+      "message","rfc822","eml",
+#ifdef OSVERSION
+      MDRIVER_PLUGIN,"AWeb:awebplugin/awebeml.awebplugin",""
+#else
+      MDRIVER_INTERNAL,"",""
+#endif
+      )) return FALSE;
+   if(!Addmimeinfo(&defprefs.mimelist,
       "application","x-lha","lha",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
       "application","zip","zip",MDRIVER_NONE,"","")) return FALSE;
@@ -1368,8 +1376,7 @@ BOOL Initdefprefs(void)
    if(!Addmimeinfo(&defprefs.mimelist,
       "application","gzip","gz",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "application","pdf","pdf",MDRIVER_EXTERNAL,
-      "SYS:Utilities/MultiView","%f pubscreen %n")) return FALSE;
+      "application","pdf","pdf",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
       "application","x-shockwave-flash","swf",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
@@ -1426,8 +1433,7 @@ BOOL Initdefprefs(void)
    if(!Addmimeinfo(&defprefs.mimelist,
       "video","mpeg","mpg mpeg",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
-      "video","x-msvideo","avi",MDRIVER_EXTERNAL,
-      "SYS:Utilities/MultiView","%f pubscreen %n")) return FALSE;
+      "video","x-msvideo","avi",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
       "video","quicktime","qt",MDRIVER_NONE,"","")) return FALSE;
    if(!Addmimeinfo(&defprefs.mimelist,
@@ -1627,7 +1633,7 @@ BOOL Initdefprefs(void)
    /*if(!Adduserbutton(&defprefs.buttons,Getmainstr(MSG_USERBUTTON_CACHE),
       "SUBWINDOW CACHEBROWSER OPEN")) return FALSE;*/
    if(!Adduserbutton(&defprefs.buttons,"Protoweb",
-      "RUN AWeb:protoweb.awebrx")) return FALSE;
+      "RUN AWeb:Docs/protoweb.awebrx")) return FALSE;
    /*
    if(!Adduserbutton(&defprefs.buttons,"News:",
       "OPEN news:")) return FALSE;
