@@ -5,6 +5,89 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6alpha6] - 16-12-2025
+
+### Added
+- **Enhanced CSS Support:** More CSS properties now supported including:
+  - Layout: padding, margin (with auto support), position (absolute, relative, fixed, static), top, left, right, bottom, border (width, style, color), vertical-align, text-align
+  - Display: display: none (elements completely hidden), overflow (hidden/auto/scroll with clipping), clear (left/right/both for float clearing)
+  - Sizing: min-width, max-width, min-height, max-height constraints
+  - Colors: CSS colors can now be specified in either hex format (#RRGGBB) or by name (brown, black, red, etc.)
+  - Combined table cell styles support
+- **HTTP Range Support (RFC 7233):** Added Range request support for fast automatic resume of incomplete requests, reducing failed page asset loads
+- **CID and Data URL Support:** Added parsing of cid: and data: URL types for inline binary attachments in multipart MIME messages
+- **view-source: Protocol:** Added view-source: URL scheme support allowing viewing any URL as plain text (note: does not work correctly with 30x redirects)
+- **Mozilla Bookmarks Import:** Mozilla bookmarks.html format files can now be imported into AWeb Hotlist
+- **ICO Format Support:** ICO format images (such as favicon.ico) are converted on-the-fly into BMP format and passed to DataTypes for rendering
+- **Protoweb.org Integration:** Added ARexx script for easily enabling Protoweb.org proxy to browse the web as if it's 1999
+- **Enhanced User-Agent Spoofing:** Default User-Agent strings now reflect a variety of real-world HTML4 browsers found in the wild in 2025
+- **Volume Information Display:** When viewing file:/// root directory, shows volume size and filesystem type rather than normal directory listing
+- **Mousewheel Scrolling:** Added support for mousewheel events for scrolling document windows on OS4 and OS3.2
+- **68020 Optimization:** All AWeb binaries now built with 68020 optimization enabled by default. AWebPlugins are additional built with 68881 FPU optimisation enabled
+- **Locale Catalogs:** All locale catalogs from AWeb 3.4 are now included in the distribution. Note that the list of strings has not changed. Strings added in AWeb 3.5 are NOT included. Do NOT use catalogs meant for AWeb 3.5
+- **PNG Plugin Update:** PNG AWebPlugin updated to use libpng 1.6.43
+- **New MIME Types:** Added default MIME types for files common in 2025, and all MIME types are set to lowercase as per RFC 6838
+
+### Changed
+- **Connection Cancellation:** Connections that are still loading for the current page will immediately be terminated when navigating to a new page or reloading. Same improvement applies to Cancel All button in Network Status window and Cancel Load menu item/ARexx commands
+- **TLS Cipher Preference:** AWeb now prefers CHACHA20-POLY1305 ciphers over AES-GCM for better performance on Amiga
+- **AmiSSL SDK:** Rebuilt with latest AmiSSL 5.25 SDK
+- **CSS Selector Matching:** Enhanced CSS selector matching with:
+  - Multiple chained CSS classes (e.g., .class1.class2)
+  - Descendant selector matching (e.g., "body .item")
+  - Child combinator matching (e.g., "div > p")
+  - Specificity-based rule sorting (higher specificity wins, last wins for same specificity)
+- **CSS Property Application:** Enhanced CSS property application with proper precedence order (external CSS → FONT tag attributes → inline CSS)
+
+### Fixed
+- **CSS Loading:** Fixed multiple issues preventing external CSS files from loading correctly when cached:
+  - Fixed 304 Not Modified response handling for cached CSS
+  - Fixed ERROR flag handling when CSS load completed with ERROR but had valid buffer data
+  - Fixed infinite loop when loading external CSS/JS files from CDNs
+  - Fixed duplicate CSS merging (CSS was being merged twice)
+  - Fixed invalid cached buffer returns (checking DOXF_EOF flag and buffer validity)
+  - Fixed reload flag preservation for CSS files
+- **CSS Parser:** Fixed infinite loop parsing CSS if CSS file was in UTF-8 (UTF-8 BOM handling)
+- **CSS Rendering:** Fixed multiple CSS rendering issues:
+  - Fixed background images setting incorrectly controlling all color rendering
+  - Fixed child element background colors not rendering when body has background image
+  - Fixed link color leaking from links to regular text in external stylesheets
+  - Fixed class-based link selectors not applying colors
+  - Fixed inline CSS color on links not working
+  - Fixed text-transform working for external stylesheets but failing for inline styles
+  - Fixed whitespace normalization in `<pre>` blocks (preserves non-breaking spaces)
+- **SSL/TLS Management:** Refactored SSL_CTX management with shared SSL_CTX and proper reference counting to prevent crashes
+- **Redirect Handling:** Fixed redirects for URLs with query strings - they are now marked as volatile to force refresh since query strings change the URL's intent
+- **WBStartup Bug:** Fixed long-standing bug from AWeb 3.4 where wrong struct member was used to reply to WBStartup ReplyPort, causing unpredictable crashes on launch or DSI errors on OS4
+- **BUTTON Elements:** Fixed BUTTON elements to display their inner text content as their label instead of being blank
+- **Connection Reset:** Fixed connection reset error reporting - don't report ECONNRESET as error when all Content-Length data has been received
+- **Memory Leaks:** Fixed resource leaks in CSS module and memory corruption in FreeCSSStylesheetInternal
+- **Race Conditions:** Fixed critical race condition in amissl.c that caused intermittent crashes when SSL objects were accessed while being freed concurrently
+- **Enforcer Hits:** Fixed possible Enforcer (null pointer) hits in Adddefmenu for empty menu item labels and Getmainstr() with NULL name
+
+### Reintegrated from AWeb 3.5
+- **HTML Elements:** Reintegrated support for INS and DEL HTML elements
+- **Background Alignment:** Reintegrated bgalign (background alignment) mechanism for proper table background image alignment
+- **Background Image Optimization:** Reintegrated optimization for background image redraws
+- **JavaScript Improvements:**
+  - Fixed JavaScript Image onerror handling
+  - Fixed long-standing bug with caching of JavaScript source files that would store empty files in cache
+  - Fixed problem where onload and onunload would not work when preceded by a script section in the head of the document
+  - Added onclick event handler support for `<IMG>` and `<OBJECT>` elements
+- **Form Elements:** Some FORM elements like INPUT and BUTTON can now exist outside of forms and be used as document GUI objects that can trigger JavaScript events
+- **DefIcons Support:** Saved files will get a DefIcons icon if running on the system, thanks to using GetDiskObjectNew() instead of GetDefDiskObject()
+- **Table Bug:** Fixed bug with nested tables having the height tag
+- **Redirect Referer:** The referer in redirected pages is now set correctly
+- **Printer Support:** AWeb is now aware that printer.device can handle bitmaps greater than 8 bits from version 44, enabling printing from deep screens without requiring Turboprint
+- **Event Handlers:** In tolerant mode event handlers such as onclick now allow the form "javascript:code" often used and supported by other browsers
+- **Cookie Domain Matching:** Non-RFC cookie mode extended to allow .domain.com to match domain.com, improving the behaviour of some login systems
+- **Image Popup Menu:** Added Copy Image Url To Clipboard to default Image Popup menu
+- **JavaScript Images:** Fixed bug where JavaScript images could overwrite some document properties
+- **GIF Transparency:** Fixed bug where transparent GIF animations did not update their backgrounds
+- **Enforcer Fixes:** Integrated fixes for known Enforcer hits in original AWeb 3.4 in body.c, defprefs.c and jcomp.c
+- **Mousewheel on OS4:** Added support for mousewheel scrolling on OS4
+- **Plugin Memory:** Fixed missing FreeMem call in every AWebPlugin startup.c
+
 ## [3.6alpha5] - 25-12-05
 
 ### Added

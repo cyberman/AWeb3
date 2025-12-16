@@ -277,6 +277,20 @@ The main changes in version 3.6 compared to version 3.4 are:
 - Added support for some additional XML entities that have equivalents in Latin-1
 - Fixed a bug where utf-8 encoded characters would be interpreted as single byte characters
 
+**What's New in 3.6 Alpha 6:**
+- **Enhanced CSS Support:** More CSS properties including padding, margin (with auto), position, borders, vertical-align, text-align, display: none, overflow clipping, clear for floats, and min/max width/height constraints. CSS colors can be specified in hex or by name
+- **HTTP Range Support (RFC 7233):** Automatic resume of incomplete requests for faster page loading
+- **view-source: Protocol:** View any URL as plain text source
+- **Mozilla Bookmarks Import:** Import Mozilla bookmarks.html files into AWeb Hotlist
+- **Protoweb.org Integration:** ARexx script for easy Protoweb.org proxy setup
+- **Connection Management:** Improved connection cancellation when navigating or reloading pages
+- **Plugin Updates:** PNG plugin updated to libpng 1.6.43, GIF plugin fixed so it doesn't crash as it did when AWeb 3.5 changes were first integrated
+- **AmiSSL 5.25:** Rebuilt with latest AmiSSL SDK, prefers CHACHA20-POLY1305 ciphers for better Amiga performance
+- **68020 Optimization:** All AWeb binaries built with default 68020 optimization enabled
+- **Mousewheel Support:** Added mousewheel scrolling on OS4 and OS3.2
+- **Features from AWeb 3.5:** Reintegrated INS/DEL elements, bgalign, background image optimizations, JavaScript improvements, form element enhancements, DefIcons support, printer improvements, and many bug fixes
+- **Bug Fixes:** Fixed CSS loading with cached files, CSS rendering issues, SSL_CTX management, redirect handling, WBStartup crashes, and many other critical bugs
+
 **What's New in 3.6 Alpha 5:**
 - **CSS Support:** Experimental inline CSS and external stylesheet support for a subset of CSS1 and CSS2 properties (text, layout, background, border, list properties, and basic grid layout)
 - **XHTML 1.0 Support:** Added XHTML 1.0 parsing and rendering with strict mode enforcement and CDATA section support
