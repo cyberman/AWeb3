@@ -602,7 +602,14 @@ static long Rendercopy(struct Copy *cop,struct Amrender *amr)
    long x,y,w,h,bw,bh,len,histart,hiend;
    short pen;
    BOOL highlight;
+   BOOL toplevel;
    struct TextExtent te={0};
+   /* For top-level document copies (non-embedded, non-background, non-bgsound),
+    * avoid showing the default loading icon and border frame. Rendering only
+    * clears the background so the user sees an empty (white) area instead of
+    * a visible placeholder, which reduces flash-of-unstyled/placeholder content
+    * before the real document or plugin driver is ready. */
+   toplevel = !(cop->flags&(CPYF_EMBEDDED|CPYF_BACKGROUND|CPYF_BGSOUND));
    Setdisplayed(cop,TRUE);
    if(!Agetattr(cop,AOELT_Visible)) return 0;
    if(cop->driver && Agetattr(cop->driver,AOCDV_Ready) && !(cop->flags&CPYF_ERROR))
@@ -662,7 +669,7 @@ static long Rendercopy(struct Copy *cop,struct Amrender *amr)
                   {  highlight=FALSE;
                   }
                   if(highlight && !(amr->flags&AMRF_CLEAR))
-                  {  Erasebg(cop->cframe,coo,
+               {  Erasebg(cop->cframe,coo,
                         MAX(amr->minx,cop->aox),
                         MAX(amr->miny,cop->aoy),
                         MIN(amr->maxx,cop->aox+cop->aow-1),
@@ -683,7 +690,7 @@ static long Rendercopy(struct Copy *cop,struct Amrender *amr)
                   }
                }
             }
-            else if(icon=Copyicon(cop))
+            else if(!toplevel && (icon=Copyicon(cop)))
             {  bitmap=(struct BitMap *)Getvalue(icon,BITMAP_BitMap);
                mask=(UBYTE *)Getvalue(icon,BITMAP_MaskPlane);
                bw=Getvalue(icon,BITMAP_Width);
@@ -704,7 +711,9 @@ static long Rendercopy(struct Copy *cop,struct Amrender *amr)
                }
             }
          }
-         Drawframe(cop,coo,amr,TRUE);
+         if(!toplevel)
+         {  Drawframe(cop,coo,amr,TRUE);
+         }
       }
       Unclipcoords(coo);
    }
