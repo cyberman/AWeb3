@@ -5103,6 +5103,11 @@ static BOOL Dotable(struct Document *doc,struct Tagattr *ta)
             break;
       }
    }
+   /* If border was not specified, default to no borders/rules */
+   if(border<0)
+   {  if(frame<0) frame=TABFRM_NONE;
+      if(rules<0) rules=TABRUL_NONE;
+   }
    if(!(Ensurebody(doc))) return FALSE;
    if(doc->doctype==DOCTP_BODY)
    {  if(flalign<0) Wantbreak(doc,1);
