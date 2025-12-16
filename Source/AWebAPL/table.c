@@ -1723,8 +1723,13 @@ Table layout algorythm used here:
          /* Now there is enough space for all unassigned columns.
           * Distribute weighted by their minimum and maximum widths */
          if(minuns)  /* unsized width columns are not yet assigned a width */
-         {  w=tw-minuns;            /* extra width to distribute */
+         {  long nru=0;              /* number of unsized columns */
+            w=tw-minuns;            /* extra width to distribute */
             d=maxuns-minuns;        /* extra size wanted */
+            /* Count unsized columns */
+            for(i=0;i<tab->nrcols;i++)
+            {  if(tab->cols[i].swtype==SWT_UNSIZED) nru++;
+            }
             for(i=0;i<tab->nrcols;i++)
             {  hcol=&tab->cols[i];
                if(hcol->swtype==SWT_UNSIZED)
@@ -1732,8 +1737,17 @@ Table layout algorythm used here:
                   {  if(d) hcol->width=hcol->minw+(hcol->maxw-hcol->minw)*w/d;
                      else hcol->width=hcol->minw;
                   }
-                  else if(maxuns>0) /* expand column */
-                  {  hcol->width=hcol->maxw*tw/maxuns;
+                  else if(maxuns>0 && d>0) /* expand column */
+                  {  /* Distribute extra space proportionally based on maxw-minw */
+                     hcol->width=hcol->minw+(hcol->maxw-hcol->minw)*w/d;
+                  }
+                  else if(maxuns>0) /* expand column when d==0 (all columns have same min/max) */
+                  {  /* All columns have same min and max, distribute remaining space evenly */
+                     if(nru>0) hcol->width=hcol->minw+w/nru;
+                     else hcol->width=hcol->minw;
+                  }
+                  else /* maxuns==0, should not happen but handle gracefully */
+                  {  hcol->width=hcol->minw;
                   }
                }
             }
