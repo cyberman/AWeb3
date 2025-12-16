@@ -108,6 +108,7 @@ long ParseCSSLengthValue(UBYTE *value,struct Number *num);
 struct Colorinfo *ExtractBackgroundColorFromRules(struct Document *doc,UBYTE *class,UBYTE *id,UBYTE *tagname);
 void ApplyCSSToTableCellFromRules(struct Document *doc,void *table,UBYTE *class,UBYTE *id,UBYTE *tagname);
 void ApplyCSSToTableFromRules(struct Document *doc,void *table,UBYTE *class,UBYTE *id);
+void ReapplyCSSToAllElements(struct Document *doc);
 
 #endif /* AWEB_CSS_H */
 

@@ -22,6 +22,7 @@
 #include "object.h"
 #include "task.h"
 #include "source.h"
+#include "cidregistry.h"
 #include <proto/exec.h>
 #include <proto/utility.h>
 
@@ -449,6 +450,18 @@ __asm __saveds long apsAwebcommand(register __d0 long portnr,
    return Supportarexxcmd(portnr,cmd,resultbuf,length);
 }
 
+__asm __saveds void apsRegistercidpart(register __a0 UBYTE *referer_url,
+   register __a1 UBYTE *content_id,
+   register __a2 UBYTE *content_type,
+   register __a3 UBYTE *data,
+   register __d0 long datalen)
+{  Registercidpart(referer_url,content_id,content_type,data,datalen);
+}
+
+__asm __saveds void apsUnregistercidparts(register __a0 UBYTE *referer_url)
+{  Unregistercidparts(referer_url);
+}
+
 __asm __saveds BOOL apsAwebactive(void)
 {  return Awebactive();
 }
@@ -465,8 +478,8 @@ __asm __saveds struct Fontalias *apsAddfontalias(register __a0 void *list,
 /*-----------------------------------------------------------------------*/
 
 #define APSVERSION      2
-#define APSREVISION     2
-#define APSVERSIONSTR   "2.2"
+#define APSREVISION     3
+#define APSVERSIONSTR   "2.3"
 
 static UBYTE version[]="awebplugin.library";
 static UBYTE idstring[]="awebplugin " APSVERSIONSTR " " __AMIGADATE__;
@@ -479,6 +492,8 @@ struct Jumptab
 
 struct Jumptab jumptab[]=
 {  
+   JMP,apsUnregistercidparts,
+   JMP,apsRegistercidpart,
    JMP,apsAddfontalias,
    JMP,apsFreefontalias,
    JMP,apsAwebactive,

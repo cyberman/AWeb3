@@ -38,6 +38,23 @@
 /* COLOR macro - extract pen number from Colorinfo */
 #define COLOR(ci) ((ci)?((ci)->pen):(-1))
 
+/* Minimal Body structure to access contents.first (full definition in body.c) */
+/* LIST(Element) expands to: struct { struct Element *first; struct Element *tail; struct Element *last; } */
+struct BodyMinimal
+{  struct Aobject object;
+   long aox,aoy,aow,aoh;
+   void *frame;
+   void *cframe;
+   void *pool;
+   void *parent;
+   void *tcell;
+   struct
+   {  struct Element *first;
+      struct Element *tail;
+      struct Element *last;
+   } contents;  /* LIST(Element) */
+};
+
 /* Forward declarations */
 static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css);
 static struct CSSRule* ParseRule(struct Document *doc,UBYTE **p);
@@ -1807,8 +1824,35 @@ void ApplyCSSToElement(struct Document *doc,void *element)
    struct RuleWithSpecificity *insertAfter;
    struct CSSStylesheet *sheet;
    USHORT maxSpec;
+   extern BOOL httpdebug;
+   short objtype;
+   struct Aobject *ao;
+   UBYTE *tagname;
+   UBYTE *class;
+   UBYTE *id;
+   long matchCount;
    
    if(!doc || !element || !doc->cssstylesheet) return;
+   
+   ao = (struct Aobject *)element;
+   objtype = ao->objecttype;
+   if(objtype == AOTP_BODY)
+   {  tagname = (UBYTE *)Agetattr(element, AOBDY_TagName);
+      class = (UBYTE *)Agetattr(element, AOBDY_Class);
+      id = (UBYTE *)Agetattr(element, AOBDY_Id);
+   }
+   else
+   {  tagname = (UBYTE *)Agetattr(element, AOELT_TagName);
+      class = (UBYTE *)Agetattr(element, AOELT_Class);
+      id = (UBYTE *)Agetattr(element, AOELT_Id);
+   }
+   if(httpdebug)
+   {  printf("[CSS] ApplyCSSToElement: element=%p, type=%d, tagname=%s, class=%s, id=%s\n",
+            element, objtype,
+            tagname ? (char *)tagname : "NULL",
+            class ? (char *)class : "NULL",
+            id ? (char *)id : "NULL");
+   }
    
    sheet = (struct CSSStylesheet *)doc->cssstylesheet;
    
@@ -1885,6 +1929,18 @@ void ApplyCSSToElement(struct Document *doc,void *element)
       }
    }
    
+   /* Count matching rules */
+   matchCount = 0;
+   for(ruleSpec = (struct RuleWithSpecificity *)matches.mlh_Head;
+       (struct MinNode *)ruleSpec->node.mln_Succ;
+       ruleSpec = (struct RuleWithSpecificity *)ruleSpec->node.mln_Succ)
+   {  matchCount++;
+   }
+   
+   if(httpdebug)
+   {  printf("[CSS] ApplyCSSToElement: Found %ld matching rule(s) for element\n", matchCount);
+   }
+   
    /* Apply properties from matching rules sorted by specificity */
    /* Rules with same specificity maintain document order (last wins) */
    for(ruleSpec = (struct RuleWithSpecificity *)matches.mlh_Head;
@@ -1894,7 +1950,11 @@ void ApplyCSSToElement(struct Document *doc,void *element)
       for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
          (struct MinNode *)prop->node.mln_Succ;
          prop = (struct CSSProperty *)prop->node.mln_Succ)
-      {  ApplyProperty(doc,element,prop);
+      {  if(httpdebug)
+         {  printf("[CSS] ApplyCSSToElement: Applying property %s to element\n",
+                  prop->name ? (char *)prop->name : "NULL");
+         }
+         ApplyProperty(doc,element,prop);
       }
       /* Free the helper structure */
       REMOVE((struct MinNode *)ruleSpec);
@@ -1902,25 +1962,145 @@ void ApplyCSSToElement(struct Document *doc,void *element)
    }
 }
 
-/* Reapply CSS to all existing elements when CSS loads asynchronously */
+/* Recursively apply CSS to a body element and all its child elements */
+/* depth: recursion depth to prevent infinite loops (max 100) */
+static void ReapplyCSSToBodyRecursiveInternal(struct Document *doc, void *body, long depth)
+{  struct Element *child;
+   struct Aobject *ao;
+   short objtype;
+   UBYTE *tagname;
+   UBYTE *class;
+   UBYTE *id;
+   void *childBody;
+   extern BOOL httpdebug;
+   struct BodyMinimal *bd;
+   long iterationCount;
+   long childCount;
+   
+   if(!doc || !body || !doc->cssstylesheet) return;
+   
+   /* Prevent infinite recursion - max depth of 100 */
+   if(depth > 100)
+   {  if(httpdebug)
+      {  printf("[CSS] ReapplyCSSToBodyRecursive: WARNING - Max recursion depth (100) exceeded, stopping to prevent infinite loop\n");
+      }
+      return;
+   }
+   
+   /* Apply CSS to this body element */
+   tagname = (UBYTE *)Agetattr(body, AOBDY_TagName);
+   class = (UBYTE *)Agetattr(body, AOBDY_Class);
+   id = (UBYTE *)Agetattr(body, AOBDY_Id);
+   if(httpdebug && tagname && stricmp((char *)tagname,"PRE") == 0)
+   {  printf("[CSS] ReapplyCSSToBodyRecursive: Applying CSS to PRE element, body=%p, depth=%ld\n", body, depth);
+   }
+   ApplyCSSToBody(doc, body, class, id, tagname);
+   
+   /* Get the Body structure to access contents */
+   /* We use BodyMinimal to access the contents field - this is safe because we know it's a Body */
+   bd = (struct BodyMinimal *)body;
+   iterationCount = 0;
+   childCount = 0;
+   
+   /* Count children first for debug output */
+   /* LIST(Element) termination: child->next == bd->contents.last means we've reached the end */
+   for(child = bd->contents.first; child && child->next != bd->contents.last; child = child->next)
+   {  childCount++;
+      /* Safety check: prevent infinite loops in corrupted lists */
+      if(childCount > 10000)
+      {  if(httpdebug)
+         {  printf("[CSS] ReapplyCSSToBodyRecursive: WARNING - Child count exceeded 10000, list may be corrupted\n");
+         }
+         break;
+      }
+   }
+   
+   if(httpdebug && depth == 0 && childCount > 100)
+   {  printf("[CSS] ReapplyCSSToBodyRecursive: Processing %ld child elements at root level\n", childCount);
+   }
+   
+   /* Iterate through all child elements with protection against circular references */
+   /* LIST(Element) termination: child->next == bd->contents.last means we've reached the end */
+   for(child = bd->contents.first; child && child->next != bd->contents.last; child = child->next)
+   {  iterationCount++;
+      
+      /* Progress reporting for large lists */
+      if(httpdebug && depth == 0 && iterationCount % 100 == 0)
+      {  printf("[CSS] ReapplyCSSToBodyRecursive: Progress - %ld/%ld elements processed\n", iterationCount, childCount);
+      }
+      
+      /* Prevent infinite loops in corrupted lists - max 10000 iterations per body */
+      if(iterationCount > 10000)
+      {  if(httpdebug)
+         {  printf("[CSS] ReapplyCSSToBodyRecursive: WARNING - Max iterations (10000) exceeded for body %p, stopping to prevent infinite loop\n", body);
+         }
+         break;
+      }
+      
+      ao = (struct Aobject *)child;
+      objtype = ao->objecttype;
+      
+      /* Apply CSS to this element */
+      tagname = (UBYTE *)Agetattr(child, AOELT_TagName);
+      class = (UBYTE *)Agetattr(child, AOELT_Class);
+      id = (UBYTE *)Agetattr(child, AOELT_Id);
+      ApplyCSSToElement(doc, child);
+      
+      /* If this child is a body element, recursively apply CSS to its children */
+      if(objtype == AOTP_BODY)
+      {  childBody = (void *)child;
+         /* Prevent processing the same body element (circular reference protection) */
+         if(childBody != body)
+         {  ReapplyCSSToBodyRecursiveInternal(doc, childBody, depth + 1);
+         }
+         else if(httpdebug)
+         {  printf("[CSS] ReapplyCSSToBodyRecursive: WARNING - Body element %p contains itself, skipping to prevent infinite recursion\n", body);
+         }
+      }
+   }
+   
+   if(httpdebug && depth == 0)
+   {  printf("[CSS] ReapplyCSSToBodyRecursive: Completed processing %ld child elements at root level\n", iterationCount);
+   }
+}
+
+/* Recursively apply CSS to a body element and all its child elements */
+static void ReapplyCSSToBodyRecursive(struct Document *doc, void *body)
+{  ReapplyCSSToBodyRecursiveInternal(doc, body, 0);
+}
+
+/* Reapply CSS to all existing elements when CSS loads asynchronously or on reload */
 /* This ensures CSS is applied deterministically regardless of load timing */
-/* Since we can't directly enumerate all elements, we trigger a document update */
-/* which will cause elements to be re-rendered with CSS applied */
 void ReapplyCSSToAllElements(struct Document *doc)
-{  if(!doc || !doc->cssstylesheet || !doc->body) return;
+{  extern BOOL httpdebug;
    
-   /* Reapply CSS to document body */
-   ApplyCSSToBody(doc, doc->body, NULL, NULL, "BODY");
+   if(!doc || !doc->cssstylesheet || !doc->body) 
+   {  if(httpdebug)
+      {  printf("[CSS] ReapplyCSSToAllElements: Skipped - doc=%p stylesheet=%p body=%p\n",
+                doc, (doc ? doc->cssstylesheet : NULL), (doc ? doc->body : NULL));
+      }
+      return;
+   }
    
-   /* Trigger document update via AODOC_Srcupdate to cause re-rendering with CSS applied */
-   /* This ensures elements created before CSS loaded get styled */
-   /* The document update will cause layout/rendering to be recalculated */
-   if(doc->source && doc->source->source)
-   {  /* Mark document as needing update */
-      doc->dflags &= ~DDF_DONE;
-      /* Trigger source update via AODOC_Srcupdate tag */
-      /* This will call Srcupdatedocument which causes re-parsing and re-rendering */
-      Asetattrs(doc, AODOC_Srcupdate, TRUE, TAG_END);
+   /* Safety check: Don't apply CSS if document is being disposed or has no frame */
+   /* If frame is NULL, the document might be disposed or not yet ready */
+   /* This prevents hangs when AODOC_Docextready arrives after navigation starts */
+   if(!doc->frame)
+   {  if(httpdebug)
+      {  printf("[CSS] ReapplyCSSToAllElements: Skipped - document has no frame (may be disposed), doc=%p\n", doc);
+      }
+      return;
+   }
+   
+   if(httpdebug)
+   {  printf("[CSS] ReapplyCSSToAllElements: Starting - recursively applying CSS to all elements\n");
+   }
+   
+   /* Recursively apply CSS to document body and all child elements */
+   ReapplyCSSToBodyRecursive(doc, doc->body);
+   
+   if(httpdebug)
+   {  printf("[CSS] ReapplyCSSToAllElements: Completed - CSS applied to all elements\n");
    }
 }
 

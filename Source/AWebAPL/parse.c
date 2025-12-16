@@ -21,11 +21,25 @@
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/utility.h>
+#include <stdarg.h>
 #include "aweb.h"
 #include "html.h"
 #include "application.h"
 #include "docprivate.h"
 #include "jslib.h"
+
+/* External debug flag */
+extern BOOL httpdebug;
+
+/* PRE tag debug printf - only output if httpdebug is enabled */
+static void pre_debug_printf(const char *format, ...)
+{  va_list args;
+   if(!httpdebug) return;
+   va_start(args, format);
+   printf("[PRE-PARSE] ");
+   vprintf(format, args);
+   va_end(args);
+}
 
 #define MAXATTRS 40
 static struct Tagattr tagattr[MAXATTRS];
@@ -1702,9 +1716,22 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
          {  if(isspace(*p))
             {  if((doc->pflags&(DPF_PREFORMAT|DPF_JSCRIPT))
                && doc->pmode!=DPM_OPTION && doc->pmode!=DPM_TEXTAREA)
-               {  if(*p=='\r' || *p=='\n')
+               {  if(doc->pflags&DPF_PREFORMAT)
+                  {  pre_debug_printf("parse: PRE whitespace char=0x%02x (", *p);
+                     if(*p=='\r') pre_debug_printf("\\r");
+                     else if(*p=='\n') pre_debug_printf("\\n");
+                     else if(*p=='\t') pre_debug_printf("\\t");
+                     else if(*p==' ') pre_debug_printf("space");
+                     else pre_debug_printf("other");
+                     pre_debug_printf("), charcount=%ld\n", doc->charcount);
+                  }
+                  
+                  if(*p=='\r' || *p=='\n')
                   {  if(!skipnewline)
-                     {  ta=Nextattr(doc);
+                     {  if(doc->pflags&DPF_PREFORMAT)
+                        {  pre_debug_printf("parse: PRE newline -> BR tag, charcount=%ld\n", doc->charcount);
+                        }
+                        ta=Nextattr(doc);
                         ta->attr=TAGATTR_BR;
                         if(*p=='\r')
                         {  if(++p>=end) return Eofandexit(doc,eof);
@@ -1712,12 +1739,19 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
                         }
                         else p++;
                         doc->charcount=0;
+                        if(doc->pflags&DPF_PREFORMAT)
+                        {  pre_debug_printf("parse: PRE newline processed, reset charcount=0\n");
+                        }
                         break; /* exit text loop and process */
                      }
                   }
                   else if(*p=='\t')
                   {  /* Add nbsp to fill up to next multiple of 8 */
                      i=8-(doc->charcount%8);
+                     if(doc->pflags&DPF_PREFORMAT)
+                     {  pre_debug_printf("parse: PRE tab -> %ld nbsp chars (charcount %ld -> %ld)\n",
+                                         i, doc->charcount, doc->charcount + i);
+                     }
                      if(!Addtobuffer(&doc->args,"\xa0\xa0\xa0\xa0\xa0\xa0\xa0\xa0",i))
                         return FALSE;
                      ta->length+=i;
@@ -1727,6 +1761,10 @@ BOOL Parsehtml(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos)
                   else
                   {  /* In preformat mode, preserve all spaces as non-breaking spaces */
                      /* This ensures column alignment is maintained in <pre> blocks */
+                     if(doc->pflags&DPF_PREFORMAT)
+                     {  pre_debug_printf("parse: PRE space -> nbsp (charcount %ld -> %ld)\n",
+                                         doc->charcount, doc->charcount + 1);
+                     }
                      if(!Addtobuffer(&doc->args,"\xa0",1)) return FALSE;
                      ta->length++;
                      doc->charcount++;

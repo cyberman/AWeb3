@@ -173,7 +173,7 @@ static long Measuretext(struct Text *tx,struct Ammeasure *amm)
       {  amm->ammr->minwidth=amm->addwidth+width;
          amm->ammr->addwidth=amm->ammr->minwidth;
       }
-      else if(tx->eltflags&ELTF_NOBR)
+      else if(tx->eltflags&(ELTF_NOBR|ELTF_PREFORMAT))
       {  amm->ammr->minwidth=amm->addwidth+width;
          amm->ammr->addwidth=amm->ammr->minwidth;
       }
@@ -214,7 +214,7 @@ static long Layouttext(struct Text *tx,struct Amlayout *aml)
          /* Now q points to the last character in this section.
           * Search for the last space or soft hyphen. */
          while(q>p && *q!=' ' && *q!=SHY) q--;
-         if(*q==' ' && !(tx->eltflags&ELTF_NOBR))
+         if(*q==' ' && !(tx->eltflags&(ELTF_NOBR|ELTF_PREFORMAT)))
          {  /* Space found. Shorten this section, but include the space. */
             ts->flags|=TSF_SPACE;  /* Don't include space in length */
             ts->length=q-p;
@@ -226,7 +226,7 @@ static long Layouttext(struct Text *tx,struct Amlayout *aml)
             else result=AMLR_OK;
             if(aml->amlr) aml->amlr->endx=ts->x+ts->w;
          }
-         else if(*q==SHY && !(tx->eltflags&ELTF_NOBR))
+         else if(*q==SHY && !(tx->eltflags&(ELTF_NOBR|ELTF_PREFORMAT)))
          {  /* Soft hyphen found. Shorten this section and include the SHY. */
             ts->length=q-p+1;
             SetFont(mrp,tx->font);
@@ -278,7 +278,7 @@ static long Layouttext(struct Text *tx,struct Amlayout *aml)
       {  /* Everything fits */
          result=AMLR_OK;
       }
-      else if(tx->eltflags&ELTF_NOBR)
+      else if(tx->eltflags&(ELTF_NOBR|ELTF_PREFORMAT))
       {  /* Text doesn't fit, but don't line break. */
          if(aml->amlr)
          {  aml->amlr->endx=aml->startx+width;
