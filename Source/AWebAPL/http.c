@@ -2456,21 +2456,42 @@ static BOOL Readdata(struct Httpinfo *hi)
                {  /* Output buffer full or OK - process decompressed data */
                   decompressed_len=hi->fd->blocksize-d_stream.avail_out;
                   if(decompressed_len > 0 && decompressed_len <= hi->fd->blocksize)
-                  {  debug_printf("DEBUG: Processing %ld bytes of decompressed data\n", decompressed_len);
-                     /* Ensure parttype is null-terminated before calling strlen() to prevent bounds check errors */
-                     hi->parttype[sizeof(hi->parttype) - 1] = '\0';
-                     if(hi->parttype[0] != '\0' && hi->parttype[0] != 0) {
-                        Updatetaskattrs(
-                           AOURL_Data,hi->fd->block,
-                           AOURL_Datalength,decompressed_len,
-                           AOURL_Contenttype,hi->parttype,
-                           TAG_END);
-                     } else {
-                        Updatetaskattrs(
-                           AOURL_Data,hi->fd->block,
-                           AOURL_Datalength,decompressed_len,
-                           TAG_END);
+                  {  UBYTE *decompressed_copy;
+                     
+                     debug_printf("DEBUG: Processing %ld bytes of decompressed data\n", decompressed_len);
+                     
+                     /* CRITICAL: Copy decompressed data before passing to Updatetaskattrs()
+                      * because Updatetaskattrs() may pass the buffer to another task asynchronously,
+                      * and we immediately reuse hi->fd->block for the next decompression cycle.
+                      * Without copying, this causes memory corruption when the other task reads
+                      * from the buffer while zlib is writing to it. */
+                     decompressed_copy = ALLOCTYPE(UBYTE, decompressed_len, 0);
+                     if(decompressed_copy != NULL)
+                     {  memcpy(decompressed_copy, hi->fd->block, decompressed_len);
+                        
+                        /* Ensure parttype is null-terminated before calling strlen() to prevent bounds check errors */
+                        hi->parttype[sizeof(hi->parttype) - 1] = '\0';
+                        if(hi->parttype[0] != '\0' && hi->parttype[0] != 0) {
+                           Updatetaskattrs(
+                              AOURL_Data,decompressed_copy,
+                              AOURL_Datalength,decompressed_len,
+                              AOURL_Contenttype,hi->parttype,
+                              TAG_END);
+                        } else {
+                           Updatetaskattrs(
+                              AOURL_Data,decompressed_copy,
+                              AOURL_Datalength,decompressed_len,
+                              TAG_END);
+                        }
+                        /* Note: We don't free decompressed_copy here - the receiving task will free it
+                         * after processing, or it will be freed when the task completes. */
                      }
+                     else
+                     {  debug_printf("DEBUG: ERROR - Failed to allocate memory for decompressed data copy, skipping chunk\n");
+                        /* If allocation fails, we can't safely pass the data, so skip this chunk */
+                     }
+                     
+                     /* Now safe to reuse the buffer for next decompression cycle */
                      d_stream.next_out=hi->fd->block;
                      d_stream.avail_out=hi->fd->blocksize;
                   }
