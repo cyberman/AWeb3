@@ -1073,8 +1073,45 @@ static BOOL Doresetframe(struct Arexxcmd *ac,struct Awindow *win,
 }
 
 static BOOL Dorun(struct Arexxcmd *ac,struct Awindow *win,UBYTE *name)
-{  if(name && win)
-   {  Sendarexxcmd(win->key,name);
+{  BPTR lock = (BPTR)0;
+   UBYTE *p = NULL;
+   UBYTE *scriptname = NULL;
+   long length = 0;
+   BOOL ok = FALSE;
+
+   if(name && win)
+   {  p=name;
+      while(*p==' ') p++;
+      if(*p=='\"')
+      {  p++;
+         scriptname=p;
+         while(*p && *p!='\"') p++;
+      }
+      else
+      {  scriptname=p;
+         while(*p && *p!=' ' && *p!='\t') p++;
+      }
+      length=p-scriptname;
+      if(length>0)
+      {  scriptname=Dupstr(scriptname,length);
+         if(scriptname)
+         {  lock=Lock(scriptname,SHARED_LOCK);
+            if(lock)
+            {  UnLock(lock);
+               ok=TRUE;
+            }
+            FREE(scriptname);
+         }
+      }
+      if(ok)
+      {  Sendarexxcmd(win->key,name);
+      }
+      else
+      {  ac->errorlevel=RXERR_WARNING;
+      }
+   }
+   else
+   {  ac->errorlevel=RXERR_INVARGS;
    }
    return TRUE;
 }

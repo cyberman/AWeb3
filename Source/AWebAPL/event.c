@@ -600,6 +600,8 @@ long Updatewindow(struct Awindow *win,struct Amset *ams)
    UBYTE *savesettingsas=NULL;
    UBYTE *buf;
    long len;
+   BPTR lock = (BPTR)0;
+   BOOL startok = FALSE;
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
       {  case AOWIN_Openlocal:
@@ -637,7 +639,15 @@ long Updatewindow(struct Awindow *win,struct Amset *ams)
    }
    if(startarexx)
    {  Savelastpath(lastarexxpath,startarexx);
-      Sendarexxcmd(win->key,startarexx);
+      startok=FALSE;
+      lock=Lock(startarexx,SHARED_LOCK);
+      if(lock)
+      {  UnLock(lock);
+         startok=TRUE;
+      }
+      if(startok)
+      {  Sendarexxcmd(win->key,startarexx);
+      }
    }
    if(otherhotlist)
    {  Savelastpath(lasthotlistpath,otherhotlist);
