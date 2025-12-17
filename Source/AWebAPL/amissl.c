@@ -136,8 +136,8 @@ static void InitSSLSemaphore(void) {
 }
 
 /* Increment reference count for current task */
-/* Returns TRUE if this is the first Assl for this task (InitAmiSSL() was
- * already called) */
+/* Returns TRUE if this is the first Assl for this task (caller should call
+ * InitAmiSSL() for subprocess tasks when this happens) */
 static BOOL IncrementTaskRef(void) {
   struct Task *task;
   struct TaskRefCount *ref;
@@ -909,10 +909,21 @@ static SSL_CTX *GetSharedSSLCTX(void) {
 
 struct Assl *Assl_initamissl(struct Library *socketbase) {
   struct Assl *assl;
+  struct Task *current_task;
+  BOOL is_subprocess;
+  BOOL is_first_for_task;
+  BOOL have_task_ref;
+  BOOL initamissl_called_for_task;
   static BOOL sema_initialized = FALSE;
   static BOOL amissl_initialized = FALSE;
 
   debug_printf("DEBUG: Assl_initamissl: ENTRY - socketbase=%p\n", socketbase);
+
+  current_task = NULL;
+  is_subprocess = FALSE;
+  is_first_for_task = FALSE;
+  have_task_ref = FALSE;
+  initamissl_called_for_task = FALSE;
 
   /* Set global SocketBase for this task */
   /* This is required because SocketBase is extern and we need to ensure it's
@@ -995,35 +1006,56 @@ struct Assl *Assl_initamissl(struct Library *socketbase) {
         "DEBUG: Assl_initamissl: AmiSSL not initialized, returning NULL\n");
     return NULL;
   }
+  /* Determine if this task is the first AmiSSL task or a subprocess */
+  current_task = FindTask(NULL);
+  if (current_task && first_amissl_task && current_task != first_amissl_task) {
+    is_subprocess = TRUE;
+  } else {
+    is_subprocess = FALSE;
+  }
 
-  /* CRITICAL: Check if this is a subprocess (different task than first) */
-  /* Subprocesses MUST call InitAmiSSL() explicitly per SDK requirements */
-  {
-    struct Task *current_task;
-    current_task = FindTask(NULL);
-    if (current_task && first_amissl_task && current_task != first_amissl_task) {
-      /* This is a subprocess - must call InitAmiSSL() explicitly */
+  /* Increment task reference count for cleanup tracking
+   * - First Assl for a subprocess task: we must call InitAmiSSL() once
+   * - Subsequent Assl objects in the same task share that initialization
+   */
+  is_first_for_task = IncrementTaskRef();
+  if (is_first_for_task) {
+    have_task_ref = TRUE;
+  }
+
+  /* For subprocesses, call InitAmiSSL() only once per task, when the first
+   * Assl is created. The main task's InitAmiSSL() was already done by
+   * OpenAmiSSLTags().
+   */
+  if (is_subprocess) {
+    if (is_first_for_task) {
       debug_printf("DEBUG: Assl_initamissl: Subprocess detected (task=%p, "
-                   "first=%p), calling InitAmiSSL()\n",
+                   "first=%p), first Assl for this task - calling InitAmiSSL()\n",
                    current_task, first_amissl_task);
       if (InitAmiSSL(AmiSSL_SocketBase, SocketBase, AmiSSL_ErrNoPtr, &errno,
                      TAG_END) != 0) {
         debug_printf("DEBUG: Assl_initamissl: ERROR - InitAmiSSL() failed for "
                      "subprocess\n");
         check_ssl_error("InitAmiSSL (subprocess)", AmiSSLBase);
+        /* Roll back task reference count entry for this task */
+        if (have_task_ref && current_task) {
+          DecrementTaskRef(current_task);
+        }
         return NULL;
       }
+      initamissl_called_for_task = TRUE;
       debug_printf("DEBUG: Assl_initamissl: InitAmiSSL() succeeded for "
                    "subprocess\n");
     } else {
-      debug_printf("DEBUG: Assl_initamissl: Main task (task=%p), InitAmiSSL() "
-                   "already called by OpenAmiSSLTags()\n",
-                   current_task);
+      debug_printf("DEBUG: Assl_initamissl: Subprocess detected (task=%p, "
+                   "first=%p), reusing existing InitAmiSSL() context\n",
+                   current_task, first_amissl_task);
     }
+  } else {
+    debug_printf("DEBUG: Assl_initamissl: Main task (task=%p), InitAmiSSL() "
+                 "already called by OpenAmiSSLTags()\n",
+                 current_task);
   }
-
-  /* Increment task reference count for cleanup tracking */
-  IncrementTaskRef();
 
   /* Now allocate per-connection Assl struct */
   if (socketbase && (assl = ALLOCSTRUCT(Assl, 1, MEMF_CLEAR))) {
@@ -1049,6 +1081,21 @@ struct Assl *Assl_initamissl(struct Library *socketbase) {
   } else {
     debug_printf("DEBUG: Assl_initamissl: Failed to allocate Assl struct or "
                  "invalid socketbase\n");
+    /* If this was the first Assl for a subprocess and InitAmiSSL() was
+     * called successfully, we must balance it with CleanupAmiSSL() because
+     * Assl_cleanup() will never be called for this failed allocation.
+     */
+    if (is_subprocess && is_first_for_task && initamissl_called_for_task &&
+        AmiSSLBase) {
+      debug_printf("DEBUG: Assl_initamissl: Balancing InitAmiSSL() with "
+                   "CleanupAmiSSL() due to allocation failure\n");
+      CleanupAmiSSL(TAG_END);
+      check_ssl_error("CleanupAmiSSL (alloc failure)", AmiSSLBase);
+    }
+    /* Roll back task reference count if we added one */
+    if (have_task_ref && current_task) {
+      DecrementTaskRef(current_task);
+    }
     return NULL;
   }
 }
