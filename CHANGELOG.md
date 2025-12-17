@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.6alpha6] - 16-12-2025
+## [3.6alpha6] - 17-12-2025
 
 ### Added
 - **Enhanced CSS Support:** More CSS properties now supported including:
@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Child combinator matching (e.g., "div > p")
   - Specificity-based rule sorting (higher specificity wins, last wins for same specificity)
 - **CSS Property Application:** Enhanced CSS property application with proper precedence order (external CSS → FONT tag attributes → inline CSS)
+- **FOUC on page load:** At last, there is no placeholder square image flashed on screen while a document loads
 
 ### Fixed
 - **CSS Loading:** Fixed multiple issues preventing external CSS files from loading correctly when cached:

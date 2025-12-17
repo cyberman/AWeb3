@@ -1,14 +1,14 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
-<title>Release Notes - AWeb 3.6 &nbsp; Alpha 5</title>
+<title>Release Notes - AWeb 3.6 &nbsp; Alpha 6</title>
 </head>
 <body background="Docs/awebbg.iff">
 <img src="Docs/aweb.iff" width=192 height=93 alt="AWeb Logo" align=left>
 <p>
 <table align=center>
 <tr><td align=center>
-         <h1>AWeb 3.6 &nbsp; Alpha 5</h1>
+         <h1>AWeb 3.6 &nbsp; Alpha 6</h1>
 <tr><td align=center colspan=2><font face="Helvetica, Arial, sans-serif" size=+2 color="#cc0000"><i>The Amiga Web Browser</i></font>
 </table>
 <br clear=all>
@@ -23,25 +23,53 @@ Minds awaken, free
 
 <font face="Helvetica, Arial, sans-serif">
 <p>
-This is AWeb 3.6, a new release of the classic AWeb for the Amiga from <a href="http://amigazen.com/">amigazen project</a>. This release is alpha 5, a preview release intended for testing and feedback. The full source code of this release is available at https://github.com/amigazen/aweb3/ - this link is not clickable as AWeb will not be able to cope with the github website!
+This is AWeb 3.6, a new release of the classic AWeb for the Amiga from <a href="http://amigazen.com/">amigazen project</a>. This release is alpha 6, a preview release intended for testing and feedback. The full source code of this release is available at https://github.com/amigazen/aweb3/ - this link is not clickable as AWeb will not be able to cope with the github website!
 </p>
 
 <p>
 <b>amigazen project</b> uses modern software development tools and methods to update and rerelease classic Amiga open source software. This release updates AWeb to build against NDK3.2, replacing ClassAct with ReAction, updating networking code for RoadShow and AmiSSL, and ensuring it builds against the amigazen project ToolKit standard.
 </p>
 
+<h4>Read this first</h4>
+<p>
+    <ul>
+        <li><b>Alpha release</b> This is an unstable Alpha release with many known and unknown issues, please report issues at Github</li>
+		<li><b>AWeb 3.5</b> This AWeb 3.6 is derived directly from AWeb 3.4, with improvements from AWeb 3.5 being integrated one by one. See the full release notes to see which features are already integrated</li> 
+		<li>This means configurations and catalogs from AWeb 3.4 are compatible but AWeb 3.5 configurations and catalogs are not.</li>
+		<li>Even if you have a preferred AWeb 3.4 configuration, note that the references to AWebPath: should be changed to AWeb: in your configuration. Since there are many new default preferences in AWeb 3.6, starting from a clean configuration is recommended.</li>
+		<li>You can use the CONFIG= ToolType to keep separate configurations files for different AWeb versions. By default this alpha is set to use a configuration called 'AWeb36a3'.</li>
+		<li><b>OS4 compatibility</b> This is a 68k build, that does run on OS4, but with even more issues (see below)</li>
+		<li>This release is built optimised for 68020 processors. It is possible to build a 68000 compatible build from the project source</li>
+		<li>Similarly the PNG, JFIF (JPEG) and GIF plugins are built for 68020 with 68881 FPU but can be built for other targets</li>
+		<li>The PNG plugin is not recommended for use - it is much slower than any PNG DataType, and causes deadlocks with PNG assets delivered over HTTPS</li>
+		<li>GIF and JPEG plugins are only recommended if you need the AnimGIF or alpha channel features. Again, the DataTypes for whichever version of Amiga you use are almost certainly faster</li>
+		<li>None of the AWebPlugins are configured to be used by default due to the reasons noted above</li>
+        <li>This Alpha build of AWeb saves it's disk cache in the T: location - this helps ensure it won't corrupt your hard disk, but means it uses more RAM, and prevents collision with other versions of AWeb you may have installed</li>
+        <li>AWeb needs Fast RAM, hopefully in 2025 every Amiga user has plenty of Fast RAM</li>
+        <li>No need to run any installer script, just put this drawer wherever you want, and run AWeb from here, it will assign AWeb: to the current directory if it does not exist already</li>
+        <li>Multiple icons including the original GlowIcons set by Oliver Tacke and Thomas Peterseim, the MasonIcons version and the MagicWB version. You can also find icons for AWeb in collections such as the AmigaOS 3.2 GlowIcons collection</li>
+        <li>As with all versions of AWeb, you need ReAction to run AWeb (it may work with ClassAct but is not tested), a bsdsocket.library compatible TCP/IP stack, as well as AmiSSL 5 if you want to use HTTPS connections</li>
+        <li>A default toolbar button "Protoweb" will configure use of the Protoweb.org proxy which lets you browse the web as if it's 1999! To turn this off, open the Network settings and set the HTTP Proxy to blank ("").</li>
+    </ul>
+    
+</p>
+
 <p>
     New features in AWeb 3.6 include:
 <ul>
 <li><b>CSS</b> - AWeb now supports CSS, starting with experimental inline CSS for properties matching HTML4 attributes and even more experimental support for external CSS stylesheets</li>
-<li>Introducing <b>AWebView</b> - a new standalone HTML and Markdown file viewer, built from the same shared AWeb codebase</li>
-<li><b>Web safe fonts</b>Font tag parsing and matching logic now works like web safe fonts on other browsers</li>
-<li>gemini:// and spartan:// protocol support for these new gopher-like networks</li>
-<li>A new aweblib brings <b>about:</b> URLs with home, fonts, version, plugins and blank page templates</li>
-<li><b>HTTP/1.1</b> gzip and chunked encoding, and experimental keep-alive support</li>
-<li><b>AmiSSL 5.20</b> support for HTTPS connections, including TLS 1.3 and strong cipher suites</li>
+<li>Introducing <b>AWebView</b> - a new standalone HTML and Markdown file viewer, built from the same shared AWeb codebase</li></li>
+<li><b>Web safe fonts</b> - Font tag parsing and matching logic now works like other browsers</li>
+<li>The new gemini.aweblib module brings <b>gemini://</b> and <b>spartan://</b> protocol support for these new gopher-like networks</li>
+<li>A new about.aweblib brings <b>about:</b> URLs with home, fonts, version, plugins and blank page templates</li>
+<li>AWeb now knows how to handle <b>view-source:</b> allowing you to view any URL as plain text HTML source</li>
+<li>Directory browsing is now possible with the file:// protocol, and you can browse the root file:/// to see all mounted volumes</li>
+<li><b>Markdown</b> - AWeb now understands and renders Markdown as rich text, with on the fly conversion to HTML</li>
+<li><b>HTTP/1.1</b> gzip and chunked encoding, Range (RFC 7233) support for fast automatic transer resume, and experimental keep-alive support (not enabled yet in this release)</li>
+<li><b>AmiSSL 5.25</b> support for HTTPS connections, including TLS 1.3 and strong cipher suites</li>
+<li><b>data:</b> URL support allows for inline binary attachments</li>
 <li><b>utf-8</b> transcoding of the most common multibyte characters to Latin-1</li>
-<li><b>AmigaOS 3.2</b> features such as contextual mouse pointers and window iconification are now supported, while retaining compatibility with 3.1</li>
+<li><b>AmigaOS 3.2</b> features such as contextual mouse pointers, DefIcons and window iconification are now supported, while retaining compatibility with 3.1</li>
 </ul>
 </p>
 
@@ -78,13 +106,70 @@ When launched from Workbench, the default CONFIG is set to AWeb36a3 in the ToolT
 This alpha build supports a HTTPDEBUG/S command line option which will output a LOT of debugging output to the console for any network operations. If you use this, redirect the output to a file on a safe disk like the RAM: disk or, if running under emulation, a mounted host folder, just in case it causes filesystem corruption.
 </p>
 <p>
-The requirements for AWeb 3.6 remain the same as the original 3.4 release, however most websites, even those that only use HTML 3 and 4 features, require significant amounts of RAM - 8MB Fast RAM is probably a sensible minimum. Some of the new default settings assume a more powerful Amiga than would have been common in the 1990s. It will of course fail to work with any modern website requiring HTML5, CSS3, video content,heavy JavaScript, etc. This build is not optimised for any particular CPU architecture.
+The requirements for AWeb 3.6 remain the same as the original 3.4 release, however most websites, even those that only use HTML 3 and 4 features, require significant amounts of RAM - 8MB Fast RAM is probably a sensible minimum. Some of the new default settings assume a more powerful Amiga than would have been common in the 1990s. It will of course fail to work with any modern website requiring HTML5, CSS3, video content,heavy JavaScript, etc. 
 </p>
+
+<h2> What's New in 3.6 Alpha 6?</h2>
+<ul>
+<li>More CSS properties are now supported, including padding, margin, position, top, left, right, bottom, border, vertical-align, text-align, and combined table cell styles</li>
+<li>CSS colors can now be specified in either hex swatch format or by name</li>
+<li>Connections that are still loading for the current page will immediately be terminated and a new connection will be made when navigating to a new page or reloading</li>
+<li>That same improved connection cancellation now also applies to the Cancel All button in the Network Status window and the Cancel Load menu item and ARexx commands</li>
+<li>AWeb now comes with an ARexx script for easily enabling the <b>Protoweb.org</b> proxy - browse the web as if it's 1999!</li>
+<li>In order to support Multipart MIME in the future, AWeb now parses <b>cid:</b> and <b>data:</b> URL types for inline binary attachments</li>
+<li>When viewing the directory view of the root file:/// it will show volume size and filesystem type rather than the normal directory listing</li>
+<li>All binaries are now built with <b>68020</b> optimization enabled. If you need a different configuration, follow the build instructions in BUILD.md on GitHub</li>    
+<li>All locale catalogs from AWeb 3.4 are now included in the distribution. Note that AWeb 3.6 currently uses the same catalogs as AWeb 3.4 with no additional strings added</li>
+<li>ICO format images such as any <b>favicon.ico</b> are converted on the fly into regular BMP format images and then passed to DataTypes to render - this provides for an efficient way of supporting .ico without needing a full builtin decoder, given that .ico files are really only used for one purpose now</li>
+<li><b>Mozilla bookmarks</b> files can now be imported into your AWeb Hotlist</li>
+<li>Default <b>User-Agent</b> strings for spoofing now reflect a variety of real world browsers</li>
+<li>AWeb no longer shows a 'FOUC' of a square image icon at the start of every page load</li>
+<li><b>view-source:</b> in the URL bar is now supported, allowing you to view any URL as plain text (but note this does not work correctly with 30x redirects)</li>
+<li>Added new default <b>MIME types</b> for files common in 2025, and set all MIME types to lowercase as specified in RFC 6838, although matching remains case-insensitive</li>
+<li><b>HTTP Range</b> (RFC 7233) support added for fast automatic resume of incomplete requests, should mean fewer page assets failing to load</li>
+<li>The PNG AWebPlugin has been updated to use <b>libpng 1.6.43</b> although it's still probably slower than whatever DataType you're using for PNG</li>
+<li>Rebuilt with latest <b>AmiSSL 5.25</b> SDK</li>
+<li>AWeb will now prefer <b>CHACHA20-POLY1305</b> ciphers over AES-GCM for better performance on Amiga - if you have an Amiga oriented website consider adding this to your server's TLS configuration for faster loading speed</li>
+<li>AWEB 3.5: Reintegrated support for INS and DEL HTML elements</li>
+<li>AWEB 3.5: bgalign implementation</li>
+<li>AWEB 3.5: Reintegrated the optimisation for background image redraws</li>
+<li>AWEB 3.5: Missing FreeMem call in every AWebPlugin startup.c</li>
+<li>AWEB 3.5: Fixed JavaScript Image onerror handling</li>
+<li>AWEB 3.5: Some FORM elements like INPUT and BUTTON can now exist outside of forms and be used as document GUI objects that can trigger JavaScript events</li>
+<li>AWEB 3.5: Saved files will get a DefIcons icon if its running on the system, thanks to using GetDiskObjectNew() instead of GetDefDiskObject()</li>
+<li>AWEB 3.5: Fixed bug with nested tables having the height tag</li>
+<li>AWEB 3.5: Fixed long standing bug with caching of javascript source files that would store empty files in cache</li>
+<li>AWEB 3.5: Fixed problem where onload and onunload would not work when preceded by a script section in the head of the document</li>
+<li>AWEB 3.5: The referer in redirected pages is now set correctly</li>
+<li>AWEB 3.5: AWeb is now aware that printer.device can handle bitmaps greater than 8 bits from version 44, enabling printing from deep screens without requiring Turboprint</li>
+<li>AWEB 3.5: In tolerant mode event handlers such as onclick now allow the form "javascript:code" often used and supported by other browsers</li>
+<li>AWEB 3.5: Non RFC cookie mode extended to allow .domain.com to match domain.com, improving the behaviour of some login systems</li>
+<li>AWEB 3.5: Added Copy Image Url To Clipboard to default Image Popup menu</li>
+<li>AWEB 3.5: Fixed bug where Javascript images could overwrite some document properties</li>
+<li>AWEB 3.5: Fixed bug where transparent GIF animations did not update their backgrounds</li>
+<li>AWEB 3.5: Integrated fixes for known Enforcer hits in original AWeb 3.4 in body.c, defprefs.c and jcomp.c</li>>
+<li>AWEB 3.5: Added support for mousewheel scrolling on OS4</li>
+<li>FIXED: Refactored SSL_CTX management</li>
+<li>FIXED: XML character entity matching is case sensitive again</li>
+<li>FIXED: Loading cached external CSS stylesheets would fail if server returned a 304 Not Modified response</li>
+<li>FIXED: Redirects for URLs with query strings now work properly - they are marked as volatile to force refresh since query strings change the URL's intent</li>
+<li>FIXED: If external CSS stylesheets were in utf-8 format, the parser would get stuck in an infinite loop</li>
+<li>FIXED: Long standing bug from AWeb 3.4 where wrong struct member was used to reply to the WBStartup ReplyPort, which could cause unpredictable crashes on launch or DSI errors on OS4</li>
+<li>FIXED: When Background images were turned off, the background color and body styles were also not applied</li>
+<li>FIXED: BUTTON elements now render their inner text as their label instead of being blank or using the object's value property</li>
+<li>FIXED: The GIF AWebPlugin now builds a working binary again that doesn't crash on initialization</li>
+<li>FIXED: Fix Connection header parsing for comma-separated values, preventing reload failures and memory issues when servers request connection closure via comma-separated Connection headers.</li>
+<li>FIXED: Table column width distribution for unsized columns and default border rendering when border attribute is not specified</li>
+<li>FIXED: After integrating the AWeb 3.5 changes for bgalign, child elements no longer rendered their own backgrounds when there was a body background image
+<li>FIXED: The ARexx RUN command for running ARexx scripts from menu items and buttons no longer risks a crash if the script does not exist</li>
+<li>FIXED: Numerous stability improvements to the AmiSSL and CSS codebases, too many to list here</li>
+</li>
+</ul>
 
 <h2>What's New in 3.6 Alpha 5?</h2>
 <ul>
-<li>Experimental <b>inline CSS</b> support for a subset of CSS1 and CSS2 properties, see the <a href="Docs/css_test.html">CSS Test Page</a></li>
-<li>Experimental <b>link rel="stylesheet"</b> support for external CSS stylesheets, see the <a href="Docs/stylesheet_test.html">lin rel stylesheet Test Page</a></li>
+<li>Experimental <b>inline CSS</b> support for a subset of CSS1 and CSS2 properties, see the <a href="Docs/css_test.html">inline CSS Test Page</a></li>
+<li>Experimental <b>link rel="stylesheet"</b> support for external CSS stylesheets, see the <a href="Docs/stylesheet_test.html">link rel=stylesheet Test Page</a></li>
 <li>IMPORTANT: Some websites that were previously usable with earlier releases of AWeb may no longer display in a usable form, if they use external stylesheets</li>
 <li><b>XHTML 1.0</b> support for parsing and rendering XHTML documents, enforcing strict parsing mode when XHTML is detected and supporting CDATA</li>
 <li>PNG AWebPlugin updated further to version 1.0.69 (latest 1.0.x branch) after it was updated to 1.0.0 by integrating the changes from AWeb 3.5</li>
@@ -94,10 +179,10 @@ The requirements for AWeb 3.6 remain the same as the original 3.4 release, howev
 <li>TLS connections now safely fail immediately instead of prompting the user to allow unsecure fallback, if secure socket cannot be established</li>
 <li>PNG AWebPlugin now uses the same zlib as the main AWeb program instead of the previous ancient version</li>
 <li>Further enhancement to the <b>HTTP/1.1 keep-alive</b> support but still disabled in this alpha release build</li>
-<li>3.5 FEATURE: PNG AWebPlugin's libpng library updated to version 1.0.0 as used in AWeb 3.5</li> 
-<li>3.5 FEATURE: JFIF AWebPlugin's JPEG library updated to version 6b as used in AWeb 3.5</li>
-<li>3.5 FEATURE: GIF AWebPlugin incorporates GIF engine changes from AWeb 3.5</li>
-<li>3.5 FEATURE: Reintegrated the improvements to the gopher:// aweblib module from AWeb 3.5</li>
+<li>AWEB 3.5: PNG AWebPlugin's libpng library updated to version 1.0.0 as used in AWeb 3.5</li> 
+<li>AWEB 3.5: JFIF AWebPlugin's JPEG library updated to version 6b as used in AWeb 3.5</li>
+<li>AWEB 3.5: GIF AWebPlugin incorporates GIF engine changes from AWeb 3.5</li>
+<li>AWEB 3.5: Reintegrated the improvements to the gopher:// aweblib module</li>
 <li>FIXED: Null pointer access during argument parsing on launch which failed silently except on OS4 where it throws a DSI error</li>
 <li>FIXED: If using a custom CONFIG argument, AWeb now creates the directory for it if it doesn't already exist before saving into it</li>
 <li>FIXED: TLS connections are properly cleaned up in all circumstances and AmiSSL libraries are only closed on application exit</li>
@@ -119,10 +204,10 @@ The requirements for AWeb 3.6 remain the same as the original 3.4 release, howev
 <li>Additionally, if you navigate to the <a href="file:///">file:///</a> root URL you will see a list of all mounted volumes</li>
 <li>Added new command line option (and corresponding ToolType) "NOSTARTUP/S". If this is passed, the startup.aweblib plugin will not be run even if it exists and therefore no splash screen will show.</li>
 <li>The Documentation now includes test pages for HTML3.2, HTML4.0 and JavaScript 1.1 to make it easy to see exactly how AWeb handles these standards</li>
-<li>3.5 FEATURE: JavaScript now employs dynamic garbage collection during script execution instead of only at the end, reducing overall memory usage</li>
-<li>3.5 FEATURE: Implemented ETags for caching</li>
-<li>3.5 FEATURE: Implemented Content-Disposition parsing used for setting suggested name for file downloads</li>
-<li>3.5 FEATURE: Reintegrated support for 302 and 307 redirects</li>
+<li>AWEB 3.5: JavaScript now employs dynamic garbage collection during script execution instead of only at the end, reducing overall memory usage</li>
+<li>AWEB 3.5: Implemented ETags for caching</li>
+<li>AWEB 3.5: Implemented Content-Disposition parsing used for setting suggested name for file downloads</li>
+<li>AWEB 3.5: Reintegrated support for 302 and 307 redirects</li>
 <li>FIXED: Entities are now always rendered as actual characters regardless of the HTML compatibility mode</li>
 <li>FIXED: Proxy settings are now actually saved - this was completely missing in the original AWeb 3.4 source code</li>
 <li>FIXED: Broken ReadBytes function in the PNG plugin could cause an infinite loop loading assets from HTTPS connections, now fixed following the JPEG version pattern.</li>
@@ -144,7 +229,7 @@ The requirements for AWeb 3.6 remain the same as the original 3.4 release, howev
 <li>HTTPS connections now properly verify that the hostname matches the certificate following RFC 6125</li>
 <li>FIXED: Removed an unnecessary additional init SSL function call which may have caused some instability with HTTPS connections</li>
 <li>FIXED: AWeb really will automatically create the AWeb: assign now if it doesn't already exist, and remove it on exit if it created it. This was broken in 3.6 Alpha 2</li>
-<li>FIXED: Large files are sometimes truncated, any debugging output on this issue in particular is gratefully received</li>
+<li>FIXED: Large files are sometimes truncated due to chunk buffers being too small</li>
 </ul>
 
 <h3>What's New in 3.6 Alpha 2?</h2>
@@ -171,26 +256,26 @@ The requirements for AWeb 3.6 remain the same as the original 3.4 release, howev
 <li>Builds again with SAS/C! Does not require gcc, native or cross-compiler to build</li>
 </ul>
 
-<h3>Known Issues in 3.6 Alpha 5</h3>
+<h3>Known Issues in 3.6 Alpha 6</h3>
 <ul>
-<li>Although the AmiSSL interface code has been completely rewritten to work with AmiSSL 5.20 and properly support asynchronous SSL connections, especially with the use of multiple threads (Tasks), it is still not completely stable</li>
-<li>Using image AWebPlugins with HTTPS connections causes crashes and lockups - for the time being do not use the image plugins, they are not configured by default</li>
-<li>This version does not currently include most of the changes from the various incomplete 3.5 releases, for now, instead it reimplements the HTTP and AmiSSL client code to a more recent standard. Other features of the 3.5 releases will come later</li>
+<li>Although the AmiSSL interface code has been completely rewritten to work with AmiSSL 5.25 and properly support asynchronous SSL connections, especially with the use of multiple threads (Tasks), it is still not completely stable</li>
 <li>Setting the disk cache to 0 or a very small size will prevent images from rendering - this is an issue carried over from the original AWeb</li>
+<li>The new CSS functionality has race conditions that may cause CSS styles not to be applied on faster Amigas (especially emulated ones) when pages are loaded from cache</li>
 <li>The documentation is still being updated for release 3.6</li>
 <li>The new support for Markdown documents still has some visual glitches</li>
 <li>The AWebPlugins are deliberately not enabled by default, you will need to enable them manually in the configuration</li>
 <li>Feedback is also particularly welcome on default settings and default programs</li>
+<li>JavaScript has many issues which are being addressed by integrating the AWeb 3.5 codebase, which is still work in progress</li>
 </ul>
 
 <h3>Known Issues with OS4</h3>
 <p>
-The following issues are specific to running the 3.6 Alpha 2 68K build on OS4: 
+The following issues are specific to running the 3.6 Alpha 6 68K build on OS4: 
 </p>
 <ul>
-<li>Pages with a background image experience graphics corruption when using the window scroll bars to scroll the page</li>
-<li>Attempts to access HTTPS connections will fail</li>
-<li>Mousewheel does not scroll</li>
+<li>Pages with a background image (such as AWeb's documentation)experience graphics corruption when using the window scroll bars to scroll the page</li>
+<li>Pages with CSS stylesheets may experience content corruption / text overflow issues (e.g. amiga-news.de)</li>
+<li>Attempts to access HTTPS connections will fail reporting 'no protocols (ciphers) available' and may trigger a DSI in AmiSSL</li>
 </ul>
 
 <p>Many of these issues almost certainly have been fixed before in the AWeb 3.5 codebase but they have not been integrated into AWeb 3.6, which is based on AWeb 3.4, at this time.</p>

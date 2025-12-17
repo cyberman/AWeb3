@@ -34,7 +34,8 @@ AWeb 3 supports HTML standards from the 1990s era web browsing. The browser impl
 
 - **HTML 2.0**: Full support for the official HTML 2.0 standard
 - **HTML 3.2**: Full support (W3C Recommendation from 1996)
-- **HTML 4.0**: Many features supported (one major exception: CSS style sheets)
+- **HTML 4.0**: Many features supported, including experimental CSS1/CSS2 subset via inline styles and external stylesheets
+- **XHTML 1.0/1.1**: Support for parsing and rendering XHTML 1.0/1.1 (and XHTML-MP) in strict mode with CDATA and self-closing tags (experimental)
 
 AWeb also supports many browser-specific extensions from Netscape and Microsoft Internet Explorer of the era, as well as some features from the abandoned HTML 3.0 draft.
 
@@ -86,7 +87,7 @@ AWeb also supports many browser-specific extensions from Netscape and Microsoft 
 | `EMBED` | ✅ Partial | Tolerant mode only (Netscape extension) |
 | `BGSOUND` | ✅ Partial | Tolerant mode only (Internet Explorer extension) |
 | `SCRIPT`, `NOSCRIPT` | ✅ Full | JavaScript support |
-| `STYLE` | ✅ Partial | Style element (limited CSS support) |
+| `STYLE` | ✅ Partial | Style element (inline CSS subset support) |
 | `ICON` | ✅ Full | AWeb-specific icon support |
 
 ### HTML Features
@@ -103,9 +104,10 @@ AWeb also supports many browser-specific extensions from Netscape and Microsoft 
 | Background Images | ✅ Full | On `BODY` and table elements |
 | Font Colors/Faces/Sizes | ✅ Full | Font styling attributes |
 | Meta Refresh | ✅ Full | Client-pull mechanism |
-| **Not Supported** | | |
-| CSS Style Sheets | ❌ | Major HTML 4.0 feature not implemented |
-| XHTML | ❌ | XML-based markup not supported |
+| **Advanced Features** | | |
+| CSS Style Sheets | ✅ Partial | Experimental inline and external CSS (subset of CSS1/CSS2 properties). Supported areas include text/font properties, colors and backgrounds, basic layout (margin/padding/border/position), list styling, and simple grid layouts; many table/layout properties remain limited|
+| XHTML 1.0/1.1 | ✅ Partial | XHTML 1.0/1.1 and XHTML-MP parsing/rendering with DOCTYPE/XML detection, self-closing tags, and CDATA support|
+| URL Schemes (data:, cid:) | ✅ Full | `data:` URLs for inline resources and `cid:` URLs for multipart MIME Content-ID references (HTML email) as per RFC 2397 and RFC 2111|
 
 ### HTML Modes
 
@@ -253,9 +255,9 @@ AWeb includes two JavaScript development tools:
 
 The first AWeb APL open source release was version 3.4, in 2003 from the _AWeb Open Source Development Team_.
 
-Since then one further "3.5" beta release was made for both OS4 and classic Amiga, however the sourcecode to the 68k release of 3.5 seems to no longer be available to the public in a buildable form, if it ever was. Snapshots for versions for other platforms such as OS4 can be found, such as on os4depot, but the developers of 3.5 did not seem to bother to maintain compatibility with the classic Amiga build tools.
+Since then one further "3.5" beta release - or rather, 12 beta releases of 3.5 - were made for both OS4 and classic Amiga, and even MorphOS and AROS too, however the sourcecode to the 68k release of 3.5 seems to no longer be available to the public in a buildable form, if it ever was with dependencies on a very specific, and undocumented, GCC based toolchain. Snapshots for versions for other platforms such as OS4 can be found, such as on os4depot, but the developers of 3.5 did not seem to bother to maintain compatibility with the classic Amiga build tools used by the original AWeb.
 
-Thus, this version 3.6 is derived directly from the 3.4 source code release, with the intent that future releases will incorporate cherry-picked improvements from the 3.5 branch where the changes have added value. 
+Thus, this version 3.6 is derived directly from the 3.4 source code release, with the intent to cherry-pick improvements from the 3.5 branch where the changes have added value. 
 
 The roadmap for AWeb under amigazen project is, for now:
 
@@ -274,19 +276,17 @@ The main changes in version 3.6 compared to version 3.4 are:
 - Renamed the application to simply _AWeb_, not AWeb-II or AWeb3, just _AWeb_ and the assign is also now just _AWeb:_ and will be automatically created on launch if it does not already exist
 - Refactoring the SSL module code to stabilise it and update it to use AmiSSL 5.20 or later
 - Changing default configuration settings to sensible values including white default background, Cookies accepted by default, and scalable fonts
-- Added support for some additional XML entities that have equivalents in Latin-1
-- Fixed a bug where utf-8 encoded characters would be interpreted as single byte characters
 
 **What's New in 3.6 Alpha 6:**
 - **Enhanced CSS Support:** More CSS properties including padding, margin (with auto), position, borders, vertical-align, text-align, display: none, overflow clipping, clear for floats, and min/max width/height constraints. CSS colors can be specified in hex or by name
 - **HTTP Range Support (RFC 7233):** Automatic resume of incomplete requests for faster page loading
 - **view-source: Protocol:** View any URL as plain text source
 - **Mozilla Bookmarks Import:** Import Mozilla bookmarks.html files into AWeb Hotlist
-- **Protoweb.org Integration:** ARexx script for easy Protoweb.org proxy setup
+- **Protoweb.org:** ARexx script for easy Protoweb.org proxy setup
 - **Connection Management:** Improved connection cancellation when navigating or reloading pages
 - **Plugin Updates:** PNG plugin updated to libpng 1.6.43, GIF plugin fixed so it doesn't crash as it did when AWeb 3.5 changes were first integrated
 - **AmiSSL 5.25:** Rebuilt with latest AmiSSL SDK, prefers CHACHA20-POLY1305 ciphers for better Amiga performance
-- **68020 Optimization:** All AWeb binaries built with default 68020 optimization enabled
+- **68020 Optimization:** All AWeb binaries are now built with default 68020 optimization enabled
 - **Mousewheel Support:** Added mousewheel scrolling on OS4 and OS3.2
 - **Features from AWeb 3.5:** Reintegrated INS/DEL elements, bgalign, background image optimizations, JavaScript improvements, form element enhancements, DefIcons support, printer improvements, and many bug fixes
 - **Bug Fixes:** Fixed CSS loading with cached files, CSS rendering issues, SSL_CTX management, redirect handling, WBStartup crashes, and many other critical bugs
@@ -323,29 +323,8 @@ The main changes in version 3.6 compared to version 3.4 are:
 
 See [CHANGELOG.md](CHANGELOG.md) for complete details of all changes.
 
-### AWeb 3.7
 
-The plan for the next release 3.7 is currently to:
 
-- Cherry pick changes from the available snapshots of 3.5 where there is value in doing so 
-- Add optional support for anti-aliased text using ttengine.library
-- Replace built-in zlib with support for z.library shared library version
-- Update image codec libraries to newer versions for JPEG, PNG and GIF
-- Explore adding plugin support for WebP format images
-- Add support for non-Latin1 codepages
-
-### AWeb 3.8
-
-The plan for release 3.8 is currently to:
-
-- Complete the support for HTML 4.01
-- Add support for XHTML 1.0
-- Add support for CSS 1 and 2
-- Upgrade the JavaScript engine to support JavaScript 1.5 AKA ECMAScript 3.0
-
-### Future releases
-
-- Wait and see! 
 
 ## Frequently Asked Questions
 
