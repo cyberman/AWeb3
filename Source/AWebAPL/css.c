@@ -2003,8 +2003,8 @@ static void ReapplyCSSToBodyRecursiveInternal(struct Document *doc, void *body, 
    childCount = 0;
    
    /* Count children first for debug output */
-   /* LIST(Element) termination: child->next == bd->contents.last means we've reached the end */
-   for(child = bd->contents.first; child && child->next != bd->contents.last; child = child->next)
+   /* LIST(Element) termination pattern: child->next == NULL (see body.c) */
+   for(child = bd->contents.first; child && child->next; child = child->next)
    {  childCount++;
       /* Safety check: prevent infinite loops in corrupted lists */
       if(childCount > 10000)
@@ -2020,8 +2020,8 @@ static void ReapplyCSSToBodyRecursiveInternal(struct Document *doc, void *body, 
    }
    
    /* Iterate through all child elements with protection against circular references */
-   /* LIST(Element) termination: child->next == bd->contents.last means we've reached the end */
-   for(child = bd->contents.first; child && child->next != bd->contents.last; child = child->next)
+   /* LIST(Element) termination pattern: child->next == NULL (see body.c) */
+   for(child = bd->contents.first; child && child->next; child = child->next)
    {  iterationCount++;
       
       /* Progress reporting for large lists */
