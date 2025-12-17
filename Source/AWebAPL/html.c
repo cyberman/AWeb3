@@ -2120,9 +2120,14 @@ static BOOL Dotitleadd(struct Document *doc,struct Tagattr *ta)
 /*** </TITLE> ***/
 static BOOL Dotitleend(struct Document *doc)
 {  UBYTE *p;
+   UBYTE *end;
    doc->pmode=DPM_BODY;
    if(!Addtotextbuf(doc,"\0 ",2)) return FALSE;
-   for(p=doc->text.buffer+doc->titlepos;*p;p++)
+   /* Use length-based iteration instead of null-terminator to prevent
+    * reading past buffer bounds. The buffer should be null-terminated,
+    * but we use length as the authoritative source to be safe. */
+   end=doc->text.buffer+doc->text.length;
+   for(p=doc->text.buffer+doc->titlepos;p<end && *p;p++)
    {  if(!isspace(*p))
       {  doc->dflags|=DDF_TITLEVALID;
          break;

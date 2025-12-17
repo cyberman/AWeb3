@@ -260,12 +260,19 @@ BOOL Expandbuffer(struct Buffer *buf,long size)
          ((buf->length+size+TEXTBLOCKSIZE-1)/TEXTBLOCKSIZE)*TEXTBLOCKSIZE;
       UBYTE *newbuf=ALLOCTYPE(UBYTE,newsize,0);
       if(!newbuf) return FALSE;
-      if(buf->size)
-      {  memmove(newbuf,buf->buffer,buf->size);
+      if(buf->size && buf->buffer)
+      {  /* Copy only the actual data (length bytes), not the entire allocated size,
+           * to avoid copying uninitialized memory that could interfere with
+           * null termination when buffer is used as a string */
+         memmove(newbuf,buf->buffer,buf->length);
          FREE(buf->buffer);
       }
       buf->buffer=newbuf;
       buf->size=newsize;
+      /* Ensure null termination after buffer expansion */
+      if(buf->buffer && buf->size > buf->length)
+      {  buf->buffer[buf->length]='\0';
+      }
    }
    return TRUE;
 }
@@ -277,11 +284,14 @@ void Freebuffer(struct Buffer *buf)
 }
 
 BOOL Insertinbuffer(struct Buffer *buf,UBYTE *text,long length,long pos)
-{  if(Expandbuffer(buf,length))
+{  if(Expandbuffer(buf,length+1))  /* +1 for null terminator */
    {  if(pos<buf->length)
          memmove(buf->buffer+pos+length,buf->buffer+pos,buf->length-pos);
       if(length) memmove(buf->buffer+pos,text,length);
       buf->length+=length;
+      /* Ensure buffer is always null-terminated to prevent memory corruption
+       * when used as a string (e.g., in Dotitleend loop) */
+      buf->buffer[buf->length]='\0';
       return TRUE;
    }
    return FALSE;
@@ -299,6 +309,10 @@ void Deleteinbuffer(struct Buffer *buf,long pos,long length)
          buf->length-pos-length);
    }
    buf->length-=length;
+   /* Ensure buffer is always null-terminated after deletion */
+   if(buf->buffer && buf->size > buf->length)
+   {  buf->buffer[buf->length]='\0';
+   }
 }
 
 void Setgadgetattrs(struct Gadget *gad,struct Window *win,struct Requester *req,...)
