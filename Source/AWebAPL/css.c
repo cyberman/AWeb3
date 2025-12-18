@@ -34,6 +34,7 @@
 #include "table.h"
 #include "copy.h"
 #include "colours.h"
+#include "url.h"
 
 /* COLOR macro - extract pen number from Colorinfo */
 #define COLOR(ci) ((ci)?((ci)->pen):(-1))
@@ -324,7 +325,132 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
             continue; /* Skip to next rule */
          }
          
-         /* Check for other @ rules (@import, @charset, etc.) - skip them */
+         /* Check for @import rule - process it to load external stylesheets */
+         if(*p == '@' && strnicmp((char *)p, "@import", 7) == 0)
+         {  UBYTE *importStart;
+            UBYTE *urlStart;
+            UBYTE *urlEnd;
+            UBYTE *importUrl;
+            void *url;
+            UBYTE *extcss;
+            long urlLen;
+            UBYTE quote;
+            
+            css_debug_printf("ParseCSS: Found @import rule at position %ld\n", p - cssStart);
+            p += 7; /* Skip "@import" */
+            SkipWhitespace(&p);
+            
+            /* Parse @import url(...) or @import "..." format */
+            if(*p == 'u' && strnicmp((char *)p, "url(", 4) == 0)
+            {  p += 4; /* Skip "url(" */
+               SkipWhitespace(&p);
+               urlStart = p;
+               /* Check for quoted URL */
+               if(*p == '"' || *p == '\'')
+               {  quote = *p;
+                  urlStart = ++p; /* Skip opening quote */
+                  urlEnd = p;
+                  while(*urlEnd && *urlEnd != quote)
+                  {  if(*urlEnd == '\\' && urlEnd[1]) urlEnd += 2; /* Skip escaped char */
+                     else urlEnd++;
+                  }
+                  if(*urlEnd == quote)
+                  {  urlLen = urlEnd - urlStart;
+                     urlEnd++; /* Skip closing quote */
+                  }
+                  else
+                  {  urlLen = 0; /* Unclosed quote */
+                  }
+                  p = urlEnd;
+               }
+               else
+               {  /* Unquoted URL - parse until closing paren */
+                  urlEnd = p;
+                  while(*urlEnd && *urlEnd != ')' && !isspace(*urlEnd))
+                  {  urlEnd++;
+                  }
+                  urlLen = urlEnd - urlStart;
+                  p = urlEnd;
+               }
+               SkipWhitespace(&p);
+               if(*p == ')') p++; /* Skip closing paren */
+            }
+            else if(*p == '"' || *p == '\'')
+            {  /* @import "url" format */
+               quote = *p;
+               urlStart = ++p; /* Skip opening quote */
+               urlEnd = p;
+               while(*urlEnd && *urlEnd != quote)
+               {  if(*urlEnd == '\\' && urlEnd[1]) urlEnd += 2; /* Skip escaped char */
+                  else urlEnd++;
+               }
+               if(*urlEnd == quote)
+               {  urlLen = urlEnd - urlStart;
+                  urlEnd++; /* Skip closing quote */
+               }
+               else
+               {  urlLen = 0; /* Unclosed quote */
+               }
+               p = urlEnd;
+            }
+            else
+            {  /* Invalid @import format - skip to semicolon */
+               css_debug_printf("ParseCSS: Invalid @import format, skipping\n");
+               while(*p && *p != ';') p++;
+               if(*p == ';') p++;
+               position = p - cssStart;
+               lastPosition = position;
+               stuckCount = 0;
+               continue;
+            }
+            
+            /* Extract URL and load external stylesheet */
+            if(urlLen > 0)
+            {  importUrl = ALLOCTYPE(UBYTE, urlLen + 1, MEMF_FAST);
+               if(importUrl)
+               {  memmove(importUrl, urlStart, urlLen);
+                  importUrl[urlLen] = '\0';
+                  
+                  /* Resolve URL relative to document base */
+                  url = Findurl(doc->base, importUrl, 0);
+                  if(url)
+                  {  /* Try to load external CSS */
+                     extcss = Finddocext(doc, url, FALSE);
+                     if(extcss && extcss != (UBYTE *)~0)
+                     {  /* CSS loaded synchronously - merge it immediately */
+                        css_debug_printf("ParseCSS: @import CSS loaded synchronously, merging\n");
+                        MergeCSSStylesheet(doc, extcss);
+                        /* Apply link colors from imported CSS */
+                        ApplyCSSToLinkColors(doc);
+                     }
+                     else if(extcss == NULL)
+                     {  /* CSS loading asynchronously - will be merged via AODOC_Docextready */
+                        css_debug_printf("ParseCSS: @import CSS loading asynchronously, will merge when ready\n");
+                     }
+                     else
+                     {  /* Error loading CSS */
+                        css_debug_printf("ParseCSS: @import CSS load failed\n");
+                     }
+                  }
+                  else
+                  {  css_debug_printf("ParseCSS: @import URL resolution failed: %s\n", importUrl);
+                  }
+                  FREE(importUrl);
+               }
+            }
+            
+            /* Skip to semicolon */
+            SkipWhitespace(&p);
+            if(*p == ';') p++;
+            
+            /* Update position after processing @import */
+            position = p - cssStart;
+            lastPosition = position;
+            stuckCount = 0;
+            continue; /* Skip to next rule */
+         }
+         
+         /* Check for other @ rules (@charset, etc.) - skip them */
          if(*p == '@')
          {  UBYTE *atRuleStart = p;
             UBYTE atRuleName[32];
