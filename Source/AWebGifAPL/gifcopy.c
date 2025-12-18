@@ -776,26 +776,34 @@ __saveds __asm ULONG Dispatchcopy(register __a0 struct Gifcopy *gc, register __a
          Disposecopy(gc);
          break;
       case AOM_NOTIFY:
+         #ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
          {  Aprintf("GIF: Dispatchcopy: AOM_NOTIFY, gc=0x%08lx\n", (ULONG)gc);
          }
+         #endif
          if(!gc)
-         {  if(AwebPluginBase)
+         {  #ifdef DEBUG_PLUGINS
+            if(AwebPluginBase)
             {  Aprintf("GIF: Dispatchcopy: ERROR - gc is NULL for AOM_NOTIFY!\n");
             }
+            #endif
             return 0;
          }
          result=AmethodasA(AOTP_COPYDRIVER,(struct Aobject *)gc,amsg);
          break;
       default:
+         #ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
          {  Aprintf("GIF: Dispatchcopy: default case, method=0x%08lx, gc=0x%08lx\n", amsg->method, (ULONG)gc);
          }
+         #endif
          result=AmethodasA(AOTP_COPYDRIVER,(struct Aobject *)gc,amsg);
          break;
    }
+   #ifdef DEBUG_PLUGINS
    if(AwebPluginBase)
    {  Aprintf("GIF: Dispatchcopy returning %ld\n", result);
    }
+   #endif
    return result;
 }
