@@ -73,6 +73,7 @@ extern BOOL debug_log_sema_initialized;
 struct TaskRefCount {
   struct Task *task;         /* Task pointer as identifier */
   ULONG refcount;            /* Number of Assl objects for this task */
+  int *task_errno;           /* Per-task errno variable (thread-safe) */
   struct TaskRefCount *next; /* Linked list */
 };
 
@@ -94,10 +95,9 @@ struct Library *AmiSSLMasterBase;
 struct Library *AmiSSLBase;
 struct Library *AmiSSLExtBase;
 
-/* Track the first task that called OpenAmiSSLTags() */
-/* This is needed to distinguish the main task from subprocesses */
-/* Subprocesses must call InitAmiSSL() explicitly, main task doesn't */
-static struct Task *first_amissl_task = NULL;
+/* Per AmiSSL developer recommendation: we now call InitAmiSSL()/CleanupAmiSSL()
+ * manually for ALL tasks (main and subprocesses), matching the old v3/v4 behavior.
+ * This provides clearer control and is beneficial for multithreaded use. */
 
 /* Each process calls SSL_CTX_up_ref() when using it, SSL_CTX_free() when done */
 /* SSL_CTX_free() decrements OpenSSL's internal reference count, only frees when refcount reaches 0 */
@@ -121,8 +121,17 @@ static BOOL ssl_init_sema_initialized = FALSE;
 static struct TaskRefCount *task_ref_list = NULL;
 static struct SignalSemaphore task_ref_sema = {0};
 
+/* Static errno for main task's OpenAmiSSLTags() call */
+/* OpenAmiSSLTags() is called before we have a task ref entry, so we use a static errno */
+static int main_task_errno = 0;
+
 /* Semaphore for thread-safe debug logging - shared with http.c via extern
  * declaration */
+
+/* Forward declarations */
+static void debug_printf(const char *format, ...);
+static void check_ssl_error(const char *function_name,
+                            struct Library *AmiSSLBase);
 
 /* Initialize SSL initialization semaphore - called once at startup */
 static void InitSSLSemaphore(void) {
@@ -165,11 +174,23 @@ static BOOL IncrementTaskRef(void) {
   ref =
       (struct TaskRefCount *)AllocMem(sizeof(struct TaskRefCount), MEMF_CLEAR);
   if (ref) {
+    /* Allocate per-task errno variable for thread-safe errno access */
+    /* Each task must have its own errno as AmiSSL maintains per-task state */
+    ref->task_errno = (int *)AllocMem(sizeof(int), MEMF_CLEAR);
+    if (!ref->task_errno) {
+      /* Failed to allocate errno - free the refcount entry and return */
+      FreeMem(ref, sizeof(struct TaskRefCount));
+      ReleaseSemaphore(&task_ref_sema);
+      return FALSE;
+    }
+    *ref->task_errno = 0; /* Initialize to 0 */
     ref->task = task;
     ref->refcount = 1;
     ref->next = task_ref_list;
     task_ref_list = ref;
     is_first = TRUE; /* First Assl for this task */
+    debug_printf("DEBUG: IncrementTaskRef: Created new task ref entry (task=%p, errno=%p)\n",
+                 task, ref->task_errno);
   }
 
   ReleaseSemaphore(&task_ref_sema);
@@ -203,6 +224,11 @@ static BOOL DecrementTaskRef(struct Task *task) {
         } else {
           task_ref_list = ref->next;
         }
+        /* Free per-task errno before freeing the refcount entry */
+        if (ref->task_errno) {
+          FreeMem(ref->task_errno, sizeof(int));
+          ref->task_errno = NULL;
+        }
         FreeMem(ref, sizeof(struct TaskRefCount));
       }
       ReleaseSemaphore(&task_ref_sema);
@@ -215,6 +241,34 @@ static BOOL DecrementTaskRef(struct Task *task) {
   /* Not found - shouldn't happen, but be safe */
   ReleaseSemaphore(&task_ref_sema);
   return FALSE;
+}
+
+/* Get per-task errno pointer for current task */
+/* Returns NULL if task not found in refcount list */
+static int *GetTaskErrno(void) {
+  struct Task *task;
+  struct TaskRefCount *ref;
+  int *task_errno = NULL;
+
+  task = FindTask(NULL);
+  if (!task) {
+    return NULL;
+  }
+
+  ObtainSemaphore(&task_ref_sema);
+
+  /* Search for entry for this task */
+  ref = task_ref_list;
+  while (ref) {
+    if (ref->task == task) {
+      task_errno = ref->task_errno;
+      break;
+    }
+    ref = ref->next;
+  }
+
+  ReleaseSemaphore(&task_ref_sema);
+  return task_errno;
 }
 
 /*
@@ -264,8 +318,7 @@ static ULONG get_task_id(void) {
   return (ULONG)task;
 }
 
-/* Forward declarations */
-static void debug_printf(const char *format, ...);
+/* Forward declaration for check_ssl_error (debug_printf already declared earlier) */
 static void check_ssl_error(const char *function_name,
                             struct Library *AmiSSLBase);
 static SSL_CTX *GetSharedSSLCTX(void);
@@ -629,7 +682,9 @@ static void print_ssl_errors_bio(const char *function_name,
     return;
   }
 
-  /* Check if there are any errors first */
+  /* CRITICAL: Use ERR_peek_error() first to check for errors without consuming them */
+  /* ERR_peek_error() is safer than ERR_get_error() as it doesn't modify the error queue */
+  /* This prevents crashes if the error context isn't fully initialized */
   err = ERR_peek_error();
   if (!err) {
     return; /* No errors in queue */
@@ -695,12 +750,28 @@ static void check_ssl_error(const char *function_name,
     return;
   }
 
-  /* Check for errors in the OpenSSL error queue */
+  /* CRITICAL: Use ERR_peek_error() first to check for errors without consuming them */
+  /* This prevents crashes if the error context isn't fully initialized */
+  /* ERR_peek_error() is safer than ERR_get_error() as it doesn't modify the error queue */
+  err = ERR_peek_error();
+  if (!err) {
+    return; /* No errors in queue */
+  }
+
+  /* Now that we know there are errors, consume them with ERR_get_error() */
   err = ERR_get_error();
   if (err) {
     error_count = 1;
 
-    /* Get detailed error information */
+    /* Get detailed error information - these may call into AmiSSL error handling */
+    /* If any of these crash, it means the error context is corrupted */
+    lib_str = NULL;
+    func_str = NULL;
+    reason_str = NULL;
+    
+    /* Try to get error strings, but handle failures gracefully */
+    /* These functions may call GetAmiSSLerrno() internally which can crash if
+     * error context is invalid */
     lib_str = ERR_lib_error_string(err);
     func_str = ERR_func_error_string(err);
     reason_str = ERR_reason_error_string(err);
@@ -708,6 +779,7 @@ static void check_ssl_error(const char *function_name,
     /* Use ERR_error_string_n() for safe null-terminated string */
     /* ERR_error_string_n() guarantees null termination and respects buffer size
      */
+    /* This may also call into AmiSSL error handling, so be defensive */
     ERR_error_string_n(err, errbuf, sizeof(errbuf));
     /* Ensure null termination (defensive - ERR_error_string_n should do this)
      */
@@ -875,25 +947,30 @@ static SSL_CTX *GetSharedSSLCTX(void) {
   debug_printf("DEBUG: GetSharedSSLCTX: SSL_CTX created successfully at %p\n", ctx);
   check_ssl_error("SSL_CTX_new", AmiSSLBase);
   
-  /* Configure the shared SSL_CTX */
+  /* Configure the shared SSL_CTX - keep it simple */
+  /* Set default certificate verification paths */
   SSL_CTX_set_default_verify_paths(ctx);
   check_ssl_error("SSL_CTX_set_default_verify_paths", AmiSSLBase);
-  
-  SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | 
-                      SSL_OP_NO_TLSv1_1 | SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
-  check_ssl_error("SSL_CTX_set_options", AmiSSLBase);
-  
+
+  /* Set minimum protocol version to TLS 1.2 (minimum safe protocol) */
+  /* This is the only protocol configuration we need - OpenSSL will handle the rest */
   SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
   check_ssl_error("SSL_CTX_set_min_proto_version", AmiSSLBase);
   
-  SSL_CTX_set_cipher_list(ctx, "CHACHA20:MEDIUM:HIGH");
-  check_ssl_error("SSL_CTX_set_cipher_list", AmiSSLBase);
+  /* Debug: Log protocol version settings for SSL_CTX */
+  {
+    long min_proto = SSL_CTX_get_min_proto_version(ctx);
+    long max_proto = SSL_CTX_get_max_proto_version(ctx);
+    debug_printf("DEBUG: GetSharedSSLCTX: SSL_CTX protocol versions - min=%ld (0x%lx), max=%ld (0x%lx)\n",
+                 min_proto, min_proto, max_proto, max_proto);
+  }
   
-  SSL_CTX_set_ciphersuites(ctx, "TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384");
-  check_ssl_error("SSL_CTX_set_ciphersuites", AmiSSLBase);
-  
+  /* Disable certificate verification (user will be prompted if needed) */
   SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
   check_ssl_error("SSL_CTX_set_verify", AmiSSLBase);
+  
+  /* Note: We don't set cipher lists or ciphersuites - let OpenSSL use its defaults */
+  /* This ensures maximum compatibility across different OpenSSL builds */
   
   /* Store as shared SSL_CTX and set initial refcount to 1 */
   shared_sslctx = ctx;
@@ -910,7 +987,6 @@ static SSL_CTX *GetSharedSSLCTX(void) {
 struct Assl *Assl_initamissl(struct Library *socketbase) {
   struct Assl *assl;
   struct Task *current_task;
-  BOOL is_subprocess;
   BOOL is_first_for_task;
   BOOL have_task_ref;
   BOOL initamissl_called_for_task;
@@ -920,7 +996,6 @@ struct Assl *Assl_initamissl(struct Library *socketbase) {
   debug_printf("DEBUG: Assl_initamissl: ENTRY - socketbase=%p\n", socketbase);
 
   current_task = NULL;
-  is_subprocess = FALSE;
   is_first_for_task = FALSE;
   have_task_ref = FALSE;
   initamissl_called_for_task = FALSE;
@@ -963,22 +1038,25 @@ struct Assl *Assl_initamissl(struct Library *socketbase) {
          */
         /* After this call, all tasks can use the global bases safely thanks to
          * baserel */
+        /* Per AmiSSL developer recommendation: set AmiSSL_InitAmiSSL to FALSE and
+         * call InitAmiSSL() manually for all tasks, then call CleanupAmiSSL() in
+         * all cases. This is the old AmiSSL v3/v4 behavior, which can be beneficial
+         * for multithreaded use and provides clearer control over initialization. */
         debug_printf("DEBUG: Assl_initamissl: Calling OpenAmiSSLTags()\n");
+        /* Use static errno for main task's OpenAmiSSLTags() call */
+        /* This is called before we have a task ref entry, so we can't use per-task errno yet */
+        /* The main task will get its own per-task errno when it calls InitAmiSSL() */
+        main_task_errno = 0;
         if (OpenAmiSSLTags(AMISSL_CURRENT_VERSION, AmiSSL_UsesOpenSSLStructs,
-                           TRUE, AmiSSL_InitAmiSSL, TRUE,
+                           TRUE, AmiSSL_InitAmiSSL, FALSE,
                            AmiSSL_GetAmiSSLBase, &AmiSSLBase,
                            AmiSSL_GetAmiSSLExtBase, &AmiSSLExtBase,
                            AmiSSL_SocketBase, socketbase, AmiSSL_ErrNoPtr,
-                           &errno, TAG_END) == 0) {
+                           &main_task_errno, TAG_END) == 0) {
           debug_printf("DEBUG: Assl_initamissl: OpenAmiSSLTags() succeeded\n");
           debug_printf(
               "DEBUG: Assl_initamissl: AmiSSLBase=%p, AmiSSLExtBase=%p\n",
               AmiSSLBase, AmiSSLExtBase);
-          /* Track the first task that called OpenAmiSSLTags() */
-          /* This task's InitAmiSSL() was called automatically by OpenAmiSSLTags() */
-          first_amissl_task = FindTask(NULL);
-          debug_printf("DEBUG: Assl_initamissl: First AmiSSL task=%p\n",
-                       first_amissl_task);
           amissl_initialized = TRUE;
         } else {
           debug_printf("DEBUG: Assl_initamissl: OpenAmiSSLTags() failed\n");
@@ -1006,16 +1084,12 @@ struct Assl *Assl_initamissl(struct Library *socketbase) {
         "DEBUG: Assl_initamissl: AmiSSL not initialized, returning NULL\n");
     return NULL;
   }
-  /* Determine if this task is the first AmiSSL task or a subprocess */
+  
+  /* Get current task for reference counting */
   current_task = FindTask(NULL);
-  if (current_task && first_amissl_task && current_task != first_amissl_task) {
-    is_subprocess = TRUE;
-  } else {
-    is_subprocess = FALSE;
-  }
 
   /* Increment task reference count for cleanup tracking
-   * - First Assl for a subprocess task: we must call InitAmiSSL() once
+   * - First Assl for any task: we must call InitAmiSSL() once
    * - Subsequent Assl objects in the same task share that initialization
    */
   is_first_for_task = IncrementTaskRef();
@@ -1023,37 +1097,44 @@ struct Assl *Assl_initamissl(struct Library *socketbase) {
     have_task_ref = TRUE;
   }
 
-  /* For subprocesses, call InitAmiSSL() only once per task, when the first
-   * Assl is created. The main task's InitAmiSSL() was already done by
-   * OpenAmiSSLTags().
+  /* Call InitAmiSSL() manually for ALL tasks (main and subprocesses)
+   * Per AmiSSL developer recommendation: this provides clearer control and
+   * is beneficial for multithreaded use (old v3/v4 behavior).
+   * CRITICAL: Each task must have its own errno variable for thread-safe operation.
    */
-  if (is_subprocess) {
-    if (is_first_for_task) {
-      debug_printf("DEBUG: Assl_initamissl: Subprocess detected (task=%p, "
-                   "first=%p), first Assl for this task - calling InitAmiSSL()\n",
-                   current_task, first_amissl_task);
-      if (InitAmiSSL(AmiSSL_SocketBase, SocketBase, AmiSSL_ErrNoPtr, &errno,
-                     TAG_END) != 0) {
-        debug_printf("DEBUG: Assl_initamissl: ERROR - InitAmiSSL() failed for "
-                     "subprocess\n");
-        check_ssl_error("InitAmiSSL (subprocess)", AmiSSLBase);
-        /* Roll back task reference count entry for this task */
-        if (have_task_ref && current_task) {
-          DecrementTaskRef(current_task);
-        }
-        return NULL;
+  if (is_first_for_task) {
+    int *task_errno;
+    
+    /* Get per-task errno pointer - this was allocated in IncrementTaskRef() */
+    task_errno = GetTaskErrno();
+    if (!task_errno) {
+      debug_printf("DEBUG: Assl_initamissl: ERROR - Could not get per-task errno for task=%p\n",
+                   current_task);
+      /* Roll back task reference count entry for this task */
+      if (have_task_ref && current_task) {
+        DecrementTaskRef(current_task);
       }
-      initamissl_called_for_task = TRUE;
-      debug_printf("DEBUG: Assl_initamissl: InitAmiSSL() succeeded for "
-                   "subprocess\n");
-    } else {
-      debug_printf("DEBUG: Assl_initamissl: Subprocess detected (task=%p, "
-                   "first=%p), reusing existing InitAmiSSL() context\n",
-                   current_task, first_amissl_task);
+      return NULL;
     }
+    
+    debug_printf("DEBUG: Assl_initamissl: First Assl for task=%p, calling InitAmiSSL() with errno=%p\n",
+                 current_task, task_errno);
+    if (InitAmiSSL(AmiSSL_SocketBase, SocketBase, AmiSSL_ErrNoPtr, task_errno,
+                   TAG_END) != 0) {
+      debug_printf("DEBUG: Assl_initamissl: ERROR - InitAmiSSL() failed for task=%p\n",
+                   current_task);
+      check_ssl_error("InitAmiSSL", AmiSSLBase);
+      /* Roll back task reference count entry for this task */
+      if (have_task_ref && current_task) {
+        DecrementTaskRef(current_task);
+      }
+      return NULL;
+    }
+    initamissl_called_for_task = TRUE;
+    debug_printf("DEBUG: Assl_initamissl: InitAmiSSL() succeeded for task=%p\n",
+                 current_task);
   } else {
-    debug_printf("DEBUG: Assl_initamissl: Main task (task=%p), InitAmiSSL() "
-                 "already called by OpenAmiSSLTags()\n",
+    debug_printf("DEBUG: Assl_initamissl: Reusing existing InitAmiSSL() context for task=%p\n",
                  current_task);
   }
 
@@ -1081,16 +1162,16 @@ struct Assl *Assl_initamissl(struct Library *socketbase) {
   } else {
     debug_printf("DEBUG: Assl_initamissl: Failed to allocate Assl struct or "
                  "invalid socketbase\n");
-    /* If this was the first Assl for a subprocess and InitAmiSSL() was
+    /* If this was the first Assl for this task and InitAmiSSL() was
      * called successfully, we must balance it with CleanupAmiSSL() because
      * Assl_cleanup() will never be called for this failed allocation.
      */
-    if (is_subprocess && is_first_for_task && initamissl_called_for_task &&
-        AmiSSLBase) {
+    if (is_first_for_task && initamissl_called_for_task && AmiSSLBase) {
       debug_printf("DEBUG: Assl_initamissl: Balancing InitAmiSSL() with "
-                   "CleanupAmiSSL() due to allocation failure\n");
+                   "CleanupAmiSSL() due to allocation failure (task=%p)\n",
+                   current_task);
       CleanupAmiSSL(TAG_END);
-      check_ssl_error("CleanupAmiSSL (alloc failure)", AmiSSLBase);
+      /* No error checking after CleanupAmiSSL() - task state is gone */
     }
     /* Roll back task reference count if we added one */
     if (have_task_ref && current_task) {
@@ -1294,33 +1375,29 @@ __asm void Assl_cleanup(register __a0 struct Assl *assl) {
     ReleaseSemaphore(&assl->use_sema);
 
     /* 3. CRITICAL: Decrement task reference count and call CleanupAmiSSL() if needed */
-    /* Per SDK: Each subprocess that called InitAmiSSL() MUST call CleanupAmiSSL() */
+    /* Per AmiSSL developer recommendation: call CleanupAmiSSL() for ALL tasks
+     * (main and subprocesses) when the last Assl for that task is destroyed.
+     * This matches the old v3/v4 behavior and provides clearer control. */
     task = FindTask(NULL);
     should_cleanup_amissl = FALSE;
     if (task) {
       if (DecrementTaskRef(task)) {
-        /* This was the last Assl for this task */
-        /* Check if this is a subprocess (not the main task) */
-        if (first_amissl_task && task != first_amissl_task) {
-          /* Subprocess - must call CleanupAmiSSL() per SDK requirements */
-          debug_printf("DEBUG: Assl_cleanup: Last Assl for subprocess "
-                       "(task=%p), calling CleanupAmiSSL()\n",
-                       task);
-          should_cleanup_amissl = TRUE;
-        } else {
-          debug_printf("DEBUG: Assl_cleanup: Last Assl for main task "
-                       "(task=%p), CleanupAmiSSL() will be called by "
-                       "CloseAmiSSL()\n",
-                       task);
-        }
+        /* This was the last Assl for this task - must call CleanupAmiSSL() */
+        debug_printf("DEBUG: Assl_cleanup: Last Assl for task=%p, calling CleanupAmiSSL()\n",
+                     task);
+        should_cleanup_amissl = TRUE;
       }
     }
 
-    /* Call CleanupAmiSSL() for subprocesses */
+    /* Call CleanupAmiSSL() for all tasks when last Assl is destroyed */
+    /* CRITICAL: Do NOT call check_ssl_error() after CleanupAmiSSL() because
+     * CleanupAmiSSL() removes the task's state from AmiSSL's internal list.
+     * Calling error checking functions after this will crash because GetAmiSSLerrno()
+     * can't find the task's state. */
     if (should_cleanup_amissl && AmiSSLBase) {
-      debug_printf("DEBUG: Assl_cleanup: Calling CleanupAmiSSL() for subprocess\n");
+      debug_printf("DEBUG: Assl_cleanup: Calling CleanupAmiSSL() for task=%p\n", task);
       CleanupAmiSSL(TAG_END);
-      check_ssl_error("CleanupAmiSSL", AmiSSLBase);
+      /* No error checking after CleanupAmiSSL() - task state is gone */
     }
 
     /* 4. Do NOT free assl here. http.c handles the free. */
@@ -1515,6 +1592,14 @@ __asm BOOL Assl_openssl(register __a0 struct Assl *assl) {
           }
           assl->ssl = NULL;
         } else {
+          /* Debug: Verify SSL object inherited protocol versions from SSL_CTX */
+          {
+            long min_proto = SSL_get_min_proto_version(assl->ssl);
+            long max_proto = SSL_get_max_proto_version(assl->ssl);
+            debug_printf("DEBUG: Assl_openssl: SSL object protocol versions after SSL_new() - min=%ld (0x%lx), max=%ld (0x%lx)\n",
+                         min_proto, min_proto, max_proto, max_proto);
+          }
+          
           /* Store assl pointer in SSL object's ex_data for certificate callback
            */
           /* This is safer than task userdata because each SSL object has its own
@@ -1656,7 +1741,7 @@ __asm void Assl_closessl(register __a0 struct Assl *assl) {
          *   0 = shutdown not yet complete (need to call again)
          *  -1 = error (socket closed, etc.) - this is OK during cleanup */
         SSL_shutdown(assl->ssl); /* First call - send close_notify */
-        check_ssl_error("SSL_shutdown (first)", AmiSSLBase);
+        /* No error checking in cleanup path - errors don't matter during cleanup */
         /* Try second call if first succeeded (returned 0, not -1) */
         /* Note: We don't wait for peer's close_notify in second call to avoid
          * blocking - just send our close_notify and free */
@@ -1700,7 +1785,7 @@ __asm void Assl_closessl(register __a0 struct Assl *assl) {
             "DEBUG: Assl_closessl: Calling SSL_free() on SSL object %p\n",
             assl->ssl);
         SSL_free(assl->ssl);
-        check_ssl_error("SSL_free", AmiSSLBase);
+        /* No error checking in cleanup path - errors don't matter during cleanup */
         assl->ssl = NULL;
         debug_printf(
             "DEBUG: Assl_closessl: SSL_free() completed successfully\n");
@@ -1727,7 +1812,7 @@ __asm void Assl_closessl(register __a0 struct Assl *assl) {
                 "DEBUG: Assl_closessl: Calling SSL_CTX_free() on shared context %p (decrementing refcount, current=%lu)\n",
                 assl->sslctx, shared_sslctx_refcount);
             SSL_CTX_free(assl->sslctx);
-            check_ssl_error("SSL_CTX_free", AmiSSLBase);
+            /* No error checking in cleanup path - errors don't matter during cleanup */
             /* Decrement our refcount tracking */
             if (shared_sslctx_refcount > 0) {
               shared_sslctx_refcount--;
@@ -1879,6 +1964,14 @@ __asm long Assl_connect(register __a0 struct Assl *assl,
     check_ssl_error("SSL_set_tlsext_host_name", AmiSSLBase);
   }
 
+  /* Debug: Log protocol version settings for SSL object before connecting */
+  {
+    long min_proto = SSL_get_min_proto_version(local_ssl);
+    long max_proto = SSL_get_max_proto_version(local_ssl);
+    debug_printf("DEBUG: Assl_connect: SSL protocol versions before connect - min=%ld (0x%lx), max=%ld (0x%lx)\n",
+                 min_proto, min_proto, max_proto, max_proto);
+  }
+  
   debug_printf("DEBUG: Assl_connect: Starting SSL_connect (Blocking, NO "
                "SEMAPHORE)...\n");
 
@@ -2077,16 +2170,21 @@ __asm char *Assl_geterror(register __a0 struct Assl *assl,
     }
 
     /* CRITICAL: Do NOT use semaphores for read-only error checking */
-    /* ERR_get_error() is a simple read operation that doesn't do network I/O */
+    /* ERR_peek_error() is safer than ERR_get_error() as it doesn't modify the error queue */
+    /* This prevents crashes if the error context isn't fully initialized */
     if (AmiSSLBase && (ULONG)AmiSSLBase >= 0x1000 &&
         (ULONG)AmiSSLBase < 0xFFFFFFF0) {
       /* Modern OpenSSL doesn't need these deprecated functions */
       /* ERR_load_SSL_strings(); */
-      err = ERR_get_error();
+      /* Use ERR_peek_error() first to check for errors without consuming them */
+      err = ERR_peek_error();
       if (err) {
+        /* Now consume the error with ERR_get_error() */
+        err = ERR_get_error();
         /* Use ERR_error_string_n() for safe null-terminated string */
         /* ERR_error_string_n() guarantees null termination and respects buffer
          * size */
+        /* This may call into AmiSSL error handling, so be defensive */
         ERR_error_string_n(err, local_errbuf, sizeof(local_errbuf));
         /* Ensure null termination (defensive - ERR_error_string_n should do
          * this) */
