@@ -193,6 +193,15 @@
 #define AOBDY_LinkTextColor (AOBDY_Dummy+58)  /* SET,GET */
    /* (struct Colorinfo *) Text color for current link (from CSS class-based selectors or inline styles) */
 
+#define AOBDY_BackgroundRepeat (AOBDY_Dummy+59)  /* SET,GET */
+   /* (UBYTE *) CSS background-repeat: "repeat", "no-repeat", "repeat-x", "repeat-y" */
+
+#define AOBDY_BackgroundPosition (AOBDY_Dummy+60)  /* SET,GET */
+   /* (UBYTE *) CSS background-position: "center", "top", "bottom", "left", "right", percentages, lengths */
+
+#define AOBDY_BackgroundAttachment (AOBDY_Dummy+61)  /* SET,GET */
+   /* (UBYTE *) CSS background-attachment: "scroll", "fixed" */
+
 /*--- body support structures ---*/
 
 /* Forward declaration of Body structure (defined in body.c) */

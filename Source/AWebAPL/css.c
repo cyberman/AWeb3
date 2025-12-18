@@ -2489,6 +2489,353 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                }
             }
          }
+         /* Apply background-repeat */
+         else if(stricmp((char *)prop->name,"background-repeat") == 0)
+         {  UBYTE *repeatStr;
+            repeatStr = Dupstr(prop->value, -1);
+            if(repeatStr)
+            {  /* Validate values: repeat, no-repeat, repeat-x, repeat-y */
+               if(stricmp((char *)repeatStr, "repeat") == 0 ||
+                  stricmp((char *)repeatStr, "no-repeat") == 0 ||
+                  stricmp((char *)repeatStr, "repeat-x") == 0 ||
+                  stricmp((char *)repeatStr, "repeat-y") == 0)
+               {  Asetattrs(body, AOBDY_BackgroundRepeat, repeatStr, TAG_END);
+               }
+               else
+               {  FREE(repeatStr);
+               }
+            }
+         }
+         /* Apply background-position */
+         else if(stricmp((char *)prop->name,"background-position") == 0)
+         {  UBYTE *positionStr;
+            positionStr = Dupstr(prop->value, -1);
+            if(positionStr)
+            {  /* Store position value as-is - can be keywords (center, top, bottom, left, right)
+                 * or percentages/lengths (e.g., "50% 50%", "10px 20px", "center top") */
+               Asetattrs(body, AOBDY_BackgroundPosition, positionStr, TAG_END);
+            }
+         }
+         /* Apply background-attachment */
+         else if(stricmp((char *)prop->name,"background-attachment") == 0)
+         {  UBYTE *attachmentStr;
+            attachmentStr = Dupstr(prop->value, -1);
+            if(attachmentStr)
+            {  /* Validate values: scroll, fixed */
+               if(stricmp((char *)attachmentStr, "scroll") == 0 ||
+                  stricmp((char *)attachmentStr, "fixed") == 0)
+               {  Asetattrs(body, AOBDY_BackgroundAttachment, attachmentStr, TAG_END);
+               }
+               else
+               {  FREE(attachmentStr);
+               }
+            }
+         }
+         /* Apply background shorthand - parse all background properties */
+         else if(stricmp((char *)prop->name,"background") == 0)
+         {  UBYTE *bgValue;
+            UBYTE *tokenStart;
+            UBYTE *tokenEnd;
+            UBYTE *token;
+            long tokenLen;
+            UBYTE *bgColorStr;
+            UBYTE *bgImageStr;
+            UBYTE *bgRepeatStr;
+            UBYTE *bgPositionStr;
+            UBYTE *bgAttachmentStr;
+            ULONG bgColorRgb;
+            struct Colorinfo *bgColorCi;
+            void *bgimg;
+            UBYTE *url;
+            long urlLen;
+            UBYTE *urlStart;
+            UBYTE *urlEnd;
+            
+            bgValue = prop->value;
+            bgColorStr = NULL;
+            bgImageStr = NULL;
+            bgRepeatStr = NULL;
+            bgPositionStr = NULL;
+            bgAttachmentStr = NULL;
+            
+            /* Parse background shorthand: [color] [image] [repeat] [attachment] [position] */
+            /* Values can be in any order, but typically: background: color image repeat attachment position */
+            while(*bgValue)
+            {  /* Skip whitespace */
+               while(*bgValue && isspace(*bgValue)) bgValue++;
+               if(!*bgValue) break;
+               
+               tokenStart = bgValue;
+               
+               /* Check for url(...) - background image */
+               if(strnicmp((char *)bgValue, "url(", 4) == 0)
+               {  urlStart = bgValue + 4;
+                  while(*urlStart && isspace(*urlStart)) urlStart++;
+                  urlEnd = (UBYTE *)strchr((char *)urlStart, ')');
+                  if(urlEnd && urlEnd > urlStart)
+                  {  /* Trim quotes if present */
+                     if((*urlStart == '"' || *urlStart == '\'') && urlEnd > urlStart + 1)
+                     {  urlStart++;
+                        if(*(urlEnd - 1) == '"' || *(urlEnd - 1) == '\'')
+                        {  urlEnd--;
+                        }
+                     }
+                     urlLen = urlEnd - urlStart;
+                     if(urlLen > 0)
+                     {  bgImageStr = ALLOCTYPE(UBYTE, urlLen + 1, MEMF_FAST);
+                        if(bgImageStr)
+                        {  memmove(bgImageStr, urlStart, urlLen);
+                           bgImageStr[urlLen] = '\0';
+                        }
+                     }
+                     bgValue = urlEnd + 1;
+                     continue;
+                  }
+               }
+               
+               /* Check for keywords: repeat, no-repeat, repeat-x, repeat-y */
+               if(strnicmp((char *)bgValue, "repeat", 6) == 0)
+               {  if(strnicmp((char *)bgValue, "repeat-x", 8) == 0)
+                  {  bgRepeatStr = Dupstr("repeat-x", -1);
+                     bgValue += 8;
+                  }
+                  else if(strnicmp((char *)bgValue, "repeat-y", 8) == 0)
+                  {  bgRepeatStr = Dupstr("repeat-y", -1);
+                     bgValue += 8;
+                  }
+                  else if(strnicmp((char *)bgValue, "no-repeat", 9) == 0)
+                  {  bgRepeatStr = Dupstr("no-repeat", -1);
+                     bgValue += 9;
+                  }
+                  else
+                  {  bgRepeatStr = Dupstr("repeat", -1);
+                     bgValue += 6;
+                  }
+                  continue;
+               }
+               
+               /* Check for attachment: scroll, fixed */
+               if(strnicmp((char *)bgValue, "scroll", 6) == 0)
+               {  bgAttachmentStr = Dupstr("scroll", -1);
+                  bgValue += 6;
+                  continue;
+               }
+               if(strnicmp((char *)bgValue, "fixed", 5) == 0)
+               {  bgAttachmentStr = Dupstr("fixed", -1);
+                  bgValue += 5;
+                  continue;
+               }
+               
+               /* Check for position keywords: center, top, bottom, left, right */
+               if(strnicmp((char *)bgValue, "center", 6) == 0)
+               {  if(!bgPositionStr)
+                  {  bgPositionStr = Dupstr("center", -1);
+                  }
+                  bgValue += 6;
+                  continue;
+               }
+               if(strnicmp((char *)bgValue, "top", 3) == 0)
+               {  if(!bgPositionStr)
+                  {  bgPositionStr = Dupstr("top", -1);
+                  }
+                  else
+                  {  /* Append to existing position */
+                     UBYTE *oldPos = bgPositionStr;
+                     long oldLen = strlen((char *)oldPos);
+                     bgPositionStr = ALLOCTYPE(UBYTE, oldLen + 6, MEMF_FAST);
+                     if(bgPositionStr)
+                     {  memmove(bgPositionStr, oldPos, oldLen);
+                        bgPositionStr[oldLen] = ' ';
+                        memmove(bgPositionStr + oldLen + 1, "top", 3);
+                        bgPositionStr[oldLen + 4] = '\0';
+                     }
+                     FREE(oldPos);
+                  }
+                  bgValue += 3;
+                  continue;
+               }
+               if(strnicmp((char *)bgValue, "bottom", 6) == 0)
+               {  if(!bgPositionStr)
+                  {  bgPositionStr = Dupstr("bottom", -1);
+                  }
+                  else
+                  {  UBYTE *oldPos = bgPositionStr;
+                     long oldLen = strlen((char *)oldPos);
+                     bgPositionStr = ALLOCTYPE(UBYTE, oldLen + 7, MEMF_FAST);
+                     if(bgPositionStr)
+                     {  memmove(bgPositionStr, oldPos, oldLen);
+                        bgPositionStr[oldLen] = ' ';
+                        memmove(bgPositionStr + oldLen + 1, "bottom", 6);
+                        bgPositionStr[oldLen + 7] = '\0';
+                     }
+                     FREE(oldPos);
+                  }
+                  bgValue += 6;
+                  continue;
+               }
+               if(strnicmp((char *)bgValue, "left", 4) == 0)
+               {  if(!bgPositionStr)
+                  {  bgPositionStr = Dupstr("left", -1);
+                  }
+                  else
+                  {  UBYTE *oldPos = bgPositionStr;
+                     long oldLen = strlen((char *)oldPos);
+                     bgPositionStr = ALLOCTYPE(UBYTE, oldLen + 5, MEMF_FAST);
+                     if(bgPositionStr)
+                     {  memmove(bgPositionStr, oldPos, oldLen);
+                        bgPositionStr[oldLen] = ' ';
+                        memmove(bgPositionStr + oldLen + 1, "left", 4);
+                        bgPositionStr[oldLen + 5] = '\0';
+                     }
+                     FREE(oldPos);
+                  }
+                  bgValue += 4;
+                  continue;
+               }
+               if(strnicmp((char *)bgValue, "right", 5) == 0)
+               {  if(!bgPositionStr)
+                  {  bgPositionStr = Dupstr("right", -1);
+                  }
+                  else
+                  {  UBYTE *oldPos = bgPositionStr;
+                     long oldLen = strlen((char *)oldPos);
+                     bgPositionStr = ALLOCTYPE(UBYTE, oldLen + 6, MEMF_FAST);
+                     if(bgPositionStr)
+                     {  memmove(bgPositionStr, oldPos, oldLen);
+                        bgPositionStr[oldLen] = ' ';
+                        memmove(bgPositionStr + oldLen + 1, "right", 5);
+                        bgPositionStr[oldLen + 6] = '\0';
+                     }
+                     FREE(oldPos);
+                  }
+                  bgValue += 5;
+                  continue;
+               }
+               
+               /* Check for percentages or lengths (position values) */
+               if(isdigit(*bgValue) || *bgValue == '-' || *bgValue == '+' || *bgValue == '.')
+               {  /* Parse number with optional unit */
+                  tokenEnd = bgValue;
+                  while(*tokenEnd && !isspace(*tokenEnd) && 
+                        (*tokenEnd == '.' || *tokenEnd == '-' || *tokenEnd == '+' ||
+                         isdigit(*tokenEnd) || *tokenEnd == '%' || 
+                         (*tokenEnd >= 'a' && *tokenEnd <= 'z') ||
+                         (*tokenEnd >= 'A' && *tokenEnd <= 'Z')))
+                  {  tokenEnd++;
+                  }
+                  tokenLen = tokenEnd - bgValue;
+                  if(tokenLen > 0)
+                  {  if(!bgPositionStr)
+                     {  token = ALLOCTYPE(UBYTE, tokenLen + 1, MEMF_FAST);
+                        if(token)
+                        {  memmove(token, bgValue, tokenLen);
+                           token[tokenLen] = '\0';
+                           bgPositionStr = token;
+                        }
+                     }
+                     else
+                     {  /* Append to existing position */
+                        UBYTE *oldPos = bgPositionStr;
+                        long oldLen = strlen((char *)oldPos);
+                        token = ALLOCTYPE(UBYTE, tokenLen + 1, MEMF_FAST);
+                        if(token)
+                        {  memmove(token, bgValue, tokenLen);
+                           token[tokenLen] = '\0';
+                           bgPositionStr = ALLOCTYPE(UBYTE, oldLen + 1 + tokenLen + 1, MEMF_FAST);
+                           if(bgPositionStr)
+                           {  memmove(bgPositionStr, oldPos, oldLen);
+                              bgPositionStr[oldLen] = ' ';
+                              memmove(bgPositionStr + oldLen + 1, token, tokenLen);
+                              bgPositionStr[oldLen + 1 + tokenLen] = '\0';
+                           }
+                           FREE(token);
+                        }
+                        FREE(oldPos);
+                     }
+                     bgValue = tokenEnd;
+                     continue;
+                  }
+               }
+               
+               /* Check for color (hex # or color name) */
+               if(*bgValue == '#')
+               {  /* Hex color */
+                  tokenEnd = bgValue + 1;
+                  while(*tokenEnd && ((*tokenEnd >= '0' && *tokenEnd <= '9') ||
+                                      (*tokenEnd >= 'a' && *tokenEnd <= 'f') ||
+                                      (*tokenEnd >= 'A' && *tokenEnd <= 'F')))
+                  {  tokenEnd++;
+                  }
+                  tokenLen = tokenEnd - bgValue;
+                  if(tokenLen > 1 && tokenLen <= 7)
+                  {  bgColorStr = ALLOCTYPE(UBYTE, tokenLen + 1, MEMF_FAST);
+                     if(bgColorStr)
+                     {  memmove(bgColorStr, bgValue, tokenLen);
+                        bgColorStr[tokenLen] = '\0';
+                     }
+                     bgValue = tokenEnd;
+                     continue;
+                  }
+               }
+               else
+               {  /* Try color name - parse until whitespace */
+                  tokenEnd = bgValue;
+                  while(*tokenEnd && !isspace(*tokenEnd) && 
+                        (isalnum(*tokenEnd) || *tokenEnd == '-'))
+                  {  tokenEnd++;
+                  }
+                  tokenLen = tokenEnd - bgValue;
+                  if(tokenLen > 0)
+                  {  /* Check if it's a valid color name by trying to parse it */
+                     token = ALLOCTYPE(UBYTE, tokenLen + 1, MEMF_FAST);
+                     if(token)
+                     {  memmove(token, bgValue, tokenLen);
+                        token[tokenLen] = '\0';
+                        bgColorRgb = ParseHexColor(token);
+                        if(bgColorRgb != ~0)
+                        {  /* Valid color name */
+                           bgColorStr = token;
+                           token = NULL; /* Don't free it */
+                        }
+                        if(token) FREE(token);
+                     }
+                     bgValue = tokenEnd;
+                     continue;
+                  }
+               }
+               
+               /* Unknown token - skip one character to avoid infinite loop */
+               bgValue++;
+            }
+            
+            /* Apply parsed values */
+            if(bgColorStr)
+            {  bgColorRgb = ParseHexColor(bgColorStr);
+               if(bgColorRgb != ~0)
+               {  bgColorCi = Finddoccolor(doc, bgColorRgb);
+                  if(bgColorCi)
+                  {  Asetattrs(body, AOBDY_Bgcolor, COLOR(bgColorCi), TAG_END);
+                  }
+               }
+               FREE(bgColorStr);
+            }
+            if(bgImageStr)
+            {  bgimg = Backgroundimg(doc, bgImageStr);
+               if(bgimg)
+               {  Asetattrs(body, AOBDY_Bgimage, bgimg, TAG_END);
+               }
+               FREE(bgImageStr);
+            }
+            if(bgRepeatStr)
+            {  Asetattrs(body, AOBDY_BackgroundRepeat, bgRepeatStr, TAG_END);
+            }
+            if(bgPositionStr)
+            {  Asetattrs(body, AOBDY_BackgroundPosition, bgPositionStr, TAG_END);
+            }
+            if(bgAttachmentStr)
+            {  Asetattrs(body, AOBDY_BackgroundAttachment, bgAttachmentStr, TAG_END);
+            }
+         }
          /* Apply border - parse width, style, and color from "2px solid #color" or "2px" format */
          else if(stricmp((char *)prop->name,"border") == 0)
          {  /* Parse border shorthand: width style color */

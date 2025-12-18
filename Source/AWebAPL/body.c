@@ -105,6 +105,9 @@ struct Body
    float lineheight;       /* CSS line-height multiplier for this body */
    UBYTE *texttransform;  /* CSS text-transform */
    UBYTE *whitespace;      /* CSS white-space */
+   UBYTE *backgroundrepeat; /* CSS background-repeat: "repeat", "no-repeat", "repeat-x", "repeat-y" */
+   UBYTE *backgroundposition; /* CSS background-position: "center", "top", "bottom", "left", "right", percentages, lengths */
+   UBYTE *backgroundattachment; /* CSS background-attachment: "scroll", "fixed" */
 };
 
 #define BDYF_SUB           0x0001   /* subscript mode */
@@ -1716,6 +1719,24 @@ static long Setbody(struct Body *bd,struct Amset *ams)
             }
             bd->whitespace = (UBYTE *)tag->ti_Data;
             break;
+         case AOBDY_BackgroundRepeat:
+            if(bd->backgroundrepeat && bd->backgroundrepeat != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->backgroundrepeat);
+            }
+            bd->backgroundrepeat = (UBYTE *)tag->ti_Data;
+            break;
+         case AOBDY_BackgroundPosition:
+            if(bd->backgroundposition && bd->backgroundposition != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->backgroundposition);
+            }
+            bd->backgroundposition = (UBYTE *)tag->ti_Data;
+            break;
+         case AOBDY_BackgroundAttachment:
+            if(bd->backgroundattachment && bd->backgroundattachment != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->backgroundattachment);
+            }
+            bd->backgroundattachment = (UBYTE *)tag->ti_Data;
+            break;
       }
    }
    if(fontw) Pushfont(bd,fontstyle,fontsize,fontcolor,fontface,fontw);
@@ -1752,6 +1773,9 @@ static void Disposebody(struct Body *bd)
    if(bd->cursor) FREE(bd->cursor);
    if(bd->texttransform) FREE(bd->texttransform);
    if(bd->whitespace) FREE(bd->whitespace);
+   if(bd->backgroundrepeat) FREE(bd->backgroundrepeat);
+   if(bd->backgroundposition) FREE(bd->backgroundposition);
+   if(bd->backgroundattachment) FREE(bd->backgroundattachment);
    Amethodas(AOTP_OBJECT,bd,AOM_DISPOSE);
 }
 
@@ -1790,6 +1814,9 @@ static struct Body *Newbody(struct Amset *ams)
       bd->cursor = NULL;
       bd->texttransform = NULL;
       bd->whitespace = NULL;
+      bd->backgroundrepeat = NULL;
+      bd->backgroundposition = NULL;
+      bd->backgroundattachment = NULL;
       bd->bgalign = NULL;
       bd->tcell = NULL;
       bd->marginleftauto = FALSE;
@@ -1930,6 +1957,15 @@ static long Getbody(struct Body *bd,struct Amset *ams)
             break;
          case AOBDY_WhiteSpace:
             PUTATTR(tag,bd->whitespace);
+            break;
+         case AOBDY_BackgroundRepeat:
+            PUTATTR(tag,bd->backgroundrepeat);
+            break;
+         case AOBDY_BackgroundPosition:
+            PUTATTR(tag,bd->backgroundposition);
+            break;
+         case AOBDY_BackgroundAttachment:
+            PUTATTR(tag,bd->backgroundattachment);
             break;
       }
    }
