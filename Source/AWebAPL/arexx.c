@@ -333,8 +333,10 @@ void Sendarexxcmd(ULONG windowkey,UBYTE *cmd)
 {  
 #ifndef NOAREXXPORTS
    struct Arexxport *ap;
-   if(ap=Findarexxport(windowkey))
-   {  SendARexxMsg(ap->context,cmd,FALSE);
+   if(cmd && (ap=Findarexxport(windowkey)))
+   {  if(ap->context)
+      {  SendARexxMsg(ap->context,cmd,FALSE);
+      }
    }
 #endif
 }

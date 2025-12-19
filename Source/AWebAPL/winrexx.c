@@ -1103,7 +1103,7 @@ static BOOL Dorun(struct Arexxcmd *ac,struct Awindow *win,UBYTE *name)
             FREE(scriptname);
          }
       }
-      if(ok)
+      if(ok && win->key)
       {  Sendarexxcmd(win->key,name);
       }
       else
