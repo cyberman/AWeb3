@@ -120,6 +120,89 @@ static long Transparentgif(struct Imgprocess *imp)
    return xptcolor;
 }
 
+/* Extract alpha channel from pixel array and create mask plane */
+static void Makealphamask(struct Imgprocess *imp,void *dto)
+{  struct pdtBlitPixelArray pbpa={0};
+   UBYTE *pixeldata=NULL;
+   ULONG pixelformat;
+   ULONG rowstride;
+   ULONG width,height;
+   UBYTE *maskptr;
+   ULONG x,y;
+   ULONG maskbytesperrow;
+   ULONG flags;
+   
+   /* Get bitmap dimensions */
+   width=imp->width;
+   height=imp->height;
+   maskbytesperrow=GetBitMapAttr(imp->bitmap,BMA_WIDTH)/8;
+   flags=GetBitMapAttr(imp->bitmap,BMA_FLAGS);
+   if(flags&BMF_INTERLEAVED) maskbytesperrow/=GetBitMapAttr(imp->bitmap,BMA_DEPTH);
+   
+   /* Allocate buffer for RGBA pixel data */
+   rowstride=width*4;  /* 4 bytes per pixel (RGBA or ARGB) */
+   pixeldata=AllocMem(rowstride*height,MEMF_PUBLIC|MEMF_CLEAR);
+   if(!pixeldata) return;
+   
+   /* Read pixel array with alpha channel */
+   pbpa.MethodID=PDTM_READPIXELARRAY;
+   pbpa.pbpa_PixelData=pixeldata;
+   pbpa.pbpa_PixelFormat=PBPAFMT_RGBA;  /* Try RGBA format first */
+   pbpa.pbpa_PixelArrayMod=rowstride;
+   pbpa.pbpa_Left=0;
+   pbpa.pbpa_Top=0;
+   pbpa.pbpa_Width=width;
+   pbpa.pbpa_Height=height;
+   
+   if(!DoMethodA(dto,(Msg)&pbpa))
+   {  /* Try ARGB format if RGBA failed */
+      pbpa.pbpa_PixelFormat=PBPAFMT_ARGB;
+      if(!DoMethodA(dto,(Msg)&pbpa))
+      {  FreeMem(pixeldata,rowstride*height);
+         return;
+      }
+      pixelformat=PBPAFMT_ARGB;
+   }
+   else
+   {  pixelformat=PBPAFMT_RGBA;
+   }
+   
+   /* Allocate mask plane */
+   if(imp->mask=ALLOCTYPE(UBYTE,maskbytesperrow*height,
+      MEMF_PUBLIC|MEMF_CHIP|MEMF_CLEAR))
+   {  imp->memsize+=maskbytesperrow*height;
+      
+      /* Convert alpha channel to mask plane */
+      /* Alpha values: 0=transparent, 255=opaque */
+      /* Amiga mask convention: 1=opaque, 0=transparent */
+      for(y=0;y<height;y++)
+      {  UBYTE *rowdata=pixeldata+y*rowstride;
+         maskptr=imp->mask+y*maskbytesperrow;
+         for(x=0;x<width;x++)
+         {  UBYTE alpha;
+            ULONG bitpos=x&7;
+            ULONG bytepos=x>>3;
+            if(pixelformat==PBPAFMT_RGBA)
+            {  alpha=rowdata[x*4+3];  /* RGBA: R=0, G=1, B=2, A=3 */
+            }
+            else
+            {  alpha=rowdata[x*4+0];  /* ARGB: A=0, R=1, G=2, B=3 */
+            }
+            if(bytepos<maskbytesperrow)
+            {  /* Threshold alpha: values >= 128 are opaque, < 128 are transparent */
+               if(alpha>=128)
+               {  maskptr[bytepos]|=(1<<(7-bitpos));  /* Set bit for opaque */
+               }
+               /* else bit remains 0 (transparent) */
+            }
+         }
+      }
+      imp->ourmask=TRUE;
+   }
+   
+   FreeMem(pixeldata,rowstride*height);
+}
+
 /* Make a transparent mask if the dt didn't create it */
 static void Makegifmask(struct Imgprocess *imp,long xptcolor)
 {  struct BitMap *bmap;
@@ -846,17 +929,30 @@ static BOOL Makeobject(struct Imgprocess *imp)
          PDTA_MaskPlane,&maskplane,
          TAG_END)
       && imp->bitmap)
-      {  imp->depth=GetBitMapAttr(imp->bitmap,BMA_DEPTH);
+      {  BOOL hasalpha=FALSE;
+         imp->depth=GetBitMapAttr(imp->bitmap,BMA_DEPTH);
          imp->memsize=imp->width*imp->height*imp->depth/8;
          flags=GetBitMapAttr(imp->bitmap,BMA_FLAGS);
-         if(xptcolor>=0)
-         {  if(maskplane)
+         
+         /* Check if alpha channel is available */
+         if(GetDTAttrs(imp->dto,PDTA_AlphaChannel,&hasalpha,TAG_END) && hasalpha)
+         {  /* Alpha channel available - extract it and create mask */
+            Makealphamask(imp,imp->dto);
+         }
+         else if(xptcolor>=0)
+         {  /* Fall back to GIF transparency handling */
+            if(maskplane)
             {  imp->mask=maskplane;
                imp->memsize*=2;
             }
             else if(flags&BMF_STANDARD)
             {  Makegifmask(imp,xptcolor);
             }
+         }
+         else if(maskplane)
+         {  /* Use mask plane provided by datatype */
+            imp->mask=maskplane;
+            imp->memsize*=2;
          }
          result=TRUE;
       }
