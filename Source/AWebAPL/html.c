@@ -3206,6 +3206,65 @@ static BOOL Dostyleend(struct Document *doc)
    return TRUE;
 }
 
+/*** <SPAN> ***/
+static BOOL Dospan(struct Document *doc,struct Tagattr *ta)
+{  UBYTE *styleAttr=NULL;
+   UBYTE *class=NULL;
+   UBYTE *id=NULL;
+   struct Tagattr *tap;  /* Save original ta pointer for Checkid */
+   
+   /* Save original ta pointer (sentinel) for Checkid */
+   tap = ta;
+   
+   /* Extract class, id, and style attributes */
+   /* ta is the sentinel (list head), ta->next is the first real attribute */
+   /* Iterate over actual attributes starting from ta->next */
+   for(ta=ta->next;ta;ta=ta->next)
+   {  switch(ta->attr)
+      {  case TAGATTR_STYLE:
+            styleAttr=ATTR(doc,ta);
+            break;
+         case TAGATTR_CLASS:
+            class=ATTR(doc,ta);
+            break;
+         case TAGATTR_ID:
+            id=ATTR(doc,ta);
+            break;
+      }
+   }
+   
+   /* Ensure body exists */
+   if(!Ensurebody(doc)) return FALSE;
+   
+   /* Apply inline styles if present */
+   if(styleAttr && doc->doctype==DOCTP_BODY)
+   {  ApplyInlineCSSToBody(doc,Docbody(doc),styleAttr,(UBYTE *)"SPAN");
+   }
+   
+   /* Apply CSS based on class/id if stylesheet exists */
+   if((class || id) && doc->doctype==DOCTP_BODY && doc->cssstylesheet)
+   {  void *body = Docbody(doc);
+      /* Store class/id/tagname on body for CSS matching */
+      if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
+      if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
+      Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"SPAN",-1),TAG_END);
+      /* Apply CSS to body based on class/ID */
+      ApplyCSSToBody(doc,body,class,id,"SPAN");
+   }
+   
+   /* Handle id for anchor navigation */
+   Checkid(doc,tap);  /* Use original sentinel pointer */
+   
+   return TRUE;
+}
+
+/*** </SPAN> ***/
+static BOOL Dospanend(struct Document *doc)
+{  /* SPAN is inline, no special end handling needed */
+   /* CSS styles applied at start tag are automatically scoped */
+   return TRUE;
+}
+
 /*** <INS> ***/
 static BOOL Doins(struct Document *doc, struct Tagattr *ta)
 {  struct Colorinfo *ci;
@@ -7007,6 +7066,12 @@ BOOL Processhtml(struct Document *doc,USHORT tagtype,struct Tagattr *ta)
             case MARKUP_BIG|MARKUP_END:
             case MARKUP_SMALL|MARKUP_END:
                result=Dostyleend(doc);
+               break;
+            case MARKUP_SPAN:
+               result=Dospan(doc,ta);
+               break;
+            case MARKUP_SPAN|MARKUP_END:
+               result=Dospanend(doc);
                break;
             case MARKUP_ADDRESS:
                result=Doaddress(doc,ta);

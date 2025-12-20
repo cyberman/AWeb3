@@ -127,6 +127,7 @@ static struct Tagdes tags[]=
    "SCRIPT",   MARKUP_SCRIPT,       TRUE,
    "SELECT",   MARKUP_SELECT,       TRUE,
    "SMALL",    MARKUP_SMALL,        TRUE,
+   "SPAN",     MARKUP_SPAN,         TRUE,
    "STRIKE",   MARKUP_STRIKE,       TRUE,
    "STRONG",   MARKUP_STRONG,       TRUE,
    "STYLE",    MARKUP_STYLE,        TRUE,
