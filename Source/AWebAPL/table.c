@@ -462,8 +462,9 @@ static BOOL Startcaption(struct Table *tab,struct TagItem *tstate,long vspacing)
          TAG_END);
       if(tab->win)
       {  Asetattrs(tab->caption,
-            AOBDY_Bgimage,tab->bgimage,
-            AOBDY_Bgcolor,COLOR(tab->bgcolor),
+            AOBDY_Bgimage,0,     /* was tab->bgimage - table bg handled at table level */
+            AOBDY_Bgalign,0,     /* was tab->bgalign */
+            AOBDY_Bgcolor,0,     /* was COLOR(tab->bgcolor) */
             TAG_END);
       }
       tab->curbody=tab->caption;
@@ -593,7 +594,7 @@ static BOOL Startcell(struct Table *tab,struct TagItem *tstate,long vspacing,BOO
    struct Tabcell *tc,*tcs;
    struct Coldef *cd0,*cd;
    short r,c;
-   BOOL bgset=FALSE,borderset=FALSE;
+   BOOL bgcolset=FALSE,bgimgset=FALSE,borderset=FALSE;
    if(tab->flags&TABF_OPENCELL) Endcell(tab,vspacing);
    if(!(tab->flags&TABF_OPENROW)) Startrow(tab,NULL,vspacing);
    if(tr=Gettabrow(tab,tab->currow))
@@ -668,7 +669,7 @@ static BOOL Startcell(struct Table *tab,struct TagItem *tstate,long vspacing,BOO
                   case AOTAB_Bgimage:
                      if(tag->ti_Data)
                      {  tc->bgimage=(void *)tag->ti_Data;
-                        bgset=TRUE;
+                        bgimgset=TRUE;
                      }
                      break;
                   case AOTAB_Bgalign:
@@ -677,7 +678,7 @@ static BOOL Startcell(struct Table *tab,struct TagItem *tstate,long vspacing,BOO
                   case AOTAB_Bgcolor:
                      if(tag->ti_Data)
                      {  tc->bgcolor=(struct Colorinfo *)tag->ti_Data;
-                        bgset=TRUE;
+                        bgcolset=TRUE;
                      }
                      break;
                   case AOTAB_Bordercolor:
@@ -701,9 +702,11 @@ static BOOL Startcell(struct Table *tab,struct TagItem *tstate,long vspacing,BOO
                }
             }
          }
-         if(!bgset)
+         if(!bgimgset && !bgcolset)
          {  tc->bgimage=tr->bgimage;
-            tc->bgcolor=tr->bgcolor;
+         }
+         if(!bgcolset)
+         {  tc->bgcolor=tr->bgcolor;
          }
          if(!borderset)
          {  tc->bordercolor=tr->bordercolor;
@@ -758,24 +761,16 @@ static BOOL Startcell(struct Table *tab,struct TagItem *tstate,long vspacing,BOO
             AOBDY_Divalign,tc->halign,
             (heading?AOBDY_Sethardstyle:TAG_IGNORE),FSF_BOLD,
             TAG_END);
+         
+         /* if tr->bgalign is not set yet set to our object */
+         if(tr->bgalign == NULL)
+         {  tr->bgalign = (struct Aobject *)tc->body;
+         }
          if(tab->win)
-         {  void *bgalignobj = NULL;
-            /* Determine bgalign object: if cell has bgimage, align to cell body,
-             * otherwise inherit from row/table */
-            if(tc->bgimage)
-            {  bgalignobj = (struct Aobject *)tc->body;
-            }
-            else if(tr->bgimage)
-            {  bgalignobj = tr->bgalign;
-            }
-            else if(tab->bgimage)
-            {  bgalignobj = tab->bgalign;
-            }
-            Asetattrs(tc->body,
+         {  Asetattrs(tc->body,
                AOBDY_Bgimage,tc->bgimage,
+               AOBDY_Bgalign,(Tag)(bgimgset?tc->body:tr->bgalign),
                AOBDY_Bgcolor,COLOR(tc->bgcolor),
-               AOBDY_Tcell,(Tag)tc,
-               AOBDY_Bgalign,(Tag)bgalignobj,
                TAG_END);
          }
          tab->curbody=tc->body;
@@ -1362,8 +1357,8 @@ static long Measuretable(struct Table *tab,struct Ammeasure *amm)
       }
    }
    tab->maxw+=maxw;
-   tab->minw+=tab->nrcols*tab->spacing;
-   tab->maxw+=tab->nrcols*tab->spacing;
+   tab->minw+=(tab->nrcols + 1)*tab->spacing;
+   tab->maxw+=(tab->nrcols + 1)*tab->spacing;
    minw=tab->minw;
    maxw=tab->maxw;
    if(tab->caption)
@@ -1462,7 +1457,7 @@ static long Layouttable(struct Table *tab,struct Amlayout *aml)
       winweb, desw is inclusive spacing and exclusive outer borders
       hcol->minw,maxw,width is exclusive spacing
     */
-   spacing=tab->nrcols*tab->spacing;
+   spacing=(tab->nrcols + 1)*tab->spacing;
    winweb=(aml->width-aml->startx)-tab->borleft-tab->borright;
    minw=tab->minw-tab->borleft-tab->borright;
    maxw=tab->maxw-tab->borleft-tab->borright;
@@ -1554,7 +1549,7 @@ Table layout algorythm used here:
     *
     * first, compute these numbers and reset the column widths. */
    minpix=sizepix=minprc=totalprc=minrel=totalrel=minuns=maxuns=0;
-   tw=desw-tab->nrcols*tab->spacing;
+   tw=desw-(tab->nrcols + 1)*tab->spacing;
    for(i=0;i<tab->nrcols;i++)
    {  hcol=&tab->cols[i];
       switch(hcol->swtype)
@@ -1788,7 +1783,7 @@ Table layout algorythm used here:
 
    /* compute the resulting position for all columns, and table width (incl left border): */
    if(!(tab->flags&TABF_LAYEDOUT))
-   {  tab->aow=tab->borleft;
+   {  tab->aow=tab->borleft+tab->spacing;
       for(i=0;i<tab->nrcols;i++)
       {  tab->cols[i].x=tab->aow;
          tab->aow+=tab->cols[i].width+tab->spacing;
@@ -1805,7 +1800,7 @@ Table layout algorythm used here:
          tr->baseline=0;
          for(tc=tr->cells.first;tc->next;tc=tc->next)
          {  if(tc->body)
-            {  tc->x=tab->cols[tc->cellnr-1].x+tab->spacing/2;
+            {  tc->x=tab->cols[tc->cellnr-1].x;
                hcol=&tab->cols[tc->cellnr-1];
                tc->width=(tc->colspan-1)*tab->spacing;
                for(i=0;i<tc->colspan;i++,hcol++) tc->width+=hcol->width;
@@ -1898,7 +1893,7 @@ Table layout algorythm used here:
          for(tc=tr->cells.first;tc->next;tc=tc->next)
          {  
             if(tc->body)
-            {  tc->y=tab->aoh+tab->spacing/2;
+            {  tc->y=tab->aoh;
                Amove(tc->body,tab->aox+tc->x,tc->y);
                if(tc->rowspan==1) tc->height=tr->height;
                else
@@ -1998,7 +1993,24 @@ static long Rendertable(struct Table *tab,struct Amrender *amr)
          clip=TRUE;
       }
       if(coo->rp)
-      {  rp=coo->rp;
+      {  short save_bgcolor=coo->bgcolor;
+         void *save_bgimage=coo->bgimage;
+         void *save_bgalign=coo->bgalign;
+         
+         /* Render table-level background image/color before rendering cells */
+         if(prefs.docolors && (tab->bgcolor || tab->bgimage))
+         {  if(tab->bgcolor) coo->bgcolor=COLOR(tab->bgcolor);
+            coo->bgimage=tab->bgimage;
+            coo->bgalign=tab->bgalign;
+            
+            Erasebg(tab->cframe,coo,
+               MAX(amr->minx,tab->aox),
+               MAX(amr->miny,tab->aoy),
+               MIN(amr->maxx,tab->aox+tab->aow-1),
+               MIN(amr->maxy,tab->aoy+tab->aoh-1));
+         }
+         
+         rp=coo->rp;
          if(clip) clipkey=Clipto(rp,coo->minx,coo->miny,coo->maxx,coo->maxy);
          if(tab->caption
          && (tab->capstate==TABRS_ALIGNED || (all && tab->capstate>TABRS_ALIGNED)))
@@ -2034,6 +2046,11 @@ static long Rendertable(struct Table *tab,struct Amrender *amr)
          }
          if(clip) Unclipto(clipkey);
          tab->incrementaly=tab->aoh;
+         
+         /* Restore saved background values */
+         coo->bgcolor=save_bgcolor;
+         coo->bgimage=save_bgimage;
+         coo->bgalign=save_bgalign;
       }
    }
    return 0;
@@ -2195,7 +2212,9 @@ static long Settable(struct Table *tab,struct Amset *ams)
             break;
       }
    }
-   if(tab->rules && tab->spacing<2)
+   /* Only enforce minimum spacing of 2 for rules if spacing wasn't explicitly set to 0.
+    * If cellspacing="0" was specified, honor it even with rules present. */
+   if(tab->rules && tab->spacing>0 && tab->spacing<2)
    {  tab->spacing=2;
    }
    tab->borleft=(tab->tabframe&TABFRM_LEFT)?tab->border:0;

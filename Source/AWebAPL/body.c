@@ -24,6 +24,7 @@
 #include "docprivate.h"
 #include "frprivate.h"
 #include "copy.h"
+#include "window.h"
 
 #include <proto/exec.h>
 #include <proto/dos.h>
@@ -1136,18 +1137,58 @@ if(SetSignal(0,0)&SIGBREAKF_CTRL_C) return 0;
                        stricmp((char *)bd->position, "absolute") == 0))
    {  long parentWidth, parentHeight;
       void *parentObj;
+      BOOL isFixed;
       
-      /* Get parent dimensions for right/bottom calculation */
-      parentWidth = amlp->width;
-      parentHeight = amlp->height;
+      /* Check if this is fixed positioning */
+      isFixed = (bd->position && stricmp((char *)bd->position, "fixed") == 0);
       
-      /* Try to get parent object dimensions if available */
-      parentObj = (void *)Agetattr((struct Aobject *)bd, AOBJ_Layoutparent);
-      if(parentObj)
-      {  long pw, ph;
-         Agetattrs(parentObj, AOBJ_Width, &pw, AOBJ_Height, &ph, TAG_END);
-         if(pw > 0) parentWidth = pw;
-         if(ph > 0) parentHeight = ph;
+      if(isFixed)
+      {  /* For fixed positioning, use viewport (window inner) dimensions */
+         void *winObj;
+         void *frameObj;
+         
+         /* Try to get window object from frame or directly */
+         frameObj = bd->frame;
+         if(!frameObj && bd->cframe)
+         {  frameObj = bd->cframe;
+         }
+         
+         if(frameObj)
+         {  /* Get window from frame */
+            winObj = (void *)Agetattr(frameObj, AOBJ_Window);
+         }
+         else
+         {  /* Try to get window directly from body */
+            winObj = bd->win;
+         }
+         
+         if(winObj)
+         {  /* Get viewport dimensions from window */
+            long vw, vh;
+            Agetattrs(winObj, AOWIN_Innerwidth, &vw, AOWIN_Innerheight, &vh, TAG_END);
+            if(vw > 0) parentWidth = vw;
+            if(vh > 0) parentHeight = vh;
+         }
+         else
+         {  /* Fallback to layout dimensions if window not available */
+            parentWidth = amlp->width;
+            parentHeight = amlp->height;
+         }
+      }
+      else
+      {  /* For absolute positioning, use parent container dimensions */
+         /* Get parent dimensions for right/bottom calculation */
+         parentWidth = amlp->width;
+         parentHeight = amlp->height;
+         
+         /* Try to get parent object dimensions if available */
+         parentObj = (void *)Agetattr((struct Aobject *)bd, AOBJ_Layoutparent);
+         if(parentObj)
+         {  long pw, ph;
+            Agetattrs(parentObj, AOBJ_Width, &pw, AOBJ_Height, &ph, TAG_END);
+            if(pw > 0) parentWidth = pw;
+            if(ph > 0) parentHeight = ph;
+         }
       }
       
       /* Recalculate position if right/bottom are set */
