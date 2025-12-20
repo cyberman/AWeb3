@@ -31,6 +31,9 @@
 #include "cache.h"
 #include "fetch.h"
 #include "copydriver.h"
+#include "css.h"
+#include "docprivate.h"
+#include "frprivate.h"
 #include <intuition/intuition.h>
 #include <intuition/imageclass.h>
 #include <intuition/gadgetclass.h>
@@ -192,9 +195,50 @@ static void Checklink(struct Awindow *win,long x,long y,USHORT hitflags)
 {  struct Amhresult amhr={0};
    long result;
    UBYTE *text;
+   void *frame;
+   struct Document *doc;
+   void *hoveredElement;
+   struct Aobject *ao;
+   short objtype;
+   
    if(win->frame)
    {  result=Ahittest(win->frame,NULL,x,y,hitflags,win->hitobject,&amhr);
       win->nextfocus=amhr.focus;
+      
+      /* Track hover state for CSS :hover pseudo-class */
+      frame = win->frame;
+      if(frame)
+      {  struct Frame *fr = (struct Frame *)frame;
+         if(fr->copy)
+         {  ao = (struct Aobject *)fr->copy;
+            if(ao->objecttype == AOTP_COPYDRIVER)
+            {  doc = (struct Document *)fr->copy;
+               hoveredElement = NULL;
+               
+               /* Determine which element is hovered (body or element) */
+               if(amhr.object)
+               {  ao = (struct Aobject *)amhr.object;
+                  objtype = ao->objecttype;
+                  if(objtype == AOTP_BODY)
+                  {  hoveredElement = amhr.object;
+                  }
+                  else if(objtype == AOTP_ELEMENT)
+                  {  hoveredElement = amhr.object;
+                  }
+               }
+               
+               /* Update hover state and re-apply CSS if changed */
+               if(doc->hoveredElement != hoveredElement)
+               {  doc->hoveredElement = hoveredElement;
+                  /* Re-apply CSS to all elements to update :hover styles */
+                  if(doc->cssstylesheet)
+                  {  ReapplyCSSToAllElements(doc);
+                  }
+               }
+            }
+         }
+      }
+      
       switch(result&AMHR_RESULTMASK)
       {  case AMHR_NEWHIT:
             if(win->hittext) FREE(win->hittext);

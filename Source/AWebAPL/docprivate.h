@@ -141,6 +141,7 @@ struct Document
    UBYTE *currentlistclass;   /* Class of current list (for descendant selector support) */
    long gridcolgap;           /* Grid column gap from parent dl element (for grid-column-start) */
    BOOL currentdivinline;     /* Current DIV is display:inline (prevents line breaks) */
+   void *hoveredElement;      /* Currently hovered element (for :hover pseudo-class) */
 };
 
 #define DPF_PREFORMAT      0x00000001  /* doing PRE */

@@ -67,6 +67,8 @@ static UBYTE* ParseValue(UBYTE **p);
 static BOOL MatchSelector(struct CSSSelector *sel,void *element);
 static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty *prop);
 static void FreeCSSRule(struct CSSRule *rule);
+/* Static document pointer for hover state checking during CSS matching */
+static struct Document *currentCSSDoc = NULL;
 static void FreeCSSStylesheetInternal(struct CSSStylesheet *sheet);
 void MergeCSSStylesheet(struct Document *doc,UBYTE *css);
 void SkipWhitespace(UBYTE **p);
@@ -1483,6 +1485,16 @@ static BOOL MatchSelectorComponent(struct CSSSelector *sel, void *element)
       }
    }
    
+   /* Match :hover pseudo-class - check if element is currently hovered */
+   if(sel->type & CSS_SEL_PSEUDO && sel->pseudo)
+   {  if(stricmp((char *)sel->pseudo,"hover") == 0)
+      {  /* Check if this element is the currently hovered element */
+         if(!currentCSSDoc || currentCSSDoc->hoveredElement != element)
+         {  return FALSE;
+         }
+      }
+   }
+   
    /* Note: Pseudo-elements (::before, ::after) are not matched here as they
     * don't correspond to actual DOM elements. They would be handled during rendering. */
    
@@ -1960,6 +1972,9 @@ void ApplyCSSToElement(struct Document *doc,void *element)
    
    if(!doc || !element || !doc->cssstylesheet) return;
    
+   /* Set static document pointer for hover state checking */
+   currentCSSDoc = doc;
+   
    ao = (struct Aobject *)element;
    objtype = ao->objecttype;
    if(objtype == AOTP_BODY)
@@ -2086,6 +2101,9 @@ void ApplyCSSToElement(struct Document *doc,void *element)
       REMOVE((struct MinNode *)ruleSpec);
       FREE(ruleSpec);
    }
+   
+   /* Clear static document pointer */
+   currentCSSDoc = NULL;
 }
 
 /* Recursively apply CSS to a body element and all its child elements */
@@ -3302,13 +3320,18 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
          }
          /* Apply display */
          else if(stricmp((char *)prop->name,"display") == 0)
-         {  displayValue = prop->value;
+         {  UBYTE *dispStr;
+            displayValue = prop->value;
             /* Skip whitespace */
             while(*displayValue && isspace(*displayValue)) displayValue++;
-            /* Parse display values */
+            /* Store display value - rendering code in body.c checks for "none" to hide elements */
+            dispStr = Dupstr(displayValue, -1);
+            if(dispStr)
+            {  Asetattrs(body, AOBDY_Display, dispStr, TAG_END);
+            }
+            /* Parse display values for validation */
             if(stricmp((char *)displayValue,"none") == 0)
-            {  /* Hide element - not directly supported, but parsed */
-               /* Note: Would require element visibility control */
+            {  /* Hide element - rendering code in body.c checks for this */
             }
             else if(stricmp((char *)displayValue,"inline") == 0)
             {  /* Inline display - default for many elements */
