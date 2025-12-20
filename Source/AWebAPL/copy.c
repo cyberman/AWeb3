@@ -481,14 +481,19 @@ static long Measurecopy(struct Copy *cop,struct Ammeasure *amm)
          cop->aow=realw+4;
          cop->aoh=cop->font->tf_YSize+4;
       }
-      /* If there is an icon, use its size */
+      /* Modern browsers (2025) no longer show placeholder icons for broken/missing images.
+       * If no alt text and no dimensions specified, use minimal size (1x1) instead of
+       * placeholder icon dimensions. This matches modern browser behavior. */
+      /*
       else if(icon=Copyicon(cop))
       {  cop->aow=Getvalue(icon,BITMAP_Width);
          cop->aoh=Getvalue(icon,BITMAP_Height);
       }
+      */
       else
-      {  cop->aow=32;
-         cop->aoh=32;
+      {  /* No alt text, no dimensions, no icon - use minimal size */
+         cop->aow=1;
+         cop->aoh=1;
       }
       cop->aow+=dw;
       cop->aoh+=dh;
@@ -690,6 +695,11 @@ static long Rendercopy(struct Copy *cop,struct Amrender *amr)
                   }
                }
             }
+            /* Modern browsers (2025) no longer show placeholder icons for broken/missing images.
+             * They either show alt text (if provided) or nothing. The placeholder icon behavior
+             * was a 1990s browser quirk that's no longer standard. Commented out to match modern
+             * browser behavior - if there's no alt text, just show empty space. */
+            /*
             else if(!toplevel && (icon=Copyicon(cop)))
             {  bitmap=(struct BitMap *)Getvalue(icon,BITMAP_BitMap);
                mask=(UBYTE *)Getvalue(icon,BITMAP_MaskPlane);
@@ -710,6 +720,7 @@ static long Rendercopy(struct Copy *cop,struct Amrender *amr)
                {  BltBitMapRastPort(bitmap,0,0,coo->rp,x,y,w,h,0xc0);
                }
             }
+            */
          }
          if(!toplevel)
          {  Drawframe(cop,coo,amr,TRUE);
