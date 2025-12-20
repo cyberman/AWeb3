@@ -4842,9 +4842,26 @@ static BOOL Doli(struct Document *doc,struct Tagattr *ta)
    }
    
    body = Docbody(doc);
-   /* Apply CSS to LI element based on its own class */
+   /* Store tagname on body for CSS matching (needed for element selectors like "li") */
+   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"LI",-1),TAG_END);
+   /* Store class/id on body for CSS matching */
    if(classAttr)
-   {  ApplyCSSToBody(doc,body,classAttr,NULL,"LI");
+   {  Asetattrs(body,AOBDY_Class,Dupstr(classAttr,-1),TAG_END);
+   }
+   /* Apply CSS to LI element based on its own class/id/tagname */
+   {  UBYTE *idAttr = NULL;
+      struct Tagattr *attr;
+      /* Extract id attribute if present */
+      if(ta)
+      {  for(attr=ta->next;attr;attr=attr->next)
+         {  if(attr->attr == TAGATTR_ID)
+            {  idAttr = ATTR(doc,attr);
+               break;
+            }
+         }
+      }
+      if(idAttr) Asetattrs(body,AOBDY_Id,Dupstr(idAttr,-1),TAG_END);
+      ApplyCSSToBody(doc,body,classAttr,idAttr,"LI");
    }
    
    /* Apply CSS rules for .classname li to this list item (generic, not hardcoded to "menubar") */

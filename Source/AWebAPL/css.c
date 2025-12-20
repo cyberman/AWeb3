@@ -3388,8 +3388,9 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             struct Number topNum;
             
             topValue = ParseCSSLengthValue(prop->value, &topNum);
-            if(topValue >= 0 && topNum.type == NUMBER_NUMBER)
-            {  /* Apply top position */
+            /* Allow negative values for positioning (e.g., top: -12px) */
+            if(topNum.type == NUMBER_NUMBER || topNum.type == NUMBER_SIGNED)
+            {  /* Apply top position (can be negative) */
                Asetattrs(body, AOBJ_Top, topValue, TAG_END);
             }
          }
@@ -3399,8 +3400,9 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             struct Number leftNum;
             
             leftValue = ParseCSSLengthValue(prop->value, &leftNum);
-            if(leftValue >= 0 && leftNum.type == NUMBER_NUMBER)
-            {  /* Apply left position */
+            /* Allow negative values for positioning (e.g., left: -1px) */
+            if(leftNum.type == NUMBER_NUMBER || leftNum.type == NUMBER_SIGNED)
+            {  /* Apply left position (can be negative) */
                Asetattrs(body, AOBJ_Left, leftValue, TAG_END);
             }
          }
@@ -3697,7 +3699,9 @@ long ParseCSSLengthValue(UBYTE *value,struct Number *num)
          }
       }
    }
-   if(num->type != NUMBER_SIGNED && num->n < 0) num->n = 0;
+   /* Don't clamp negative values - they're valid for positioning properties (top, left) */
+   /* Only clamp if it's not a signed number and not a regular number (preserve negative for positioning) */
+   if(num->type != NUMBER_SIGNED && num->type != NUMBER_NUMBER && num->n < 0) num->n = 0;
    
    return num->n;
 }
