@@ -722,7 +722,10 @@ static long Rendercopy(struct Copy *cop,struct Amrender *amr)
             }
             */
          }
-         if(!toplevel)
+         /* Only draw border frame if there's content to show (alt text).
+          * For minimal 1x1 placeholders with no alt text (modern browser behavior),
+          * don't draw a border to keep it invisible. */
+         if(!toplevel && cop->textpos)
          {  Drawframe(cop,coo,amr,TRUE);
          }
       }
