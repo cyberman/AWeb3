@@ -1287,10 +1287,10 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
       bgimage=coo->bgimage;
       
       /* Apply overflow clipping if needed */
-      clipMinX = amr->minx;
-      clipMinY = amr->miny;
-      clipMaxX = amr->maxx;
-      clipMaxY = amr->maxy;
+      clipMinX = amr->rect.minx;
+      clipMinY = amr->rect.miny;
+      clipMaxX = amr->rect.maxx;
+      clipMaxY = amr->rect.maxy;
       
       if(bd->overflow && (stricmp((char *)bd->overflow, "hidden") == 0 || 
                           stricmp((char *)bd->overflow, "auto") == 0 ||

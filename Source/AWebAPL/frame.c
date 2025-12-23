@@ -60,6 +60,7 @@ struct Backfillinfo
    struct Coords *coo;
    struct BitMap *bitmap;
    UBYTE *mask;            /* transparent mask or NULL */
+   ULONG alpha;            /* has an alpha channel (OS4 alpha blending support) */
    short bmw,bmh;          /* bitmap dimensions */
    short bgpen;
    long aox,aoy;           /* alignment offset for background image */
@@ -368,6 +369,7 @@ static void Scroll(struct Frame *fr,void *win,struct Coords *coo,
    {  Agetattrs(fr->bgimage,
          AOCDV_Imagebitmap,&bfinfo.bitmap,
          AOCDV_Imagemask,&bfinfo.mask,
+         AOCDV_Alpha,&bfinfo.alpha,
          AOCDV_Imagewidth,&bmw,
          AOCDV_Imageheight,&bmh,
          TAG_END);
@@ -2444,6 +2446,7 @@ void Erasebg(struct Frame *fr,struct Coords *coo,long xmin,long ymin,long xmax,l
       {  Agetattrs(coo->bgimage,
             AOCDV_Imagebitmap,&bfinfo.bitmap,
             AOCDV_Imagemask,&bfinfo.mask,
+            AOCDV_Alpha,&bfinfo.alpha,
             AOCDV_Imagewidth,&bmw,
             AOCDV_Imageheight,&bmh,
             TAG_END);
@@ -2522,6 +2525,7 @@ struct RastPort *Obtainbgrp(struct Frame *fr,struct Coords *coo,
          {  Agetattrs(coo->bgimage,
                AOCDV_Imagebitmap,&bfinfo.bitmap,
                AOCDV_Imagemask,&bfinfo.mask,
+               AOCDV_Alpha,&bfinfo.alpha,
                AOCDV_Imagewidth,&bmw,
                AOCDV_Imageheight,&bmh,
                TAG_END);

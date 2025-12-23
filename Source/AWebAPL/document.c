@@ -377,11 +377,11 @@ static long Renderdocument(struct Document *doc,struct Amrender *amr)
    if(coo->rp)
    {  if(clip) clipkey=Clipto(coo->rp,coo->minx,coo->miny,coo->maxx,coo->maxy);
       if(doc->body)
-      {  Arender(doc->body,coo,amr->minx,amr->miny,amr->maxx,amr->maxy,
+      {  Arender(doc->body,coo,amr->rect.minx,amr->rect.miny,amr->rect.maxx,amr->rect.maxy,
             amr->flags,&doc->text);
       }
       else if(amr->flags&AMRF_CLEAR)
-      {  Erasebg(doc->frame,coo,amr->minx,amr->miny,amr->maxx,amr->maxy);
+      {  Erasebg(doc->frame,coo,amr->rect.minx,amr->rect.miny,amr->rect.maxx,amr->rect.maxy);
       }
       if(clip) Unclipto(clipkey);
    }
@@ -402,6 +402,7 @@ static long Changebackground(struct Document *doc, struct Bgimage *bgimage)
    long tabx,taby;
    /* find the Bgimage for this background.  */
    /* If the document has no frame, it's not displayed so don't try and render */
+   /* This prevents background images from rendering into document copies that have no frame */
    if(doc->frame)
    {  for(bgi=doc->bgimages.first;bgi->next;bgi=bgi->next)
       {  if(bgi->copy==bgimage)
