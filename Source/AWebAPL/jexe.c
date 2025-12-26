@@ -22,6 +22,7 @@
 #include "jprotos.h"
 #include <exec/tasks.h>
 #include <math.h>
+#include <stdarg.h>
 
 /*-----------------------------------------------------------------------*/
 
@@ -31,9 +32,31 @@ static UBYTE *emsg_notallowed="Access to '%s' not allowed";
 static UBYTE *emsg_stackoverflow="Stack overflow";
 
 /* Display the run time error message */
-static void Runtimeerror(struct Jcontext *jc,struct Element *elt,UBYTE *msg,...)
+void Runtimeerror(struct Jcontext *jc,STRPTR type,struct Element *elt,UBYTE *msg,...)
 {  struct Jbuffer *jb=NULL;
    BOOL debugger;
+   if(jc->try)
+   {
+       struct Jobject *e;
+       char buf[256];
+       va_list args;
+       va_start(args,msg);
+       vsnprintf(buf,sizeof(buf),msg,args);
+       va_end(args);
+       if(type != NULL)
+       {
+           e = Newnativeerror(jc,type,buf);
+       }
+       else
+       {
+           e = Newerror(jc,buf);
+       }
+       Asgobject(jc->val,e);
+       Asgvalue(&jc->functions.first->retval,jc->val);
+       if(jc->throwval) Asgvalue(jc->throwval,jc->val);
+       jc->complete = ECO_THROW;
+   }
+   else
    if(!(jc->flags&(EXF_STOP|EXF_DONTSTOP)))
    {  if(jc->flags&EXF_ERRORS)
       {  jb=Jdecompile(jc,elt);
@@ -61,7 +84,7 @@ static BOOL Stackcheck(struct Jcontext *jc,struct Element *elt)
     * the current stack pointer */
    if((ULONG)&task<(ULONG)task->tc_SPLower+8192)
    {  
-      Runtimeerror(jc,elt,emsg_stackoverflow);
+      Runtimeerror(jc,NTE_GENERAL,elt,emsg_stackoverflow);
       ok=FALSE;
    }
    return ok;
@@ -419,14 +442,14 @@ static BOOL Member(struct Jcontext *jc,struct Element *elt,struct Jobject *jo,
          }
       }
       else
-      {  Runtimeerror(jc,elt,emsg_notallowed,mbrname);
+      {  Runtimeerror(jc,NTE_GENERAL,elt,emsg_notallowed,mbrname);
          Clearvalue(jc->val);
       }
       jc->varref=mbr;
       jc->flags|=EXF_KEEPREF;
       ok=TRUE;
    }
-   else Runtimeerror(jc,elt,emsg_noproperty,mbrname);
+   else Runtimeerror(jc,NTE_GENERAL,elt,emsg_noproperty,mbrname);
    return ok;
 }
 
@@ -530,7 +553,7 @@ static void Callfunction(struct Jcontext *jc,struct Elementlist *elist,
    {  jthis=jc->val->fthis;
    }
    if(construct && jthis && jc->val->ovalue)
-   {  Initconstruct(jc,jthis,jc->val->ovalue);
+   {  Initconstruct(jc,jthis,NULL,jc->val->ovalue);
    }
    /* Call constructor */
    if(func)
@@ -583,11 +606,11 @@ static void Callfunction(struct Jcontext *jc,struct Elementlist *elist,
          Clearvalue(&sval);
       }
       else
-      {  Runtimeerror(jc,(struct Element *)elist,emsg_nofunction);
+      {  Runtimeerror(jc,NTE_GENERAL,(struct Element *)elist,emsg_nofunction);
       }
    }
    else
-   {  Runtimeerror(jc,(struct Element *)elist,emsg_nofunction);
+   {  Runtimeerror(jc,NTE_GENERAL,(struct Element *)elist,emsg_nofunction);
    }
 }
 
@@ -1694,7 +1717,7 @@ static void Exefloat(struct Jcontext *jc,struct Elementfloat *elt)
 }
 
 static void Exeboolean(struct Jcontext *jc,struct Elementint *elt)
-{  Asgboolean(jc->val,elt->ivalue);
+{  Asgboolean(jc->val,elt->ivalue != 0.0);
 }
 
 static void Exestring(struct Jcontext *jc,struct Elementstring *elt)
@@ -1971,17 +1994,43 @@ void Addtoprototype(struct Jcontext *jc,struct Jobject *jo,struct Jobject *f)
 }
 
 /* Add .constructor, default .toString() and .prototype properties */
-void Initconstruct(struct Jcontext *jc,struct Jobject *jo,struct Jobject *fo)
+void Initconstruct(struct Jcontext *jc,struct Jobject *jo,STRPTR name,struct Jobject *constructor)
 {  struct Variable *proto,*pro,*newpro,*p;
+   struct Jobject *fo = NULL;
+
+   if(name)
+   {
+       struct Variable *var;
+       if((var = Findvar(jc,name,NULL)))
+       {
+          if(var->val.type == VTP_OBJECT &&
+             var->val.value.obj.ovalue   &&
+             var->val.value.obj.ovalue->function)
+          {
+              fo = var->val.value.obj.ovalue;
+          }
+       }
+   }
+   if(!fo && constructor)
+   {
+      fo = constructor;
+   }
    if(fo)
    {  if(!jo->constructor) jo->constructor=fo;
       if(newpro=Addproperty(jo,"constructor"))
       {  Asgfunction(&newpro->val,fo,NULL);
          newpro->flags|=VARF_HIDDEN;
       }
-      if((proto=Findproperty(fo,"prototype"))
-      && proto->type==VTP_OBJECT && proto->ovalue)
-      {  for(pro=proto->ovalue->properties.first;pro->next;pro=pro->next)
+
+      if((proto=Getownproperty(fo,"prototype"))
+      && proto->val.type==VTP_OBJECT && proto->val.value.obj.ovalue)
+      {
+
+         jo->prototype = proto->val.value.obj.ovalue;
+
+/* Old way keep commented for reference just in case .... */
+/*
+         for(pro=proto->val.value.obj.ovalue->properties.first;pro->next;pro=pro->next)
          {  if(!(newpro=Findproperty(jo,pro->name)))
             {  newpro=Addproperty(jo,pro->name);
             }
@@ -1990,14 +2039,22 @@ void Initconstruct(struct Jcontext *jc,struct Jobject *jo,struct Jobject *fo)
                newpro->flags|=(pro->flags&VARF_HIDDEN);
             }
          }
+*/
+      }
+      else
+      {
+         /* this probably shouldn't happen but in just in case */
+         /* it might be that we should throw a run time error here */
+
+         jo->prototype = NULL;
       }
    }
-   if(!(pro=Findproperty(jo,"toString")))
+   if(!(pro=Getproperty(jo,"toString")))
    {  if(p=Addinternalproperty(jc,jo,jc->tostring))
       {  p->flags|=VARF_HIDDEN;
       }
    }
-   if(!(pro=Findproperty(jo,"eval")))
+   if(!(pro=Getproperty(jo,"eval")))
    {  if(p=Addinternalproperty(jc,jo,jc->eval))
       {  p->flags|=VARF_HIDDEN;
       }
@@ -2102,14 +2159,14 @@ BOOL Newexecute(struct Jcontext *jc)
       if(fo=Internalfunction(jc,"isNaN",Isnan,"testValue",NULL))
       {  Addglobalfunction(jc,fo);
       }
-      Initobject(jc);
+      Initobject(jc,NULL);
       Initarray(jc,NULL);
-      Initboolean(jc);
-      Initdate(jc);
-      Initfunction(jc);
-      Initmath(jc);
-      Initnumber(jc);
-      Initstring(jc);
+      Initboolean(jc,NULL);
+      Initdate(jc,NULL);
+      Initfunction(jc,NULL);
+      Initmath(jc,NULL);
+      Initnumber(jc,NULL);
+      Initstring(jc,NULL);
       return TRUE;
    }
    Freeexecute(jc);

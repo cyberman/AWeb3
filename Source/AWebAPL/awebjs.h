@@ -53,6 +53,9 @@
 #define ALLOCSTRUCT(s,n,f,p)  ALLOCTYPE(struct s,n,f,p)
 #define FREE(p)               Freemem(p)
 
+#define ALLOCOBJECT(jc)      (struct Jobject *)Pallocmem(sizeof(struct Jobject),MEMF_PUBLIC,jc->objpool)
+#define ALLOCVAR(jc)         (struct Variable *)Pallocmem(sizeof(struct Variable),MEMF_PUBLIC,jc->varpool)
+
 /* get pointer to first vararg after p */
 #define VARARG(p)          (void *)((ULONG)&p+sizeof(p))
 
@@ -75,10 +78,20 @@ typedef BOOL Jfeedback(struct Jcontext *jc);
 
 struct Jcontext
 {  void *pool;
+   void *objpool;
+   void *varpool;
    struct Token *nexttoken;
    void *program;
    LIST(Jobject) objects;
    LIST(Jobject) tmp;           /* Temporary object list during function execution */
+   struct Jcontext *truecontext;      /* If this is a temporary context (eg in an eval) point to true context */
+   void *try;                 /* current try block */
+   struct Variable *throw;    /* Variable holding last throw or runtime error object */
+   struct Value *throwval;    /* pointer to jc->throw->val */
+   struct Element *elt;       /* currently executing element */
+   LIST(This) thislist;       /* this stack */
+   long gc;                   /* garbage collect if less than 0 */
+   long nogc;                 /* don't auto gc if <0 */
    USHORT flags;
    USHORT dflags;             /* Debugger state */
    UBYTE *screenname;
@@ -99,6 +112,9 @@ struct Jcontext
    USHORT complete;           /* Normal or abrubt completion, see below */
    LIST(Function) functions;  /* Function call stack. Last one is JS global scope,
                                * for standard JS defined variables. */
+   LIST(Label) labels;        /* List / stack of of currently valid labels */
+   struct Jobject *o;         /* Pointer last object constructed by Object */
+   struct Label *curlabel;    /* Label associated current with break or continue */
    struct Jobject *tostring;  /* General default toString function */
    struct Jobject *eval;      /* General standard eval function */
    struct Jobject *object;    /* Standard Object constructor function */
@@ -111,6 +127,9 @@ struct Jcontext
    struct Jobject *error;      /* Standard Error constructor function */
    struct Jobject *nativeErrors[NUM_ERRORTYPES]; /*Native error constructors */
 };
+
+
+#define GC_THRESHOLD 256  /* 256 */        /* number of objects created before first garbage collection */
 
 #define JCF_ERROR       0x0001   /* Compiler error occurred */
 #define JCF_IGNORE      0x0002   /* Ignore all errors */
@@ -132,6 +151,7 @@ struct Jcontext
 #define ECO_CONTINUE 1
 #define ECO_BREAK    2
 #define ECO_RETURN   3
+#define ECO_THROW    4
 
 /*-----------------------------------------------------------------------*/
 
@@ -206,23 +226,44 @@ struct Objhookdata
 
 #define OHC_ADDPROPERTY 1  /* Add a property */
 
+/* hook to call when object is disposed */
+
+typedef void Objdisposehookfunc(void *internal);
+
 struct Jobject
 {  NODE(Jobject);
+   struct Jcontext *jc;
+   long type;
    struct Jobject *constructor;
+   struct Jobject *prototype; /* Pointer to the first in this objects prototype chain */
    LIST(Variable) properties;
    struct Elementfunc *function;
    Objhookfunc *hook;         /* Hook to call when property is added */
    void *internal;
-   void (*dispose)(void *);   /* Destructor function for (internal) */
+   Objdisposehookfunc *dispose;   /* Destructor function for (internal) */
    USHORT flags;
    USHORT dumpnr;             /* Id number for debugger dump */
    long keepnr;               /* If >0, mark as used from here */
+   BOOL notdisposed;          /* this is set to 1 and reset to 0 on disposal */
+   struct Variable *var;      /* The variable this object is assigned to */
 };
 
 #define OBJF_CLEARING   0x0001   /* Clearing this object */
 #define OBJF_TEMP       0x0002   /* Temporary object */
 #define OBJF_USED       0x0004   /* Don't sweep away */
 #define OBJF_ASFUNCTION 0x0008   /* Object may be called as function to obtain its properties */
+
+#define OBJT_USER     0x10000000    /* User object (usually html DOM) */
+#define OBJT_GENERIC  0x00000000    /* Generic object */
+#define OBJT_ARRAY    0x00000001    /* Internal Array object */
+#define OBJT_BOOLEAN  0x00000002    /* Internal Boolean */
+#define OBJT_STRING   0x00000003    /* String Object */
+#define OBJT_REGEXP   0x00000004    /* Regular Expression */
+#define OBJT_NUMBER   0x00000005    /* Internal Number Object */
+#define OBJT_MATH     0x00000006    /* Internal Math Object */
+#define OBJT_FUNCTION 0x00000007    /* Function Object */
+#define OBJT_DATE     0x00000008    /* Internal Date Object */
+#define OBJT_ERROR    0x00000009    /* Internal Error Object */
 
 /*-----------------------------------------------------------------------*/
 
@@ -243,6 +284,19 @@ struct With
 };
 
 #define WITHF_GLOBAL    0x0001   /* Global scope on top level, visible everywhere. */
+
+struct Label
+{
+    NODE(Label);
+    void *elt;              /* the element (probably statement) to which label refers */
+    UBYTE *name;            /* string representing label */
+};
+
+struct This
+{
+    NODE(This);
+    struct Jobject *this;
+};
 
 #define RETVAL(jc)      &((jc)->functions.first->retval)
 
@@ -473,6 +527,19 @@ enum ELEMENT_TYPES
    ET_ADDRESS,
 #endif
 };
+
+/*-----------------------------------------------------------------------*/
+
+typedef void Internfunc(void *);
+
+/* Runtime error type constants */
+#define NTE_EVAL      "EvalError"
+#define NTE_TYPE      "TypeError"
+#define NTE_RANGE     "RangeError"
+#define NTE_URI       "URIError"
+#define NTE_SYNTAX    "SyntaxError"
+#define NTE_REFERENCE "ReferenceError"
+#define NTE_GENERAL   NULL
 
 /*-----------------------------------------------------------------------*/
 

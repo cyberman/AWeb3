@@ -63,7 +63,7 @@ extern BOOL Isarray(struct Jobject *jo);
 /*-- jboolean -----------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
 
-extern void Initboolean(struct Jcontext *jc);
+extern void Initboolean(struct Jcontext *jc, struct Jobject *jscope);
 
    // Create a new Boolean object, Useobject() it once.
 extern struct Jobject *Newboolean(struct Jcontext *jc,BOOL bvalue);
@@ -97,6 +97,7 @@ extern void Asgvalue(struct Value *to,struct Value *from);
 extern void Asgnumber(struct Value *to,UBYTE attr,double n);
 extern void Asgboolean(struct Value *to,BOOL b);
 extern void Asgstring(struct Value *to,UBYTE *s,void *pool);
+extern void Asgstringlen(struct Value *to,UBYTE *s,long len,void *pool);
 extern void Asgobject(struct Value *to,struct Jobject *jo);
 extern void Asgfunction(struct Value *to,struct Jobject *f,struct Jobject *fthis);
 
@@ -122,7 +123,13 @@ extern struct Variable *Addproperty(struct Jobject *jo,UBYTE *name);
 extern struct Variable *Findproperty(struct Jobject *jo,UBYTE *name);
 extern struct Variable *Getownproperty(struct Jobject *jo,UBYTE *name);
 extern struct Variable *Getproperty(struct Jobject *jo,UBYTE *name);
-extern struct Variable *Deleteownproperty(struct Jobject *jo,UBYTE *name);
+extern BOOL Deleteownproperty(struct Jobject *jo,UBYTE *name);
+extern BOOL _Generic_Deleteownproperty(struct Jobject *jo,UBYTE *name);
+extern struct Variable *_Generic_Addproperty(struct Jobject *jo,UBYTE *name);
+extern struct Variable *_Generic_Getownproperty(struct Jobject *jo,UBYTE *name);
+extern BOOL _Array_Deleteownproperty(struct Jobject *jo,UBYTE *name);
+extern struct Variable *_Array_Addproperty(struct Jobject *jo,UBYTE *name);
+extern struct Variable *_Array_Getownproperty(struct Jobject *jo,UBYTE *name);
 
    // Objhook for .prototype
 extern BOOL Prototypeohook(struct Objhookdata *h);
@@ -147,7 +154,10 @@ extern void Dumpobjects(struct Jcontext *jc);
 /*-- jdate --------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
 
-extern void Initdate(struct Jcontext *jc);
+extern void Initdate(struct Jcontext *jc, struct Jobject *jscope);
+
+extern struct Jobject *Newerror(struct Jcontext *jc,UBYTE *message);
+extern struct Jobject *Newnativeerror(struct Jcontext *jc, STRPTR type, UBYTE *message);
 
    // Get the current time in milliseconds
 extern double Today(void);
@@ -169,6 +179,7 @@ extern void Setdebugger(struct Jcontext *jc,struct Element *elt);
 
    // Jexecute a program
 extern void Jexecute(struct Jcontext *jc,struct Jobject *jthis,struct Jobject **gwtab);
+extern void Runtimeerror(struct Jcontext *jc,STRPTR type,struct Element *elt,UBYTE *msg,...);
 
    // Create a function object for this internal function.
    // Varargs are argument names (UBYTE *) terminated by NULL.
@@ -202,7 +213,7 @@ extern void Callfunctionargs(struct Jcontext *jc,struct Elementfunc *func,
    struct Jobject *jthis,...);
 
    // Add .constructor, default .toString() and .prototype properties
-extern void Initconstruct(struct Jcontext *jc,struct Jobject *jo,struct Jobject *fo);
+extern void Initconstruct(struct Jcontext *jc,struct Jobject *jo,STRPTR name,struct Jobject *constructor);
 
    // Evaluate this string
 extern void Jeval(struct Jcontext *jc,UBYTE *s);
@@ -217,13 +228,13 @@ extern void Freeexecute(struct Jcontext *jc);
 /*-- jfunction ----------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
 
-extern void Initfunction(struct Jcontext *jc);
+extern void Initfunction(struct Jcontext *jc, struct Jobject *jscope);
 
 /*-----------------------------------------------------------------------*/
 /*-- jmath --------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
 
-extern void Initmath(struct Jcontext *jc);
+extern void Initmath(struct Jcontext *jc, struct Jobject *jscope);
 
 /*-----------------------------------------------------------------------*/
 /*-- jparse -------------------------------------------------------------*/
@@ -277,7 +288,7 @@ extern void *Getpool(void *p);
 /*-- number -------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
 
-extern void Initnumber(struct Jcontext *jc);
+extern void Initnumber(struct Jcontext *jc, struct Jobject *jscope);
 
    // Create a new Number object, Useobject() it once.
 extern struct Jobject *Newnumber(struct Jcontext *jc,UBYTE attr,double nvalue);
@@ -286,13 +297,13 @@ extern struct Jobject *Newnumber(struct Jcontext *jc,UBYTE attr,double nvalue);
 /*-- object -------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
 
-extern void Initobject(struct Jcontext *jc);
+extern void Initobject(struct Jcontext *jc, struct Jobject *jscope);
 
 /*-----------------------------------------------------------------------*/
 /*-- string -------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
 
-extern void Initstring(struct Jcontext *jc);
+extern void Initstring(struct Jcontext *jc, struct Jobject *jscope);
 
    // Create a new String object, Useobject() it once.
 extern struct Jobject *Newstring(struct Jcontext *jc,UBYTE *svalue);

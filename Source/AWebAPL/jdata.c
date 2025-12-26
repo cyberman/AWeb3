@@ -21,14 +21,20 @@
 #include "awebjs.h"
 #include "jprotos.h"
 
+struct Array;  /* Forward declaration */
+
 /*-----------------------------------------------------------------------*/
 
 /* Call this property function */
 BOOL Callproperty(struct Jcontext *jc,struct Jobject *jo,UBYTE *name)
 {  struct Variable *prop;
-   if(jo && (prop=Findproperty(jo,name))
-   && prop->type==VTP_OBJECT && prop->ovalue && prop->ovalue->function)
-   {  Callfunctionbody(jc,prop->ovalue->function,jo);
+   if(jo && (prop=Getproperty(jo,name))
+   && prop->val.type==VTP_OBJECT && prop->val.value.obj.ovalue && prop->val.value.obj.ovalue->function)
+   {
+      Keepobject(jo,TRUE);
+      Callfunctionbody(jc,prop->val.value.obj.ovalue->function,jo);
+      Keepobject(jo,FALSE);
+
       return TRUE;
    }
    return FALSE;
@@ -37,10 +43,17 @@ BOOL Callproperty(struct Jcontext *jc,struct Jobject *jo,UBYTE *name)
 /*-----------------------------------------------------------------------*/
 
 /* Clear out a value */
+/* This must always be called when assigning to a previously used value */
+/* This must always be used before discarding / disposing of a previously used value */
+
 void Clearvalue(struct Value *v)
 {  switch(v->type)
    {  case VTP_STRING:
-         FREE(v->svalue);
+         if(v->value.svalue)
+         {
+             FREE(v->value.svalue);
+             v->value.svalue = NULL;
+         }
          break;
    }
    v->type=VTP_UNDEFINED;
@@ -48,28 +61,25 @@ void Clearvalue(struct Value *v)
 
 /* Assign a value */
 void Asgvalue(struct Value *to,struct Value *from)
-{  struct Value val={0};
-   /* First build up duplicate, then clear (to) to prevent object
-    * being removed from under our ass.. */
-   val.type=from->type;
-   val.attr=from->attr;
+{
+   Clearvalue(to);
+   to->type=from->type;
+   to->attr=from->attr;
    switch(from->type)
    {  case VTP_NUMBER:
-         val.nvalue=from->nvalue;
+         to->value.nvalue=from->value.nvalue;
          break;
       case VTP_BOOLEAN:
-         val.bvalue=from->bvalue;
+         to->value.bvalue=from->value.bvalue;
          break;
       case VTP_STRING:
-         val.svalue=Jdupstr(from->svalue,-1,Getpool(from->svalue));
+         to->value.svalue=Jdupstr(from->value.svalue,-1,Getpool(from->value.svalue));
          break;
       case VTP_OBJECT:
-         val.ovalue=from->ovalue;
-         val.fthis=from->fthis;
+         to->value.obj.ovalue=from->value.obj.ovalue;
+         to->value.obj.fthis=from->value.obj.fthis;
          break;
    }
-   Clearvalue(to);
-   *to=val;
 }
 
 /* Assign a number */
@@ -88,7 +98,7 @@ void Asgnumber(struct Value *to,UBYTE attr,double n)
    Clearvalue(to);
    to->type=VTP_NUMBER;
    to->attr=attr;
-   to->nvalue=n;
+   to->value.nvalue=n;
 }
 
 /* Assign a boolean */
@@ -96,7 +106,7 @@ void Asgboolean(struct Value *to,BOOL b)
 {  Clearvalue(to);
    to->type=VTP_BOOLEAN;
    to->attr=0;
-   to->bvalue=b;
+   to->value.bvalue=b;
 }
 
 /* Assign a string */
@@ -104,7 +114,16 @@ void Asgstring(struct Value *to,UBYTE *s,void *pool)
 {  Clearvalue(to);
    to->type=VTP_STRING;
    to->attr=0;
-   to->svalue=Jdupstr(s,-1,pool);
+   to->value.svalue=Jdupstr(s,-1,pool);
+}
+
+/* Assign a string of given length */
+void Asgstringlen(struct Value *to,UBYTE *s,long len,void *pool)
+{
+    Clearvalue(to);
+    to->type=VTP_STRING;
+    to->attr=0;
+    to->value.svalue=Jdupstr(s,len,pool);
 }
 
 /* Assign an object */
@@ -112,8 +131,8 @@ void Asgobject(struct Value *to,struct Jobject *jo)
 {  Clearvalue(to);
    to->type=VTP_OBJECT;
    to->attr=0;
-   to->ovalue=jo;
-   to->fthis=NULL;
+   to->value.obj.ovalue=jo;
+   to->value.obj.fthis=NULL;
 }
 
 /* Assign a function */
@@ -121,8 +140,8 @@ void Asgfunction(struct Value *to,struct Jobject *f,struct Jobject *fthis)
 {  Clearvalue(to);
    to->type=VTP_OBJECT;
    to->attr=0;
-   to->ovalue=f;
-   to->fthis=fthis;
+   to->value.obj.ovalue=f;
+   to->value.obj.fthis=fthis;
 }
 
 /* Make this value a string */
@@ -141,21 +160,21 @@ void Tostring(struct Value *v,struct Jcontext *jc)
                   strcpy(buffer,"-Infinity");
                   break;
                default:
-                  sprintf(buffer,"%.20lg",v->nvalue);
+                  sprintf(buffer,"%.15lg",v->value.nvalue);
                   break;
             }
             Asgstring(v,buffer,jc->pool);
          }
          break;
       case VTP_BOOLEAN:
-         Asgstring(v,v->bvalue?"true":"false",jc->pool);
+         Asgstring(v,v->value.bvalue?"true":"false",jc->pool);
          break;
       case VTP_STRING:
          break;
       case VTP_OBJECT:
-         if(v->ovalue && v->ovalue->function)
+         if(v->value.obj.ovalue && v->value.obj.ovalue->function)
          {  struct Jbuffer *jb;
-            if(jb=Jdecompile(jc,v->ovalue->function))
+            if(jb=Jdecompile(jc,(struct Element *)v->value.obj.ovalue->function))
             {  Asgstring(v,jb->buffer,jc->pool);
                Freejbuffer(jb);
             }
@@ -165,15 +184,17 @@ void Tostring(struct Value *v,struct Jcontext *jc)
          }
          else
          {  struct Jobject *oldthis;
-            if(Callproperty(jc,v->ovalue,"toString") && jc->val->type==VTP_STRING)
-            {  Asgstring(v,jc->val->svalue,jc->pool);
+
+            if(Callproperty(jc,v->value.obj.ovalue,"toString") && jc->val->type==VTP_STRING)
+            {  Asgstring(v,jc->val->value.svalue,jc->pool);
             }
             else
             {  oldthis=jc->jthis;
-               jc->jthis=v->ovalue;
+               jc->jthis=v->value.obj.ovalue;
                Defaulttostring(jc);
                jc->jthis=oldthis;
                Asgvalue(v,jc->val);
+
             }
          }
          break;
@@ -185,53 +206,54 @@ void Tostring(struct Value *v,struct Jcontext *jc)
 
 /* Make this value a number */
 void Tonumber(struct Value *v,struct Jcontext *jc)
-{  switch(v->type)
-   {  case VTP_NUMBER:
-         break;
-      case VTP_BOOLEAN:
-         Asgnumber(v,VNA_VALID,v->bvalue?1.0:0.0);
-         break;
-      case VTP_STRING:
-         {  double n;
-            if(sscanf(v->svalue,"%lg",&n))
-            {  Asgnumber(v,VNA_VALID,n);
-            }
-            else
-            {  Asgnumber(v,VNA_NAN,0.0);
-            }
-         }
-         break;
-      case VTP_OBJECT:
-         if(Callproperty(jc,v->ovalue,"valueOf") && jc->val->type==VTP_NUMBER)
-         {  Asgvalue(v,jc->val);
-         }
-         else
-         {  Asgnumber(v,VNA_NAN,0.0);
-         }
-         break;
-      default:
-         Asgnumber(v,VNA_NAN,0.0);
-         break;
-   }
+{
+       switch(v->type)
+       {  case VTP_NUMBER:
+             break;
+          case VTP_BOOLEAN:
+             Asgnumber(v,VNA_VALID,v->value.bvalue?1.0:0.0);
+             break;
+          case VTP_STRING:
+             {  double n;
+                if(sscanf(v->value.svalue,"%lg",&n))
+                {  Asgnumber(v,VNA_VALID,n);
+                }
+                else
+                {  Asgnumber(v,VNA_NAN,0.0);
+                }
+             }
+             break;
+          case VTP_OBJECT:
+             if(Callproperty(jc,v->value.obj.ovalue,"valueOf") && jc->val->type==VTP_NUMBER)
+             {  Asgvalue(v,jc->val);
+             }
+             else
+             {  Asgnumber(v,VNA_NAN,0.0);
+             }
+             break;
+          default:
+             Asgnumber(v,VNA_NAN,0.0);
+             break;
+       }
 }
 
 /* Make this value a boolean */
 void Toboolean(struct Value *v,struct Jcontext *jc)
 {  switch(v->type)
    {  case VTP_NUMBER:
-         Asgboolean(v,v->nvalue!=0.0);
+         Asgboolean(v,v->value.nvalue!=0.0);
          break;
       case VTP_BOOLEAN:
          break;
       case VTP_STRING:
-         Asgboolean(v,*v->svalue!='\0');
+         Asgboolean(v,*v->value.svalue!='\0');
          break;
       case VTP_OBJECT:
-         if(Callproperty(jc,v->ovalue,"valueOf") && jc->val->type==VTP_BOOLEAN)
+         if(Callproperty(jc,v->value.obj.ovalue,"valueOf") && jc->val->type==VTP_BOOLEAN)
          {  Asgvalue(v,jc->val);
          }
          else
-         {  Asgboolean(v,v->ovalue?TRUE:FALSE);
+         {  Asgboolean(v,v->value.obj.ovalue?TRUE:FALSE);
          }
          break;
       default:
@@ -245,13 +267,13 @@ void Toobject(struct Value *v,struct Jcontext *jc)
 {  struct Jobject *jo;
    switch(v->type)
    {  case VTP_NUMBER:
-         Asgobject(v,jo=Newnumber(jc,v->attr,v->nvalue));
+         Asgobject(v,jo=Newnumber(jc,v->attr,v->value.nvalue));
          break;
       case VTP_BOOLEAN:
-         Asgobject(v,jo=Newboolean(jc,v->bvalue));
+         Asgobject(v,jo=Newboolean(jc,v->value.bvalue));
          break;
       case VTP_STRING:
-         Asgobject(v,jo=Newstring(jc,v->svalue));
+         Asgobject(v,jo=Newstring(jc,v->value.svalue));
          break;
       case VTP_OBJECT:
          break;
@@ -270,7 +292,8 @@ void Tofunction(struct Value *v,struct Jcontext *jc)
 
 /* Default toString property function */
 void Defaulttostring(struct Jcontext *jc)
-{  struct Jobject *jo=jc->jthis;
+{
+        struct Jobject *jo=jc->jthis;
    UBYTE *p,*buf;
    if(Callproperty(jc,jo,"valueOf") && jc->val->type==VTP_STRING)
    {  /* We're done */
@@ -297,16 +320,18 @@ void Defaulttostring(struct Jcontext *jc)
          }
       }
    }
+   Asgvalue(RETVAL(jc),jc->val);
 }
 
 /*-----------------------------------------------------------------------*/
 
 /* Create a new variable */
-struct Variable *Newvar(UBYTE *name,void *pool)
+struct Variable *Newvar(UBYTE *name,struct Jcontext *jc)
 {  struct Variable *var;
-   if(var=ALLOCSTRUCT(Variable,1,0,pool))
-   {  if(name)
-      {  var->name=Jdupstr(name,-1,pool);
+   if(var=ALLOCVAR(jc))
+   {
+      if(name)
+      {  var->name=Jdupstr(name,-1,jc->pool);
       }
       var->val.type=0;
    }
@@ -316,7 +341,10 @@ struct Variable *Newvar(UBYTE *name,void *pool)
 /* Dispose this variable */
 void Disposevar(struct Variable *var)
 {  if(var)
-   {  if(var->name) FREE(var->name);
+   {  if(var->name)
+      {
+          FREE(var->name);
+      }
       Clearvalue(&var->val);
       FREE(var);
    }
@@ -326,19 +354,29 @@ void Disposevar(struct Variable *var)
 
 /* Create a new empty object */
 struct Jobject *Newobject(struct Jcontext *jc)
-{  struct Jobject *jo;
-   if(jo=ALLOCSTRUCT(Jobject,1,0,jc->pool))
-   {  NEWLIST(&jo->properties);
-      /* Add to tmp list if active (during function execution), otherwise to objects */
-      /* Check if tmp list has objects: if first->next != last, list is not empty */
-      if(jc->tmp.first->next != jc->tmp.last)
-      {  ADDTAIL(&jc->tmp,jo);
-      }
-      else
-      {  ADDTAIL(&jc->objects,jo);
-      }
-//debug(" NEW object %08lx\n",jo);
+{  struct Jobject *jo = NULL;
+
+   /* test for and run a garbage collect */
+   /* Do this before creating our object else it'll get swept away! */
+   if(jc->gc <= 0 && (jc->nogc<=0))
+   {
+       jc->gc = GC_THRESHOLD;
+       Garbagecollect(jc);
    }
+
+   if(jo=ALLOCOBJECT(jc))
+   {  NewList((struct List *)&jo->properties);
+      jo->notdisposed = TRUE;
+      jo->jc = jc;
+      while(jo->jc->truecontext)
+      {
+          jo->jc = jo->jc->truecontext;
+      }
+
+      if(jc->nogc <= 0)jc->gc--;
+      AddTail((struct List *)&jc->objects,(struct Node *)jo);
+   }
+   //adebug("NEW OBJECT: %08lx\n",jo);
    return jo;
 }
 
@@ -346,16 +384,19 @@ struct Jobject *Newobject(struct Jcontext *jc)
 void Disposeobject(struct Jobject *jo)
 {  struct Variable *var;
    if(jo)
-   {  while(var=REMHEAD(&jo->properties))
-      {  Disposevar(var);
+   {
+      while(var=(struct Variable *)RemHead((struct List *)&jo->properties))
+      {
+          Disposevar(var);
       }
       if(jo->internal && jo->dispose)
-      {  jo->dispose(jo->internal);
+      {
+                                jo->dispose(jo->internal);
       }
       if(jo->function)
-      {  Jdispose(jo->function);
+      {  Jdispose((struct Element *)jo->function);
       }
-//debug ("FREE object %08lx\n",jo);
+
       FREE(jo);
    }
 }
@@ -390,24 +431,144 @@ void Clearobject(struct Jobject *jo,UBYTE **except)
    }
 }
 
+/* delete a property from this object */
+BOOL _Generic_Deleteownproperty(struct Jobject *jo, STRPTR name)
+{
+    struct Variable *var;
+    if((var = Getownproperty(jo,name)))
+    {
+        Remove((struct Node *)var);
+        Disposevar(var);
+        return TRUE;
+    }
+    return FALSE;
+}
+
+BOOL Deleteownproperty(struct Jobject *jo, STRPTR name)
+{
+    if(jo)
+    {
+        switch(jo->type)
+        {
+            case OBJT_ARRAY:
+                return _Array_Deleteownproperty(jo,name);
+                break;
+            default:
+                return _Generic_Deleteownproperty(jo,name);
+            break;
+        }
+    }
+    return FALSE;
+}
+
 /* Add a property to this object */
-struct Variable *Addproperty(struct Jobject *jo,UBYTE *name)
+struct Variable *_Generic_Addproperty(struct Jobject *jo, STRPTR name)
 {  struct Variable *var=NULL;
    if(jo)
-   {  if(var=Newvar(name,Getpool(jo)))
-      {  ADDTAIL(&jo->properties,var);
+   {  if(var=Newvar(name,jo->jc))
+      {  AddTail((struct List *)&jo->properties,(struct Node *)var);
       }
    }
    return var;
 }
 
+struct Variable *Addproperty(struct Jobject *jo, STRPTR name)
+{
+    if(jo)
+    {
+        switch(jo->type)
+        {
+            case OBJT_ARRAY:
+                return _Array_Addproperty(jo,name);
+                break;
+            default:
+                return _Generic_Addproperty(jo,name);
+            break;
+        }
+    }
+    return NULL;;
+}
+
 /* Find a property in this object */
-struct Variable *Findproperty(struct Jobject *jo,UBYTE *name)
+
+/* Getownproperty() finds a property that belongs directly to the object */
+/* it will call an object specific method if appropriate */
+
+
+struct Variable *_Generic_Getownproperty(struct Jobject *jo, STRPTR name)
 {  struct Variable *var;
    if(jo)
-   {  for(var=jo->properties.first;var->next;var=var->next)
+   {  for(var=jo->properties.first;var && var->next;var=var->next)
       {  if(STREQUAL(var->name,name)) return var;
       }
+   }
+   return NULL;
+}
+
+struct Variable* Getownproperty(struct Jobject *jo, STRPTR name)
+{
+    struct Variable *var = NULL;
+    //adebug("jo %08lx name %08lx\n");
+    if(jo)
+    {
+        switch (jo->type)
+        {
+            case OBJT_ARRAY:
+                var = _Array_Getownproperty(jo,name);
+                break;
+            default:
+                var = _Generic_Getownproperty(jo,name);
+                break;
+        }
+    }
+    return var;
+}
+
+/* The more general getproperty, first seaches the object and then the prototype chain */
+
+struct Variable *Getproperty(struct Jobject *jo, STRPTR name)
+{
+    struct Variable *var;
+    struct Jobject *proto;
+    struct Jobject *p1;
+
+   if(jo)
+   {
+   /*
+      for(var=jo->properties.first;var->next;var=var->next)
+      {  if(STREQUAL(var->name,name)) return var;
+      }
+   */
+            if((var = Getownproperty(jo,name)))
+            {
+                return var;
+            }
+
+   }
+   /* didn't find the property start to search prototype chain */
+   if(jo && (proto = jo->prototype))
+   {
+       p1 = proto;
+       while(proto)
+       {
+            /*
+            for(var=proto->properties.first;var->next;var=var->next)
+            {
+                if(STREQUAL(var->name,name)) return var;
+            }
+            */
+
+            if((var = Getownproperty(proto,name)))
+            {
+                return var;
+            }
+            proto = proto->prototype;
+            if(proto == p1)
+            {
+                //adebug("panick! circular prototype chain!\n");
+                break;
+            }
+       }
    }
    return NULL;
 }
@@ -422,7 +583,7 @@ BOOL Protopropvhook(struct Varhookdata *h)
    {  case VHC_SET:
          for(jo=h->jc->objects.first;jo->next;jo=jo->next)
          {  if(jo->constructor==h->var->hookdata)
-            {  if(!(prop=Findproperty(jo,h->var->name)))
+            {  if(!(prop=Getownproperty(jo,h->var->name)))
                {  prop=Addproperty(jo,h->var->name);
                }
                if(prop)
@@ -443,11 +604,11 @@ BOOL Prototypeohook(struct Objhookdata *h)
    struct Variable *prop;
    switch(h->code)
    {  case OHC_ADDPROPERTY:
-         if(!(prop=Findproperty(h->jo,h->name)))
+         if(!(prop=Getownproperty(h->jo,h->name)))
          {  prop=Addproperty(h->jo,h->name);
          }
          if(prop)
-         {  prop->hook=Protopropvhook;
+         { // prop->hook=Protopropvhook;
             prop->hookdata=h->jo->constructor;
          }
          result=TRUE;
@@ -467,11 +628,13 @@ BOOL Constantvhook(struct Varhookdata *h)
 
 /* Call a variable hook function */
 BOOL Callvhook(struct Variable *var,struct Jcontext *jc,short code,struct Value *val)
-{  struct Varhookdata vh={0};
-   struct Variable valvar={0};
+{
    BOOL result=FALSE;
    if(var && var->hook)
-   {  vh.jc=jc;
+   {
+      struct Varhookdata vh={0};
+      struct Variable valvar={0};
+      vh.jc=jc;
       vh.code=code;
       vh.var=var;
       vh.hookdata=var->hookdata;
@@ -480,17 +643,19 @@ BOOL Callvhook(struct Variable *var,struct Jcontext *jc,short code,struct Value 
       vh.name=var->name;
       result=var->hook(&vh);
       if(result && code==VHC_GET) Asgvalue(val,&valvar.val);
+      Clearvalue(&valvar.val);
    }
-   Clearvalue(&valvar.val);
    return result;
 }
 
 /* Call an object hook function */
 BOOL Callohook(struct Jobject *jo,struct Jcontext *jc,short code,UBYTE *name)
-{  struct Objhookdata oh={0};
+{
    BOOL result=FALSE;
    if(jo && jo->hook)
-   {  oh.jc=jc;
+   {
+      struct Objhookdata oh;
+      oh.jc=jc;
       oh.code=code;
       oh.jo=jo;
       oh.name=name;
@@ -521,22 +686,68 @@ void Dumpobjects(struct Jcontext *jc)
 }
 
 /*-----------------------------------------------------------------------*/
+static int depth = 0;
+struct Array            /* Used as internal object value */
+{
+    long length;            /* current array length of data*/
+    struct Variable **array; /* pointer to current array */
+    long array_length;       /* current length of storage */
+};
+
 
 static void Garbagemark(struct Jobject *jo)
 {  struct Variable *v;
+   depth ++;
    if(jo && !(jo->flags&OBJF_USED))
    {  jo->flags|=OBJF_USED;
-      for(v=jo->properties.first;v->next;v=v->next)
-      {  if(v->val.type==VTP_OBJECT)
-         {  Garbagemark(v->val.ovalue);
-            if(v->val.fthis) Garbagemark(v->val.fthis);
-         }
-      }
-      Garbagemark(jo->constructor);
-      if(jo->function)
-      {  Garbagemark(jo->function->fscope);
+             if(jo->notdisposed != TRUE)  //FALSE)
+             {
+                //adebug("attempt to mark disposed object %08lx %08lx %s\n",jo,jo->notdisposed,(jo->var && jo->var->name)?jo->var->name:"NULL");
+                // Dumpjobject(jo);
+                //adebug("marking constructor\n");
+             }
+      else
+      {
+          for(v=jo->properties.first;v && v->next;v=v->next)
+          {
+
+             if(v->val.type==VTP_OBJECT)
+             {
+                Garbagemark(v->val.value.obj.ovalue);
+                if(v->val.value.obj.fthis) Garbagemark(v->val.value.obj.fthis);
+             }
+          }
+          Garbagemark(jo->constructor);
+          if(jo->function)
+          {  Garbagemark(jo->function->fscope);
+          }
+          if(jo->type == OBJT_ARRAY)
+          {
+              if(jo->internal)
+              {
+                struct Array *a = jo->internal;
+                if(a->length && a->array_length)
+                {
+                    int i;
+
+                    for(i = 0; i< a->length && i < a->array_length;i++)
+                    {
+                        if(a->array && a->array[i])
+                        {
+                            if(a->array[i]->val.type == VTP_OBJECT)
+                            {
+                                Garbagemark(a->array[i]->val.value.obj.ovalue);
+                                if(a->array[i]->val.value.obj.fthis)
+                                Garbagemark(a->array[i]->val.value.obj.fthis);
+                            }
+                        }
+                    }
+                }
+              }
+          }
       }
    }
+   depth--;
 }
 
 void Garbagecollect(struct Jcontext *jc)
@@ -544,65 +755,88 @@ void Garbagecollect(struct Jcontext *jc)
    struct Function *f;
    struct With *w;
    struct Variable *v;
-   BOOL usingtmp;
-   /* Use tmp list if active (during function execution), otherwise use objects */
-   /* Check if tmp list has objects: if first->next != last, list is not empty */
-   usingtmp=(jc->tmp.first->next != jc->tmp.last);
-   if(usingtmp)
-   {  for(jo=jc->tmp.first;jo->next;jo=jo->next)
-      {  jo->flags&=~OBJF_USED;
-      }
-      for(jo=jc->tmp.first;jo->next;jo=jo->next)
-      {  if(jo->keepnr) Garbagemark(jo);
-      }
-   }
-   else
-   {  for(jo=jc->objects.first;jo->next;jo=jo->next)
-      {  jo->flags&=~OBJF_USED;
-      }
-      for(jo=jc->objects.first;jo->next;jo=jo->next)
-      {  if(jo->keepnr) Garbagemark(jo);
-      }
-   }
-   for(f=jc->functions.first;f->next;f=f->next)
-   {  Garbagemark(f->arguments);
-      Garbagemark(f->def);
-      Garbagemark(f->fscope);
-      if(f->retval.type==VTP_OBJECT)
-      {  Garbagemark(f->retval.ovalue);
-         if(f->retval.fthis) Garbagemark(f->retval.fthis);
-      }
-      for(v=f->local.first;v->next;v=v->next)
-      {  if(v->val.type==VTP_OBJECT)
-         {  Garbagemark(v->val.ovalue);
-            if(v->val.fthis) Garbagemark(v->val.fthis);
-         }
-      }
-      for(w=f->with.first;w->next;w=w->next)
-      {  Garbagemark(w->jo);
-      }
-   }
-   if(usingtmp)
-   {  for(jo=jc->tmp.first;jo->next;jo=jonext)
-      {  jonext=jo->next;
-         if(!(jo->flags&OBJF_USED))
-         {  REMOVE(jo);
-            Disposeobject(jo);
-         }
-      }
-      /* Move surviving objects to objects list */
-      while(jo=REMHEAD(&jc->tmp))
-      {  ADDTAIL(&jc->objects,jo);
-      }
-   }
-   else
-   {  for(jo=jc->objects.first;jo->next;jo=jonext)
-      {  jonext=jo->next;
-         if(!(jo->flags&OBJF_USED))
-         {  REMOVE(jo);
-            Disposeobject(jo);
-         }
-      }
+   struct List *objectlist;
+   struct List *jlist;
+   struct This *this;
+   int scanned = 0;
+   objectlist = (struct List *)(&jc->objects);
+
+   jlist = (struct List *)(&jc->thislist);
+
+    for(jo=(struct Jobject *)objectlist->lh_Head;jo && jo->next;jo=(struct Jobject *)jo->next)
+    {  jo->flags&=~OBJF_USED;
+       scanned ++;
+    }
+
+    /* No point garbage collecting if no objects in list */
+   if(scanned > 0)
+   {
+       if(jc->val && jc->val->type == VTP_OBJECT)
+       {
+          if(jc->val->value.obj.ovalue)Garbagemark(jc->val->value.obj.ovalue);
+          if(jc->val->value.obj.fthis)Garbagemark(jc->val->value.obj.fthis);
+
+       }
+       if(jc->throwval && jc->throwval->type == VTP_OBJECT)
+       {
+          if(jc->throwval->value.obj.ovalue)Garbagemark(jc->throwval->value.obj.ovalue);
+          if(jc->throwval->value.obj.fthis)Garbagemark(jc->throwval->value.obj.fthis);
+
+       }
+
+       if(jc->jthis)
+       {
+           jc->jthis->flags &=~OBJF_USED;
+           Garbagemark(jc->jthis);
+       }
+       if(jc->fscope)
+       {
+           jc->fscope->flags &=~OBJF_USED;
+           Garbagemark(jc->fscope);
+       }
+       for(this=(struct This *)jlist->lh_Head;this && this->next;this=(struct This *)this->next)
+       {
+           this->this->flags &=~OBJF_USED;
+           Garbagemark(this->this);
+       }
+
+       for(jo=(struct Jobject *)objectlist->lh_Head;jo && jo->next;jo=(struct Jobject *)jo->next)
+       {
+           if(jo->keepnr > 0) Garbagemark(jo);
+       }
+
+       for(f=jc->functions.first;f->next;f=f->next)
+       {
+
+          Garbagemark(f->arguments);
+
+          Garbagemark(f->def);
+
+          Garbagemark(f->fscope);
+
+          if(f->retval.type==VTP_OBJECT)
+          {  Garbagemark(f->retval.value.obj.ovalue);
+             if(f->retval.value.obj.fthis) Garbagemark(f->retval.value.obj.fthis);
+          }
+          for(v=f->local.first;v->next;v=v->next)
+          {  if(v->val.type==VTP_OBJECT)
+             {
+                Garbagemark(v->val.value.obj.ovalue);
+                if(v->val.value.obj.fthis) Garbagemark(v->val.value.obj.fthis);
+             }
+          }
+          for(w=f->with.first;w->next;w=w->next)
+          {  Garbagemark(w->jo);
+          }
+       }
+       for(jo=(struct Jobject *)objectlist->lh_Head;jo && jo->next;jo=jonext)
+       {  jonext=(struct Jobject *)jo->next;
+          if(!(jo->flags&OBJF_USED))
+          {
+             Remove((struct Node *)jo);
+             Disposeobject(jo);
+          }
+       }
    }
 }
 
