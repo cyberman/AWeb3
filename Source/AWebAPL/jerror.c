@@ -21,16 +21,6 @@
 #include "awebjs.h"
 #include "jprotos.h"
 
-/* Helper function to get prototype object */
-static struct Jobject *Getprototype(struct Jobject *jo)
-{  struct Variable *proto;
-   if((proto=Findproperty(jo,"prototype"))
-   && proto->val.type==VTP_OBJECT && proto->val.value.obj.ovalue)
-   {  return proto->val.value.obj.ovalue;
-   }
-   return NULL;
-}
-
 /* Find the string value of Nth argument */
 static UBYTE *Strargument(struct Jcontext *jc,long n)
 {  struct Variable *var;
@@ -45,253 +35,301 @@ static UBYTE *Strargument(struct Jcontext *jc,long n)
 /*--------------------------------------------------------------------------------*/
 
 static void Errortostring(struct Jcontext *jc)
-{  struct Jobject *jo=jc->jthis;
-   struct Variable *var;
-   struct Jbuffer *bf;
-   if((bf=Newjbuffer(jc->pool)))
-   {  if((var=Findproperty(jo,"name")))
-      {  Tostring(&var->val,jc);
-         Addtojbuffer(bf,var->val.value.svalue,-1);
-      }
-      if((var=Findproperty(jo,"message")))
-      {  Tostring(&var->val,jc);
-         if(*var->val.value.svalue!='\0')
-         {  Addtojbuffer(bf,": ",-1);
+{
+    struct Jobject *jo = jc->jthis;
+    struct Variable *var;
+    struct Jbuffer *bf;
+    if((bf = Newjbuffer(jc->pool)))
+    {
+        if((var = Getproperty(jo,"name")))
+        {
+            Tostring(&var->val,jc);
             Addtojbuffer(bf,var->val.value.svalue,-1);
-         }
-      }
-      Asgstring(RETVAL(jc),bf->buffer,jc->pool);
-      Freejbuffer(bf);
-   }
-   else
-   {  Asgstring(RETVAL(jc),"",jc->pool);
-   }
+        }
+        if((var = Getproperty(jo,"message")))
+        {
+            Tostring(&var->val,jc);
+            if(*var->val.value.svalue != '\0')
+            {
+                Addtojbuffer(bf,": ",-1);
+                Addtojbuffer(bf,var->val.value.svalue,-1);
+            }
+        }
+        Asgstring(RETVAL(jc),bf->buffer,jc->pool);
+        Freejbuffer(bf);
+    }
+
+    else
+    {
+        Asgstring(RETVAL(jc),"",jc->pool);
+    }
+
 }
 
 /*-----------------------------------------------------------------------*/
 
 /* Make (jthis) a new Error object */
 static void Constructor(struct Jcontext *jc)
-{  struct Jobject *jo=jc->jthis;
-   struct Variable *arg;
-   arg=jc->functions.first->local.first;
-   if(jo && (jc->flags&EXF_CONSTRUCT))
-   {  jo->type=OBJT_ERROR;
-      if(arg->next && arg->val.type!=VTP_UNDEFINED)
-      {  struct Variable *var;
-         Tostring(&arg->val,jc);
-         if((var=Addproperty(jo,"message")))
-         {  Asgvalue(&var->val,&arg->val);
-         }
-      }
-   }
-   else if(!(jc->flags&EXF_CONSTRUCT))
-   {  /* Called as function */
-      UBYTE *p=NULL;
-      if(arg->next && arg->val.type!=VTP_UNDEFINED)
-      {  Tostring(&arg->val,jc);
-         p=arg->val.value.svalue;
-      }
-      if((jo=Newerror(jc,p)))
-      {  Asgobject(RETVAL(jc),jo);
-      }
-   }
+{
+    struct Jobject *jo = jc->jthis;
+    struct Variable *arg;
+    arg=jc->functions.first->local.first;
+
+
+    if(jo && jc->flags & EXF_CONSTRUCT)
+    {
+        jo->type = OBJT_ERROR;
+        if(arg->next && arg->val.type!=VTP_UNDEFINED)
+        {
+            struct Variable *var;
+            Tostring(&arg->val,jc);
+            if((var = Addproperty(jo,"message")))
+            {
+                Asgvalue(&var->val,&arg->val);
+            }
+        }
+
+    }
+    else
+    if(!(jc->flags & EXF_CONSTRUCT))
+    {
+        /* Called as function */
+        UBYTE *p = NULL;
+        if(arg->next && arg->val.type!=VTP_UNDEFINED)
+        {
+            Tostring(&arg->val,jc);
+            p = arg->val.value.svalue;
+        }
+
+        if((jo = Newerror(jc,p)))
+        {
+            Asgobject(RETVAL(jc),jo);
+        }
+    }
 }
 
 /*-----------------------------------------------------------------------*/
 
-__asm __saveds void Initerror(
-   register __a0 struct Jcontext *jc,
-   register __a1 struct Jobject *jscope)
+void Initerror(struct Jcontext *jc, struct Jobject *jscope)
 {  struct Jobject *jerror,*jo,*f,*p;
    struct Variable *prop;
-   if(jerror=Internalfunction(jc,"Error",(void (*)(void *))Constructor,"errorMessage",NULL))
-   {  Initconstruct(jc,jerror,jc->object);
-      Addprototype(jc,jerror);
-      if(jscope && (prop=Addproperty(jscope,"Error")))
-      {  Asgobject(&prop->val,jerror);
-         prop->flags|=VARF_DONTDELETE;
+   if(jerror=Internalfunction(jc,"Error",(Internfunc *)Constructor,"errorMessage",NULL))
+   {
+      Initconstruct(jc,jerror,"Object",jc->object);
+      Addprototype(jc,jerror,Getprototype(jerror->constructor));
+      if(jscope && (prop = Addproperty(jscope,"Error")))
+      {
+          Asgobject(&prop->val,jerror);
+          prop->flags |= VARF_DONTDELETE;
       }
-      p=Getprototype(jerror);
-      if(f=Internalfunction(jc,"toString",(void (*)(void *))Errortostring,NULL))
+
+      p = Getprototype(jerror);
+      if(f=Internalfunction(jc,"toString",(Internfunc *)Errortostring,NULL))
       {  Addtoprototype(jc,jerror,f);
       }
-      if(p && (prop=Addproperty(p,"message")))
-      {  Asgstring(&prop->val,"",jc->pool);
+      if((prop = Addproperty(p,"message")))
+      {
+          Asgstring(&prop->val,"",jc->pool);
+
       }
-      if(p && (prop=Addproperty(p,"name")))
-      {  Asgstring(&prop->val,"Error",jc->pool);
+      if((prop = Addproperty(p,"name")))
+      {
+         Asgstring(&prop->val, "Error", jc->pool);
       }
-      /* Create native error types */
-      if(jo=Internalfunction(jc,NTE_TYPE,(void (*)(void *))Constructor,"errorMessage",NULL))
-      {  Addprototype(jc,jo);
-         if(jscope && (prop=Addproperty(jscope,NTE_TYPE)))
-         {  Asgobject(&prop->val,jo);
-            prop->flags|=VARF_DONTDELETE;
-         }
-         p=Getprototype(jo);
-         if(f=Internalfunction(jc,"toString",(void (*)(void *))Errortostring,NULL))
-         {  Addtoprototype(jc,jo,f);
-         }
-         if(p && (prop=Addproperty(p,"message")))
-         {  Asgstring(&prop->val,"",jc->pool);
-         }
-         if(p && (prop=Addproperty(p,"name")))
-         {  Asgstring(&prop->val,NTE_TYPE,jc->pool);
-         }
-         jc->nativeErrors[0]=jo;
-         Keepobject(jo,TRUE);
-      }
-      if(jo=Internalfunction(jc,NTE_EVAL,(void (*)(void *))Constructor,"errorMessage",NULL))
-      {  Addprototype(jc,jo);
-         if(jscope && (prop=Addproperty(jscope,NTE_EVAL)))
-         {  Asgobject(&prop->val,jo);
-            prop->flags|=VARF_DONTDELETE;
-         }
-         p=Getprototype(jo);
-         if(f=Internalfunction(jc,"toString",(void (*)(void *))Errortostring,NULL))
-         {  Addtoprototype(jc,jo,f);
-         }
-         if(p && (prop=Addproperty(p,"message")))
-         {  Asgstring(&prop->val,"",jc->pool);
-         }
-         if(p && (prop=Addproperty(p,"name")))
-         {  Asgstring(&prop->val,NTE_EVAL,jc->pool);
-         }
-         jc->nativeErrors[1]=jo;
-         Keepobject(jo,TRUE);
-      }
-      if(jo=Internalfunction(jc,NTE_RANGE,(void (*)(void *))Constructor,"errorMessage",NULL))
-      {  Addprototype(jc,jo);
-         if(jscope && (prop=Addproperty(jscope,NTE_RANGE)))
-         {  Asgobject(&prop->val,jo);
-            prop->flags|=VARF_DONTDELETE;
-         }
-         p=Getprototype(jo);
-         if(f=Internalfunction(jc,"toString",(void (*)(void *))Errortostring,NULL))
-         {  Addtoprototype(jc,jo,f);
-         }
-         if(p && (prop=Addproperty(p,"message")))
-         {  Asgstring(&prop->val,"",jc->pool);
-         }
-         if(p && (prop=Addproperty(p,"name")))
-         {  Asgstring(&prop->val,NTE_RANGE,jc->pool);
-         }
-         jc->nativeErrors[2]=jo;
-         Keepobject(jo,TRUE);
-      }
-      if(jo=Internalfunction(jc,NTE_SYNTAX,(void (*)(void *))Constructor,"errorMessage",NULL))
-      {  Addprototype(jc,jo);
-         if(jscope && (prop=Addproperty(jscope,NTE_SYNTAX)))
-         {  Asgobject(&prop->val,jo);
-            prop->flags|=VARF_DONTDELETE;
-         }
-         p=Getprototype(jo);
-         if(f=Internalfunction(jc,"toString",(void (*)(void *))Errortostring,NULL))
-         {  Addtoprototype(jc,jo,f);
-         }
-         if(p && (prop=Addproperty(p,"message")))
-         {  Asgstring(&prop->val,"",jc->pool);
-         }
-         if(p && (prop=Addproperty(p,"name")))
-         {  Asgstring(&prop->val,NTE_SYNTAX,jc->pool);
-         }
-         jc->nativeErrors[3]=jo;
-         Keepobject(jo,TRUE);
-      }
-      if(jo=Internalfunction(jc,NTE_REFERENCE,(void (*)(void *))Constructor,"errorMessage",NULL))
-      {  Addprototype(jc,jo);
-         if(jscope && (prop=Addproperty(jscope,NTE_REFERENCE)))
-         {  Asgobject(&prop->val,jo);
-            prop->flags|=VARF_DONTDELETE;
-         }
-         p=Getprototype(jo);
-         if(f=Internalfunction(jc,"toString",(void (*)(void *))Errortostring,NULL))
-         {  Addtoprototype(jc,jo,f);
-         }
-         if(p && (prop=Addproperty(p,"message")))
-         {  Asgstring(&prop->val,"",jc->pool);
-         }
-         if(p && (prop=Addproperty(p,"name")))
-         {  Asgstring(&prop->val,NTE_REFERENCE,jc->pool);
-         }
-         jc->nativeErrors[4]=jo;
-         Keepobject(jo,TRUE);
-      }
-      if(jo=Internalfunction(jc,NTE_URI,(void (*)(void *))Constructor,"errorMessage",NULL))
-      {  Addprototype(jc,jo);
-         if(jscope && (prop=Addproperty(jscope,NTE_URI)))
-         {  Asgobject(&prop->val,jo);
-            prop->flags|=VARF_DONTDELETE;
-         }
-         p=Getprototype(jo);
-         if(f=Internalfunction(jc,"toString",(void (*)(void *))Errortostring,NULL))
-         {  Addtoprototype(jc,jo,f);
-         }
-         if(p && (prop=Addproperty(p,"message")))
-         {  Asgstring(&prop->val,"",jc->pool);
-         }
-         if(p && (prop=Addproperty(p,"name")))
-         {  Asgstring(&prop->val,NTE_URI,jc->pool);
-         }
-         jc->nativeErrors[5]=jo;
-         Keepobject(jo,TRUE);
-      }
-      jc->error=jerror;
-      Keepobject(jerror,TRUE);
+       if(jo=Internalfunction(jc,NTE_TYPE,(Internfunc *)Constructor,"errorMessage",NULL))
+       {
+          Addprototype(jc,jo,Getprototype(jerror));
+    //      Addglobalfunction(jc,jo);
+    //      jc->nativeErrors[NTE_TYPE] = jo;
+    //      Keepobject(jo,TRUE);
+
+          if(jscope && (prop = Addproperty(jscope,NTE_TYPE)))
+          {
+              Asgobject(&prop->val,jo);
+              prop->flags |= VARF_DONTDELETE;
+          }
+
+          p = Getprototype(jo);
+          if(f=Internalfunction(jc,"toString",(Internfunc *)Errortostring,NULL))
+          {  Addtoprototype(jc,jo,f);
+          }
+          if((prop = Addproperty(p,"message")))
+          {
+              Asgstring(&prop->val,"",jc->pool);
+
+          }
+          if((prop = Addproperty(p,"name")))
+          {
+              Asgstring(&prop->val,NTE_TYPE,jc->pool);
+
+          }
+
+
+       }
+       if(jo=Internalfunction(jc,NTE_EVAL,(Internfunc *)Constructor,"errorMessage",NULL))
+       {
+          Addprototype(jc,jo,Getprototype(jerror));
+    //      Addglobalfunction(jc,jo);
+    //      jc->nativeErrors[NTE_EVAL] = jo;
+    //      Keepobject(jo,TRUE);
+
+          if(jscope && (prop = Addproperty(jscope,NTE_EVAL)))
+          {
+              Asgobject(&prop->val,jo);
+              prop->flags |= VARF_DONTDELETE;
+          }
+
+
+          p = Getprototype(jo);
+          if(f=Internalfunction(jc,"toString",(Internfunc *)Errortostring,NULL))
+          {  Addtoprototype(jc,jo,f);
+          }
+          if((prop = Addproperty(p,"message")))
+          {
+              Asgstring(&prop->val,"",jc->pool);
+
+          }
+          if((prop = Addproperty(p,"name")))
+          {
+              Asgstring(&prop->val,NTE_EVAL,jc->pool);
+
+          }
+       }
+       if(jo=Internalfunction(jc,NTE_RANGE,(Internfunc *)Constructor,"errorMessage",NULL))
+       {
+          Addprototype(jc,jo,Getprototype(jerror));
+          if(jscope && (prop = Addproperty(jscope,NTE_RANGE)))
+          {
+              Asgobject(&prop->val,jo);
+              prop->flags |= VARF_DONTDELETE;
+          }
+          p = Getprototype(jo);
+          if(f=Internalfunction(jc,"toString",(Internfunc *)Errortostring,NULL))
+          {  Addtoprototype(jc,jo,f);
+          }
+          if((prop = Addproperty(p,"message")))
+          {
+              Asgstring(&prop->val,"",jc->pool);
+
+          }
+          if((prop = Addproperty(p,"name")))
+          {
+              Asgstring(&prop->val,NTE_RANGE,jc->pool);
+
+          }
+
+       }
+       if(jo=Internalfunction(jc,NTE_SYNTAX,(Internfunc *)Constructor,"errorMessage",NULL))
+       {
+          Addprototype(jc,jo,Getprototype(jerror));
+          p = Getprototype(jo);
+          if(jscope && (prop = Addproperty(jscope,NTE_SYNTAX)))
+          {
+              Asgobject(&prop->val,jo);
+              prop->flags |= VARF_DONTDELETE;
+          }
+
+          if(f=Internalfunction(jc,"toString",(Internfunc *)Errortostring,NULL))
+          {  Addtoprototype(jc,jo,f);
+          }
+          if((prop = Addproperty(p,"message")))
+          {
+              Asgstring(&prop->val,"",jc->pool);
+
+          }
+          if((prop = Addproperty(p,"name")))
+          {
+              Asgstring(&prop->val,NTE_SYNTAX,jc->pool);
+
+          }
+
+
+       }
+       if(jo=Internalfunction(jc,NTE_REFERENCE,(Internfunc *)Constructor,"errorMessage",NULL))
+       {
+          Addprototype(jc,jo,Getprototype(jerror));
+          p = Getprototype(jo);
+          if(jscope && (prop = Addproperty(jscope,NTE_REFERENCE)))
+          {
+              Asgobject(&prop->val,jo);
+              prop->flags |= VARF_DONTDELETE;
+          }
+          if(f=Internalfunction(jc,"toString",(Internfunc *)Errortostring,NULL))
+          {  Addtoprototype(jc,jo,f);
+          }
+          if((prop = Addproperty(p,"message")))
+          {
+              Asgstring(&prop->val,"",jc->pool);
+
+          }
+          if((prop = Addproperty(p,"name")))
+          {
+              Asgstring(&prop->val,NTE_REFERENCE,jc->pool);
+
+          }
+
+       }
+       if(jo=Internalfunction(jc,NTE_URI,(Internfunc *)Constructor,"errorMessage",NULL))
+       {
+          Addprototype(jc,jo,Getprototype(jerror));
+          if(jscope && (prop = Addproperty(jscope,NTE_URI)))
+          {
+              Asgobject(&prop->val,jo);
+              prop->flags |= VARF_DONTDELETE;
+          }
+
+          p = Getprototype(jo);
+
+          if(f=Internalfunction(jc,"toString",(Internfunc *)Errortostring,NULL))
+          {  Addtoprototype(jc,jo,f);
+          }
+          if((prop = Addproperty(p,"message")))
+          {
+              Asgstring(&prop->val,"",jc->pool);
+
+          }
+          if((prop = Addproperty(p,"name")))
+          {
+              Asgstring(&prop->val,NTE_URI,jc->pool);
+
+          }
+       }
    }
 }
 
-__asm __saveds struct Jobject *Newerror(
-   register __a0 struct Jcontext *jc,
-   register __a1 UBYTE *message)
-{  struct Jobject *jo=NULL;
-   if((jo=Newobject(jc)))
-   {  Initconstruct(jc,jo,jc->error);
-      if(message)
-      {  struct Variable *var;
-         if((var=Addproperty(jo,"message")))
-         {  Asgstring(&var->val,message,jc->pool);
-         }
-      }
-   }
-   return jo;
-}
-
-__asm __saveds struct Jobject *Newnativeerror(
-   register __a0 struct Jcontext *jc,
-   register __a1 UBYTE *type,
-   register __a2 UBYTE *message)
-{  struct Jobject *jo=NULL;
-   struct Jobject *constructor=NULL;
-   long i;
-   /* Find the native error constructor */
-   for(i=0;i<NUM_ERRORTYPES;i++)
-   {  if(jc->nativeErrors[i])
-      {  struct Variable *var;
-         if((var=Findproperty(jc->nativeErrors[i],"name")))
-         {  Tostring(&var->val,jc);
-            if(STREQUAL(var->val.value.svalue,type))
-            {  constructor=jc->nativeErrors[i];
-               break;
+struct Jobject *Newerror(struct Jcontext *jc, UBYTE *message)
+{
+    struct Jobject *jo =NULL;
+    if((jo = Newobject(jc)))
+    {
+        Initconstruct(jc,jo,"Error",jc->error);
+        if(message)
+        {
+            struct Variable *var;
+            if((var = Addproperty(jo,"message")))
+            {
+                Asgstring(&var->val,message,jc->pool);
             }
-         }
-      }
-   }
-   if((jo=Newobject(jc)))
-   {  if(constructor)
-      {  Initconstruct(jc,jo,constructor);
-      }
-      else
-      {  Initconstruct(jc,jo,jc->error);
-      }
-      if(message)
-      {  struct Variable *var;
-         if((var=Addproperty(jo,"message")))
-         {  Asgstring(&var->val,message,jc->pool);
-         }
-      }
-   }
-   return jo;
+        }
+    }
+    return jo;
+}
+
+struct Jobject *Newnativeerror(struct Jcontext *jc, STRPTR type, UBYTE *message)
+{
+    struct Jobject *jo =NULL;
+    if((jo = Newobject(jc)))
+    {
+        Initconstruct(jc,jo,type,NULL);
+        if(message)
+        {
+            struct Variable *var;
+            if((var = Addproperty(jo,"message")))
+            {
+                Asgstring(&var->val,message,jc->pool);
+            }
+        }
+    }
+    return jo;
 }
 
