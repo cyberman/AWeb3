@@ -25,7 +25,7 @@
 #include <time.h>
 
 struct Date             /* Used as internal object value */
-{  double date;         /* ms since 1-1-1970, local time */
+{  double date;         /* ms since 1-1-1970, now stored as GMT / UTC for easier consistency with ECMA spec */
 };
 
 struct Brokentime
@@ -55,10 +55,18 @@ static double Argument(struct Jcontext *jc,long n)
    if(var->next)
    {  Tonumber(&var->val,jc);
       if(var->val.attr==VNA_VALID)
-      {  return var->val.nvalue;
+      {  return var->val.value.nvalue;
       }
    }
    return 0;
+}
+
+static int Numargs(struct Jcontext *jc)
+{
+    struct Variable *var;
+    int n;
+    for(n = 0, var=jc->functions.first->local.first;var->next;var=var->next,n++);
+    return n;
 }
 
 /* Get a pointer to broken-down time from (this) */
@@ -163,15 +171,29 @@ double Scandate(UBYTE *buf)
    return (double)time*1000.0;
 }
 
+/* call type exception if not date */
+
+BOOL isthisdate(struct Jcontext *jc,struct Jobject *jo)
+{
+    if(jo && jo->internal && jo->type==OBJT_DATE)
+    {
+        return TRUE;
+    }
+    Runtimeerror(jc,NTE_TYPE,jc->elt,"Date method called on incompatable object type");
+    return FALSE;
+}
 /*-----------------------------------------------------------------------*/
 
 /* Convert (jthis) to string */
 static void Datetostring(struct Jcontext *jc)
 {  struct Brokentime bt;
    UBYTE buffer[64];
-   Gettime(jc,&bt);
-   if(!strftime(buffer,63,"%a, %d %b %Y %H:%M:%S",&bt.tm)) *buffer='\0';
-   Asgstring(RETVAL(jc),buffer,jc->pool);
+   if(isthisdate(jc,jc->jthis))
+   {
+       Gettime(jc,&bt);
+       if(!strftime(buffer,63,"%a, %d %b %Y %H:%M:%S",&bt.tm)) *buffer='\0';
+       Asgstring(RETVAL(jc),buffer,jc->pool);
+   }
 }
 
 /* Convert to GMT string */
@@ -181,7 +203,7 @@ static void Datetogmtstring(struct Jcontext *jc)
    struct tm *tm=NULL;
    double d;
    time_t time;
-   if(jo && jo->internal)
+   if(isthisdate(jc,jo))
    {  d=((struct Date *)jo->internal)->date;
       time=(long)(d/1000);
       time+=locale->loc_GMTOffset*60;
@@ -194,8 +216,9 @@ static void Datetogmtstring(struct Jcontext *jc)
 static void Datevalueof(struct Jcontext *jc)
 {  struct Jobject *jo=jc->jthis;
    double d;
-   if(jo && jo->internal)
-   {  d=((struct Date *)jo->internal)->date;
+   if(isthisdate(jc,jc->jthis))
+   {
+      d=((struct Date *)jo->internal)->date;
       Asgnumber(RETVAL(jc),VNA_VALID,d);
    }
 }
@@ -213,133 +236,216 @@ static void Datetolocalestring(struct Jcontext *jc)
 {  struct Hook hook;
    UBYTE buffer[64];
    struct Jobject *jo=jc->jthis;
-   double d;
-   struct DateStamp ds={0};
-   long t;
-   hook.h_Entry=(HOOKFUNC)Lputchar;
-   hook.h_Data=buffer;
-   if(jo && jo->internal)
-   {  d=((struct Date *)jo->internal)->date;
-      t=(long)(d/1000);
-      /* JS dates are from 1970, locale dates from 1978. 8 years = 8 * 356 + 2 = 2922 */
-      ds.ds_Days=t/86400-2922;
-      t=t%86400;
-      ds.ds_Minute=t/60;
-      t=t%60;
-      ds.ds_Tick=t*TICKS_PER_SECOND;
-      FormatDate(locale,locale->loc_ShortDateTimeFormat,&ds,&hook);
-      Asgstring(RETVAL(jc),buffer,jc->pool);
+   if(isthisdate(jc,jo))
+   {
+       double d;
+       struct DateStamp ds={0};
+       long t;
+       hook.h_Entry=(HOOKFUNC)Lputchar;
+       hook.h_Data=buffer;
+       d=((struct Date *)jo->internal)->date;
+       t=(long)(d/1000);
+       /* JS dates are from 1970, locale dates from 1978. 8 years = 8 * 365 + 2 = 2922 */
+       ds.ds_Days=t/86400-2922;
+       t=t%86400;
+       ds.ds_Minute=t/60;
+       t=t%60;
+       ds.ds_Tick=t*TICKS_PER_SECOND;
+       FormatDate(locale,locale->loc_ShortDateTimeFormat,&ds,&hook);
+       Asgstring(RETVAL(jc),buffer,jc->pool);
    }
 }
 
 static void Datesetyear(struct Jcontext *jc)
-{  double n=Argument(jc,0);
+{
+   int args = Numargs(jc);
+   int y;
    struct Brokentime bt;
-   int y=(int)n;
-   if(y>1900) y-=1900;
-   Gettime(jc,&bt);
-   bt.tm_year=y;
-   Settime(jc,&bt);
+   if(isthisdate(jc,jc->jthis))
+   {
+       Gettime(jc,&bt);
+       if(args > 0)
+       {
+           y = (int)Argument(jc,0);
+           if (y <= 99) y += 1900;
+           y-=1900;
+           bt.tm.tm_year=y;
+       }
+       Settime(jc,&bt);
+   }
 }
 
 static void Datesetmonth(struct Jcontext *jc)
-{  double n=Argument(jc,0);
+{
+   int args = Numargs(jc);
+   double n;
    struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
    Gettime(jc,&bt);
-   bt.tm_mon=(int)n;
+
+   if(args > 0)
+   {
+       n=Argument(jc,0);
+       bt.tm.tm_mon=(int)n;
+   }
+
    Settime(jc,&bt);
+   }
 }
 
 static void Datesetdate(struct Jcontext *jc)
-{  double n=Argument(jc,0);
+{
+   int args = Numargs(jc);
+   double n;
    struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
    Gettime(jc,&bt);
-   bt.tm_mday=(int)n;
+   if(args > 0)
+   {
+       n=Argument(jc,0);
+       bt.tm.tm_mday=(int)n;
+   }
    Settime(jc,&bt);
+   }
 }
 
 static void Datesethours(struct Jcontext *jc)
-{  double n=Argument(jc,0);
+{
+   int args = Numargs(jc);
+   double n;
    struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
    Gettime(jc,&bt);
-   bt.tm_hour=(int)n;
+
+   if(args > 0)
+   {
+       n=Argument(jc,0);
+       bt.tm.tm_hour=(int)n;
+   }
    Settime(jc,&bt);
+   }
 }
 
 static void Datesetminutes(struct Jcontext *jc)
-{  double n=Argument(jc,0);
+{
+   int args = Numargs(jc);
+   double n;
    struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
    Gettime(jc,&bt);
-   bt.tm_min=(int)n;
+   if(args > 0)
+   {
+       n=Argument(jc,0);
+       bt.tm.tm_min=(int)n;
+   }
    Settime(jc,&bt);
+   }
 }
 
 static void Datesetseconds(struct Jcontext *jc)
-{  double n=Argument(jc,0);
+{
+   int args = Numargs(jc);
+   double n;
    struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
    Gettime(jc,&bt);
-   bt.tm_sec=(int)n;
+
+   if(args > 0)
+   {
+       n=Argument(jc,0);
+       bt.tm.tm_sec=(int)n;
+   }
    Settime(jc,&bt);
+   }
 }
 
 static void Datesettime(struct Jcontext *jc)
 {  double n=Argument(jc,0);
    struct Jobject *jo=jc->jthis;
-   if(jo && jo->internal)
-   {  ((struct Date *)jo->internal)->date=n-locale->loc_GMTOffset*60000;
+   if(isthisdate(jc,jo))
+   {
+    ((struct Date *)jo->internal)->date=n;
    }
 }
 
 static void Dategetday(struct Jcontext *jc)
 {  struct Brokentime bt;
-   Gettime(jc,&bt);
-   Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm_wday));
+   if(isthisdate(jc,jc->jthis))
+   {
+       Gettime(jc,&bt);
+       Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm.tm_wday));
+   }
 }
 
 static void Dategetyear(struct Jcontext *jc)
 {  struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
    Gettime(jc,&bt);
-   if(bt.tm_year>=100)
-   {  bt.tm_year+=1900;
+   if(bt.tm.tm_year>=100)
+   {  bt.tm.tm_year+=1900;
    }
-   Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm_year));
+   Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm.tm_year));
+   }
 }
 
 static void Dategetmonth(struct Jcontext *jc)
 {  struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
+
    Gettime(jc,&bt);
-   Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm_mon));
+   Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm.tm_mon));
+   }
 }
 
 static void Dategetdate(struct Jcontext *jc)
 {  struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
    Gettime(jc,&bt);
-   Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm_mday));
+   Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm.tm_mday));
+   }
 }
 
 static void Dategethours(struct Jcontext *jc)
 {  struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
    Gettime(jc,&bt);
-   Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm_hour));
+   Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm.tm_hour));
+   }
 }
 
 static void Dategetminutes(struct Jcontext *jc)
 {  struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
    Gettime(jc,&bt);
-   Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm_min));
+   Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm.tm_min));
+   }
 }
 
 static void Dategetseconds(struct Jcontext *jc)
 {  struct Brokentime bt;
+   if(isthisdate(jc,jc->jthis))
+   {
    Gettime(jc,&bt);
-   Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm_sec));
+   Asgnumber(RETVAL(jc),VNA_VALID,(double)(bt.tm.tm_sec));
+   }
 }
 
 static void Dategettime(struct Jcontext *jc)
 {  struct Jobject *jo=jc->jthis;
-   if(jo && jo->internal)
-   {  Asgnumber(RETVAL(jc),VNA_VALID,
-         ((struct Date *)jo->internal)->date+locale->loc_GMTOffset*60000);
+   if(isthisdate(jc,jc->jthis))
+   {
+      Asgnumber(RETVAL(jc),VNA_VALID,
+         ((struct Date *)jo->internal)->date);
    }
 }
 
@@ -354,7 +460,7 @@ static void Dateparse(struct Jcontext *jc)
    var=jc->functions.first->local.first;
    if(var->next)
    {  Tostring(&var->val,jc);
-      d=Scandate(var->svalue);
+      d=Scandate(var->val.value.svalue);
       d-=60000.0*locale->loc_GMTOffset;
    }
    Asgnumber(RETVAL(jc),VNA_VALID,d);
@@ -387,10 +493,11 @@ static void Constructor(struct Jcontext *jc)
       {  if(d=ALLOCSTRUCT(Date,1,0,jc->pool))
          {  struct Variable *arg1;
             jo->internal=d;
-            jo->dispose=Destructor;
+            jo->dispose=(Objdisposehookfunc *)Destructor;
+            jo->type=OBJT_DATE;
             arg1=jc->functions.first->local.first;
-            if(arg1->next && arg1->type!=VTP_UNDEFINED)
-            {  if(arg1->next->next && arg1->next->type!=VTP_UNDEFINED)
+            if(arg1->next && arg1->val.type!=VTP_UNDEFINED)
+               {  if(arg1->next->next && arg1->next->val.type!=VTP_UNDEFINED)
                {  struct Brokentime bt={0};
                   bt.tm_year=(int)Argument(jc,0);
                   if(bt.tm_year<70) bt.tm_year+=100;
@@ -404,8 +511,8 @@ static void Constructor(struct Jcontext *jc)
                }
                else
                {  /* Only 1 argument */
-                  if(arg1->type==VTP_STRING)
-                  {  d->date=Scandate(arg1->svalue)-60000.0*locale->loc_GMTOffset;
+                  if(arg1->val.type==VTP_STRING)
+                  {  d->date=Scandate(arg1->val.value.svalue)-60000.0*locale->loc_GMTOffset;
                   }
                   else
                   {  d->date=Argument(jc,0)-60000.0*locale->loc_GMTOffset;
@@ -436,85 +543,98 @@ static void Constructor(struct Jcontext *jc)
 double Today(void)
 {  unsigned int clock[2]={ 0, 0 };
    double t;
-   timer(clock);
+   timer((long *)clock);
    t=1000.0*clock[0]+clock[1]/1000;
    /* System time is since 1978, convert to 1970 (2 leap years) */
    t+=(8*365+2)*24*60*60*1000.0;
    return t;
 }
 
-void Initdate(struct Jcontext *jc)
+void Initdate(struct Jcontext *jc, struct Jobject *jscope)
 {  struct Jobject *jo,*f;
-   if(jo=Internalfunction(jc,"Date",Constructor,"arg1","month","day",
+   struct Variable *prop;
+   if(jo=Internalfunction(jc,"Date",(Internfunc *)Constructor,"arg1","month","day",
       "hours","minutes","seconds",NULL))
-   {  Addprototype(jc,jo);
-      if(f=Internalfunction(jc,"parse",Dateparse,"dateString",NULL))
+   {
+
+      Initconstruct(jc,jo,"Object",jc->object);
+      Addprototype(jc,jo,Getprototype(jo->constructor));
+
+      // Addglobalfunction(jc,jo);
+      // Keepobject(jo,TRUE);
+      if((prop = Addproperty(jscope,"Date")))
+      {
+           Asgobject(&prop->val,jo);
+           prop->flags |= VARF_DONTDELETE;
+      }
+
+      if(f=Internalfunction(jc,"parse",(Internfunc *)Dateparse,"dateString",NULL))
       {  Addinternalproperty(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"UTC",Dateutc,"year","month","day","hrs","min","sec",NULL))
+      if(f=Internalfunction(jc,"UTC",(Internfunc *)Dateutc,"year","month","day","hrs","min","sec",NULL))
       {  Addinternalproperty(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"toString",Datetostring,NULL))
+      if(f=Internalfunction(jc,"toString",(Internfunc *)Datetostring,NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"toGMTString",Datetogmtstring,NULL))
+      if(f=Internalfunction(jc,"toGMTString",(Internfunc *)Datetogmtstring,NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"toLocaleString",Datetolocalestring,NULL))
+      if(f=Internalfunction(jc,"toLocaleString",(Internfunc *)Datetolocalestring,NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"valueOf",Datevalueof,NULL))
+      if(f=Internalfunction(jc,"valueOf",(Internfunc *)Datevalueof,NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"setYear",Datesetyear,"yearValue",NULL))
+      if(f=Internalfunction(jc,"setYear",(Internfunc *)Datesetyear,"yearValue",NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"setMonth",Datesetmonth,"monthValue",NULL))
+      if(f=Internalfunction(jc,"setMonth",(Internfunc *)Datesetmonth,"monthValue",NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"setDate",Datesetdate,"dayValue",NULL))
+      if(f=Internalfunction(jc,"setDate",(Internfunc *)Datesetdate,"dayValue",NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"setHours",Datesethours,"hoursValue",NULL))
+      if(f=Internalfunction(jc,"setHours",(Internfunc *)Datesethours,"hoursValue",NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"setMinutes",Datesetminutes,"minutesValue",NULL))
+      if(f=Internalfunction(jc,"setMinutes",(Internfunc *)Datesetminutes,"minutesValue",NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"setSeconds",Datesetseconds,"secondsValue",NULL))
+      if(f=Internalfunction(jc,"setSeconds",(Internfunc *)Datesetseconds,"secondsValue",NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"setTime",Datesettime,"timeValue",NULL))
+      if(f=Internalfunction(jc,"setTime",(Internfunc *)Datesettime,"timeValue",NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"getDay",Dategetday,NULL))
+      if(f=Internalfunction(jc,"getDay",(Internfunc *)Dategetday,NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"getYear",Dategetyear,NULL))
+      if(f=Internalfunction(jc,"getYear",(Internfunc *)Dategetyear,NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"getMonth",Dategetmonth,NULL))
+      if(f=Internalfunction(jc,"getMonth",(Internfunc *)Dategetmonth,NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"getDate",Dategetdate,NULL))
+      if(f=Internalfunction(jc,"getDate",(Internfunc *)Dategetdate,NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"getHours",Dategethours,NULL))
+      if(f=Internalfunction(jc,"getHours",(Internfunc *)Dategethours,NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"getMinutes",Dategetminutes,NULL))
+      if(f=Internalfunction(jc,"getMinutes",(Internfunc *)Dategetminutes,NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"getSeconds",Dategetseconds,NULL))
+      if(f=Internalfunction(jc,"getSeconds",(Internfunc *)Dategetseconds,NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"getTime",Dategettime,NULL))
+      if(f=Internalfunction(jc,"getTime",(Internfunc *)Dategettime,NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"getTimezoneOffset",Dategettimezoneoffset,NULL))
+      if(f=Internalfunction(jc,"getTimezoneOffset",(Internfunc *)Dategettimezoneoffset,NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      Addglobalfunction(jc,jo);
-      Keepobject(jo,TRUE);
+
+
    }
 }
