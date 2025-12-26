@@ -59,11 +59,14 @@ struct Backfillinfo
    struct Frame *frame;
    struct Coords *coo;
    struct BitMap *bitmap;
+   ULONG aox;              /* object x coord */
+   ULONG aoy;              /* object y coord */
    UBYTE *mask;            /* transparent mask or NULL */
    ULONG alpha;            /* has an alpha channel (OS4 alpha blending support) */
    short bmw,bmh;          /* bitmap dimensions */
    short bgpen;
-   long aox,aoy;           /* alignment offset for background image */
+   short left;             /* left offset from message */
+   short top;              /* top offset from message */
 };
 
 static struct Hook backfillhook;
@@ -102,23 +105,20 @@ static void Drawbackground(struct RastPort *rp,struct Backfillinfo *bf,
    ww=x2-x1+1;
    wh=y2-y1+1;
    /* compute partial tile dimensions to build first tile-sized image */
-   /* Use alignment offset if set, otherwise use coords offset */
-   bx1=(x1-bf->coo->dx+bf->aox) % bf->bmw;
+   bx1=(x1-bf->coo->dx - bf->aox) % bf->bmw;
    if(bx1<0) bx1+=bf->bmw;
    bw1=MIN(bf->bmw-bx1,ww);
-   by1=(y1-bf->coo->dy+bf->aoy) % bf->bmh;
+   by1=(y1-bf->coo->dy - bf->aoy) % bf->bmh;
    if(by1<0) by1+=bf->bmh;
    bh1=MIN(bf->bmh-by1,wh);
    /* for second part: offset2=0 and width2==offset1 but only if room allows */
    bw2=MIN(bx1,ww-bw1);
    bh2=MIN(by1,wh-bh1);
    /* convert window coordinates to absolute bitmap coordinates: */
-   if(bf->window)
-   {  x1+=bf->window->LeftEdge;
-      x2+=bf->window->LeftEdge;
-      y1+=bf->window->TopEdge;
-      y2+=bf->window->TopEdge;
-   }
+   x1+=bf->left;
+   x2+=bf->left;
+   y1+=bf->top;
+   y2+=bf->top;
    /* Wait until blitter is free */
    WaitBlit();
    /* Construct the first tile-sized image at (wx,wy) */
@@ -173,28 +173,30 @@ static void __saveds __asm Backfillhook(register __a0 struct Hook *hook,
    register __a1 struct Layermessage *msg)
 {  struct RastPort rp=*lrp;
    struct Backfillinfo *bf=(struct Backfillinfo *)hook->h_Data;
-   short left=bf->window?bf->window->LeftEdge:0;
-   short top=bf->window?bf->window->TopEdge:0;
+   short left = msg->rect.MinX - msg->xoffset;
+   short top  = msg->rect.MinY - msg->yoffset;
+   bf->left = left;
+   bf->top  = top;
    rp.Layer=NULL;
    if(bf->bitmap)
    {  Drawbackground(&rp,bf,
-         msg->MinX-left,msg->MinY-top,msg->MaxX-left,msg->MaxY-top);
+         msg->rect.MinX-left,msg->rect.MinY-top,msg->rect.MaxX-left,msg->rect.MaxY-top);
    }
    else
    {  SetAPen(&rp,bf->bgpen);
-      RectFill(&rp,msg->MinX,msg->MinY,msg->MaxX,msg->MaxY);
+      RectFill(&rp,msg->rect.MinX,msg->rect.MinY,msg->rect.MaxX,msg->rect.MaxY);
    }
 }
 
 static void Installbg(struct Backfillinfo *bf)
-{  struct Layer *layer=(bf->window)?bf->window->WLayer:bf->rp->Layer;
+{  struct Layer *layer=bf->rp->Layer;
    backfillhook.h_Entry=(HOOKFUNC)Backfillhook;
    backfillhook.h_Data=bf;
    InstallLayerHook(layer,&backfillhook);
 }
 
 static void Uninstallbg(struct Backfillinfo *bf)
-{  struct Layer *layer=(bf->window)?bf->window->WLayer:bf->rp->Layer;
+{  struct Layer *layer=bf->rp->Layer;
    InstallLayerHook(layer,LAYERS_BACKFILL);
 }
 
