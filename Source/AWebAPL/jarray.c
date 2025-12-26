@@ -21,8 +21,12 @@
 #include "awebjs.h"
 #include "jprotos.h"
 
+#define CHUNKSIZE   16  /* Array storage is allocated in multiples of this */
+
 struct Array            /* Used as internal object value */
-{  long length;
+{  long length;            /* current array length of data*/
+   struct Variable **array; /* pointer to current array */
+   long array_length;       /* current length of storage */
 };
 
 struct Tabelt           /* Array of this is used to reverse or sort the array */
@@ -48,10 +52,10 @@ static double Numargument(struct Jcontext *jc,long n,BOOL *validp)
    double result=0.0;
    BOOL valid=FALSE;
    for(var=jc->functions.first->local.first;n && var->next;var=var->next,n--);
-   if(var->next && var->type!=VTP_UNDEFINED)
+   if(var->next)
    {  Tonumber(&var->val,jc);
       if(var->val.attr==VNA_VALID)
-      {  result=var->val.nvalue;
+      {  result=var->val.value.nvalue;
          valid=TRUE;
       }
    }
@@ -63,9 +67,9 @@ static double Numargument(struct Jcontext *jc,long n,BOOL *validp)
 static UBYTE *Strargument(struct Jcontext *jc,long n)
 {  struct Variable *var;
    for(var=jc->functions.first->local.first;n && var->next;var=var->next,n--);
-   if(var->next && var->type!=VTP_UNDEFINED)
+   if(var->next && var->val.type!=VTP_UNDEFINED)
    {  Tostring(&var->val,jc);
-      return var->val.svalue;
+      return var->val.value.svalue;
    }
    return NULL;
 }
@@ -75,7 +79,7 @@ static struct Jobject *Findarguments(struct Jcontext *jc)
 {  struct Variable *var;
    for(var=jc->functions.first->local.first;var && var->next;var=var->next)
    {  if(var->name && STRIEQUAL(var->name,"arguments")
-      && var->type==VTP_OBJECT) return var->ovalue;
+      && var->val.type==VTP_OBJECT) return var->val.value.obj.ovalue;
    }
    return NULL;
 }
@@ -85,9 +89,11 @@ struct Tabelt *Maketabelts(struct Asortinfo *asi,struct Jobject *jo,long n)
 {  struct Variable *elt;
    struct Tabelt *tabelts;
    long i;
+   UBYTE nname[16];
    if(tabelts=ALLOCSTRUCT(Tabelt,n,0,asi->jc->pool))
    {  for(i=0;i<n;i++)
-      {  if(elt=Arrayelt(jo,i))
+      {  sprintf(nname,"%d",(int)i);
+         if(elt=Findproperty(jo,nname))
          {  Asgvalue(&tabelts[i].val,&elt->val);
          }
          tabelts[i].asi=asi;
@@ -102,7 +108,7 @@ void Returntabelts(struct Jobject *jo,struct Tabelt *tabelts,long n)
    UBYTE nname[16];
    long i;
    for(i=0;i<n;i++)
-   {  sprintf(nname,"%d",i);
+   {  sprintf(nname,"%d",(int)i);
       if(!(elt=Findproperty(jo,nname)))
       {  elt=Addproperty(jo,nname);
       }
@@ -117,13 +123,18 @@ void Returntabelts(struct Jobject *jo,struct Tabelt *tabelts,long n)
 
 /* General qsort compare function */
 static int Asortcompare(struct Tabelt *ta,struct Tabelt *tb)
-{  struct Value val;
+{  struct Value val={0};
    int c;
+   if(ta->val.type == VTP_UNDEFINED && tb->val.type == VTP_UNDEFINED)
+   {  return 0;
+   }
+   if(ta->val.type == VTP_UNDEFINED) return(1);
+   if(tb->val.type == VTP_UNDEFINED) return(-1);
    if(ta->asi->cfunc)
    {  /* Compare function supplied, use it */
       Callfunctionargs(ta->asi->jc,ta->asi->cfunc,ta->asi->cthis,&ta->val,&tb->val,NULL);
       Tonumber(ta->asi->jc->val,ta->asi->jc);
-      c=(int)ta->asi->jc->val->nvalue;
+      c=(int)ta->asi->jc->val->value.nvalue;
    }
    else
    {  /* Convert both elements to string and do string compare */
@@ -131,14 +142,14 @@ static int Asortcompare(struct Tabelt *ta,struct Tabelt *tb)
       {  val.type=0;
          Asgvalue(&val,&ta->val);
          Tostring(&val,ta->asi->jc);
-         ta->svalue=Jdupstr(val.svalue,-1,ta->asi->jc->pool);
+         ta->svalue=Jdupstr(val.value.svalue,-1,ta->asi->jc->pool);
          Clearvalue(&val);
       }
       if(!tb->svalue)
       {  val.type=0;
          Asgvalue(&val,&tb->val);
          Tostring(&val,tb->asi->jc);
-         tb->svalue=Jdupstr(val.svalue,-1,tb->asi->jc->pool);
+         tb->svalue=Jdupstr(val.value.svalue,-1,tb->asi->jc->pool);
          Clearvalue(&val);
       }
       c=strcmp(ta->svalue,tb->svalue);
@@ -148,35 +159,84 @@ static int Asortcompare(struct Tabelt *ta,struct Tabelt *tb)
 
 /*-----------------------------------------------------------------------*/
 
-/* Do the actual array joining */
+/* Do the actual array joining, adapted to be generic */
 static void Joinarray(struct Jcontext *jc,UBYTE *sep)
 {  struct Jobject *jo=jc->jthis;
    struct Variable *elt;
-   struct Value val;
+   struct Variable *length;
+   struct Value val={0};
    struct Jbuffer *buf;
-   long n,length,sepl;
+   unsigned long n,len,sepl;
+   UBYTE nname[16];
    if(!sep) sep=",";
    sepl=strlen(sep);
    val.type=0;
-   if(jo && jo->internal)
-   {  length=((struct Array *)jo->internal)->length;
-      if(buf=Newjbuffer(jc->pool))
-      {  for(n=0;n<length;n++)
-         {  if(elt=Arrayelt(jo,n))
-            {  Asgvalue(&val,&elt->val);
-               Tostring(&val,jc);
-               if(n>0) Addtojbuffer(buf,sep,sepl);
-               Addtojbuffer(buf,val.svalue,strlen(val.svalue));
+   len = 0;
+   if((length = Findproperty(jo,"length")))
+   {  Tonumber(&length->val,jc);
+      len = (unsigned long)length->val.value.nvalue;
+   }
+   if(buf=Newjbuffer(jc->pool))
+   {  for(n=0;n<len;n++)
+      {  sprintf(nname,"%d",(int)n);
+         if((elt=Findproperty(jo,nname)) && elt->val.type != VTP_UNDEFINED)
+         {  Asgvalue(&val,&elt->val);
+            Tostring(&val,jc);
+            if(n>0) Addtojbuffer(buf,sep,sepl);
+            Addtojbuffer(buf,val.value.svalue,strlen(val.value.svalue));
+         }
+         else
+         {  if(n>0) Addtojbuffer(buf,sep,sepl);
+         }
+      }
+      Asgstring(RETVAL(jc),buf->buffer?buf->buffer:(UBYTE *)"",jc->pool);
+      Freejbuffer(buf);
+   }
+}
+
+static void Arraytostring(struct Jcontext *jc)
+{  struct Jobject *jo = jc->jthis;
+   if(jo && jo->internal && Isarray(jo))
+   {  Joinarray(jc,",");
+   }
+   else
+   {  /* Note: Runtimeerror function needs to be added to jexe.c */
+      /* Runtimeerror(jc,NTE_TYPE,jc->elt,"Array.prototype.toString called on incompatable object"); */
+   }
+}
+
+/* This function is not generic so we can use Arrayelt etc. */
+static void Arraytolocalestring(struct Jcontext *jc)
+{  struct Jobject *jo = jc->jthis;
+   ULONG len;
+   ULONG i;
+   struct Jbuffer *buf;
+   struct Variable *elt;
+   UBYTE *sep = ","; /* Could use group separator from struct Locale */
+   if(jo && jo->internal && Isarray(jo))
+   {  len = ((struct Array *)jo->internal)->length;
+      if((buf = Newjbuffer(jc->pool)))
+      {  for(i = 0; i < len; i++)
+         {  if((elt = Arrayelt(jo,i)))
+            {  struct Value v = {0};
+               Asgvalue(&v,&elt->val);
+               Toobject(&v,jc);
+               if(i> 0) Addtojbuffer(buf,sep,-1);
+               if(v.value.obj.ovalue && Callproperty(jc,v.value.obj.ovalue,"toLocaleString") && jc->val->type == VTP_STRING)
+               {  Addtojbuffer(buf,jc->val->value.svalue,-1);
+               }
+               Clearvalue(&v);
+            }
+            else
+            {  if(i > 0) Addtojbuffer(buf,sep,-1);
             }
          }
          Asgstring(RETVAL(jc),buf->buffer?buf->buffer:(UBYTE *)"",jc->pool);
          Freejbuffer(buf);
       }
    }
-}
-
-static void Arraytostring(struct Jcontext *jc)
-{  Joinarray(jc,",");
+   /* Note: Runtimeerror function needs to be added */
+   /* Runtimeerror(jc,NTE_TYPE,jc->elt,"Array.prototype.toLocaleString called on incompatable object"); */
 }
 
 static void Arrayjoin(struct Jcontext *jc)
@@ -217,9 +277,9 @@ static void Arraysort(struct Jcontext *jc)
       asi.jc=jc;
       if((cvar=jc->functions.first->local.first) && cvar->next)
       {  Tofunction(&cvar->val,jc);
-         if(cvar->ovalue)
-         {  asi.cfunc=cvar->ovalue->function;
-            asi.cthis=cvar->fthis;
+         if(cvar->val.value.obj.ovalue)
+         {  asi.cfunc=cvar->val.value.obj.ovalue->function;
+            asi.cthis=cvar->val.value.obj.fthis;
          }
       }
       if(tabelts=Maketabelts(&asi,jo,length))
@@ -241,7 +301,7 @@ static void Arraypop(struct Jcontext *jc)
    {  if(length=Findproperty(jo,"length"))
       {  Tonumber(&length->val,jc);
          if(length->val.attr==VNA_VALID)
-         {  len=(long)length->val.nvalue;
+         {  len=(long)length->val.value.nvalue;
             if(len>0)
             {  len--;
                sprintf(nname,"%d",len);
@@ -274,7 +334,7 @@ static void Arraypush(struct Jcontext *jc)
    {  if(length=Findproperty(jo,"length"))
       {  Tonumber(&length->val,jc);
          if(length->val.attr==VNA_VALID)
-         {  len=(long)length->val.nvalue;
+         {  len=(long)length->val.value.nvalue;
          }
       }
       if(args=Findarguments(jc))
@@ -328,7 +388,7 @@ static void Arrayshift(struct Jcontext *jc)
    {  if(length=Findproperty(jo,"length"))
       {  Tonumber(&length->val,jc);
          if(length->val.attr==VNA_VALID)
-         {  len=(long)length->val.nvalue;
+         {  len=(long)length->val.value.nvalue;
             if(len>0)
             {  if(var=Findproperty(jo,"0"))
                {  Asgvalue(&result,&var->val);
@@ -382,7 +442,7 @@ static void Arrayunshift(struct Jcontext *jc)
    {  if(length=Findproperty(jo,"length"))
       {  Tonumber(&length->val,jc);
          if(length->val.attr==VNA_VALID)
-         {  len=(long)length->val.nvalue;
+         {  len=(long)length->val.value.nvalue;
          }
       }
       if(args=Findarguments(jc))
@@ -475,12 +535,12 @@ static void Arrayconcat(struct Jcontext *jc)
                {  long arglen=(long)argslen->val.nvalue;
                   for(i=0;i<arglen;i++)
                   {  if(arg=Arrayelt(args,i))
-                     {  if(arg->val.type==VTP_OBJECT && arg->val.ovalue
-                        && arg->val.ovalue->internal && arg->val.ovalue->hook==Arrayohook)
-                        {  long len=((struct Array *)arg->val.ovalue->internal)->length;
+                     {                 if(arg->val.type==VTP_OBJECT && arg->val.value.obj.ovalue
+                        && arg->val.value.obj.ovalue->internal && arg->val.value.obj.ovalue->hook==Arrayohook)
+                        {  long len=((struct Array *)arg->val.value.obj.ovalue->internal)->length;
                            long j;
                            for(j=0;j<len;j++)
-                           {  if(elt=Arrayelt(arg->val.ovalue,j))
+                           {  if(elt=Arrayelt(arg->val.value.obj.ovalue,j))
                               {  if(newelt=Addarrayelt(jc,newarray))
                                  {  Asgvalue(&newelt->val,&elt->val);
                                  }
@@ -514,7 +574,7 @@ static void Arrayslice(struct Jcontext *jc)
    {  if(length=Findproperty(jo,"length"))
       {  Tonumber(&length->val,jc);
          if(length->val.attr==VNA_VALID)
-         {  l=(long)length->val.nvalue;
+         {  l=(long)length->val.value.nvalue;
          }
       }
       if(array=Newarray(jc))
@@ -529,25 +589,17 @@ static void Arrayslice(struct Jcontext *jc)
             if(ie<0) ie=0;
             if(ie>l) ie=l;
             while(is<ie)
-            {  if(array->internal && array->hook==Arrayohook)
-               {  ((struct Array *)array->internal)->length++;
-               }
-               sprintf(nname,"%d",is++);
+            {  ((struct Array*)array->internal)->length++;
+               sprintf(nname,"%d",(int)is++);
                if(elt=Findproperty(jo,nname))
-               {  if(array->internal && array->hook==Arrayohook)
-                  {  long newidx=((struct Array *)array->internal)->length-1;
-                     sprintf(nname,"%d",newidx);
-                     if(newelt=Addproperty(array,nname))
-                     {  Asgvalue(&newelt->val,&elt->val);
-                     }
-                  }
-                  else
-                  {  sprintf(nname,"%d",is-1);
-                     if(newelt=Addproperty(array,nname))
-                     {  Asgvalue(&newelt->val,&elt->val);
-                     }
+               {  sprintf(nname,"%d",(int)((struct Array*)array->internal)->length -1);
+                  if((newelt = Addproperty(array,nname)))
+                  {  Asgvalue(&newelt->val,&elt->val);
                   }
                }
+            }
+            if((elt = Findproperty(array,"length")))
+            {  Asgnumber(&elt->val,VNA_VALID,(double)((struct Array*)array->internal)->length);
             }
             Asgobject(RETVAL(jc),array);
          }
@@ -558,6 +610,171 @@ static void Arrayslice(struct Jcontext *jc)
    }
 }
 
+static void Arraysplice(struct Jcontext *jc)
+{  struct Jobject *jo = jc->jthis;
+   struct Jobject *array = NULL;
+   struct Jobject *args;
+   struct Variable *var;
+   struct Variable *elt;
+   struct Variable *length;
+   ULONG arglen = 0;
+   ULONG l = 0;
+   ULONG k;
+   UBYTE nname[16];
+   int is, dc;
+   is = dc = 0;
+   if((args = Findarguments(jc)))
+   {  var = Findproperty(args,"length");
+      Tonumber(&var->val,jc);
+      arglen = (ULONG)var->val.value.nvalue;
+   }
+   if((array = Newarray(jc)) && arglen >= 2)
+   {  var = Arrayelt(args,0);
+      Tonumber(&var->val,jc);
+      is = (int)var->val.value.nvalue;
+      var = Arrayelt(args,1);
+      Tonumber(&var->val,jc);
+      dc =(int)var->val.value.nvalue;
+      if (dc < 0) dc = 0;
+      if((length = Findproperty(jo,"length")))
+      {  Tonumber(&length->val,jc);
+         l = (ULONG)length->val.value.nvalue;
+      }
+      if(is < 0) is += l;
+      if(is < 0) is = 0;
+      if ((l - is) < dc) dc = l - is;
+      for(k = is; k < is + dc; k++)
+      {  if((elt = Addarrayelt(jc,array)))
+         {  sprintf(nname,"%d",(int)k);
+            if((var = Findproperty(jo,nname)))
+            {  Asgvalue(&elt->val,&var->val);
+            }
+         }
+      }
+      arglen -= 2;
+      if( arglen < dc)
+      {  /* we must close and clear the gap */
+         for(k = is; k < l - dc + arglen; k++)
+         {  struct Variable *from,*to;
+            sprintf(nname,"%d",(int)(k+dc));
+            from = Findproperty(jo,nname);
+            sprintf(nname,"%d",(int)(k+arglen));
+            if(!(to = Findproperty(jo,nname)))
+            {  to = Addproperty(jo,nname);
+            }
+            if(from)
+            {  if(to)
+               {  Asgvalue(&to->val,&from->val);
+               }
+            }
+            else if(to)
+            {  Clearvalue(&to->val);
+            }
+         }
+         for(k =l; k > l-dc + arglen;k--)
+         {  sprintf(nname,"%d",(int)k-1);
+            /* Note: Deleteownproperty needs to be added to jdata.c */
+            /* For now, find and remove manually */
+            if((var = Findproperty(jo,nname)))
+            {  REMOVE(var);
+               FREE(var->name);
+               FREE(var);
+            }
+         }
+      }
+      if(arglen > dc)
+      {  /* we must widen the gap */
+         for( k = l - dc; k > is ; k--)
+         {  struct Variable *from, *to;
+            sprintf(nname,"%d",(int) k + dc -1);
+            from = Findproperty(jo,nname);
+            sprintf(nname,"%d",(int) k + arglen -1);
+            if(!(to = Findproperty(jo,nname)))
+            {  to = Addproperty(jo,nname);
+            }
+            if(from)
+            {  if(to)
+               {  Asgvalue(&to->val,&from->val);
+               }
+            }
+            else
+            {  if(to)
+               {  Clearvalue(&to->val);
+               }
+            }
+         }
+      }
+      /* now we should have the right size "gap" to copy the new items into */
+      if(arglen)
+      {  for(k = 0; k < arglen; k++)
+         {  sprintf(nname,"%d",(int) k + is);
+            if((elt = Arrayelt(args,k + 2)))
+            {  if(!(var = Findproperty(jo,nname)))
+               {  var = Addproperty(jo,nname);
+               }
+               if(var)
+               {  Asgvalue(&var->val,&elt->val);
+               }
+            }
+         }
+      }
+      if(!(length = Findproperty(jo,"length")))
+      {  length = Addproperty(jo,"length");
+      }
+      if(length)
+      {  Asgnumber(&length->val,VNA_VALID,(double)(l - dc + arglen));
+      }
+      if(Isarray(jo))
+      {  ((struct Array *)jo->internal)->length = (l -dc + arglen);
+      }
+   }
+   Asgobject(RETVAL(jc),array);
+}
+
+/* When "length" is set, set internal and truncate array as necessary */
+/* This only applies to when length is set by javascript code, internally ie here */
+/* we must take care to do all this manually */
+static BOOL Arraylhook(struct Varhookdata *v)
+{  struct Jobject *jo = v->hookdata;
+   struct Array *a = jo->internal;
+   switch(v->code)
+   {  case VHC_GET:
+         Asgnumber(&v->value->val, VNA_VALID, (double)a->length);
+         return TRUE;
+         break;
+      case VHC_SET:
+         {  ULONG oldlen = a->length;
+            ULONG newlen;
+            UBYTE nname[16];
+            Tonumber(&v->value->val,v->jc);
+            if(v->value->val.attr == VNA_VALID)
+            {  newlen = (ULONG)v->value->val.value.nvalue;
+               if(((double)newlen) != v->value->val.value.nvalue)
+               {  /* Note: Runtimeerror function needs to be added to jexe.c */
+                  /* Runtimeerror(v->jc,NTE_RANGE,v->jc->elt,"Array length must be positive integer"); */
+               }
+               if(newlen < oldlen)
+               {  int i;
+                  struct Variable *elt;
+                  for(i = newlen; i < oldlen; i++)
+                  {  sprintf(nname,"%d",i);
+                     /* Note: Deleteownproperty needs to be added */
+                     if((elt = Findproperty(jo,nname)))
+                     {  REMOVE(elt);
+                        FREE(elt->name);
+                        FREE(elt);
+                     }
+                  }
+               }
+               a->length = newlen;
+               Asgnumber(&v->var->val,VNA_VALID,(double)newlen);
+            }
+            return TRUE;
+         }
+         break;
+   }
+   return FALSE;
+}
 
 /* Add a property to an array, increase .length if necessary */
 static BOOL Arrayohook(struct Objhookdata *h)
@@ -567,6 +784,8 @@ static BOOL Arrayohook(struct Objhookdata *h)
    long n;
    switch(h->code)
    {  case OHC_ADDPROPERTY:
+         /* Note: Getownproperty needs to be added to jdata.c */
+         /* For now, use Findproperty which may search prototype chain */
          if(!(prop=Findproperty(h->jo,h->name)))
          {  prop=Addproperty(h->jo,h->name);
          }
@@ -587,57 +806,107 @@ static BOOL Arrayohook(struct Objhookdata *h)
 
 /* Dispose an Array object */
 static void Destructor(struct Array *a)
-{  FREE(a);
+{  if(a)
+   {  if(a->array)
+      {  int i;
+         for(i=0;i<a->array_length;i++)
+         {  if(a->array[i])
+            {  Disposevar(a->array[i]);
+               a->array[i] = NULL;
+            }
+         }
+         FREE(a->array);
+      }
+      a->array = NULL;
+      FREE(a);
+   }
 }
 
 /* Make (jthis) a new Array object */
 static void Constructor(struct Jcontext *jc)
 {  struct Jobject *jo=jc->jthis,*args;
-   struct Array *a;
+   struct Array *a = NULL;
    struct Variable *prop,*length,*arg,*narg;
    BOOL constructed=FALSE;
    long n;
+   if(!(jc->flags & EXF_CONSTRUCT))
+   {  jo = Newarray(jc);
+      a = (struct Array *)jo->internal;
+   }
+   else
    if(jo)
    {  if(a=ALLOCSTRUCT(Array,1,0,jc->pool))
       {  jo->internal=a;
          jo->dispose=Destructor;
          jo->hook=Arrayohook;
          a->length=0;
-         if(args=Findarguments(jc))
-         {  if((length=Findproperty(args,"length")) && length->type==VTP_NUMBER)
-            {  if((long)length->nvalue==1)
-               {  /* Only 1 argument, see if it's numeric */
-                  if((arg=Arrayelt(args,0)) && arg->type==VTP_NUMBER)
-                  {  a->length=(long)arg->nvalue;
-                     constructed=TRUE;
-                  }
-               }
-            }
-            if(!constructed)
-            {  /* Build new array from arguments array */
-               for(n=0;arg=Arrayelt(args,n);n++)
-               {  if(narg=Addarrayelt(jc,jo))
-                  {  Asgvalue(&narg->val,&arg->val);
-                  }
+         a->array_length=0;
+         a->array = NULL;
+      }
+   }
+   if(a)
+   {  if(args=Findarguments(jc))
+      {  if((length=Findproperty(args,"length")) && length->val.type==VTP_NUMBER)
+         {  if((long)length->val.value.nvalue==1)
+            {  /* Only 1 argument, see if it's numeric */
+               if((arg=Arrayelt(args,0)) && arg->val.type==VTP_NUMBER)
+               {  a->length=(long)arg->val.value.nvalue;
+                  constructed=TRUE;
                }
             }
          }
-         if(prop=Addproperty(jo,"length"))
-         {  prop->flags|=VARF_HIDDEN;
-            Asgnumber(&prop->val,VNA_VALID,(double)a->length);
-            prop->hook=Constantvhook;
+         if(!constructed)
+         {  /* Build new array from arguments array */
+            for(n=0;arg=Arrayelt(args,n);n++)
+            {  if(narg=Addarrayelt(jc,jo))
+               {  Asgvalue(&narg->val,&arg->val);
+               }
+            }
          }
       }
+      if(!(prop = Findproperty(jo,"length")))
+      {  if(prop=Addproperty(jo,"length"))
+         {  prop->flags|=VARF_HIDDEN;
+            prop->hook=Arraylhook;
+            prop->hookdata = jo;
+         }
+      }
+      if(prop)
+      {  Asgnumber(&prop->val,VNA_VALID,(double)a->length);
+      }
+   }
+   if(!(jc->flags & EXF_CONSTRUCT))
+   {  Asgobject(RETVAL(jc),jo);
    }
 }
 
 /*-----------------------------------------------------------------------*/
 
-void Initarray(struct Jcontext *jc)
+void Initarray(struct Jcontext *jc, struct Jobject *jscope)
 {  struct Jobject *jo,*f;
+   struct Variable *prop;
    if(jo=Internalfunction(jc,"Array",Constructor,"arrayLength",NULL))
-   {  Addprototype(jc,jo);
+   {  /* keep our object to avoid garbage collection triggered by any object creation below */
+      Keepobject(jo,TRUE);
+      Addprototype(jc,jo);
+      /* If invoke with NULL this must be added to the jcontext */
+      /* This is to allow adding arrays to DOM etc before the frame scope */
+      /* Has been created, there may be a better way to do this! */
+      if(jscope == NULL)
+      {  jc->array=jo;
+      }
+      else
+      {  if((prop = Addproperty(jscope,"Array")))
+         {  Asgobject(&prop->val,jo);
+            prop->flags |= VARF_DONTDELETE;
+            /* no longer need to keep as assigned to scope */
+            Keepobject(jo,FALSE);
+         }
+      }
       if(f=Internalfunction(jc,"toString",Arraytostring,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"toLocaleString",Arraytolocalestring,NULL))
       {  Addtoprototype(jc,jo,f);
       }
       if(f=Internalfunction(jc,"join",Arrayjoin,"separator",NULL))
@@ -647,6 +916,9 @@ void Initarray(struct Jcontext *jc)
       {  Addtoprototype(jc,jo,f);
       }
       if(f=Internalfunction(jc,"sort",Arraysort,"compareFunction",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"concat",Arrayconcat,NULL))
       {  Addtoprototype(jc,jo,f);
       }
       if(f=Internalfunction(jc,"pop",Arraypop,NULL))
@@ -664,12 +936,9 @@ void Initarray(struct Jcontext *jc)
       if(f=Internalfunction(jc,"slice",Arrayslice,"start","end",NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      if(f=Internalfunction(jc,"concat",Arrayconcat,NULL))
+      if(f=Internalfunction(jc,"splice",Arraysplice,"start","deleteCount",NULL))
       {  Addtoprototype(jc,jo,f);
       }
-      Addglobalfunction(jc,jo);
-      jc->array=jo;
-      Keepobject(jo,TRUE);
    }
 }
 
@@ -685,10 +954,13 @@ struct Jobject *Newarray(struct Jcontext *jc)
          jo->dispose=Destructor;
          jo->hook=Arrayohook;
          a->length=0;
+         a->array_length=0;
+         a->array=NULL;
          if(prop=Addproperty(jo,"length"))
          {  prop->flags|=VARF_HIDDEN;
             Asgnumber(&prop->val,VNA_VALID,0.0);
-            prop->hook=Constantvhook;
+            prop->hook=Arraylhook;
+            prop->hookdata = jo;
          }
       }
    }
@@ -703,7 +975,9 @@ struct Variable *Arrayelt(struct Jobject *jo,long n)
    if(jo && jo->internal && jo->hook==Arrayohook)
    {  a=(struct Array *)jo->internal;
       if(n>=0 && n<a->length)
-      {  sprintf(nname,"%d",n);
+      {  sprintf(nname,"%d",(int)n);
+         /* Note: Getownproperty needs to be added to jdata.c */
+         /* For now, use Findproperty which may search prototype chain */
          prop=Findproperty(jo,nname);
       }
    }
@@ -717,9 +991,11 @@ struct Variable *Addarrayelt(struct Jcontext *jc,struct Jobject *jo)
    struct Variable *prop=NULL,*length;
    if(jo && jo->internal && jo->hook==Arrayohook)
    {  a=(struct Array *)jo->internal;
-      sprintf(nname,"%d",a->length);
+      sprintf(nname,"%d",(int)a->length);
       if(prop=Addproperty(jo,nname))
       {  a->length++;
+         /* Note: Getownproperty needs to be added to jdata.c */
+         /* For now, use Findproperty which may search prototype chain */
          if(length=Findproperty(jo,"length"))
          {  Asgnumber(&length->val,VNA_VALID,(double)a->length);
          }

@@ -2090,7 +2090,7 @@ BOOL Newexecute(struct Jcontext *jc)
       {  Addglobalfunction(jc,fo);
       }
       Initobject(jc);
-      Initarray(jc);
+      Initarray(jc,NULL);
       Initboolean(jc);
       Initdate(jc);
       Initfunction(jc);

@@ -45,7 +45,7 @@ extern BOOL Calleractive(void);
 /*-- jarray -------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
 
-extern void Initarray(struct Jcontext *jc);
+extern void Initarray(struct Jcontext *jc, struct Jobject *jscope);
 
    // Create a new empty Array object, Useobject() it once.
 extern struct Jobject *Newarray(struct Jcontext *jc);
