@@ -543,7 +543,7 @@ static void Constructor(struct Jcontext *jc)
 double Today(void)
 {  unsigned int clock[2]={ 0, 0 };
    double t;
-   timer((long *)clock);
+   timer(clock);
    t=1000.0*clock[0]+clock[1]/1000;
    /* System time is since 1978, convert to 1970 (2 leap years) */
    t+=(8*365+2)*24*60*60*1000.0;

@@ -57,8 +57,8 @@ void Debugmem(UBYTE *f,void *mem,long size,void *stack)
 void *Pallocmem(long size,ULONG flags,void *pool)
 {  void *mem;
    if(pool) mem=AllocPooled(pool,size+8);
-   else mem=AllocMem(size+8,flags|MEMF_PUBLIC|MEMF_CLEAR);
-//Debugmem("ALLOC",mem,size,&pool);
+   else mem=AllocMem(size+8,flags|MEMF_ANY|MEMF_CLEAR);
+   //Debugmem("ALLOC",pool,mem,size,&pool);
    if(mem)
    {  *(void **)mem=pool;
       *(long *)((ULONG)mem+4)=size+8;
@@ -73,7 +73,7 @@ void Freemem(void *mem)
    if(mem)
    {  pool=*(void **)((ULONG)mem-8);
       size=*(long *)((ULONG)mem-4);
-//Debugmem("FREE ",(void *)((ULONG)mem-8),-(size-8),&mem);
+   //Debugmem("FREE ",pool,(void *)((ULONG)mem-8),(size-8),&mem);
       if(pool) FreePooled(pool,(void *)((ULONG)mem-8),size);
       else FreeMem((void *)((ULONG)mem-8),size);
    }

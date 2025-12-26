@@ -21,6 +21,7 @@
 #include "awebjs.h"
 #include "jprotos.h"
 #include "keyfile.h"
+#include <stdarg.h>
 
 /* Missing Reaction defines - not available in proto headers */
 #ifndef REACTION_Underscore
@@ -215,7 +216,7 @@ static void Testexpression(struct Jcontext *jc,UBYTE *expr)
    eval.type=0;
    Asgvalue(&eval,jc->val);
    Tostring(&eval,jc);
-   Setgadgetattrs(resultgad,window,NULL,GA_Text,eval.svalue,TAG_END);
+   Setgadgetattrs(resultgad,window,NULL,GA_Text,eval.value.svalue,TAG_END);
    Clearvalue(&eval);
    Asgvalue(jc->val,&val);
    jc->varref=varref;
@@ -362,7 +363,7 @@ static void Debugdumpvar(long fh,struct Jcontext *jc,struct Variable *v)
    UBYTE *value,*valindent;
    UBYTE vtype;
    if(v->val.type==VTP_OBJECT)
-   {  ref=v->val.ovalue;
+   {  ref=v->val.value.obj.ovalue;
       if(ref)
       {  Debugdumpnr(ref);
          if(ref->dumpnr)
@@ -373,7 +374,7 @@ static void Debugdumpvar(long fh,struct Jcontext *jc,struct Variable *v)
          }
          jc->flags&=~EXF_STOP;
          if(Callproperty(jc,ref,"toString") && jc->val->type==VTP_STRING)
-         {  value=jc->val->svalue;
+         {  value=jc->val->value.svalue;
             valindent="\n                    ";
          }
          else
@@ -405,7 +406,7 @@ static void Debugdumpvar(long fh,struct Jcontext *jc,struct Variable *v)
       }
       vtype="?NBSO"[val.type];
       Tostring(&val,jc);
-      FPrintf(fh,"    %-12s[%lc]=%s\n",v->name,vtype,val.svalue);
+      FPrintf(fh,"    %-12s[%lc]=%s\n",v->name,vtype,val.value.svalue);
    }
    Clearvalue(&val);
 }
@@ -548,7 +549,10 @@ static void Debugdump(struct Jcontext *jc)
    }
    else
    {  UBYTE *fn=filename;
-      Errorrequester(jc,-1,NULL,0,"Can't open file %s",&fn);
+      va_list args;
+      va_start(args,fn);
+      Errorrequester(jc,-1,NULL,0,"Can't open file %s",args);
+      va_end(args);
    }
    Asgvalue(jc->val,&val);
    jc->varref=varref;

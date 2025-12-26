@@ -20,7 +20,7 @@
 
 #include "awebjs.h"
 #include "jprotos.h"
-#include <proto/locale.h>
+
 #include <proto/locale.h>
 
 struct String           /* Used as internal object value */
@@ -37,7 +37,7 @@ static double Numargument(struct Jcontext *jc,long n,BOOL *validp)
    {  Tonumber(&var->val,jc);
       if(var->val.attr==VNA_VALID)
       {  if(validp) *validp=TRUE;
-         return var->val.nvalue;
+         return var->val.value.nvalue;
       }
    }
    if(validp) *validp=FALSE;
@@ -50,9 +50,19 @@ static UBYTE *Strargument(struct Jcontext *jc,long n)
    for(var=jc->functions.first->local.first;n && var->next;var=var->next,n--);
    if(var->next)
    {  Tostring(&var->val,jc);
-      return var->val.svalue;
+      return var->val.value.svalue;
    }
    return "";
+}
+
+/* Find the arguments array */
+static struct Jobject *Findarguments(struct Jcontext *jc)
+{  struct Variable *var;
+   for(var=jc->functions.first->local.first;var && var->next;var=var->next)
+   {  if(var->name && STRIEQUAL(var->name,"arguments")
+      && var->val.type==VTP_OBJECT) return var->val.value.obj.ovalue;
+   }
+   return NULL;
 }
 
 static void Surround(struct Jcontext *jc,UBYTE *s1,UBYTE *s2)
@@ -131,7 +141,7 @@ static void Stringlastindexof(struct Jcontext *jc)
       if(var->next)
       {  Tonumber(&var->val,jc);
          if(var->val.attr==VNA_VALID)
-         {  start=(long)var->val.nvalue;
+         {  start=(long)var->val.value.nvalue;
          }
       }
       if(str && start<strlen(str))
@@ -241,7 +251,7 @@ static void Stringcharcodeat(struct Jcontext *jc)
       if(jo)
       {  Asgobject(&v,jo);
          Tostring(&v,jc);
-         str=v.svalue;
+         str=v.value.svalue;
          pos=(long)Numargument(jc,0,&valid);
          if(valid && pos>=0 && str && pos<strlen(str))
          {  val=(UWORD)str[pos];
@@ -389,9 +399,9 @@ static void Constructor(struct Jcontext *jc)
    struct Variable *arg;
    UBYTE *p;
    arg=jc->functions.first->local.first;
-   if(arg->next && arg->type!=VTP_UNDEFINED)
+   if(arg->next && arg->val.type!=VTP_UNDEFINED)
    {  Tostring(&arg->val,jc);
-      p=arg->val.svalue;
+      p=arg->val.value.svalue;
    }
    else
    {  p="";
@@ -400,7 +410,8 @@ static void Constructor(struct Jcontext *jc)
    {  if(jo)
       {  if(s=ALLOCSTRUCT(String,1,0,jc->pool))
          {  jo->internal=s;
-            jo->dispose=Destructor;
+            jo->dispose=(Objdisposehookfunc *)Destructor;
+            jo->type=OBJT_STRING;
             s->svalue=Jdupstr(p,-1,jc->pool);
             if(prop=Addproperty(jo,"length"))
             {  Asgnumber(&prop->val,VNA_VALID,(double)strlen(p));
@@ -417,85 +428,116 @@ static void Constructor(struct Jcontext *jc)
 
 /*-----------------------------------------------------------------------*/
 
-void Initstring(struct Jcontext *jc)
+void Initstring(struct Jcontext *jc, struct Jobject * jscope)
 {  struct Jobject *jo,*f;
-   if(jo=Internalfunction(jc,"String",Constructor,"stringValue",NULL))
-   {  Addprototype(jc,jo);
-      if(f=Internalfunction(jc,"toString",Stringtostring,NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"valueOf",Stringtostring,NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"indexOf",Stringindexof,"searchValue","fromIndex",NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"lastIndexOf",Stringlastindexof,"searchValue","fromIndex",NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"substring",Stringsubstring,"indexA","indexB",NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"substr",Stringsubstr,"index","length",NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"charAt",Stringcharat,"index",NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"charCodeAt",Stringcharcodeat,"index",NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"toLowerCase",Stringtolowercase,NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"toUpperCase",Stringtouppercase,NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"split",Stringsplit,"separator",NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"anchor",Stringanchor,NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"big",Stringbig,NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"blink",Stringblink,NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"bold",Stringbold,NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"fixed",Stringfixed,NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"fontcolor",Stringfontcolor,NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"fontsize",Stringfontsize,NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"italics",Stringitalics,NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"link",Stringlink,NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"small",Stringsmall,NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"strike",Stringstrike,NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"sub",Stringsub,NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      if(f=Internalfunction(jc,"sup",Stringsup,NULL))
-      {  Addtoprototype(jc,jo,f);
-      }
-      Addglobalfunction(jc,jo);
-      jc->string=jo;
+   struct Variable *prop;
+   if(jo=Internalfunction(jc,"String",(Internfunc *)Constructor,"stringValue",NULL))
+   {
       Keepobject(jo,TRUE);
+
+      Initconstruct(jc,jo,"Object",jc->object);
+      Addprototype(jc,jo,Getprototype(jo->constructor));
+
+      //Addglobalfunction(jc,jo);
+      if(!jscope)
+      {
+         jc->string=jo;
+      }
+      else
+      if((prop = Addproperty(jscope,"String")))
+      {
+          Asgobject(&prop->val,jo);
+          prop->flags |= VARF_DONTDELETE;
+          Keepobject(jo,FALSE);
+      }
+
+      if(f=Internalfunction(jc,"toString",(Internfunc *)Stringtostring,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"valueOf",(Internfunc *)Stringtostring,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"indexOf",(Internfunc *)Stringindexof,"searchValue","fromIndex",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"lastIndexOf",(Internfunc *)Stringlastindexof,"searchValue","fromIndex",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"substring",(Internfunc *)Stringsubstring,"indexA","indexB",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"substr",(Internfunc *)Stringsubstr,"index","length",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"charAt",(Internfunc *)Stringcharat,"index",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"charCodeAt",(Internfunc *)Stringcharcodeat,"pos",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+
+      /* NB the next two pairs of functions are currebtly identical, but */
+      /* ultimatley the non Locale versions should use unicode mappings and */
+      /* be locale independent */
+
+
+      if(f=Internalfunction(jc,"toLowerCase",(Internfunc *)Stringtolowercase,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"toLocaleLowerCase",(Internfunc *)Stringtolowercase,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+
+      if(f=Internalfunction(jc,"toUpperCase",(Internfunc *)Stringtouppercase,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"toLocaleUpperCase",(Internfunc *)Stringtouppercase,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"split",(Internfunc *)Stringsplit,"separator",NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"anchor",(Internfunc *)Stringanchor,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"big",(Internfunc *)Stringbig,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"blink",(Internfunc *)Stringblink,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"bold",(Internfunc *)Stringbold,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"fixed",(Internfunc *)Stringfixed,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"fontcolor",(Internfunc *)Stringfontcolor,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"fontsize",(Internfunc *)Stringfontsize,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"italics",(Internfunc *)Stringitalics,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"link",(Internfunc *)Stringlink,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"small",(Internfunc *)Stringsmall,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"strike",(Internfunc *)Stringstrike,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"sub",(Internfunc *)Stringsub,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+      if(f=Internalfunction(jc,"sup",(Internfunc *)Stringsup,NULL))
+      {  Addtoprototype(jc,jo,f);
+      }
+
+
    }
 }
 
@@ -505,10 +547,11 @@ struct Jobject *Newstring(struct Jcontext *jc,UBYTE *svalue)
    struct String *s;
    struct Variable *prop;
    if(jo=Newobject(jc))
-   {  Initconstruct(jc,jo,jc->string);
+   {  Initconstruct(jc,jo,"String",jc->string);
       if(s=ALLOCSTRUCT(String,1,0,jc->pool))
       {  jo->internal=s;
-         jo->dispose=Destructor;
+         jo->dispose=(Objdisposehookfunc *)Destructor;
+         jo->type=OBJT_STRING;
          s->svalue=Jdupstr(svalue,-1,jc->pool);
          if(prop=Addproperty(jo,"length"))
          {  Asgnumber(&prop->val,VNA_VALID,(double)strlen(svalue));

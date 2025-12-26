@@ -23,6 +23,7 @@
 #include <exec/tasks.h>
 #include <math.h>
 #include <stdarg.h>
+#include <proto/utility.h>
 
 /*-----------------------------------------------------------------------*/
 
@@ -38,10 +39,10 @@ void Runtimeerror(struct Jcontext *jc,STRPTR type,struct Element *elt,UBYTE *msg
    if(jc->try)
    {
        struct Jobject *e;
-       char buf[256];
+       UBYTE buf[256];
        va_list args;
        va_start(args,msg);
-       vsnprintf(buf,sizeof(buf),msg,args);
+       VSNPrintf(buf,sizeof(buf),msg,args);
        va_end(args);
        if(type != NULL)
        {
@@ -108,7 +109,7 @@ static struct Variable *Findvar(struct Jcontext *jc,UBYTE *name,struct Jobject *
    struct With *w;
    /* Search the with stack for this function */
    for(w=jc->functions.first->with.first;w->next;w=w->next)
-   {  if(var=Findproperty(w->jo,name))
+   {  if(var=Getproperty(w->jo,name))
       {  if(pthis) *pthis=w->jo;
          return var;
       }
@@ -120,16 +121,16 @@ static struct Variable *Findvar(struct Jcontext *jc,UBYTE *name,struct Jobject *
       }
    }
    /* Try global data scope for this function. */
-   if(var=Findproperty(jc->functions.first->fscope,name))
+   if(var=Getproperty(jc->functions.first->fscope,name))
    {  return var;
    }
    /* Try properties of this */
-   if(var=Findproperty(jc->jthis,name))
+   if(var=Getproperty(jc->jthis,name))
    {  return var;
    }
    /* Try top level global data scopes. */
    for(w=jc->functions.last->with.first;w->next;w=w->next)
-   {  if((w->flags&WITHF_GLOBAL) && (var=Findproperty(w->jo,name)))
+      {  if((w->flags&WITHF_GLOBAL) && (var=Getproperty(w->jo,name)))
       {  if(pthis) *pthis=w->jo;
          return var;
       }
@@ -157,7 +158,7 @@ static struct Variable *Findlocalvar(struct Jcontext *jc,UBYTE *name)
    }
    else
    {  /* Use global variables */
-      if(var=Findproperty(jc->functions.last->fscope,name)) return var;
+      if(var=Getproperty(jc->functions.last->fscope,name)) return var;
       return Addproperty(jc->functions.last->fscope,name);
    }
 }
@@ -184,7 +185,7 @@ static void Disposewith(struct With *w)
 /*-----------------------------------------------------------------------*/
 
 /* Create a new function. Add to head of function stack yourself! */
-static struct Function *Newfunction(struct Jcontext *jc,struct Elementfunc *func)
+struct Function *Newfunction(struct Jcontext *jc,struct Elementfunc *func)
 {  struct Function *f=ALLOCSTRUCT(Function,1,0,jc->pool);
    if(f)
    {  NEWLIST(&f->local);
@@ -198,7 +199,7 @@ static struct Function *Newfunction(struct Jcontext *jc,struct Elementfunc *func
 }
 
 /* Dispose a function */
-static void Disposefunction(struct Function *f)
+void Disposefunction(struct Function *f)
 {  struct Variable *var;
    struct With *w;
    if(f)
@@ -416,10 +417,10 @@ static BOOL Member(struct Jcontext *jc,struct Element *elt,struct Jobject *jo,
    UBYTE *mbrname,BOOL asgonly)
 {  struct Variable *mbr;
    BOOL ok=FALSE;
-   mbr=Findproperty(jo,mbrname);
+   mbr=Getproperty(jo,mbrname);
    if(!mbr)
    {  if(Callohook(jo,jc,OHC_ADDPROPERTY,mbrname))
-      {  mbr=Findproperty(jo,mbrname);
+      {  mbr=Getproperty(jo,mbrname);
       }
       else
       {  mbr=Addproperty(jo,mbrname);
@@ -670,7 +671,7 @@ static void Exefunction(struct Jcontext *jc,struct Elementfunc *func)
    {  ADDTAIL(&f->local,var);
       Asgobject(&var->val,f->arguments);
    }
-   if((avar=Findproperty(f->def,"arguments"))
+   if((avar=Getproperty(f->def,"arguments"))
    || (avar=Addproperty(f->def,"arguments")))
    {  Asgobject(&avar->val,f->arguments);
    }
@@ -687,7 +688,7 @@ static void Exefunction(struct Jcontext *jc,struct Elementfunc *func)
    /* Set function.length property if not already set */
    if(f->def)
    {  struct Variable *length;
-      if(!(length=Findproperty(f->def,"length")))
+      if(!(length=Getproperty(f->def,"length")))
       {  struct Elementnode *enode;
          long paramcount=0;
          for(enode=func->subs.first;enode->next;enode=enode->next)
@@ -1887,6 +1888,11 @@ static void Execute(struct Jcontext *jc,struct Element *elt)
    }
 }
 
+/* Execute an element - public wrapper for Execute */
+void Executeelem(struct Jcontext *jc,struct Element *elt)
+{  Execute(jc,elt);
+}
+
 /*-----------------------------------------------------------------------*/
 
 /* Create a function object for this internal function.
@@ -1982,10 +1988,10 @@ struct Jobject *Getprototype(struct Jobject *jo)
 void Addtoprototype(struct Jcontext *jc,struct Jobject *jo,struct Jobject *f)
 {  struct Variable *var,*proto;
    if(f && f->function && f->function->type==ET_FUNCTION)
-   {  if((proto=Findproperty(jo,"prototype")) && proto->type==VTP_OBJECT && proto->ovalue)
-      {  if(var=Addproperty(proto->ovalue,f->function->name))
+   {  if((proto=Getproperty(jo,"prototype")) && proto->val.type==VTP_OBJECT && proto->val.value.obj.ovalue)
+      {  if(var=Addproperty(proto->val.value.obj.ovalue,f->function->name))
          {  var->hook=Protopropvhook;
-            var->hookdata=proto->ovalue->constructor;
+            var->hookdata=proto->val.value.obj.ovalue->constructor;
             Asgobject(&var->val,f);
             var->flags|=VARF_HIDDEN;
          }
@@ -2031,7 +2037,7 @@ void Initconstruct(struct Jcontext *jc,struct Jobject *jo,STRPTR name,struct Job
 /* Old way keep commented for reference just in case .... */
 /*
          for(pro=proto->val.value.obj.ovalue->properties.first;pro->next;pro=pro->next)
-         {  if(!(newpro=Findproperty(jo,pro->name)))
+         {  if(!(newpro=Getproperty(jo,pro->name)))
             {  newpro=Addproperty(jo,pro->name);
             }
             if(newpro)

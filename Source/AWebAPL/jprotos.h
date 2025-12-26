@@ -18,6 +18,8 @@
 
 /* jprotos.h - AWeb js prototypes */
 
+#include <stdarg.h>
+
 /*-----------------------------------------------------------------------*/
 /*-- jslib --------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
@@ -33,7 +35,7 @@ extern void Addtojbuffer(struct Jbuffer *jb,UBYTE *text,long length);
    // Show error. Returns true if all errors are to be ignored cq debugger wanted.
    // Set pos to <0 to show a runtime error requester.
 extern BOOL Errorrequester(struct Jcontext *jc,long lnr,UBYTE *line,
-   long pos,UBYTE *msg,UBYTE **args);
+   long pos,UBYTE *msg,va_list args);
 
    // Call feedback. Returns TRUE if continue, FALSE if break.
 extern BOOL Feedback(struct Jcontext *jc);
@@ -131,6 +133,9 @@ extern BOOL _Array_Deleteownproperty(struct Jobject *jo,UBYTE *name);
 extern struct Variable *_Array_Addproperty(struct Jobject *jo,UBYTE *name);
 extern struct Variable *_Array_Getownproperty(struct Jobject *jo,UBYTE *name);
 
+   // Convert string to unsigned 32-bit integer
+extern BOOL Touint32(STRPTR str, ULONG *num);
+
    // Objhook for .prototype
 extern BOOL Prototypeohook(struct Objhookdata *h);
 
@@ -211,6 +216,15 @@ extern void Callfunctionbody(struct Jcontext *jc,struct Elementfunc *func,
    // Call this function with supplied arguments (must be struct Value *, NULL terminated)
 extern void Callfunctionargs(struct Jcontext *jc,struct Elementfunc *func,
    struct Jobject *jthis,...);
+
+   // Execute an element
+extern void Executeelem(struct Jcontext *jc,struct Element *elt);
+
+   // Create a new function from an element
+extern struct Function *Newfunction(struct Jcontext *jc, struct Elementfunc *func);
+
+   // Dispose a function
+extern void Disposefunction(struct Function *f);
 
    // Add .constructor, default .toString() and .prototype properties
 extern void Initconstruct(struct Jcontext *jc,struct Jobject *jo,STRPTR name,struct Jobject *constructor);

@@ -21,6 +21,7 @@
 #include "awebjs.h"
 #include "jprotos.h"
 #include "keyfile.h"
+#include <stdarg.h>
 #include <libraries/locale.h>
 #include <intuition/intuition.h>
 #include <intuition/intuitionbase.h>
@@ -492,7 +493,7 @@ static long __saveds __asm Idcmphook(register __a0 struct Hook *hook,
  * Returns TRUE when to ignore, FALSE when to stop.
  * But: lnr<0 && pos>0 gives loop warning requester;
  * returns TRUE when to stop, FALSE when to continue. */
-BOOL Errorrequester(struct Jcontext *jc,long lnr,UBYTE *line,long pos,UBYTE *msg,UBYTE **args)
+BOOL Errorrequester(struct Jcontext *jc,long lnr,UBYTE *line,long pos,UBYTE *msg,va_list args)
 {  struct ClassLibrary *WindowBase=NULL,*LayoutBase=NULL,*ButtonBase=NULL,*LabelBase=NULL;
    BOOL ignore=FALSE;
    void *winobj,*buttonrow;
@@ -775,10 +776,10 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
          jc->dflags=olddflags;
          Asgvalue(&val,jc->val);
          if(val.type==VTP_UNDEFINED) result=TRUE;
-         else if(val.type==VTP_OBJECT && !val.ovalue) result=TRUE;
+         else if(val.type==VTP_OBJECT && !val.value.obj.ovalue) result=TRUE;
          else
          {  Toboolean(&val,jc);
-            result=val.bvalue;
+            result=val.value.bvalue;
          }
          Clearvalue(&val);
          jc->warnmem=oldwarnmem;
@@ -800,7 +801,7 @@ __asm __saveds void *Newjobject(
    register __a0 struct Jcontext *jc)
 {  struct Jobject *jo;
    if(jo=Newobject(jc))
-   {  Initconstruct(jc,jo,NULL);
+   {  Initconstruct(jc,jo,NULL,NULL);
    }
    return jo;
 }
@@ -833,7 +834,7 @@ __asm __saveds struct Jobject *AddjfunctionA(
 {  struct Jobject *f=NULL;
    struct Variable *prop;
    if(name)
-   {  if((prop=Findproperty(jo,name))
+   {  if((prop=Getproperty(jo,name))
       || (prop=Addproperty(jo,name)))
       {  if(f=InternalfunctionA(jc,name,code,args))
          {  if(f->function)
@@ -860,7 +861,7 @@ __asm __saveds UBYTE *Jtostring(
    register __a0 struct Jcontext *jc,
    register __a1 struct Variable *jv)
 {  Tostring(&jv->val,jc);
-   return jv->val.svalue;
+   return jv->val.value.svalue;
 }
 
 __asm __saveds void Jasgstring(
@@ -893,7 +894,7 @@ __asm __saveds struct Variable *Jproperty(
    register __a2 UBYTE *name)
 {  struct Variable *var=NULL;
    if(!name) name="";
-   if(!(var=Findproperty(jo,name)))
+   if(!(var=Getproperty(jo,name)))
    {  var=Addproperty(jo,name);
    }
    return var;
@@ -937,7 +938,7 @@ __asm __saveds BOOL Jtoboolean(
    register __a0 struct Jcontext *jc,
    register __a1 struct Variable *jv)
 {  Toboolean(&jv->val,jc);
-   return jv->val.bvalue;
+   return jv->val.value.bvalue;
 }
 
 __asm __saveds struct Jobject *Newjarray(
@@ -955,7 +956,7 @@ __asm __saveds struct Jobject *Jtoobject(
    register __a0 struct Jcontext *jc,
    register __a1 struct Variable *jv)
 {  Toobject(&jv->val,jc);
-   return jv->val.ovalue;
+   return jv->val.value.obj.ovalue;
 }
 
 __asm __saveds long Jtonumber(
@@ -963,7 +964,7 @@ __asm __saveds long Jtonumber(
    register __a1 struct Variable *jv)
 {  long n;
    Tonumber(&jv->val,jc);
-   if(jv->val.attr==VNA_VALID) n=(long)jv->val.nvalue;
+   if(jv->val.attr==VNA_VALID) n=(long)jv->val.value.nvalue;
    else n=0;
    return n;
 }
@@ -987,9 +988,9 @@ __asm __saveds struct Jobject *Jfindarray(
    register __a2 UBYTE *name)
 {  struct Variable *var;
    struct Jobject *ja=NULL;
-   if(var=Findproperty(jo,name))
-   {  if(var->val.type==VTP_OBJECT && var->val.ovalue && Isarray(var->val.ovalue))
-      {  ja=var->val.ovalue;
+   if(var=Getproperty(jo,name))
+   {  if(var->val.type==VTP_OBJECT && var->val.value.obj.ovalue && Isarray(var->val.value.obj.ovalue))
+      {  ja=var->val.value.obj.ovalue;
       }
    }
    return ja;
@@ -1000,7 +1001,7 @@ __asm __saveds void Jsetprototype(
    register __a1 struct Jobject *jo,
    register __a2 struct Jobject *proto)
 {  struct Variable *var;
-   if((var=Findproperty(jo,"prototype"))
+   if((var=Getproperty(jo,"prototype"))
    || (var=Addproperty(jo,"prototype")))
    {  if(!proto->constructor) proto->constructor=jo;
       proto->hook=Prototypeohook;
@@ -1178,7 +1179,7 @@ __asm __saveds void Jaddeventhandler(
    register __a3 UBYTE *source)
 {  struct Variable *var;
    struct Jobject *jeventh;
-   if(jc && jo && !Findproperty(jo,name))
+   if(jc && jo && !Getproperty(jo,name))
    {  if(var=Addproperty(jo,name))
       {  if(source)
          {  jc->generation++;

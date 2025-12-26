@@ -73,6 +73,16 @@ extern struct Hook idcmphook;
 
 /*-----------------------------------------------------------------------*/
 
+struct Token
+{  UWORD id;
+   UBYTE *svalue;
+   UBYTE *svalue2;  /* added to handle regexp flags typical regexp literal parses /svalue/svalue2 */
+   long ivalue;
+   double fvalue;
+};
+
+/*-----------------------------------------------------------------------*/
+
 typedef BOOL Jfeedback(struct Jcontext *jc);
 #define NUM_ERRORTYPES  6
 
@@ -80,6 +90,7 @@ struct Jcontext
 {  void *pool;
    void *objpool;
    void *varpool;
+   struct Token token;       /* Token for use by the parser */
    struct Token *nexttoken;
    void *program;
    LIST(Jobject) objects;
@@ -310,14 +321,6 @@ struct Jbuffer
 };
 
 /*-----------------------------------------------------------------------*/
-
-struct Token
-{  USHORT id;
-   UBYTE *svalue;
-   UBYTE *svalue2;  /* added to handle regexp flags typical regexp literal parses /svalue/svalue2 */
-   long ivalue;
-   double fvalue;
-};
 
 #define JTT_KEYWORD     0x0000
 #define JTT_IDENTIFIER  0x1000

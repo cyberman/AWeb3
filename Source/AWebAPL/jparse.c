@@ -21,14 +21,23 @@
 #include "awebjs.h"
 #include "jprotos.h"
 #include <math.h>
+#include <stdarg.h>
 
 struct Parser
 {  void *pool;
    UBYTE *next;
    UBYTE *line;
    struct Jcontext *jc;
-   USHORT flags;
+   UWORD flags;
    long linenr;
+   BOOL newexpr;             /* New expression */
+   BOOL skipnewline;              /* Don't skip new lines as white space */
+};
+
+struct Parsestate
+{
+    struct Parser ps_pa;
+    struct Token  ps_token;
 };
 
 #define PAF_ERROR    0x0001   /* Error occurred, recover at ; */
@@ -550,6 +559,8 @@ void *Newparser(struct Jcontext *jc,UBYTE *source)
       pa->line=source;
       pa->jc=jc;
       pa->linenr=1;
+      pa->newexpr = TRUE;
+      pa->skipnewline=TRUE;
    }
    return pa;
 }
@@ -561,19 +572,24 @@ void Freeparser(struct Parser *pa)
 }
 
 void Errormsg(struct Parser *pa,UBYTE *msg,...)
-{  if(!(pa->jc->flags&JCF_ERRORS))
+{
+   va_list va;
+   va_start(va,msg);
+   if(!(pa->jc->flags&JCF_ERRORS))
    {  pa->jc->flags|=JCF_IGNORE;
    }
    if(!(pa->flags&PAF_ERROR) && !(pa->jc->flags&JCF_IGNORE))
-   {  if(Errorrequester(pa->jc,pa->jc->linenr+pa->linenr,pa->line,pa->next-pa->line,msg,VARARG(msg)))
+   {  if(Errorrequester(pa->jc,pa->jc->linenr+pa->linenr,pa->line,pa->next-pa->line,msg,va))
       {  pa->jc->flags|=JCF_IGNORE;
       }
    }
    pa->jc->flags|=JCF_ERROR;
    pa->flags|=PAF_ERROR;
+
+   va_end(va);
 }
 
-UBYTE *Tokenname(USHORT id)
+UBYTE *Tokenname(UWORD id)
 {  UBYTE *p;
    switch(id)
    {  case JT_LEFTPAR:     p="'('";break;
@@ -594,4 +610,77 @@ ULONG Parserstate(struct Parser *pa)
 
 long Plinenr(struct Parser *pa)
 {  return pa->linenr;
+}
+
+/* make a copy of the current parse state (not just position */
+
+void *Saveparser(struct Jcontext *jc, struct Parser *pa)
+{
+    struct Parsestate *npa = ALLOCSTRUCT(Parsestate,1,0,jc->pool);
+    if(npa)
+    {
+        *(&npa->ps_pa) = *pa;
+        npa->ps_token.id = jc->token.id;
+        if(jc->token.svalue)
+        {
+            npa->ps_token.svalue = Jdupstr(jc->token.svalue,-1,jc->pool);
+        }
+        if(jc->token.svalue2)
+        {
+            npa->ps_token.svalue2 = Jdupstr(jc->token.svalue2,-1,jc->pool);
+        }
+        npa->ps_token.ivalue = jc->token.ivalue;
+        npa->ps_token.fvalue = jc->token.fvalue;
+
+    }
+    return npa;
+}
+
+void Restoreparser(struct Jcontext *jc, struct Parser *pa,  void *saved)
+{
+    struct Parsestate *ps = saved;
+    if(pa && ps)
+    {
+        *pa = *(&ps->ps_pa);
+        /* before restoreing free any strings */
+        if(jc->token.svalue)
+        {
+            FREE(jc->token.svalue);
+            jc->token.svalue = NULL;
+        }
+        if(jc->token.svalue2)
+        {
+            FREE(jc->token.svalue2);
+            jc->token.svalue2 = NULL;
+        }
+        *(&jc->token) = *(&ps->ps_token);
+    }
+    if(ps)
+    {
+        FREE(ps);
+    }
+
+}
+
+void Freesavedparser(struct Jcontext *jc, void *saved)
+{
+    struct Parsestate *ps = (struct Parsestate *)saved;
+    if(ps)
+    {
+        if (ps->ps_token.svalue)
+        {
+            FREE(ps->ps_token.svalue);
+        }
+        if (ps->ps_token.svalue2)
+        {
+            FREE(ps->ps_token.svalue2);
+        }
+        FREE(ps);
+    }
+
+}
+
+void Pskipnewline(struct Parser *pa, BOOL skip)
+{
+    pa->skipnewline = skip;
 }
