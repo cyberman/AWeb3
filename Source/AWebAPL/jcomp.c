@@ -23,8 +23,11 @@
 
 /*-----------------------------------------------------------------------*/
 
+/* Forward declarations */
+static void Disposelt(struct Element *elt);
+
 /* Create an element */
-static struct Element *Newelement(struct Jcontext *jc,void *pa,USHORT type,
+static struct Element *Newelement(struct Jcontext *jc,void *pa,UWORD type,
    void *sub1,void *sub2,void *sub3,void *sub4)
 {  struct Element *elt=ALLOCSTRUCT(Element,1,0,jc->pool);
    if(elt)
@@ -51,20 +54,99 @@ static struct Elementnode *Newnode(void *pool,void *elt)
 }
 
 /* Skip this token, or any token */
-static void Skiptoken(struct Jcontext *jc,void *pa,USHORT id)
+static void Skiptoken(struct Jcontext *jc,void *pa,UWORD id)
 {  if(jc->nexttoken->id)
    {  if(!id || id==jc->nexttoken->id)
       {  jc->nexttoken=Nexttoken(pa);
       }
       else if(id)
-      {  Errormsg(pa,"%s expected",Tokenname(id));
+      {  Errormsg(pa,"%s expected (from Skip token)",Tokenname(id));
       }
    }
 }
 
 /*-----------------------------------------------------------------------*/
+static void *Expression(struct Jcontext *jc,void *pa);
+static void *Assignmentexpression(struct Jcontext *jc,void *pa);
+static void *Compoundstatement(struct Jcontext *jc,void *pa);
+static void *Statement(struct Jcontext *jc, void *pa);
+static void *Element(struct Jcontext *jc, void *pa);
+static void *Primaryexpression(struct Jcontext *jc, void *pa);
+
 
 /* Root elements */
+
+static void *Nextarrayelement(struct Jcontext *jc, void *pa)
+{
+    if(jc->nexttoken->id == JT_COMMA)
+    {
+        struct Element *elt = ALLOCSTRUCT(Element,1,0,jc->pool);
+        elt->type = ET_EMPTY;
+        return elt;
+    }
+    return Assignmentexpression(jc,pa);
+}
+
+static void *Array(struct Jcontext *jc, void *pa)
+{
+    struct Element *arrayelement;
+    struct Elementlist *elist=ALLOCSTRUCT(Elementlist,1,0,jc->pool);
+    struct Elementnode *enode;
+
+    elist->type=ET_ARRAY;
+    elist->generation=jc->generation;
+    elist->linenr=Plinenr(pa);
+    NewList((struct List *)&elist->subs);
+    Skiptoken(jc,pa,JT_LEFTBRACKET);
+    if(jc->nexttoken->id !=JT_RIGHTBRACKET)
+    {
+        while(arrayelement=Nextarrayelement(jc,pa))
+        {
+           if(enode=Newnode(jc->pool,arrayelement))
+           {  AddTail((struct List *)&elist->subs,(struct Node *)enode);
+           }
+           if(jc->nexttoken->id==JT_RIGHTBRACKET) break;
+           Skiptoken(jc,pa,JT_COMMA);
+        }
+    }
+    Skiptoken(jc,pa,JT_RIGHTBRACKET);
+    return elist;
+}
+
+static void *Objectlit(struct Jcontext *jc, void *pa)
+{
+    struct Element *objelement;
+    struct Elementlist *elist=ALLOCSTRUCT(Elementlist,1,0,jc->pool);
+    struct Elementnode *enode;
+
+
+    elist->type=ET_OBJECTLIT;
+    elist->generation=jc->generation;
+    elist->linenr=Plinenr(pa);
+    NewList((struct List *)&elist->subs);
+    Skiptoken(jc,pa,JT_LEFTBRACE);
+
+    if(jc->nexttoken->id != JT_RIGHTBRACE)
+    {
+        while(objelement=Assignmentexpression(jc,pa))
+        {
+           if(enode=Newnode(jc->pool,objelement))
+           {  AddTail((struct List *)&elist->subs,(struct Node *)enode);
+           }
+           Skiptoken(jc,pa,JT_CONDELSE);   /* ":" */
+           objelement=Assignmentexpression(jc,pa);
+           if(enode=Newnode(jc->pool,objelement))
+           {
+              AddTail((struct List *)&elist->subs,(struct Node *)enode);
+           }
+
+           if(jc->nexttoken->id==JT_RIGHTBRACE) break;
+           Skiptoken(jc,pa,JT_COMMA);
+        }
+    }
+    Skiptoken(jc,pa,JT_RIGHTBRACE);
+    return elist;
+}
 
 static void *Identifier(struct Jcontext *jc,void *pa)
 {  struct Elementstring *elt=ALLOCSTRUCT(Elementstring,1,0,jc->pool);
@@ -80,7 +162,7 @@ static void *Integer(struct Jcontext *jc,void *pa)
    elt->type=ET_INTEGER;
    elt->generation=jc->generation;
    elt->linenr=Plinenr(pa);
-   elt->ivalue=jc->nexttoken->ivalue;
+   elt->ivalue=jc->nexttoken->fvalue;
    return elt;
 }
 
@@ -111,11 +193,18 @@ static void *String(struct Jcontext *jc,void *pa)
    return elt;
 }
 
-/*-----------------------------------------------------------------------*/
+static void *Regexp(struct Jcontext *jc,void *pa)
+{
+    struct Elementregexp *elt=ALLOCSTRUCT(Elementregexp,1,0,jc->pool);
+    elt->type=ET_REGEXP;
+    elt->generation=jc->generation;
+    elt->linenr=Plinenr(pa);
+    elt->pattern=Jdupstr(jc->nexttoken->svalue,-1,jc->pool);
+    elt->flags=Jdupstr(jc->nexttoken->svalue2,-1,jc->pool);
+    return elt;
+}
 
-static void *Expression(struct Jcontext *jc,void *pa);
-static void *Assignmentexpression(struct Jcontext *jc,void *pa);
-static void *Compoundstatement(struct Jcontext *jc,void *pa);
+/*-----------------------------------------------------------------------*/
 
 static void *Primaryexpression(struct Jcontext *jc,void *pa)
 {  void *elt=NULL;
@@ -124,6 +213,9 @@ static void *Primaryexpression(struct Jcontext *jc,void *pa)
          Skiptoken(jc,pa,0);
          elt=Expression(jc,pa);
          Skiptoken(jc,pa,JT_RIGHTPAR);
+         break;
+      case JT_LEFTBRACKET:
+         elt=Array(jc,pa);
          break;
       case JT_IDENTIFIER:
          elt=Identifier(jc,pa);
@@ -145,6 +237,13 @@ static void *Primaryexpression(struct Jcontext *jc,void *pa)
          elt=String(jc,pa);
          Skiptoken(jc,pa,0);
          break;
+      case JT_REGEXPLIT:
+         elt=Regexp(jc,pa);
+         Skiptoken(jc,pa,0);
+         break;
+      case JT_LEFTBRACE:
+         elt=Objectlit(jc,pa);
+         break;
       case JT_NULLLIT:
          elt=Newelement(jc,pa,ET_NULL,NULL,NULL,NULL,NULL);
          Skiptoken(jc,pa,0);
@@ -153,12 +252,16 @@ static void *Primaryexpression(struct Jcontext *jc,void *pa)
          elt=Newelement(jc,pa,ET_THIS,NULL,NULL,NULL,NULL);
          Skiptoken(jc,pa,0);
          break;
+         case JT_FUNCTION:
+            elt=Element(jc,pa);
+            break;
+
       case JT_RIGHTBRACE:
       case JT_RIGHTPAR:
       case JT_SEMICOLON:
          break;
       default:
-         Errormsg(pa,"Expression expected");
+         Errormsg(pa,"Expression expected (from primary expression)");
          break;
    }
    return elt;
@@ -172,9 +275,9 @@ static void *Functioncall(struct Jcontext *jc,void *pa,void *elt)
    {  elist->type=ET_CALL;
       elist->generation=jc->generation;
       elist->linenr=Plinenr(pa);
-      NEWLIST(&elist->subs);
+      NewList((struct List *)&elist->subs);
       if(enode=Newnode(jc->pool,elt))
-      {  ADDTAIL(&elist->subs,enode);
+      {  AddTail((struct List *)&elist->subs,(struct Node *)enode);
       }
       Skiptoken(jc,pa,JT_LEFTPAR);
       while(arg=Assignmentexpression(jc,pa))
@@ -218,9 +321,10 @@ static void *Memberexpression(struct Jcontext *jc,void *pa)
 
 static void *Unaryexpression(struct Jcontext *jc,void *pa)
 {  void *elt;
-   USHORT preop=0;
+   UWORD preop=0;
    switch(jc->nexttoken->id)
    {  case JT_MINUS:    preop=ET_NEGATIVE;break;
+      case JT_PLUS:     preop=ET_POSITIVE;break;
       case JT_NOT:      preop=ET_NOT;break;
       case JT_BITNEG:   preop=ET_BITNEG;break;
       case JT_INC:      preop=ET_PREINC;break;
@@ -255,7 +359,7 @@ static void *Unaryexpression(struct Jcontext *jc,void *pa)
 
 static void *Multiplicativeexpression(struct Jcontext *jc,void *pa)
 {  void *elt=Unaryexpression(jc,pa);
-   USHORT op;
+   UWORD op;
    do
    {  switch(jc->nexttoken->id)
       {  case JT_MULT:     op=ET_MULT;break;
@@ -273,7 +377,7 @@ static void *Multiplicativeexpression(struct Jcontext *jc,void *pa)
 
 static void *Additiveexpression(struct Jcontext *jc,void *pa)
 {  void *elt=Multiplicativeexpression(jc,pa);
-   USHORT op;
+   UWORD op;
    do
    {  switch(jc->nexttoken->id)
       {  case JT_PLUS:     op=ET_PLUS;break;
@@ -290,7 +394,7 @@ static void *Additiveexpression(struct Jcontext *jc,void *pa)
 
 static void *Shiftexpression(struct Jcontext *jc,void *pa)
 {  void *elt=Additiveexpression(jc,pa);
-   USHORT op;
+   UWORD op;
    do
    {  switch(jc->nexttoken->id)
       {  case JT_SHLEFT:   op=ET_SHLEFT;break;
@@ -308,7 +412,7 @@ static void *Shiftexpression(struct Jcontext *jc,void *pa)
 
 static void *Relationalexpression(struct Jcontext *jc,void *pa)
 {  void *elt=Shiftexpression(jc,pa);
-   USHORT op;
+   UWORD op;
    do
    {  switch(jc->nexttoken->id)
       {  case JT_LT:       op=ET_LT;break;
@@ -327,11 +431,13 @@ static void *Relationalexpression(struct Jcontext *jc,void *pa)
 
 static void *Equalityexpression(struct Jcontext *jc,void *pa)
 {  void *elt=Relationalexpression(jc,pa);
-   USHORT op;
+   UWORD op;
    do
    {  switch(jc->nexttoken->id)
       {  case JT_EQ:       op=ET_EQ;break;
          case JT_NE:       op=ET_NE;break;
+         case JT_EXEQ:     op=ET_EXEQ;break;
+         case JT_NEXEQ:    op=ET_NEXEQ;break;
          default:          op=0;break;
       }
       if(op)
@@ -344,7 +450,7 @@ static void *Equalityexpression(struct Jcontext *jc,void *pa)
 
 static void *Bitwiseandexpression(struct Jcontext *jc,void *pa)
 {  void *elt=Equalityexpression(jc,pa);
-   USHORT op;
+   UWORD op;
    do
    {  switch(jc->nexttoken->id)
       {  case JT_BITAND:   op=ET_BITAND;break;
@@ -360,7 +466,7 @@ static void *Bitwiseandexpression(struct Jcontext *jc,void *pa)
 
 static void *Bitwisexorexpression(struct Jcontext *jc,void *pa)
 {  void *elt=Bitwiseandexpression(jc,pa);
-   USHORT op;
+   UWORD op;
    do
    {  switch(jc->nexttoken->id)
       {  case JT_BITXOR:   op=ET_BITXOR;break;
@@ -376,7 +482,7 @@ static void *Bitwisexorexpression(struct Jcontext *jc,void *pa)
 
 static void *Bitwiseorexpression(struct Jcontext *jc,void *pa)
 {  void *elt=Bitwisexorexpression(jc,pa);
-   USHORT op;
+   UWORD op;
    do
    {  switch(jc->nexttoken->id)
       {  case JT_BITOR:    op=ET_BITOR;break;
@@ -392,7 +498,7 @@ static void *Bitwiseorexpression(struct Jcontext *jc,void *pa)
 
 static void *Andexpression(struct Jcontext *jc,void *pa)
 {  void *elt=Bitwiseorexpression(jc,pa);
-   USHORT op;
+   UWORD op;
    do
    {  switch(jc->nexttoken->id)
       {  case JT_AND:      op=ET_AND;break;
@@ -407,8 +513,9 @@ static void *Andexpression(struct Jcontext *jc,void *pa)
 }
 
 static void *Orexpression(struct Jcontext *jc,void *pa)
-{  void *elt=Andexpression(jc,pa);
-   USHORT op;
+{
+   void *elt=Andexpression(jc,pa);
+   UWORD op;
    do
    {  switch(jc->nexttoken->id)
       {  case JT_OR:       op=ET_OR;break;
@@ -422,8 +529,43 @@ static void *Orexpression(struct Jcontext *jc,void *pa)
    return elt;
 }
 
+
+static void *Instanceofexpression(struct Jcontext *jc, void *pa)
+{
+   void *elt=Orexpression(jc,pa);
+   UWORD op;
+   do
+   {  switch(jc->nexttoken->id)
+      {  case JT_INSTANCEOF:       op=ET_INSTANCEOF;break;
+         default:          op=0;break;
+      }
+      if(op)
+      {  Skiptoken(jc,pa,0);
+         elt=Newelement(jc,pa,op,elt,Orexpression(jc,pa),NULL,NULL);
+      }
+   } while(op);
+   return elt;
+}
+
+static void *Inexpression(struct Jcontext *jc, void *pa)
+{
+   void *elt=Instanceofexpression(jc,pa);
+   UWORD op;
+   do
+   {  switch(jc->nexttoken->id)
+      {  case JT_IN:       op=ET_IN;break;
+         default:          op=0;break;
+      }
+      if(op)
+      {  Skiptoken(jc,pa,0);
+         elt=Newelement(jc,pa,op,elt,Instanceofexpression(jc,pa),NULL,NULL);
+      }
+   } while(op);
+   return elt;
+}
+
 static void *Conditionalexpression(struct Jcontext *jc,void *pa)
-{  struct Element *elt=Orexpression(jc,pa);
+{  struct Element *elt=Inexpression(jc,pa);
    if(jc->nexttoken->id==JT_CONDIF)
    {  Skiptoken(jc,pa,0);
       elt=Newelement(jc,pa,ET_COND,elt,Assignmentexpression(jc,pa),NULL,NULL);
@@ -432,15 +574,26 @@ static void *Conditionalexpression(struct Jcontext *jc,void *pa)
          elt->sub3=Assignmentexpression(jc,pa);
       }
       else
-      {  Errormsg(pa,"':' expected");
+      {  Errormsg(pa,"':' expected (from Conditional expression)");
       }
    }
    return elt;
 }
 
+static void *Labelexpression(struct Jcontext *jc,void *pa)
+{
+    struct Element *elt=Assignmentexpression(jc,pa);
+    if(jc->nexttoken->id==JT_CONDELSE)   /* this is ":" think about changing condelse to colon for clarity */
+    {
+        Skiptoken(jc,pa,0);
+        elt=Newelement(jc,pa,ET_LABEL,elt,Statement(jc,pa),NULL,NULL);
+    }
+    return elt;
+}
+
 static void *Assignmentexpression(struct Jcontext *jc,void *pa)
 {  void *elt=Conditionalexpression(jc,pa);
-   USHORT op;
+   UWORD op;
    switch(jc->nexttoken->id)
    {  case JT_ASSIGN:   op=ET_ASSIGN;break;
       case JT_APLUS:    op=ET_APLUS;break;
@@ -464,8 +617,24 @@ static void *Assignmentexpression(struct Jcontext *jc,void *pa)
 }
 
 static void *Expression(struct Jcontext *jc,void *pa)
+{  void *elt=Labelexpression(jc,pa);
+   UWORD op;
+   do
+   {  switch(jc->nexttoken->id)
+      {  case JT_COMMA:    op=ET_COMMA;break;
+         default:          op=0;break;
+      }
+      if(op)
+      {  Skiptoken(jc,pa,0);
+         elt=Newelement(jc,pa,op,elt,Assignmentexpression(jc,pa),NULL,NULL);
+      }
+   } while(op);
+   return elt;
+}
+
+static void *Expression2(struct Jcontext *jc,void *pa)
 {  void *elt=Assignmentexpression(jc,pa);
-   USHORT op;
+   UWORD op;
    do
    {  switch(jc->nexttoken->id)
       {  case JT_COMMA:    op=ET_COMMA;break;
@@ -486,7 +655,7 @@ static void *Condition(struct Jcontext *jc,void *pa)
       elt=Expression(jc,pa);
       Skiptoken(jc,pa,JT_RIGHTPAR);
    }
-   else Errormsg(pa,"'(' expected");
+   else Errormsg(pa,"'(' expected - condition (from condition)");
    return elt;
 }
 
@@ -498,9 +667,9 @@ static void *Varlist(struct Jcontext *jc,void *pa)
    {  elist->type=ET_VARLIST;
       elist->generation=jc->generation;
       elist->linenr=Plinenr(pa);
-      NEWLIST(&elist->subs);
+      NewList((struct List *)&elist->subs);
       if(jc->nexttoken->id!=JT_IDENTIFIER)
-      {  Errormsg(pa,"Identifier expected");
+      {  Errormsg(pa,"Identifier expected (from Varlist)");
       }
       while(jc->nexttoken->id==JT_IDENTIFIER)
       {  elt=Identifier(jc,pa);
@@ -513,7 +682,7 @@ static void *Varlist(struct Jcontext *jc,void *pa)
          {  elt=Newelement(jc,pa,ET_VAR,elt,NULL,NULL,NULL);
          }
          if(enode=Newnode(jc->pool,elt))
-         {  ADDTAIL(&elist->subs,enode);
+         {  AddTail((struct List *)&elist->subs,(struct Node *)enode);
          }
          if(jc->nexttoken->id!=JT_COMMA) break;
          Skiptoken(jc,pa,JT_COMMA);
@@ -532,6 +701,93 @@ static void *Variablesorexpression(struct Jcontext *jc,void *pa)
    {  elt=Expression(jc,pa);
    }
    return elt;
+}
+
+static void *Variablesormemberexpression(struct Jcontext *jc,void *pa)
+{  void *elt;
+   if(jc->nexttoken->id==JT_VAR)
+   {  Skiptoken(jc,pa,0);
+      elt=Varlist(jc,pa);
+   }
+   else
+   {  elt=Memberexpression(jc,pa);
+   }
+   return elt;
+}
+
+static void *Switchstatement(struct Jcontext *jc, void *pa)
+{
+    struct Elementswitch *elt = NULL;
+    struct Element *cond;
+    struct Elementnode *enode;
+    ULONG state;
+
+    Skiptoken(jc,pa,JT_LEFTPAR);
+    cond=Expression(jc,pa);
+    Skiptoken(jc,pa,JT_RIGHTPAR);
+    if (cond)
+    {
+        elt= ALLOCSTRUCT(Elementswitch,1,0,jc->pool);
+        elt->type=ET_SWITCH;
+        elt->generation=jc->generation;
+        elt->linenr=Plinenr(pa);
+        elt->cond=cond;
+        NewList((struct List *)&elt->subs);
+        if(jc->nexttoken->id==JT_LEFTBRACE)
+        {
+            Skiptoken(jc,pa,0);
+            {
+                while(jc->nexttoken->id)
+                {
+                    struct Element *statement;
+                    state=Parserstate(pa);
+                    statement =  Statement(jc,pa);
+                    if(enode=Newnode(jc->pool,statement))
+                    {
+                        if(statement->type==ET_CASE)
+                        {
+                            if(((struct Elementcase *)statement)->isdefault)
+                            {
+                                elt->defaultcase=enode;
+                            }
+                        }
+                        AddTail((struct List *)&elt->subs,(struct Node *)enode);
+                    }
+                    else if(jc->nexttoken->id==JT_RIGHTBRACE) break;
+                    if(state==Parserstate(pa)) Skiptoken(jc,pa,0);
+                }
+            }
+            Skiptoken(jc,pa,JT_RIGHTBRACE);
+        }
+        else Errormsg(pa,"'{' expected (from switch)");
+    }
+    return elt;
+}
+
+static void *Trystatement(struct Jcontext *jc, void *pa)
+{
+    struct Elementtry *elt = NULL;
+    if((elt=ALLOCSTRUCT(Elementtry,1,0,jc->pool)))
+    {
+        elt->type=ET_TRY;
+        elt->generation=jc->generation;
+        elt->linenr=Plinenr(pa);
+        elt->try=Statement(jc,pa);
+        if(elt && jc->nexttoken->id==JT_CATCH)
+        {
+            Skiptoken(jc,pa,0);
+            Skiptoken(jc,pa,JT_LEFTPAR);
+            elt->catchvar = Variablesorexpression(jc,pa);
+            Skiptoken(jc,pa,JT_RIGHTPAR);
+            elt->catch=Statement(jc,pa);
+        }
+        if(elt && jc->nexttoken->id==JT_FINALLY)
+        {
+            Skiptoken(jc,pa,0);
+            elt->finally=Statement(jc,pa);
+        }
+    }
+    return elt;
 }
 
 static void *Statement(struct Jcontext *jc,void *pa)
@@ -560,26 +816,68 @@ static void *Statement(struct Jcontext *jc,void *pa)
             elt->sub2=Condition(jc,pa);
             break;
          case JT_FOR:
+            {
+                void *savedpa;
+                Skiptoken(jc,pa,0);
+                Skiptoken(jc,pa,JT_LEFTPAR);
+                savedpa = Saveparser(jc,pa);
+                elt=Variablesormemberexpression(jc,pa);
+                if(elt && jc->nexttoken->id==JT_IN)
+                {  Skiptoken(jc,pa,0);
+                   elt=Newelement(jc,pa,ET_FORIN,elt,Expression(jc,pa),NULL,NULL);
+                   Skiptoken(jc,pa,JT_RIGHTPAR);
+                   elt->sub3=Statement(jc,pa);
+                   Freesavedparser(jc,savedpa);
+                }
+                else
+                {
+                    /* didn't get a for .. in back up and try again */
+                    Disposelt(elt);
+                    Restoreparser(jc,pa,savedpa);
+                    elt=Variablesorexpression(jc,pa);
+                    if(jc->nexttoken->id==JT_SEMICOLON)
+                    {  Skiptoken(jc,pa,0);
+                       elt=Newelement(jc,pa,ET_FOR,elt,Expression(jc,pa),NULL,NULL);
+                       Skiptoken(jc,pa,JT_SEMICOLON);
+                       elt->sub3=Expression(jc,pa);
+                       Skiptoken(jc,pa,JT_RIGHTPAR);
+                       elt->sub4=Statement(jc,pa);
+                    }
+                    else
+                    {  Errormsg(pa,"'in' or ';' expected (from statement)");
+                    }
+                }
+            }
+            break;
+
+         case JT_TRY:
             Skiptoken(jc,pa,0);
-            Skiptoken(jc,pa,JT_LEFTPAR);
-            elt=Variablesorexpression(jc,pa);
-            if(elt && jc->nexttoken->id==JT_IN)
-            {  Skiptoken(jc,pa,0);
-               elt=Newelement(jc,pa,ET_FORIN,elt,Expression(jc,pa),NULL,NULL);
-               Skiptoken(jc,pa,JT_RIGHTPAR);
-               elt->sub3=Statement(jc,pa);
-            }
-            else if(jc->nexttoken->id==JT_SEMICOLON)
-            {  Skiptoken(jc,pa,0);
-               elt=Newelement(jc,pa,ET_FOR,elt,Expression(jc,pa),NULL,NULL);
-               Skiptoken(jc,pa,JT_SEMICOLON);
-               elt->sub3=Expression(jc,pa);
-               Skiptoken(jc,pa,JT_RIGHTPAR);
-               elt->sub4=Statement(jc,pa);
-            }
-            else
-            {  Errormsg(pa,"'in' or ';' expected");
-            }
+            elt=Trystatement(jc,pa);
+            break;
+
+         case JT_SWITCH:
+            Skiptoken(jc,pa,0);
+            elt=Switchstatement(jc,pa);
+            break;
+
+         case JT_CASE:
+            Skiptoken(jc,pa,0);
+            elt=(struct Element *)ALLOCSTRUCT(Elementcase,1,0,jc->pool);
+            elt->type=ET_CASE;
+            elt->linenr=Plinenr(pa);
+            elt->generation=jc->generation;
+            ((struct Elementcase *)elt)->isdefault=FALSE;
+            ((struct Elementcase *)elt)->expr = Expression2(jc,pa);
+            Skiptoken(jc,pa,JT_CONDELSE);
+            break;
+         case JT_DEFAULT:
+            Skiptoken(jc,pa,0);
+            elt=(struct Element *)ALLOCSTRUCT(Elementcase,1,0,jc->pool);
+            elt->type=ET_CASE;
+            elt->linenr=Plinenr(pa);
+            elt->generation=jc->generation;
+            ((struct Elementcase *)elt)->isdefault=TRUE;
+            Skiptoken(jc,pa,JT_CONDELSE);
             break;
          case JT_BREAK:
             Skiptoken(jc,pa,0);
@@ -600,12 +898,30 @@ static void *Statement(struct Jcontext *jc,void *pa)
             elt=Newelement(jc,pa,ET_WITH,Condition(jc,pa),Statement(jc,pa),NULL,NULL);
             break;
          case JT_RETURN:
+            Pskipnewline(pa,FALSE);
             Skiptoken(jc,pa,0);
-            elt=Newelement(jc,pa,ET_RETURN,Expression(jc,pa),NULL,NULL,NULL);
+            elt=Newelement(jc,pa,ET_RETURN,NULL,NULL,NULL,NULL);
+            if(jc->nexttoken->id==JT_NEWLINE)
+            {
+                Skiptoken(jc,pa,0);
+                Pskipnewline(pa,TRUE);
+                break;
+            }
+            Pskipnewline(pa,TRUE);
+            elt->sub1 = Expression(jc,pa);
             if(jc->nexttoken->id==JT_SEMICOLON)
             {  Skiptoken(jc,pa,0);
             }
             break;
+
+         case JT_THROW:
+            Skiptoken(jc,pa,0);
+            elt=Newelement(jc,pa,ET_THROW,Expression(jc,pa),NULL,NULL,NULL);
+            if(jc->nexttoken->id==JT_SEMICOLON)
+            {  Skiptoken(jc,pa,0);
+            }
+            break;
+
          case JT_LEFTBRACE:
             elt=Compoundstatement(jc,pa);
             break;
@@ -619,7 +935,7 @@ static void *Statement(struct Jcontext *jc,void *pa)
             break;
 #endif
          default:
-            elt=Variablesorexpression(jc,pa);
+            elt=Variablesormemberexpression(jc,pa);
             if(jc->nexttoken->id==JT_SEMICOLON)
             {  Skiptoken(jc,pa,0);
             }
@@ -640,12 +956,12 @@ static void *Compoundstatement(struct Jcontext *jc,void *pa)
       {  elist->type=ET_COMPOUND;
          elist->generation=jc->generation;
          elist->linenr=Plinenr(pa);
-         NEWLIST(&elist->subs);
+         NewList((struct List *)&elist->subs);
          
          while(jc->nexttoken->id)
          {  state=Parserstate(pa);
             if(enode=Newnode(jc->pool,Statement(jc,pa)))
-            {  ADDTAIL(&elist->subs,enode);
+            {  AddTail((struct List *)&elist->subs,(struct Node *)enode);
             }
             else if(jc->nexttoken->id==JT_RIGHTBRACE) break;
             if(state==Parserstate(pa)) Skiptoken(jc,pa,0);
@@ -653,7 +969,7 @@ static void *Compoundstatement(struct Jcontext *jc,void *pa)
       }
       Skiptoken(jc,pa,JT_RIGHTBRACE);
    }
-   else Errormsg(pa,"'{' expected");
+   else Errormsg(pa,"'{' expected (from compoundstatement)");
    return elist;
 }
 
@@ -661,28 +977,30 @@ static void *Element(struct Jcontext *jc,void *pa)
 {  void *elt=NULL;
    struct Elementnode *enode;
    struct Elementfunc *func;
+   struct Elementfuncref *funcref;
    struct Variable *fprop;
-   struct Jobject *fobj;
+   struct Jobject *fobj = NULL;
    if(jc->nexttoken->id==JT_FUNCTION)
    {  Skiptoken(jc,pa,0);
       if(func=ALLOCSTRUCT(Elementfunc,1,0,jc->pool))
       {  func->type=ET_FUNCTION;
          func->generation=jc->generation;
          func->linenr=Plinenr(pa);
-         NEWLIST(&func->subs);
+         NewList((struct List *)&func->subs);
          if(jc->nexttoken->id==JT_IDENTIFIER)
          {  func->name=Jdupstr(jc->nexttoken->svalue,-1,jc->pool);
             Skiptoken(jc,pa,0);
          }
          else
-         {  func->name=NULL;
+         {
+         //Errormsg(pa,"Identifier expected (from element)");
          }
          if(jc->nexttoken->id==JT_LEFTPAR)
          {  Skiptoken(jc,pa,0);
             for(;;)
             {  if(jc->nexttoken->id==JT_IDENTIFIER)
                {  if(enode=Newnode(jc->pool,Identifier(jc,pa)))
-                  {  ADDTAIL(&func->subs,enode);
+                  {  AddTail((struct List *)&func->subs,(struct Node *)enode);
                   }
                   Skiptoken(jc,pa,0);
                }
@@ -693,39 +1011,46 @@ static void *Element(struct Jcontext *jc,void *pa)
             }
             Skiptoken(jc,pa,JT_RIGHTPAR);
          }
-         else Errormsg(pa,"'(' expected");
+         else Errormsg(pa,"'(' expected - element (from element)");
          func->body=Compoundstatement(jc,pa);
-         
-         /* Create function object */
-         if(fobj=Newobject(jc))
-         {  fobj->function=func;
-            /* Set function.length property */
-            {  struct Variable *length;
-               struct Elementnode *enode;
-               long paramcount=0;
-               for(enode=func->subs.first;enode->next;enode=enode->next)
-               {  paramcount++;
-               }
-               if(!(length=Findproperty(fobj,"length")))
-               {  length=Addproperty(fobj,"length");
-               }
-               if(length)
-               {  Asgnumber(&length->val,VNA_VALID,(double)paramcount);
-                  length->flags|=VARF_HIDDEN;
-               }
-            }
-            /* Add function to current scope if it has a name */
+
+         /* Add function to current scope */
+        if(fobj=Newobject(jc))
+        {
+            Keepobject(fobj,TRUE);
+            fobj->function=func;
             if(func->name)
-            {  if((fprop=Findproperty(jc->fscope,func->name))
-               || (fprop=Addproperty(jc->fscope,func->name)))
-               {  Asgfunction(&fprop->val,fobj,NULL);
-               }
-               Addprototype(jc,fobj);
+            {
+                if((fprop=Getownproperty(jc->fscope,func->name))
+                || (fprop=Addproperty(jc->fscope,func->name)))
+                {  Asgfunction(&fprop->val,fobj,NULL);
+                   fprop->flags |= VARF_DONTDELETE;
+                }
             }
-         }
-         
+            {
+                struct Jobject *proto = NULL;
+                if(jc->object) proto = Getprototype(jc->object);
+                Addprototype(jc,fobj,proto);
+            }
+        }
          /* Remember current scope with function */
          func->fscope=jc->fscope;
+      }
+
+      /* This will return the function object when "function" is used
+       * in an expression of type foo = function name () {body}
+       */
+
+      if(fobj)
+      {
+         if(funcref = ALLOCSTRUCT(Elementfuncref,1,0,jc->pool))
+         {
+            funcref->type = ET_FUNCREF;
+            funcref->generation = jc->generation;
+            funcref->linenr = jc->linenr;
+            funcref->func = fobj;
+            elt = funcref;
+         }
       }
    }
    else
@@ -741,11 +1066,11 @@ static void Compileprogram(struct Jcontext *jc,void *pa)
    struct Element *elt;
    ULONG state;
    if(!jc->program)
-   {  if(plist=ALLOCSTRUCT(Elementlist,1,0,jc->pool))
+   {        if(plist=ALLOCSTRUCT(Elementlist,1,0,jc->pool))
       {  plist->type=ET_PROGRAM;
          plist->generation=jc->generation;
          plist->linenr=Plinenr(pa);
-         NEWLIST(&plist->subs);
+         NewList((struct List *)&plist->subs);
       }
       jc->program=plist;
    }
@@ -754,7 +1079,7 @@ static void Compileprogram(struct Jcontext *jc,void *pa)
       {  state=Parserstate(pa);
          if(elt=Element(jc,pa))
          {  if(enode=Newnode(jc->pool,elt))
-            {  ADDTAIL(&plist->subs,enode);
+            {  AddTail((struct List *)&plist->subs,(struct Node *)enode);
             }
          }
          if(state==Parserstate(pa)) Skiptoken(jc,pa,0);
@@ -866,7 +1191,7 @@ static void Defunction(struct Decompile *dc,struct Elementfunc *func)
 {  struct Elementnode *enode;
    BOOL first;
    Addtojbuffer(dc->jb,"function ",-1);
-   Addtojbuffer(dc->jb,func->name,-1);
+   if(func->name) Addtojbuffer(dc->jb,func->name,-1);
    Addtojbuffer(dc->jb,"(",1);
    first=TRUE;
    for(enode=func->subs.first;enode->next;enode=enode->next)
@@ -966,6 +1291,11 @@ static void Dereturn(struct Decompile *dc,struct Element *elt)
    Decompile(dc,elt->sub1);
 }
 
+static void Dethrow(struct Decompile *dc, struct Element *elt)
+{
+    Addtojbuffer(dc->jb,"throw ",-1);
+    Decompile(dc,elt->sub1);
+}
 static void Deinternal(struct Decompile *dc,struct Element *elt)
 {  Addtojbuffer(dc->jb,"{",-1);
    dc->indent++;
@@ -976,6 +1306,49 @@ static void Deinternal(struct Decompile *dc,struct Element *elt)
    Addtojbuffer(dc->jb,"}",-1);
    dc->nosemicolon=TRUE;
 }
+
+static void Defunceval(struct Decompile *dc, struct Element *elt)
+{
+    Addtojbuffer(dc->jb,"{",-1);
+    dc->indent++;
+    Denewline(dc);
+    if(((struct Element *)elt->sub1)->type == ET_STRING)
+    {
+        if(((struct Elementstring *)elt->sub1)->svalue)
+        {
+             Addtojbuffer(dc->jb,((struct Elementstring *)elt->sub1)->svalue,-1);
+        }
+    }
+    else
+    {
+        Decompile(dc,elt->sub1);
+    }
+    dc->indent--;
+    Denewline(dc);
+    Addtojbuffer(dc->jb,"}",-1);
+    dc->nosemicolon=TRUE;
+}
+static void Decase(struct Decompile *dc, struct Elementcase *elt)
+{
+    if(elt->isdefault)
+    {
+        Addtojbuffer(dc->jb,"default ",-1);
+    }
+    else
+    {
+        Addtojbuffer(dc->jb,"case ",-1);
+        if(elt->expr) Decompile(dc,elt->expr);
+    }
+    Addtojbuffer(dc->jb,":",-1);
+
+    Denewline(dc);
+}
+
+static void Depositive(struct Decompile *dc,struct Element *elt)
+{  Addtojbuffer(dc->jb,"+",1);
+   Decompile(dc,elt->sub1);
+}
+
 
 static void Deplus(struct Decompile *dc,struct Element *elt)
 {  short level=Derpar(dc,42);
@@ -1077,6 +1450,22 @@ static void Dene(struct Decompile *dc,struct Element *elt)
 {  short level=Derpar(dc,30);
    Decompile(dc,elt->sub1);
    Addtojbuffer(dc->jb," != ",-1);
+   Decompile(dc,elt->sub2);
+   Delpar(dc,level);
+}
+
+static void Deexeq(struct Decompile *dc,struct Element *elt)
+{  short level=Derpar(dc,30);
+   Decompile(dc,elt->sub1);
+   Addtojbuffer(dc->jb," === ",-1);
+   Decompile(dc,elt->sub2);
+   Delpar(dc,level);
+}
+
+static void Denexeq(struct Decompile *dc,struct Element *elt)
+{  short level=Derpar(dc,30);
+   Decompile(dc,elt->sub1);
+   Addtojbuffer(dc->jb," !== ",-1);
    Decompile(dc,elt->sub2);
    Delpar(dc,level);
 }
@@ -1231,6 +1620,21 @@ static void Decomma(struct Decompile *dc,struct Element *elt)
    Decompile(dc,elt->sub2);
 }
 
+static void Dein(struct Decompile *dc, struct Element *elt)
+{
+   Decompile(dc,elt->sub1);
+   Addtojbuffer(dc->jb," in ",-1);
+   Decompile(dc,elt->sub2);
+}
+
+static void Deinstanceof(struct Decompile *dc, struct Element *elt)
+{
+   Decompile(dc,elt->sub1);
+   Addtojbuffer(dc->jb," instanceof ",-1);
+   Decompile(dc,elt->sub2);
+}
+
+
 static void Dewhile(struct Decompile *dc,struct Element *elt)
 {  Addtojbuffer(dc->jb,"while(",-1);
    Decompile(dc,elt->sub1);
@@ -1306,6 +1710,38 @@ static void Deforin(struct Decompile *dc,struct Element *elt)
    Decompile(dc,elt->sub3);
 }
 
+
+static void Deswitch(struct Decompile *dc, struct Elementswitch *elt)
+{
+    struct Elementnode *enode;
+    Addtojbuffer(dc->jb,"switch(",-1);
+    Decompile(dc,elt->cond);
+    Addtojbuffer(dc->jb,") {",-1);
+    dc->indent++;
+    for(enode=elt->subs.first;enode->next;enode=enode->next)
+    {
+        Denewline(dc);
+        if(enode->sub) Decompile(dc,enode->sub);
+        Desemicolon(dc);
+    }
+    dc->indent--;
+    Denewline(dc);
+
+    Addtojbuffer(dc->jb,"}",-1);
+}
+
+
+static void Detry(struct Decompile *dc, struct Elementtry *elt)
+{
+    Addtojbuffer(dc->jb,"try ",-1);
+    Decompile(dc,elt->try);
+    Addtojbuffer(dc->jb,"catch ",-1);
+    Decompile(dc,elt->catch);
+    Addtojbuffer(dc->jb,"finally ",-1);
+    Decompile(dc,elt->finally);
+
+}
+
 static void Defor(struct Decompile *dc,struct Element *elt)
 {  Addtojbuffer(dc->jb,"for(",-1);
    Decompile(dc,elt->sub1);
@@ -1318,8 +1754,8 @@ static void Defor(struct Decompile *dc,struct Element *elt)
 }
 
 static void Deinteger(struct Decompile *dc,struct Elementint *elt)
-{  UBYTE buf[16];
-   sprintf(buf,"%d",elt->ivalue);
+{  UBYTE buf[24];
+   sprintf(buf,"%g",elt->ivalue);
    Addtojbuffer(dc->jb,buf,-1);
 }
 
@@ -1366,6 +1802,84 @@ static void Deidentifier(struct Decompile *dc,struct Elementstring *elt)
 {  Addtojbuffer(dc->jb,elt->svalue,-1);
 }
 
+static void Deregexp(struct Decompile *dc, struct Elementregexp *elt)
+{
+    Addtojbuffer(dc->jb,"/",1);
+    if(elt->pattern) Addtojbuffer(dc->jb,elt->pattern,-1);
+    Addtojbuffer(dc->jb,"/",1);
+    if(elt->flags) Addtojbuffer(dc->jb,elt->flags,-1);
+}
+
+static void Dearray(struct Decompile *dc,struct Elementlist *elist)
+{  struct Elementnode *enode;
+   BOOL first;
+   Addtojbuffer(dc->jb,"[",1);
+   if(elist->subs.first->next && elist->subs.first->sub)
+   {
+      first=TRUE;
+      for(enode=elist->subs.first;enode && enode->next;enode=enode->next)
+      {  if(enode->sub)
+         {  if(!first)
+            {  Addtojbuffer(dc->jb,", ",-1);
+            }
+            first=FALSE;
+            Decompile(dc,enode->sub);
+         }
+      }
+   }
+   Addtojbuffer(dc->jb,"]",1);
+
+}
+
+static void Deobject(struct Decompile *dc,struct Elementlist *elist)
+{  struct Elementnode *enode;
+   BOOL first;
+   Addtojbuffer(dc->jb,"{",1);
+   if(elist->subs.first->next && elist->subs.first->sub)
+   {
+      first=TRUE;
+      for(enode=elist->subs.first;enode && enode->next;enode=enode->next)
+      {  if(enode->sub)
+         {
+            if(!first)
+            {  Addtojbuffer(dc->jb,", ",-1);
+            }
+            first=FALSE;
+            Decompile(dc,enode->sub);
+            Addtojbuffer(dc->jb,": ",-1);
+            enode=enode->next;
+            if(enode->sub)
+            {
+                Decompile(dc,enode->sub);
+            }
+         }
+      }
+   }
+   Addtojbuffer(dc->jb,"}",1);
+
+}
+
+static void Delabel(struct Decompile *dc, struct Element *elt)
+{
+    Decompile(dc,elt->sub1);
+    Addtojbuffer(dc->jb,":",-1);
+    Decompile(dc,elt->sub2);
+}
+
+static void Defuncref(struct Decompile *dc, struct Elementfuncref *elt)
+{
+   // adebug("\nDEcompiling funcref %08lx function %08lx\n\n",elt,elt->func);
+
+    if(elt->func)
+    {
+        if(elt->func->function)
+        {
+            Decompile(dc,(struct Element *)elt->func->function);
+        }
+    }
+
+}
+
 #ifdef JSDEBUG
 static void Dedebug(struct Decompile *dc,struct Element *elt)
 {  Addtojbuffer(dc->jb,"debug ",-1);
@@ -1384,94 +1898,112 @@ typedef void Decompelement(void *,void *);
 static Decompelement *decomptab[]=
 {
    NULL,
-   Deprogram,
-   Decall,
-   Decompound,
-   Devarlist,
-   Defunction,
-   Debreak,
-   Decontinue,
-   Dethis,
-   Denull,
-   Deempty,
-   Denegative,
-   Denot,
-   Debitneg,
-   Depreinc,
-   Depredec,
-   Depostinc,
-   Depostdec,
-   Denew,
-   Dedelete,
-   Detypeof,
-   Devoid,
-   Dereturn,
-   Deinternal,
-   NULL,          /* funceval */
-   Deplus,
-   Deminus,
-   Demult,
-   Dediv,
-   Derem,
-   Debitand,
-   Debitor,
-   Debitxor,
-   Deshleft,
-   Deshright,
-   Deushright,
-   Deeq,
-   Dene,
-   Delt,
-   Degt,
-   Dele,
-   Dege,
-   Deand,
-   Deor,
-   Deassign,
-   Deaplus,
-   Deaminus,
-   Deamult,
-   Deadiv,
-   Dearem,
-   Deabitand,
-   Deabitor,
-   Deabitxor,
-   Deashleft,
-   Deashright,
-   Deaushright,
-   Decomma,
-   Dewhile,
-   Dedo,
-   Dewith,
-   Dedot,
-   Deindex,
-   Devar,
-   Decond,
-   Deif,
-   Deforin,
-   Defor,
-   Deinteger,
-   Defloat,
-   Deboolean,
-   Destring,
-   Deidentifier,
+   (Decompelement *)Deprogram,
+   (Decompelement *)Decall,
+   (Decompelement *)Decompound,
+   (Decompelement *)Devarlist,
+   (Decompelement *)Detry,
+   (Decompelement *)Defunction,
+   (Decompelement *)Defuncref,
+   (Decompelement *)Debreak,
+   (Decompelement *)Decontinue,
+   (Decompelement *)Dethis,
+   (Decompelement *)Denull,
+   (Decompelement *)Deempty,
+   (Decompelement *)Denegative,
+   (Decompelement *)Depositive,
+   (Decompelement *)Denot,
+   (Decompelement *)Debitneg,
+   (Decompelement *)Depreinc,
+   (Decompelement *)Depredec,
+   (Decompelement *)Depostinc,
+   (Decompelement *)Depostdec,
+   (Decompelement *)Denew,
+   (Decompelement *)Dedelete,
+   (Decompelement *)Detypeof,
+   (Decompelement *)Devoid,
+   (Decompelement *)Dereturn,
+   (Decompelement *)Dethrow,
+   (Decompelement *)Deinternal,
+   (Decompelement *)Defunceval,
+   (Decompelement *)Decase,
+   (Decompelement *)Deplus,
+   (Decompelement *)Deminus,
+   (Decompelement *)Demult,
+   (Decompelement *)Dediv,
+   (Decompelement *)Derem,
+   (Decompelement *)Debitand,
+   (Decompelement *)Debitor,
+   (Decompelement *)Debitxor,
+   (Decompelement *)Deshleft,
+   (Decompelement *)Deshright,
+   (Decompelement *)Deushright,
+   (Decompelement *)Deeq,
+   (Decompelement *)Dene,
+   (Decompelement *)Deexeq,
+   (Decompelement *)Denexeq,
+   (Decompelement *)Delt,
+   (Decompelement *)Degt,
+   (Decompelement *)Dele,
+   (Decompelement *)Dege,
+   (Decompelement *)Deand,
+   (Decompelement *)Deor,
+   (Decompelement *)Deassign,
+   (Decompelement *)Deaplus,
+   (Decompelement *)Deaminus,
+   (Decompelement *)Deamult,
+   (Decompelement *)Deadiv,
+   (Decompelement *)Dearem,
+   (Decompelement *)Deabitand,
+   (Decompelement *)Deabitor,
+   (Decompelement *)Deabitxor,
+   (Decompelement *)Deashleft,
+   (Decompelement *)Deashright,
+   (Decompelement *)Deaushright,
+   (Decompelement *)Decomma,
+   (Decompelement *)Dein,
+   (Decompelement *)Deinstanceof,
+   (Decompelement *)Dewhile,
+   (Decompelement *)Dedo,
+   (Decompelement *)Dewith,
+   (Decompelement *)Dedot,
+   (Decompelement *)Deindex,
+   (Decompelement *)Devar,
+   (Decompelement *)Decond,
+   (Decompelement *)Deif,
+   (Decompelement *)Deforin,
+   (Decompelement *)Deswitch,
+   (Decompelement *)Defor,
+   (Decompelement *)Deinteger,
+   (Decompelement *)Defloat,
+   (Decompelement *)Deboolean,
+   (Decompelement *)Destring,
+   (Decompelement *)Deidentifier,
+   (Decompelement *)Deregexp,
+   (Decompelement *)Dearray,
+   (Decompelement *)Deobject,
+   (Decompelement *)Delabel,
 #ifdef JSDEBUG
-   Dedebug,
+   (Decompelement *)Dedebug,
 #endif
 #ifdef JSADDRESS
-   Deaddress,
+   (Decompelement *)Deaddress,
 #endif
 };
 
 static void Decompile(struct Decompile *dc,struct Element *elt)
 {  if(elt && decomptab[elt->type])
-   {  decomptab[elt->type](dc,elt);
+   {
+       if ((elt->type < sizeof(decomptab)/sizeof(Decompelement *)))
+          decomptab[elt->type](dc,elt);
+
+          else
+       Addtojbuffer(dc->jb,"Decompilation error ", -1);
+
    }
 }
 
 /*-----------------------------------------------------------------------*/
-
-static void Disposelt(struct Element *elt);
 
 static void Diselement(struct Element *elt)
 {  if(elt->sub1) Disposelt(elt->sub1);
@@ -1498,10 +2030,16 @@ static void Disstring(struct Elementstring *elt)
 {  if(elt->svalue) FREE(elt->svalue);
    FREE(elt);
 }
+static void Disregexp(struct Elementregexp *elt)
+{
+    if(elt->pattern) FREE(elt->pattern);
+    if(elt->flags) FREE(elt->flags);
+    FREE(elt);
+}
 
 static void Dislist(struct Elementlist *elt)
 {  struct Elementnode *enode;
-   while(enode=REMHEAD(&elt->subs))
+   while(enode=(struct Elementnode *)RemHead((struct List *)&elt->subs))
    {  if(enode->sub) Disposelt(enode->sub);
       FREE(enode);
    }
@@ -1510,7 +2048,7 @@ static void Dislist(struct Elementlist *elt)
 
 static void Disfunc(struct Elementfunc *elt)
 {  struct Elementnode *enode;
-   while(enode=REMHEAD(&elt->subs))
+   while(enode=(struct Elementnode *)RemHead((struct List *)&elt->subs))
    {  if(enode->sub) Disposelt(enode->sub);
       FREE(enode);
    }
@@ -1525,86 +2063,137 @@ static void Disfunc(struct Elementfunc *elt)
    FREE(elt);
 }
 
+static void Disfuncref(struct Elementfuncref *elt)
+{
+    /* only free ourself as the we don't own the function object */
+    /* but once we are gone we should unkeep the object so it can be disposed */
+    if(elt->func)Keepobject(elt->func,FALSE);
+    FREE(elt);
+}
+
+static void Discase(struct Elementcase *elt)
+{
+    if(elt->expr)
+    {
+        Disposelt(elt->expr);
+        elt->expr=NULL;
+    }
+    FREE(elt);
+}
+
+
+static void Disswitch(struct Elementswitch *elt)
+{
+   struct Elementnode *enode;
+   while(enode=(struct Elementnode *)RemHead((struct List *)&elt->subs))
+   {  if(enode->sub) Disposelt(enode->sub);
+      FREE(enode);
+   }
+   FREE(elt);
+}
+
+static void Distry(struct Elementtry *elt)
+{
+    if(elt->try)Disposelt(elt->try);
+    if(elt->catch)Disposelt(elt->catch);
+    if(elt->finally)Disposelt(elt->finally);
+    FREE(elt);
+}
+
 typedef void Diselementf(void *);
 static Diselementf *distab[]=
 {
    NULL,
-   Dislist,       /* program */
-   Dislist,       /* call */
-   Dislist,       /* compound */
-   Dislist,       /* varlist */
-   Disfunc,       /* function */
-   Diselement,    /* break */
-   Diselement,    /* continue */
-   Diselement,    /* this */
-   Diselement,    /* null */
-   Diselement,    /* empty */
-   Diselement,    /* negative */
-   Diselement,    /* not */
-   Diselement,    /* bitneg */
-   Diselement,    /* preinc */
-   Diselement,    /* predec */
-   Diselement,    /* postinc */
-   Diselement,    /* postdec */
-   Diselement,    /* new */
-   Diselement,    /* delete */
-   Diselement,    /* typeof */
-   Diselement,    /* void */
-   Diselement,    /* return */
-   Disinternal,   /* internal */
-   Diselement,    /* funceval */
-   Diselement,    /* plus */
-   Diselement,    /* minus */
-   Diselement,    /* mult */
-   Diselement,    /* div */
-   Diselement,    /* rem */
-   Diselement,    /* bitand */
-   Diselement,    /* bitor */
-   Diselement,    /* bitxor */
-   Diselement,    /* shleft */
-   Diselement,    /* shright */
-   Diselement,    /* ushright */
-   Diselement,    /* eq */
-   Diselement,    /* ne */
-   Diselement,    /* lt */
-   Diselement,    /* gt */
-   Diselement,    /* le */
-   Diselement,    /* ge */
-   Diselement,    /* and */
-   Diselement,    /* or */
-   Diselement,    /* assign */
-   Diselement,    /* aplus */
-   Diselement,    /* aminus */
-   Diselement,    /* amult */
-   Diselement,    /* adiv */
-   Diselement,    /* arem */
-   Diselement,    /* abitand */
-   Diselement,    /* abitor */
-   Diselement,    /* abitxor */
-   Diselement,    /* ashleft */
-   Diselement,    /* ashright */
-   Diselement,    /* aushright */
-   Diselement,    /* comma */
-   Diselement,    /* while */
-   Diselement,    /* do */
-   Diselement,    /* with */
-   Diselement,    /* dot */
-   Diselement,    /* index */
-   Diselement,    /* var */
-   Diselement,    /* cond */
-   Diselement,    /* if */
-   Diselement,    /* forin */
-   Diselement,    /* for */
-   Disint,        /* integer */
-   Disfloat,      /* float */
-   Disint,        /* boolean */
-   Disstring,     /* string */
-   Disstring,     /* identifier */
+   (Diselementf *)Dislist,       /* program */
+   (Diselementf *)Dislist,       /* call */
+   (Diselementf *)Dislist,       /* compound */
+   (Diselementf *)Dislist,       /* varlist */
+   (Diselementf *)Distry,        /* try catch */
+   (Diselementf *)Disfunc,       /* function */
+   (Diselementf *)Disfuncref,    /* funcref */
+   (Diselementf *)Diselement,    /* break */
+   (Diselementf *)Diselement,    /* continue */
+   (Diselementf *)Diselement,    /* this */
+   (Diselementf *)Diselement,    /* null */
+   (Diselementf *)Diselement,    /* empty */
+   (Diselementf *)Diselement,    /* negative */
+   (Diselementf *)Diselement,    /* positive */
+   (Diselementf *)Diselement,    /* not */
+   (Diselementf *)Diselement,    /* bitneg */
+   (Diselementf *)Diselement,    /* preinc */
+   (Diselementf *)Diselement,    /* predec */
+   (Diselementf *)Diselement,    /* postinc */
+   (Diselementf *)Diselement,    /* postdec */
+   (Diselementf *)Diselement,    /* new */
+   (Diselementf *)Diselement,    /* delete */
+   (Diselementf *)Diselement,    /* typeof */
+   (Diselementf *)Diselement,    /* void */
+   (Diselementf *)Diselement,    /* return */
+   (Diselementf *)Diselement,    /* throw */
+   (Diselementf *)Disinternal,   /* internal */
+   (Diselementf *)Diselement,    /* funceval */
+   (Diselementf *)Discase,       /* case */
+   (Diselementf *)Diselement,    /* plus */
+   (Diselementf *)Diselement,    /* minus */
+   (Diselementf *)Diselement,    /* mult */
+   (Diselementf *)Diselement,    /* div */
+   (Diselementf *)Diselement,    /* rem */
+   (Diselementf *)Diselement,    /* bitand */
+   (Diselementf *)Diselement,    /* bitor */
+   (Diselementf *)Diselement,    /* bitxor */
+   (Diselementf *)Diselement,    /* shleft */
+   (Diselementf *)Diselement,    /* shright */
+   (Diselementf *)Diselement,    /* ushright */
+   (Diselementf *)Diselement,    /* eq */
+   (Diselementf *)Diselement,    /* ne */
+   (Diselementf *)Diselement,    /* exeq */
+   (Diselementf *)Diselement,    /* nexeq */
+   (Diselementf *)Diselement,    /* lt */
+   (Diselementf *)Diselement,    /* gt */
+   (Diselementf *)Diselement,    /* le */
+   (Diselementf *)Diselement,    /* ge */
+   (Diselementf *)Diselement,    /* and */
+   (Diselementf *)Diselement,    /* or */
+   (Diselementf *)Diselement,    /* assign */
+   (Diselementf *)Diselement,    /* aplus */
+   (Diselementf *)Diselement,    /* aminus */
+   (Diselementf *)Diselement,    /* amult */
+   (Diselementf *)Diselement,    /* adiv */
+   (Diselementf *)Diselement,    /* arem */
+   (Diselementf *)Diselement,    /* abitand */
+   (Diselementf *)Diselement,    /* abitor */
+   (Diselementf *)Diselement,    /* abitxor */
+   (Diselementf *)Diselement,    /* ashleft */
+   (Diselementf *)Diselement,    /* ashright */
+   (Diselementf *)Diselement,    /* aushright */
+   (Diselementf *)Diselement,    /* comma */
+   (Diselementf *)Diselement,    /* in */
+   (Diselementf *)Diselement,    /* instanceof */
+   (Diselementf *)Diselement,    /* while */
+   (Diselementf *)Diselement,    /* do */
+   (Diselementf *)Diselement,    /* with */
+   (Diselementf *)Diselement,    /* dot */
+   (Diselementf *)Diselement,    /* index */
+   (Diselementf *)Diselement,    /* var */
+   (Diselementf *)Diselement,    /* cond */
+   (Diselementf *)Diselement,    /* if */
+   (Diselementf *)Diselement,    /* forin */
+   (Diselementf *)Disswitch,     /* switch */
+   (Diselementf *)Diselement,    /* for */
+   (Diselementf *)Disint,        /* integer */
+   (Diselementf *)Disfloat,      /* float */
+   (Diselementf *)Disint,        /* boolean */
+   (Diselementf *)Disstring,     /* string */
+   (Diselementf *)Disstring,     /* identifier */
+   (Diselementf *)Disregexp,     /* regexp */
+   (Diselementf *)Dislist,       /* array */
+   (Diselementf *)Dislist,       /* object */
+   (Diselementf *)Diselement,    /* label */
 #ifdef JSDEBUG
-   Diselement,    /* debug */
+   (Diselementf *)Diselement,    /* debug */
 #endif
 #ifdef JSADDRESS
-   Diselement,    /* address */
+   (Diselementf *)Diselement,    /* address */
 #endif
 };
 
@@ -1630,8 +2219,8 @@ struct Jobject *Jcompiletofunction(struct Jcontext *jc,UBYTE *source,UBYTE *name
    struct Jobject *fobj=NULL;
    struct Jcontext jc2={0};
    jc2.pool=jc->pool;
-   NEWLIST(&jc2.objects);
-   NEWLIST(&jc2.functions);
+   NewList((struct List *)&jc2.objects);
+   NewList((struct List *)&jc2.functions);
    jc2.generation=jc->generation;
    Jcompile(&jc2,source);
    if(!(jc2.flags&JCF_ERROR))
@@ -1639,7 +2228,7 @@ struct Jobject *Jcompiletofunction(struct Jcontext *jc,UBYTE *source,UBYTE *name
       {  func->type=ET_FUNCTION;
          func->generation=jc->generation;
          func->linenr=0;
-         NEWLIST(&func->subs);
+         NewList((struct List *)&func->subs);
          func->name=Jdupstr(name,-1,jc->pool);
          func->name[0]=toupper(func->name[0]);
          func->body=jc2.program;

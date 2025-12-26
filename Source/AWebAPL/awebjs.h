@@ -71,6 +71,7 @@ extern struct Hook idcmphook;
 /*-----------------------------------------------------------------------*/
 
 typedef BOOL Jfeedback(struct Jcontext *jc);
+#define NUM_ERRORTYPES  6
 
 struct Jcontext
 {  void *pool;
@@ -100,11 +101,15 @@ struct Jcontext
                                * for standard JS defined variables. */
    struct Jobject *tostring;  /* General default toString function */
    struct Jobject *eval;      /* General standard eval function */
+   struct Jobject *object;    /* Standard Object constructor function */
    struct Jobject *boolean;   /* Standard Boolean constructor function */
    struct Jobject *function;  /* Standard Function constructor function */
    struct Jobject *number;    /* Standard Number constructor function */
    struct Jobject *string;    /* Standard String constructor function */
    struct Jobject *array;     /* Standard Array constructor function */
+   struct Jobject *regexp;    /* Standard Regular Expression function */
+   struct Jobject *error;      /* Standard Error constructor function */
+   struct Jobject *nativeErrors[NUM_ERRORTYPES]; /*Native error constructors */
 };
 
 #define JCF_ERROR       0x0001   /* Compiler error occurred */
@@ -255,6 +260,7 @@ struct Jbuffer
 struct Token
 {  USHORT id;
    UBYTE *svalue;
+   UBYTE *svalue2;  /* added to handle regexp flags typical regexp literal parses /svalue/svalue2 */
    long ivalue;
    double fvalue;
 };
@@ -270,20 +276,22 @@ enum JTOKEN_IDS
    JT_CONTINUE,JT_DELETE,JT_DO,JT_ELSE,JT_FOR,JT_FUNCTION,
    JT_IF,JT_IN,JT_NEW,JT_RETURN,JT_THIS,
    JT_TYPEOF,JT_VAR,JT_VOID,JT_WHILE,JT_WITH,
+   JT_INSTANCEOF,JT_THROW,JT_TRY,JT_CATCH,JT_FINALLY,
+   JT_SWITCH,JT_CASE,JT_DEFAULT,
 
    JT_IDENTIFIER=JTT_IDENTIFIER+1,
    
    JT_INTEGERLIT=JTT_LITERAL+1,
-   JT_FLOATLIT,JT_BOOLEANLIT,JT_STRINGLIT,JT_NULLLIT,
+   JT_FLOATLIT,JT_BOOLEANLIT,JT_STRINGLIT,JT_NULLLIT,JT_REGEXPLIT,
    
    JT_LEFTPAR=JTT_SEPARATOR+1,JT_RIGHTPAR,
    JT_LEFTBRACE,JT_RIGHTBRACE,
    JT_LEFTBRACKET,JT_RIGHTBRACKET,
-   JT_SEMICOLON,JT_COMMA,
+   JT_SEMICOLON,JT_COMMA,JT_NEWLINE,
    
    JT_ASSIGN=JTT_OPERATOR+1,
    JT_GT,JT_LT,JT_NOT,JT_BITNEG,JT_CONDIF,JT_CONDELSE,JT_DOT,
-   JT_EQ,JT_LE,JT_GE,JT_NE,JT_AND,JT_OR,JT_INC,JT_DEC,
+   JT_EQ,JT_LE,JT_GE,JT_NE,JT_EXEQ,JT_NEXEQ,JT_AND,JT_OR,JT_INC,JT_DEC,
    JT_PLUS,JT_MINUS,JT_MULT,JT_DIV,JT_REM,JT_BITAND,JT_BITOR,JT_BITXOR,
    JT_SHLEFT,JT_SHRIGHT,JT_USHRIGHT,
    JT_APLUS,JT_AMINUS,JT_AMULT,JT_ADIV,JT_AREM,JT_ABITAND,JT_ABITOR,JT_ABITXOR,
@@ -300,43 +308,60 @@ enum JTOKEN_IDS
 /*-----------------------------------------------------------------------*/
 
 struct Element             /* A compiler element */
-{  USHORT type;            /* Element type */
+{  UWORD type;            /* Element type */
    long generation;
    short linenr;
    void *sub1,*sub2,*sub3,*sub4;
                            /* Child elements. */
 };
 
+/* There should really be a difference between integers and floats in this way */
+/* Ultimately they both get converted to double, so quick fix is to store ivalue*/
+/* as a double. Stops very large numbers going negative */
+
 struct Elementint          /* An integer type literal */
-{  USHORT type;
+{  UWORD type;
    long generation;
    short linenr;
-   long ivalue;
+   double ivalue;
 };
 
 struct Elementfloat        /* A float type literal */
-{  USHORT type;
+{  UWORD type;
    long generation;
    short linenr;
    double fvalue;
 };
 
 struct Elementstring       /* A string literal, or ID name */
-{  USHORT type;
+{  UWORD type;
    long generation;
    short linenr;
    UBYTE *svalue;
 };
 
+struct Elementregexp        /* A regular expression literal */
+{
+    UWORD type;
+    long generation;
+    short linenr;
+    UBYTE *pattern;
+    UBYTE *flags;
+};
+
+/* array literal uses Elementlist */
+
+/* object literal uses Elementlist */
+
 struct Elementlist         /* A list type compiler element */
-{  USHORT type;            /* Element type */
+{  UWORD type;            /* Element type */
    long generation;
    short linenr;
    LIST(Elementnode) subs; /* List of child element references */
 };
 
 struct Elementfunc         /* A function [object] definition */
-{  USHORT type;            /* ET_FUNCTION */
+{  UWORD type;            /* ET_FUNCTION */
    long generation;
    short linenr;
    UBYTE *name;            /* Function name or NULL */
@@ -344,6 +369,45 @@ struct Elementfunc         /* A function [object] definition */
    void *body;             /* Function body */
    struct Jobject *fscope; /* Scope for which function is defined, i.e. scope to look
                             * for global variables used in function body. */
+};
+
+struct Elementfuncref      /* Return a function reference */
+{
+    UWORD type;            /* ET_FUNCREF */
+    long generation;
+    short linenr;
+    struct Jobject *func;  /* the object holding the function */
+};
+
+struct Elementswitch       /* a switch statement */
+{
+    UWORD type;            /* ET_SWITCH */
+    long generation;
+    short linenr;
+    void *cond;
+    LIST(Elementnode) subs;
+    void *defaultcase;
+};
+
+struct Elementcase
+{
+    UWORD type;            /* ET_CASE */  /* ET_DEFAULT */
+    long generation;
+    short linenr;
+    void *expr;            /* case label or expression null for default */
+    BOOL isdefault;        /* is the default case */
+};
+
+struct Elementtry
+{
+    UWORD type;
+    long generation;
+    short linenr;
+    struct Jobject *throw;
+    void *try;
+    void *catch;
+    void *catchvar;
+    void *finally;
 };
 
 struct Elementnode         /* A listnode reference to another element */
@@ -360,8 +424,10 @@ enum ELEMENT_TYPES
    ET_COMPOUND,            /* List of elements */
    ET_VARLIST,             /* List of ET_VAR which are variable declarations */
    
+   ET_TRY,
    /* Function type elements */
    ET_FUNCTION,
+   ET_FUNCREF,
 
    /* Nullary elements */
    ET_BREAK,ET_CONTINUE,
@@ -370,33 +436,35 @@ enum ELEMENT_TYPES
    ET_EMPTY,
    
    /* Unary elements */
-   ET_NEGATIVE,ET_NOT,ET_BITNEG,
+   ET_NEGATIVE,ET_POSITIVE,ET_NOT,ET_BITNEG,
    ET_PREINC,ET_PREDEC,ET_POSTINC,ET_POSTDEC,
-   ET_NEW,ET_DELETE,ET_TYPEOF,ET_VOID,ET_RETURN,
+   ET_NEW,ET_DELETE,ET_TYPEOF,ET_VOID,ET_RETURN,ET_THROW,
    ET_INTERNAL,            /* Internal function */
    ET_FUNCEVAL,            /* Evaluate Function object body */
+   ET_CASE,
    
    /* Binary elements */
    ET_PLUS,ET_MINUS,ET_MULT,ET_DIV,ET_REM,ET_BITAND,ET_BITOR,ET_BITXOR,
    ET_SHLEFT,ET_SHRIGHT,ET_USHRIGHT,
-   ET_EQ,ET_NE,ET_LT,ET_GT,ET_LE,ET_GE,
+   ET_EQ,ET_NE,ET_EXEQ,ET_NEXEQ,ET_LT,ET_GT,ET_LE,ET_GE,
    ET_AND,ET_OR,
    ET_ASSIGN,
    ET_APLUS,ET_AMINUS,ET_AMULT,ET_ADIV,ET_AREM,ET_ABITAND,ET_ABITOR,ET_ABITXOR,
    ET_ASHLEFT,ET_ASHRIGHT,ET_AUSHRIGHT,
-   ET_COMMA,
+   ET_COMMA,ET_IN,ET_INSTANCEOF,
    ET_WHILE,ET_DO,ET_WITH,ET_DOT,ET_INDEX,
    ET_VAR,
    
    /* Ternary elements */
-   ET_COND,ET_IF,ET_FORIN,
+   ET_COND,ET_IF,ET_FORIN,ET_SWITCH,
    
    /* Quarnery elements */
    ET_FOR,
    
    /* Literals and identifier */
    ET_INTEGER,ET_FLOAT,ET_BOOLEAN,ET_STRING,
-   ET_IDENTIFIER,
+   ET_IDENTIFIER,ET_REGEXP,ET_ARRAY,ET_OBJECTLIT,
+   ET_LABEL,
 
 #ifdef JSDEBUG
    ET_DEBUG,

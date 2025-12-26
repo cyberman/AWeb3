@@ -120,6 +120,9 @@ extern void Disposeobject(struct Jobject *jo);
 extern void Clearobject(struct Jobject *jo,UBYTE **except);
 extern struct Variable *Addproperty(struct Jobject *jo,UBYTE *name);
 extern struct Variable *Findproperty(struct Jobject *jo,UBYTE *name);
+extern struct Variable *Getownproperty(struct Jobject *jo,UBYTE *name);
+extern struct Variable *Getproperty(struct Jobject *jo,UBYTE *name);
+extern struct Variable *Deleteownproperty(struct Jobject *jo,UBYTE *name);
 
    // Objhook for .prototype
 extern BOOL Prototypeohook(struct Objhookdata *h);
@@ -182,7 +185,10 @@ extern struct Variable *Addinternalproperty(struct Jcontext *jc,
    struct Jobject *jo,struct Jobject *f);
 
    // Adds the .prototype property to a function object
-extern void Addprototype(struct Jcontext *jc,struct Jobject *jo);
+extern void Addprototype(struct Jcontext *jc,struct Jobject *jo, struct Jobject *prototype);
+
+   // Get prototype object from a function object
+extern struct Jobject *Getprototype(struct Jobject *jo);
 
    // Add a function object to the object's prototype
 extern void Addtoprototype(struct Jcontext *jc,struct Jobject *jo,struct Jobject *f);
@@ -241,6 +247,18 @@ extern ULONG Parserstate(struct Parser *pa);
 
    // Get current line number
 extern long Plinenr(struct Parser *pa);
+
+   // Save parser state for backtracking
+extern void *Saveparser(struct Jcontext *jc, struct Parser *pa);
+
+   // Restore parser state from saved state
+extern void Restoreparser(struct Jcontext *jc, struct Parser *pa, void *saved);
+
+   // Free saved parser state
+extern void Freesavedparser(struct Jcontext *jc, void *saved);
+
+   // Skip newlines as whitespace
+extern void Pskipnewline(struct Parser *pa, BOOL skip);
 
 /*-----------------------------------------------------------------------*/
 /*-- memory -------------------------------------------------------------*/

@@ -1930,16 +1930,29 @@ struct Variable *Addinternalproperty(struct Jcontext *jc,struct Jobject *jo,stru
 }
 
 /* Adds the .prototype property to a function object */
-void Addprototype(struct Jcontext *jc,struct Jobject *jo)
+void Addprototype(struct Jcontext *jc,struct Jobject *jo, struct Jobject *prototype)
 {  struct Variable *prop;
    struct Jobject *pro;
    if(prop=Addproperty(jo,"prototype"))
    {  if(pro=Newobject(jc))
       {  pro->constructor=jo;
          pro->hook=Prototypeohook;
+         if(prototype) pro->prototype=prototype;
          Asgobject(&prop->val,pro);
       }
+      prop->flags |= (VARF_DONTDELETE|VARF_HIDDEN);
    }
+}
+
+struct Jobject *Getprototype(struct Jobject *jo)
+{
+    struct Variable *proto;
+    if((proto=Getownproperty(jo,"prototype"))
+    && proto->val.type==VTP_OBJECT && proto->val.value.obj.ovalue)
+    {
+        return proto->val.value.obj.ovalue;
+    }
+    return NULL;
 }
 
 /* Add a function object to the object's prototype */
