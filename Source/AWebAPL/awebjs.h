@@ -47,10 +47,14 @@
 #define STRIEQUAL(a,b)     !stricmp(a,b)
 #define STREQUAL(a,b)      !strcmp(a,b)
 
+#ifndef BOOLVAL
 #define BOOLVAL(x)         ((x)?TRUE:FALSE)
+#endif
 
+#ifndef ALLOCTYPE
 #define ALLOCTYPE(t,n,f,p)    (t*)Pallocmem((n)*sizeof(t),(f)|MEMF_PUBLIC,p)
 #define ALLOCSTRUCT(s,n,f,p)  ALLOCTYPE(struct s,n,f,p)
+#endif
 #define FREE(p)               Freemem(p)
 
 #define ALLOCOBJECT(jc)      (struct Jobject *)Pallocmem(sizeof(struct Jobject),MEMF_PUBLIC,jc->objpool)
@@ -68,7 +72,7 @@
 #endif
 
 extern struct Locale *locale;
-extern struct Library *LocaleBase;
+/* LocaleBase is provided by proto/locale.h */
 extern struct Hook idcmphook;
 
 /*-----------------------------------------------------------------------*/

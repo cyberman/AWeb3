@@ -1,5 +1,6 @@
 FROM     jslib.o jparse.o jcomp.o jdata.o jexe.o jmemory.o jobject.o jdebug.o
-FROM     jarray.o jboolean.o jdate.o jfunction.o jmath.o jnumber.o jstring.o jerror.o
+FROM     jarray.o jboolean.o jdate.o jfunction.o jmath.o jnumber.o jstring.o jerror.o jregexp.o
+FROM     regexp/pcre.o
 
 TO       aweblib/awebjs.aweblib
 

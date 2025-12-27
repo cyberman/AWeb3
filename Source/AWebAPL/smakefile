@@ -452,7 +452,8 @@ awebjs.o:   awebjs.c jslib.h keyfile.h
 #- awebjs.aweblib ------------------------------------------------------------
 
 aweblib/awebjs.aweblib:   jslib.o jparse.o jcomp.o jdata.o jexe.o jmemory.o jobject.o jdebug.o
-aweblib/awebjs.aweblib:   jarray.o jboolean.o jdate.o jfunction.o jmath.o jnumber.o jstring.o
+aweblib/awebjs.aweblib:   jarray.o jboolean.o jdate.o jerror.o jfunction.o jmath.o jnumber.o jstring.o jregexp.o
+aweblib/awebjs.aweblib:   regexp/pcre.o
 aweblib/awebjs.aweblib:   jslib.lnk
    c/remlib awebjs.aweblib
    slink with jslib.lnk
@@ -487,6 +488,10 @@ jexe.o:     jexe.c awebjs.h
    @echo "        Compiling $*..."
    @sc $(DEBUG) $*.c
 
+jerror.o:   jerror.c awebjs.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
 jfunction.o: jfunction.c awebjs.h
    @echo "        Compiling $*..."
    @sc $(DEBUG) $*.c
@@ -510,6 +515,14 @@ jobject.o:  jobject.c awebjs.h
 jparse.o:   jparse.c awebjs.h
    @echo "        Compiling $*..."
    @sc $(DEBUG) $*.c
+
+jregexp.o:  jregexp.c awebjs.h regexp.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+regexp/pcre.o:   regexp/pcre.c regexp/pcre.h regexp/internal.h regexp/config.h regexp/chartables.c
+   @echo "        Compiling regexp/pcre..."
+   @sc $(DEBUG) idir=regexp: regexp/pcre.c to regexp/pcre.o
 
 markdown.o: markdown.c aweb.h html.h application.h docprivate.h
    @echo "        Compiling $*..."
