@@ -161,6 +161,12 @@ extern void Dumpobjects(struct Jcontext *jc);
 
 extern void Initdate(struct Jcontext *jc, struct Jobject *jscope);
 
+/*-----------------------------------------------------------------------*/
+/*-- jerror -------------------------------------------------------------*/
+/*-----------------------------------------------------------------------*/
+
+extern void Initerror(struct Jcontext *jc, struct Jobject *jscope);
+
 extern struct Jobject *Newerror(struct Jcontext *jc,UBYTE *message);
 extern struct Jobject *Newnativeerror(struct Jcontext *jc, STRPTR type, UBYTE *message);
 

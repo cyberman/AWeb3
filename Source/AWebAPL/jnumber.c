@@ -364,8 +364,9 @@ void Initnumber(struct Jcontext *jc, struct Jobject *jscope)
       {
          jc->number=jo;
          /* Also add to global scope so it can be found by Findvar */
-         if(jc->functions.last && jc->functions.last->fscope)
-         {  if((prop = Addproperty(jc->functions.last->fscope,"Number")))
+         /* Add to jc->fscope which is used by Jexecute */
+         if(jc->fscope)
+         {  if((prop = Addproperty(jc->fscope,"Number")))
             {  Asgobject(&prop->val,jo);
                prop->flags |= VARF_DONTDELETE;
                Keepobject(jo,FALSE);

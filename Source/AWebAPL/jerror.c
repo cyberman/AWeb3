@@ -125,8 +125,9 @@ void Initerror(struct Jcontext *jc, struct Jobject *jscope)
       }
       else
       {  /* Add to global scope so it can be found by Findvar */
-         if(jc->functions.last && jc->functions.last->fscope)
-         {  if((prop = Addproperty(jc->functions.last->fscope,"Error")))
+         /* Add to jc->fscope which is used by Jexecute */
+         if(jc->fscope)
+         {  if((prop = Addproperty(jc->fscope,"Error")))
             {  Asgobject(&prop->val,jerror);
                prop->flags |= VARF_DONTDELETE;
             }
@@ -161,8 +162,9 @@ void Initerror(struct Jcontext *jc, struct Jobject *jscope)
           }
           else
           {  /* Add to global scope so it can be found by Findvar */
-             if(jc->functions.last && jc->functions.last->fscope)
-             {  if((prop = Addproperty(jc->functions.last->fscope,NTE_TYPE)))
+             /* Add to jc->fscope which is used by Jexecute */
+             if(jc->fscope)
+             {  if((prop = Addproperty(jc->fscope,NTE_TYPE)))
                 {  Asgobject(&prop->val,jo);
                    prop->flags |= VARF_DONTDELETE;
                 }
@@ -201,8 +203,9 @@ void Initerror(struct Jcontext *jc, struct Jobject *jscope)
           }
           else
           {  /* Add to global scope so it can be found by Findvar */
-             if(jc->functions.last && jc->functions.last->fscope)
-             {  if((prop = Addproperty(jc->functions.last->fscope,NTE_EVAL)))
+             /* Add to jc->fscope which is used by Jexecute */
+             if(jc->fscope)
+             {  if((prop = Addproperty(jc->fscope,NTE_EVAL)))
                 {  Asgobject(&prop->val,jo);
                    prop->flags |= VARF_DONTDELETE;
                 }
@@ -236,8 +239,9 @@ void Initerror(struct Jcontext *jc, struct Jobject *jscope)
           }
           else
           {  /* Add to global scope so it can be found by Findvar */
-             if(jc->functions.last && jc->functions.last->fscope)
-             {  if((prop = Addproperty(jc->functions.last->fscope,NTE_RANGE)))
+             /* Add to jc->fscope which is used by Jexecute */
+             if(jc->fscope)
+             {  if((prop = Addproperty(jc->fscope,NTE_RANGE)))
                 {  Asgobject(&prop->val,jo);
                    prop->flags |= VARF_DONTDELETE;
                 }
@@ -271,8 +275,9 @@ void Initerror(struct Jcontext *jc, struct Jobject *jscope)
           }
           else
           {  /* Add to global scope so it can be found by Findvar */
-             if(jc->functions.last && jc->functions.last->fscope)
-             {  if((prop = Addproperty(jc->functions.last->fscope,NTE_SYNTAX)))
+             /* Add to jc->fscope which is used by Jexecute */
+             if(jc->fscope)
+             {  if((prop = Addproperty(jc->fscope,NTE_SYNTAX)))
                 {  Asgobject(&prop->val,jo);
                    prop->flags |= VARF_DONTDELETE;
                 }
@@ -307,8 +312,9 @@ void Initerror(struct Jcontext *jc, struct Jobject *jscope)
           }
           else
           {  /* Add to global scope so it can be found by Findvar */
-             if(jc->functions.last && jc->functions.last->fscope)
-             {  if((prop = Addproperty(jc->functions.last->fscope,NTE_REFERENCE)))
+             /* Add to jc->fscope which is used by Jexecute */
+             if(jc->fscope)
+             {  if((prop = Addproperty(jc->fscope,NTE_REFERENCE)))
                 {  Asgobject(&prop->val,jo);
                    prop->flags |= VARF_DONTDELETE;
                 }
@@ -340,8 +346,9 @@ void Initerror(struct Jcontext *jc, struct Jobject *jscope)
           }
           else
           {  /* Add to global scope so it can be found by Findvar */
-             if(jc->functions.last && jc->functions.last->fscope)
-             {  if((prop = Addproperty(jc->functions.last->fscope,NTE_URI)))
+             /* Add to jc->fscope which is used by Jexecute */
+             if(jc->fscope)
+             {  if((prop = Addproperty(jc->fscope,NTE_URI)))
                 {  Asgobject(&prop->val,jo);
                    prop->flags |= VARF_DONTDELETE;
                 }

@@ -771,19 +771,28 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
    LIST(Jobject) temps;
    struct Jobject *jo,*jn;
    unsigned int clock[2]={ 0,0 };
-   if(AwebPluginBase) Aprintf("[JS] Runjprogram: entry, jc=%p, source=%p\n", jc, source);
    if(jc && source)
-   {  if(AwebPluginBase) Aprintf("[JS] Runjprogram: setting up hooks\n");
-      idcmphook.h_Entry=(HOOKFUNC)Idcmphook;
+   {  idcmphook.h_Entry=(HOOKFUNC)Idcmphook;
       idcmphook.h_Data=jc;
       jc->flags&=~(JCF_ERROR|JCF_IGNORE|EXF_STOP);
       jc->generation++;
       jc->fscope=fscope;
+      /* Ensure built-in objects are in the fscope - add them if not already present */
+      if(fscope && !Getproperty(fscope,"Math"))
+      {  Initmath(jc,fscope);
+         Initarray(jc,fscope);
+         Initdate(jc,fscope);
+         Initobject(jc,fscope);
+         Initboolean(jc,fscope);
+         Initfunction(jc,fscope);
+         Initnumber(jc,fscope);
+         Initstring(jc,fscope);
+         Initregexp(jc,fscope);
+         Initerror(jc,fscope);
+      }
       jc->warntime=0;
       jc->warnmem=0;
-      if(AwebPluginBase) Aprintf("[JS] Runjprogram: calling Jcompile\n");
       Jcompile(jc,source);
-      if(AwebPluginBase) Aprintf("[JS] Runjprogram: Jcompile returned, flags=0x%04x\n", jc->flags);
       jc->linenr=0;
       if(!(jc->flags&JCF_ERROR))
       {  /* Remember existing temporary objects (see comment in jexe.c:Exedot()) */
@@ -810,9 +819,7 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
             jc->warntime=clock[0]+60;
             jc->warnmem=AvailMem(0)/4;
          }
-         if(AwebPluginBase) Aprintf("[JS] Runjprogram: calling Jexecute\n");
          Jexecute(jc,jthis,gwtab);
-         if(AwebPluginBase) Aprintf("[JS] Runjprogram: Jexecute returned\n");
          if(jc->dflags&DEBF_DOPEN)
          {  Stopdebugger(jc);
          }
@@ -833,7 +840,6 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
          }
       }
    }
-   if(AwebPluginBase) Aprintf("[JS] Runjprogram: exit, result=%d\n", result);
    return result;
 }
 
@@ -877,32 +883,17 @@ __asm __saveds struct Jobject *AddjfunctionA(
    register __a4 UBYTE **args)
 {  struct Jobject *f=NULL;
    struct Variable *prop;
-   if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: entry, jo=%p, name='%s', code=%p\n", jo, name ? (char *)name : "(null)", code);
    if(name)
    {  if((prop=Getownproperty(jo,name))
       || (prop=Addproperty(jo,name)))
-      {  if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: property found/added, prop=%p\n", prop);
-         if(f=InternalfunctionA(jc,name,code,args))
-         {  if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: InternalfunctionA returned f=%p, f->function=%p\n", f, f->function);
-            if(f->function)
+      {  if(f=InternalfunctionA(jc,name,code,args))
+         {  if(f->function)
             {  f->function->fscope=jo;
-               if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: set f->function->fscope=%p\n", jo);
-            }
-            else
-            {  if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: WARNING - f->function is NULL!\n");
             }
             Asgfunction(&prop->val,f,jo);
-            if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: Asgfunction called, prop->val.type=%d, prop->val.value.obj.ovalue=%p, f->function=%p\n", prop->val.type, prop->val.value.obj.ovalue, f ? f->function : NULL);
          }
-         else
-         {  if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: ERROR - InternalfunctionA returned NULL\n");
-         }
-      }
-      else
-      {  if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: ERROR - could not get/add property\n");
       }
    }
-   if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: exit, returning f=%p\n", f);
    return f;
 }
 

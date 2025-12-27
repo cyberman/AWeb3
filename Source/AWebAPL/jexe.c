@@ -1725,21 +1725,12 @@ static void Exeassign(struct Jcontext *jc,struct Element *elt)
    jc->flags&=~EXF_ASGONLY;
    lhs=jc->varref;
    if(lhs)
-   {  if(AwebPluginBase && lhs->name) Aprintf("[JS] Exeassign: assigning to '%s'\n", lhs->name);
-      Executeelem(jc,elt->sub2);
-      if(AwebPluginBase) Aprintf("[JS] Exeassign: after Executeelem, jc->val->type=%d, attr=%d", jc->val->type, jc->val->attr);
-      if(jc->val->type==VTP_NUMBER && AwebPluginBase) Aprintf(", nvalue=%g", jc->val->value.nvalue);
-      if(AwebPluginBase) Aprintf("\n");
+   {  Executeelem(jc,elt->sub2);
       if(!Callvhook(lhs,jc,VHC_SET,jc->val))
       {  Asgvalue(&lhs->val,jc->val);
-         if(AwebPluginBase) Aprintf("[JS] Exeassign: after Asgvalue, lhs->val.type=%d, attr=%d", lhs->val.type, lhs->val.attr);
-         if(lhs->val.type==VTP_NUMBER && AwebPluginBase) Aprintf(", nvalue=%g", lhs->val.value.nvalue);
-         if(AwebPluginBase) Aprintf("\n");
          lhs->flags&=~VARF_HIDDEN;
       }
-
    }
-   else if(AwebPluginBase) Aprintf("[JS] Exeassign: ERROR - lhs is NULL!\n");
 }
 
 static void Execomma(struct Jcontext *jc,struct Element *elt)
@@ -1948,25 +1939,16 @@ static void Exevar(struct Jcontext *jc,struct Element *elt)
 {  struct Elementstring *vid=elt->sub1;
    struct Variable *var;
    if(vid && vid->type==ET_IDENTIFIER)
-   {  if(AwebPluginBase) Aprintf("[JS] Exevar: declaring variable '%s'\n", vid->svalue);
-      var=Findlocalvar(jc,vid->svalue);
+   {  var=Findlocalvar(jc,vid->svalue);
       if(var)
-      {  if(AwebPluginBase) Aprintf("[JS] Exevar: variable found/created, var=%p\n", var);
-         if(elt->sub2)
+      {  if(elt->sub2)
          {  Executeelem(jc,elt->sub2);
-            if(AwebPluginBase) Aprintf("[JS] Exevar: after Executeelem, jc->val->type=%d, attr=%d", jc->val->type, jc->val->attr);
-            if(jc->val->type==VTP_NUMBER && AwebPluginBase) Aprintf(", nvalue=%g", jc->val->value.nvalue);
-            if(AwebPluginBase) Aprintf("\n");
             Asgvalue(&var->val,jc->val);
-            if(AwebPluginBase) Aprintf("[JS] Exevar: after Asgvalue, var->val.type=%d, attr=%d", var->val.type, var->val.attr);
-            if(var->val.type==VTP_NUMBER && AwebPluginBase) Aprintf(", nvalue=%g", var->val.value.nvalue);
-            if(AwebPluginBase) Aprintf("\n");
          }
          var->flags |= VARF_DONTDELETE;
          jc->varref=var;
          jc->flags|=EXF_KEEPREF;
       }
-      else if(AwebPluginBase) Aprintf("[JS] Exevar: ERROR - Findlocalvar returned NULL!\n");
    }
 }
 
@@ -2181,9 +2163,7 @@ static void Exefor(struct Jcontext *jc,struct Element *elt)
 }
 
 static void Exeinteger(struct Jcontext *jc,struct Elementint *elt)
-{  if(AwebPluginBase) Aprintf("[JS] Exeinteger: ivalue=%ld, setting jc->val to %g\n", elt->ivalue, (double)elt->ivalue);
-   Asgnumber(jc->val,VNA_VALID,(double)elt->ivalue);
-   if(AwebPluginBase) Aprintf("[JS] Exeinteger: after Asgnumber, jc->val->type=%d, attr=%d, nvalue=%g\n", jc->val->type, jc->val->attr, jc->val->value.nvalue);
+{  Asgnumber(jc->val,VNA_VALID,(double)elt->ivalue);
 }
 
 static void Exefloat(struct Jcontext *jc,struct Elementfloat *elt)
@@ -2204,10 +2184,7 @@ static void Exeidentifier(struct Jcontext *jc,struct Elementstring *elt)
    if(AwebPluginBase) Aprintf("[JS] Exeidentifier: looking up '%s'\n", elt->svalue);
    var=Findvar(jc,elt->svalue,&jthis);
    if(var)
-   {  if(AwebPluginBase) Aprintf("[JS] Exeidentifier: variable found, var=%p, var->val.type=%d, attr=%d", var, var->val.type, var->val.attr);
-      if(var->val.type==VTP_NUMBER && AwebPluginBase) Aprintf(", nvalue=%g", var->val.value.nvalue);
-      if(AwebPluginBase) Aprintf("\n");
-      /* Resolve synonym reference */
+   {  /* Resolve synonym reference */
       while((var->flags&VARF_SYNONYM) && var->hookdata) var=var->hookdata;
 
       if(var->val.type==VTP_OBJECT && var->val.value.obj.ovalue && var->val.value.obj.ovalue->function)
@@ -2216,17 +2193,13 @@ static void Exeidentifier(struct Jcontext *jc,struct Elementstring *elt)
       else
       {  if(!Callvhook(var,jc,VHC_GET,jc->val))
          {  Asgvalue(jc->val,&var->val);
-            if(AwebPluginBase) Aprintf("[JS] Exeidentifier: after Asgvalue, jc->val->type=%d, attr=%d", jc->val->type, jc->val->attr);
-            if(jc->val->type==VTP_NUMBER && AwebPluginBase) Aprintf(", nvalue=%g", jc->val->value.nvalue);
-            if(AwebPluginBase) Aprintf("\n");
          }
       }
       jc->varref=var;
       jc->flags|=EXF_KEEPREF;
    }
    else
-   {  if(AwebPluginBase) Aprintf("[JS] Exeidentifier: variable NOT found, clearing jc->val\n");
-      Clearvalue(jc->val);
+   {  Clearvalue(jc->val);
    }
 }
 
@@ -2692,7 +2665,7 @@ void Jeval(struct Jcontext *jc,UBYTE *s)
 /*-----------------------------------------------------------------------*/
 
 void Jexecute(struct Jcontext *jc,struct Jobject *jthis,struct Jobject **gwtab)
-{  struct Jobject *oldjthis,*oldfscope;
+{  struct Jobject *oldjthis,*oldfscope,*oldfirstfscope;
    struct With *w1,*w;
    struct Jobject **jp;
    struct Value oldretval;
@@ -2705,6 +2678,14 @@ void Jexecute(struct Jcontext *jc,struct Jobject *jthis,struct Jobject **gwtab)
        * that the correct global scope is used also when not within a function. */
       oldfscope=jc->functions.last->fscope;
       jc->functions.last->fscope=jc->fscope;
+      /* Also update first->fscope so Findvar can find variables added to jc->fscope */
+      if(jc->functions.first)
+      {  oldfirstfscope=jc->functions.first->fscope;
+         jc->functions.first->fscope=jc->fscope;
+      }
+      else
+      {  oldfirstfscope=NULL;
+      }
       /* Add With's for global data scopes and function scope. Remember first
        * With, and remove the entire series from that one after execution
        * (backwards because Withs are ADDHEAD'ed). */
@@ -2749,6 +2730,8 @@ void Jexecute(struct Jcontext *jc,struct Jobject *jthis,struct Jobject **gwtab)
       jc->jthis=oldjthis;
       if(jc->jthis) Keepobject(jc->jthis,FALSE);
       jc->functions.last->fscope=oldfscope;
+      /* Restore first->fscope */
+      if(jc->functions.first) jc->functions.first->fscope=oldfirstfscope;
       jc->complete=ECO_NORMAL;
       /* Keep execution result and restore old result */
       Asgvalue(&jc->result->val,jc->val);
@@ -2761,19 +2744,16 @@ void Jexecute(struct Jcontext *jc,struct Jobject *jthis,struct Jobject **gwtab)
 BOOL Newexecute(struct Jcontext *jc)
 {  struct Function *f;
    struct Jobject *fo;
-   if(AwebPluginBase) Aprintf("[JS] Newexecute: entry\n");
    jc->gc = GC_THRESHOLD;
    NEWLIST(&jc->functions);
    NEWLIST(&jc->labels);
    NEWLIST(&jc->thislist);
-   if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Newvar for valvar\n");
    if((jc->valvar=Newvar(NULL,jc))
    && (jc->result=Newvar(NULL,jc))
    && (jc->throw=Newvar(NULL,jc))
    && (jc->jthis=Newobject(jc))
    && (f=Newfunction(jc,NULL)))
-   {  if(AwebPluginBase) Aprintf("[JS] Newexecute: basic objects created\n");
-      Keepobject(jc->jthis,TRUE);
+   {  Keepobject(jc->jthis,TRUE);
       jc->val=&jc->valvar->val;
       jc->throwval=&jc->throw->val;
       ADDHEAD(&jc->functions,f);
@@ -2789,10 +2769,8 @@ BOOL Newexecute(struct Jcontext *jc)
             jc->fscope=f->fscope;  /* Store in context for later use */
          }
       }
-      if(AwebPluginBase) Aprintf("[JS] Newexecute: creating toString\n");
       jc->tostring=Internalfunction(jc,"toString",Defaulttostring,NULL);
       Keepobject(jc->tostring,TRUE);
-      if(AwebPluginBase) Aprintf("[JS] Newexecute: creating global functions\n");
       if(jc->eval=Internalfunction(jc,"eval",Eval,"Expression",NULL))
       {  Addglobalfunction(jc,jc->eval);
       }
@@ -2811,26 +2789,18 @@ BOOL Newexecute(struct Jcontext *jc)
       if(fo=Internalfunction(jc,"isNaN",Isnan,"testValue",NULL))
       {  Addglobalfunction(jc,fo);
       }
-         if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Initobject\n");
          Initobject(jc,NULL);
-         if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Initarray\n");
          Initarray(jc,NULL);
-         if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Initboolean\n");
          Initboolean(jc,NULL);
-         if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Initfunction\n");
          Initfunction(jc,NULL);
-         if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Initmath\n");
          Initmath(jc,NULL);
-         if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Initnumber\n");
          Initnumber(jc,NULL);
-         if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Initstring\n");
          Initstring(jc,NULL);
-         if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Initregexp\n");
          Initregexp(jc,NULL);
-         if(AwebPluginBase) Aprintf("[JS] Newexecute: success, returning TRUE\n");
+         Initdate(jc,NULL);
+         Initerror(jc,NULL);
          return TRUE;
       }
-   if(AwebPluginBase) Aprintf("[JS] Newexecute: ERROR - failed to create basic objects\n");
    Freeexecute(jc);
    return FALSE;
 }

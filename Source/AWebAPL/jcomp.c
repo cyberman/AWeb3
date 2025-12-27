@@ -2208,27 +2208,14 @@ static void Disposelt(struct Element *elt)
 
 void Jcompile(struct Jcontext *jc,UBYTE *source)
 {  void *pa;
-   if(AwebPluginBase) Aprintf("[JS] Jcompile: entry, jc=%p, source=%p\n", jc, source);
-   if(!jc)
-   {  if(AwebPluginBase) Aprintf("[JS] Jcompile: ERROR - jc is NULL!\n");
-      return;
-   }
-   if(!source)
-   {  if(AwebPluginBase) Aprintf("[JS] Jcompile: ERROR - source is NULL!\n");
-      return;
+   if(!jc || !source)
+   {  return;
    }
    if(pa=Newparser(jc,source))
-   {  if(AwebPluginBase) Aprintf("[JS] Jcompile: parser created\n");
-      jc->nexttoken=Nexttoken(pa);
-      if(AwebPluginBase) Aprintf("[JS] Jcompile: calling Compileprogram\n");
+   {  jc->nexttoken=Nexttoken(pa);
       Compileprogram(jc,pa);
-      if(AwebPluginBase) Aprintf("[JS] Jcompile: Compileprogram returned, flags=0x%04x\n", jc->flags);
       FREE(pa);
    }
-   else
-   {  if(AwebPluginBase) Aprintf("[JS] Jcompile: ERROR - failed to create parser\n");
-   }
-   if(AwebPluginBase) Aprintf("[JS] Jcompile: exit\n");
 }
 
 struct Jobject *Jcompiletofunction(struct Jcontext *jc,UBYTE *source,UBYTE *name)

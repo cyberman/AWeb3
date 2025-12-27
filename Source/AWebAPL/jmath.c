@@ -616,8 +616,9 @@ void Initmath(struct Jcontext *jc, struct Jobject *jscope)
       }
       else
       {  /* Add to global scope so it can be found by Findvar */
-         if(jc->functions.last && jc->functions.last->fscope)
-         {  if((var=Addproperty(jc->functions.last->fscope,"Math")))
+         /* Add to jc->fscope which is used by Jexecute */
+         if(jc->fscope)
+         {  if((var=Addproperty(jc->fscope,"Math")))
             {  Asgobject(&var->val,jo);
                var->flags |= VARF_DONTDELETE;
             }

@@ -979,8 +979,9 @@ void Initarray(struct Jcontext *jc, struct Jobject *jscope)
       if(jscope == NULL)
       {  jc->array=jo;
          /* Also add to global scope so it can be found by Findvar */
-         if(jc->functions.last && jc->functions.last->fscope)
-         {  if((prop = Addproperty(jc->functions.last->fscope,"Array")))
+         /* Add to jc->fscope which is used by Jexecute */
+         if(jc->fscope)
+         {  if((prop = Addproperty(jc->fscope,"Array")))
             {  Asgobject(&prop->val,jo);
                prop->flags |= VARF_DONTDELETE;
                /* no longer need to keep as assigned to scope */
@@ -1070,9 +1071,7 @@ struct Variable *Arrayelt(struct Jobject *jo,long n)
    {  a=(struct Array *)jo->internal;
       if(n>=0 && n<a->length)
       {  sprintf(nname,"%d",(int)n);
-         /* Note: Getownproperty needs to be added to jdata.c */
-         /* For now, use Getproperty which may search prototype chain */
-         prop=Getproperty(jo,nname);
+         prop=Getownproperty(jo,nname);
       }
    }
    return prop;
@@ -1088,9 +1087,7 @@ struct Variable *Addarrayelt(struct Jcontext *jc,struct Jobject *jo)
       sprintf(nname,"%d",(int)a->length);
       if(prop=Addproperty(jo,nname))
       {  a->length++;
-         /* Note: Getownproperty needs to be added to jdata.c */
-         /* For now, use Findproperty which may search prototype chain */
-         if(length=Getproperty(jo,"length"))
+         if(length=Getownproperty(jo,"length"))
          {  Asgnumber(&length->val,VNA_VALID,(double)a->length);
          }
       }
