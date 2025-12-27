@@ -441,7 +441,7 @@ docs/searchindex: searchindex.c
 
 #- AWebJS --------------------------------------------------------------------
 
-awebjs:     awebjs.o
+awebjs:     awebjs.o arexxjs.o
 awebjs:     awebjs.lnk
    slink with awebjs.lnk
 

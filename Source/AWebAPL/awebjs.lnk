@@ -1,4 +1,4 @@
-FROM     lib:c.o awebjs.o
+FROM     lib:c.o awebjs.o arexxjs.o
 
 TO       AWebJS
 

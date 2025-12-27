@@ -30,13 +30,18 @@
 
 #include "jslib.h"
 #include "keyfile.h"
+#include "arexxjs.h"
 
 char version[]="\0$VER:AWebJS " AWEBVERSION " " __AMIGADATE__;
 
 __near long __stack=16348;
 
-static void *AWebJSBase;
+struct Library *AWebJSBase;
 // Library base pointers are now provided by proto headers
+// Note: Not static so arexxjs.c can access it for jslib.h pragma libcall directives
+// Type is struct Library * to match what pragma libcall expects
+
+static struct Jobject *globalscope = NULL;
 
 /* Standard I/O */
 static __saveds __asm void aWrite(register __a0 struct Jcontext *jc)
@@ -66,6 +71,65 @@ static __saveds __asm BOOL Feedback(register __a0 struct Jcontext *jc)
    else return TRUE;
 }
 
+/* require - JavaScript function to load and execute JavaScript files */
+static __saveds __asm void require(register __a0 struct Jcontext *jc)
+{  STRPTR filename;
+   APTR source;
+   FILE *fh;
+   ULONG length;
+   ULONG n;
+   ULONG i;
+   struct Jobject *jgscope[4];
+   struct Jvar *jv;
+   struct Jobject *jthis;
+   
+   jthis = Jthis(jc);
+   i = 0;
+   jgscope[i++] = globalscope;
+   
+   if(jthis != globalscope)
+   {
+      jgscope[i++] = jthis;
+   }
+   jgscope[i] = NULL;
+   
+   for(n = 0; jv = Jfargument(jc, n); n++)
+   {
+      filename = Jtostring(jc, jv);
+      if((fh = fopen(filename, "r")))
+      {
+          fseek(fh, 0, SEEK_END);
+          length = ftell(fh);
+          fseek(fh, 0, SEEK_SET);
+          if((source = AllocVec(length + 1, MEMF_PUBLIC | MEMF_CLEAR)))
+          {  
+              fread(source, length, 1, fh);
+              Jerrors(jc, TRUE, 1, FALSE);
+              Runjprogram(jc, globalscope, source, jthis, jgscope, 0, 0);
+              FreeVec(source);
+          }
+          fclose(fh);     
+      }
+      else
+      {
+          printf("failed to load %s\n", filename);
+      }
+   }
+}
+
+/* delay - JavaScript function to delay execution */
+static __saveds __asm void delay(register __a0 struct Jcontext *jc)
+{  struct Jvar *jv;
+   ULONG ticks;
+   
+   jv = Jfargument(jc, 0);
+   if(jv)
+   {
+       ticks = (ULONG)Jtonumber(jc, jv);
+       Delay(ticks);
+   }
+}
+
 void main()
 {  long args[4]={0};
    UBYTE *argtemplate="FILES/M/A,PUBSCREEN/K,-D=DEBUG/S";
@@ -76,21 +140,50 @@ void main()
    long l;
    void *jc;
    void *jo;
+   void *jo_arexx;
+   void *jv;
    void *dtbase;
+   struct Jobject *jgscope[4];
+   
 /* window.class bug workaround */
 dtbase=OpenLibrary("datatypes.library",0);
    if(rda=ReadArgs(argtemplate,args,NULL))
-   {  if((AWebJSBase=OpenLibrary("aweblib/awebjs.aweblib",0))
+   {  /* Try both library names for compatibility */
+      if((AWebJSBase=OpenLibrary("aweblib/javascript.aweblib",0))
+      || (AWebJSBase=OpenLibrary("javascript.aweblib",0))
+      || (AWebJSBase=OpenLibrary("PROGDIR:aweblib/javascript.aweblib",0))
+      || (AWebJSBase=OpenLibrary("PROGDIR:javascript.aweblib",0))
+      || (AWebJSBase=OpenLibrary("aweblib/awebjs.aweblib",0))
       || (AWebJSBase=OpenLibrary("awebjs.aweblib",0))
       || (AWebJSBase=OpenLibrary("PROGDIR:aweblib/awebjs.aweblib",0))
       || (AWebJSBase=OpenLibrary("PROGDIR:awebjs.aweblib",0)))
       {  if(jc=Newjcontext((UBYTE *)args[1]))
          {  Jsetfeedback(jc,Feedback);
             Jerrors(jc,TRUE,JERRORS_ON,TRUE);
+            initarexx(jc);
+            
             if(jo=Newjobject(jc))
-            {  Addjfunction(jc,jo,"write",aWrite,"string",NULL);
+            {  
+               globalscope = jo;
+               jgscope[0] = jo;
+               jgscope[1] = NULL;
+               
+               Addjfunction(jc,jo,"write",aWrite,"string",NULL);
                Addjfunction(jc,jo,"writeln",aWriteln,"string",NULL);
+               Addjfunction(jc,jo,"print",aWriteln,"string",NULL);
                Addjfunction(jc,jo,"readln",aReadln,NULL);
+               Addjfunction(jc,jo,"require",require,"filename",NULL);
+               Addjfunction(jc,jo,"delay",delay,"ticks",NULL);
+               
+               if((jo_arexx = Newjobject(jc)))
+               {
+                   if((jv = Jproperty(jc, jo, "ARexx")))
+                   {
+                       Jasgobject(jc, jv, jo_arexx);
+                       Addjfunction(jc, jo_arexx, "SendCommand", SendCommand, "host", "command", NULL);
+                   }
+               }
+               
                if(args[2])
                {  Jdebug(jc,TRUE);
                }
@@ -101,7 +194,8 @@ dtbase=OpenLibrary("datatypes.library",0);
                      fseek(f,0,SEEK_SET);
                      if(source=AllocVec(l+1,MEMF_PUBLIC|MEMF_CLEAR))
                      {  fread(source,l,1,f);
-                        Runjprogram(jc,jo,source,jo,NULL,0,0);
+                        Jerrors(jc,TRUE,1,FALSE);
+                        Runjprogram(jc,jo,source,jo,jgscope,0,0);
                         FreeVec(source);
                      }
                      fclose(f);
@@ -109,12 +203,18 @@ dtbase=OpenLibrary("datatypes.library",0);
                   else fprintf(stderr,"Can't open %s\n",*p);
                }
             }
+            freearexx(jc);
             Freejcontext(jc);
          }
          CloseLibrary(AWebJSBase);
+      }
+      else
+      {
+          printf("Couldn't Open javascript.aweblib or awebjs.aweblib Library\n");
       }
       FreeArgs(rda);
    }
 /* window.class bug workaround */
 if(dtbase) CloseLibrary(dtbase);
+return(0);
 }
