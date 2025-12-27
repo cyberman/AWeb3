@@ -44,7 +44,6 @@
 #include <proto/layout.h>
 #include <proto/button.h>
 #include <proto/label.h>
-#include <proto/awebplugin.h>
 #include <time.h>
 
 #define PUDDLESIZE         16*1024
@@ -53,7 +52,6 @@
 struct ExecBase *SysBase;
 struct Locale *locale;
 struct Hook idcmphook;
-struct Library *AwebPluginBase;
 
 /* Runtime error values */
 #define JERRORS_CONTINUE   -1 /* Don't show errors and try to continue script */
@@ -427,17 +425,11 @@ static ULONG Initaweblib(struct Library *libbase)
    if(!(locale=OpenLocale(NULL)))
    {  return FALSE;
    }
-   /* Open awebplugin.library for Aprintf() */
-   AwebPluginBase=OpenLibrary("awebplugin.library",0);
-   if(AwebPluginBase)
-   {  Aprintf("[JS] Initaweblib: success, all libraries opened, AwebPluginBase=%p\n", AwebPluginBase);
-   }
    return TRUE;
 }
 
 static void Expungeaweblib(struct Library *libbase)
-{  if(AwebPluginBase) CloseLibrary(AwebPluginBase);
-   if(locale) CloseLocale(locale);
+{  if(locale) CloseLocale(locale);
    if(AslBase) CloseLibrary(AslBase);
    if(GfxBase) CloseLibrary(GfxBase);
    if(IntuitionBase) CloseLibrary(IntuitionBase);
@@ -719,31 +711,19 @@ BOOL Feedback(struct Jcontext *jc)
 __asm __saveds void *Newjcontext(register __a0 UBYTE *screenname)
 {  struct Jcontext *jc=NULL;
    void *pool;
-   if(AwebPluginBase) Aprintf("[JS] Newjcontext: entry\n");
    /* New Jcontext is created in its own pool */
    if(pool=CreatePool(MEMF_PUBLIC|MEMF_CLEAR,PUDDLESIZE,TRESHSIZE))
-   {  if(AwebPluginBase) Aprintf("[JS] Newjcontext: pool created\n");
-      if(jc=ALLOCSTRUCT(Jcontext,1,0,pool))
-      {  if(AwebPluginBase) Aprintf("[JS] Newjcontext: Jcontext allocated\n");
-         jc->pool=pool;
+   {  if(jc=ALLOCSTRUCT(Jcontext,1,0,pool))
+      {  jc->pool=pool;
          NEWLIST(&jc->objects);
          NEWLIST(&jc->tmp);
-         if(AwebPluginBase) Aprintf("[JS] Newjcontext: calling Newexecute\n");
          Newexecute(jc);
-         if(AwebPluginBase) Aprintf("[JS] Newjcontext: Newexecute returned\n");
          jc->screenname=screenname;
       }
-      else
-      {  if(AwebPluginBase) Aprintf("[JS] Newjcontext: ERROR - failed to allocate Jcontext\n");
-      }
-   }
-   else
-   {  if(AwebPluginBase) Aprintf("[JS] Newjcontext: ERROR - failed to create pool\n");
    }
    if(!jc)
    {  if(pool) DeletePool(pool);
    }
-   if(AwebPluginBase) Aprintf("[JS] Newjcontext: exit, jc=%p\n", jc);
    return jc;
 }
 
@@ -789,6 +769,20 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
          Initstring(jc,fscope);
          Initregexp(jc,fscope);
          Initerror(jc,fscope);
+         /* Copy global functions from jc->functions.first->local to fscope */
+         if(jc->functions.first)
+         {  struct Variable *var,*fvar;
+            for(var=jc->functions.first->local.first;var && var->next;var=var->next)
+            {  if(var->name && var->val.type==VTP_OBJECT && var->val.value.obj.ovalue
+                  && var->val.value.obj.ovalue->function
+                  && !Getproperty(fscope,var->name))
+               {  if(fvar=Addproperty(fscope,var->name))
+                  {  Asgobject(&fvar->val,var->val.value.obj.ovalue);
+                     fvar->flags|=VARF_DONTDELETE;
+                  }
+               }
+            }
+         }
       }
       jc->warntime=0;
       jc->warnmem=0;

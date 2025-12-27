@@ -24,10 +24,6 @@
 #include <math.h>
 #include <stdarg.h>
 #include <proto/utility.h>
-#include <proto/awebplugin.h>
-
-/* Forward declaration for Aprintf */
-extern void Aprintf(const char *format, ...);
 
 /* Implementations of isnan() and isinf() for systems without them */
 static int isnan(double x)
@@ -770,6 +766,21 @@ static void Exefunction(struct Jcontext *jc,struct Elementfunc *func)
       Asgfunction(&var->val,f->def,NULL);
       var->flags |= VARF_DONTDELETE;
    }
+   /* Set function.length property if not already set */
+   if(f->def)
+   {  struct Variable *length;
+      struct Elementnode *enode;
+      long paramcount=0;
+      if(!(length=Getownproperty(f->def,"length")))
+      {  for(enode=func->subs.first;enode && enode->next;enode=enode->next)
+         {  paramcount++;
+         }
+         if(length=Addproperty(f->def,"length"))
+         {  Asgnumber(&length->val,VNA_VALID,(double)paramcount);
+            length->flags|=(VARF_DONTDELETE|VARF_HIDDEN);
+         }
+      }
+   }
    /* Execute the function body */
    Executeelem(jc,func->body);
    if(jc->complete<=ECO_RETURN)
@@ -1116,12 +1127,39 @@ static void Exeplus(struct Jcontext *jc,struct Element *elt)
       UBYTE *s;
       Tostring(&val1,jc);
       Tostring(&val2,jc);
-      l=strlen(val1.value.svalue)+strlen(val2.value.svalue);
-      if(s=ALLOCTYPE(UBYTE,l+1,0,jc->pool))
-      {  strcpy(s,val1.value.svalue);
-         strcat(s,val2.value.svalue);
-         Asgstring(jc->val,s,jc->pool);
-         FREE(s);
+      /* Ensure both values are strings with valid pointers after conversion */
+      if(val1.type==VTP_STRING && val1.value.svalue && val2.type==VTP_STRING && val2.value.svalue)
+      {  l=strlen(val1.value.svalue)+strlen(val2.value.svalue);
+         if(s=ALLOCTYPE(UBYTE,l+1,0,jc->pool))
+         {  strcpy(s,val1.value.svalue);
+            strcat(s,val2.value.svalue);
+            Asgstring(jc->val,s,jc->pool);
+            FREE(s);
+         }
+         else
+         {  /* Memory allocation failed - use empty string */
+            Asgstring(jc->val,"",jc->pool);
+         }
+      }
+      else
+      {  /* One or both values failed to convert or have NULL pointers */
+         /* Try to ensure strings are valid - if Tostring didn't set them, set to empty */
+         if(val1.type!=VTP_STRING || !val1.value.svalue)
+         {  Asgstring(&val1,"",jc->pool);
+         }
+         if(val2.type!=VTP_STRING || !val2.value.svalue)
+         {  Asgstring(&val2,"",jc->pool);
+         }
+         l=strlen(val1.value.svalue)+strlen(val2.value.svalue);
+         if(s=ALLOCTYPE(UBYTE,l+1,0,jc->pool))
+         {  strcpy(s,val1.value.svalue);
+            strcat(s,val2.value.svalue);
+            Asgstring(jc->val,s,jc->pool);
+            FREE(s);
+         }
+         else
+         {  Asgstring(jc->val,"",jc->pool);
+         }
       }
    }
    else
@@ -2181,7 +2219,6 @@ static void Exestring(struct Jcontext *jc,struct Elementstring *elt)
 static void Exeidentifier(struct Jcontext *jc,struct Elementstring *elt)
 {  struct Jobject *jthis=NULL;
    struct Variable *var;
-   if(AwebPluginBase) Aprintf("[JS] Exeidentifier: looking up '%s'\n", elt->svalue);
    var=Findvar(jc,elt->svalue,&jthis);
    if(var)
    {  /* Resolve synonym reference */
@@ -2516,6 +2553,13 @@ void Addglobalfunction(struct Jcontext *jc,struct Jobject *f)
       {  ADDTAIL(&jc->functions.first->local,var);
          Asgobject(&var->val,f);
          var->flags|=VARF_DONTDELETE;
+      }
+      /* Also add to jc->fscope so it can be found by Findvar */
+      if(jc->fscope && f->function->name)
+      {  if(var=Addproperty(jc->fscope,f->function->name))
+         {  Asgobject(&var->val,f);
+            var->flags|=VARF_DONTDELETE;
+         }
       }
    }
 }

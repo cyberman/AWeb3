@@ -1367,7 +1367,9 @@ static long Getapplication(struct Application *app,struct Amset *ams)
                }
                PUTATTR(tag,app->jcontext);
             }
-            else PUTATTR(tag,NULL);
+            else
+            {  PUTATTR(tag,NULL);
+            }
             break;
          case AOAPP_Jnavigator:
             PUTATTR(tag,app->jnavigator);

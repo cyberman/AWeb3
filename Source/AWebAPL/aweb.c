@@ -1000,23 +1000,13 @@ struct Library *Openaweblib(UBYTE *name)
 }
 
 struct Library *Openjslib(void)
-{  printf("[AWeb] Openjslib: entry, AWebJSBase=%p\n", AWebJSBase);
-   if(!AWebJSBase)
-   {  printf("[AWeb] Openjslib: trying to open library...\n");
-      if(!(AWebJSBase=OpenLibrary("aweblib/awebjs.aweblib",0))
+{  if(!AWebJSBase)
+   {  if(!(AWebJSBase=OpenLibrary("aweblib/awebjs.aweblib",0))
       && !(AWebJSBase=OpenLibrary("PROGDIR:aweblib/awebjs.aweblib",0))
       && !(AWebJSBase=OpenLibrary("AWeb:aweblib/awebjs.aweblib",0)))
-      {  printf("[AWeb] Openjslib: ERROR - failed to open library\n");
-         Lowlevelreq(AWEBSTR(MSG_ERROR_CANTOPEN),"awebjs.aweblib");
-      }
-      else
-      {  printf("[AWeb] Openjslib: library opened successfully, base=%p\n", AWebJSBase);
+      {  Lowlevelreq(AWEBSTR(MSG_ERROR_CANTOPEN),"awebjs.aweblib");
       }
    }
-   else
-   {  printf("[AWeb] Openjslib: library already open\n");
-   }
-   printf("[AWeb] Openjslib: exit, returning %p\n", AWebJSBase);
    return AWebJSBase;
 }
 

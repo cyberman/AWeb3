@@ -20,7 +20,6 @@
 
 #include "awebjs.h"
 #include "jprotos.h"
-#include <proto/awebplugin.h>
 
 struct Array;  /* Forward declaration */
 
@@ -175,6 +174,10 @@ void Tostring(struct Value *v,struct Jcontext *jc)
          Asgstring(v,v->value.bvalue?"true":"false",jc->pool);
          break;
       case VTP_STRING:
+         /* Ensure string pointer is valid - if NULL, set to empty string */
+         if(!v->value.svalue)
+         {  Asgstring(v,"",jc->pool);
+         }
          break;
       case VTP_OBJECT:
          if(v->value.obj.ovalue && v->value.obj.ovalue->function)

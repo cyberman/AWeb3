@@ -154,7 +154,7 @@ var char = str.charAt(0);
 <P>length: <SCRIPT LANGUAGE="JavaScript">document.write(len);</SCRIPT></P>
 <P>charAt(0): <SCRIPT LANGUAGE="JavaScript">document.write(char);</SCRIPT></P>
 
-<H2>Test 12: Math Object - One-pass</H2>
+<H2>Test 12: Math Object - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var pi = Math.PI;
@@ -701,7 +701,7 @@ var numResult = (10 > 5) ? 100 : 50;
 <P>(2 > 5) ? "yes" : "no": <SCRIPT LANGUAGE="JavaScript">document.write(result2);</SCRIPT></P>
 <P>(10 > 5) ? 100 : 50: <SCRIPT LANGUAGE="JavaScript">document.write(numResult);</SCRIPT></P>
 
-<H2>Test 48: parseInt and parseFloat - FAIL</H2>
+<H2>Test 48: parseInt and parseFloat - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var int1 = parseInt("42");
@@ -856,7 +856,7 @@ for (var i = 0; i < 10; i++) {
 <P>Continue skips even numbers</P>
 <P>Sum of odd numbers (1,3,5,7,9): <SCRIPT LANGUAGE="JavaScript">document.write(sum);</SCRIPT></P>
 
-<H2>Test 59: Global Functions - escape and unescape - FAIL</H2>
+<H2>Test 59: Global Functions - escape and unescape - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var str = "Hello World!";
@@ -868,7 +868,7 @@ var unescaped = unescape(escaped);
 <P>escaped: <SCRIPT LANGUAGE="JavaScript">document.write(escaped);</SCRIPT></P>
 <P>unescaped: <SCRIPT LANGUAGE="JavaScript">document.write(unescaped);</SCRIPT></P>
 
-<H2>Test 60: Global Function - isNaN - FAIL</H2>
+<H2>Test 60: Global Function - isNaN - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var nan1 = isNaN("not a number");
@@ -1032,6 +1032,197 @@ var funcLength = testFunc.length;
 </SCRIPT>
 <P>function testFunc(a, b, c) { ... }</P>
 <P>testFunc.length: <SCRIPT LANGUAGE="JavaScript">document.write(funcLength);</SCRIPT></P>
+
+<H2>Test 73: RegExp Constructor</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var re1 = new RegExp("test");
+var re2 = new RegExp("hello", "i");
+var re3 = /pattern/;
+var re4 = /test/gi;
+//-->
+</SCRIPT>
+<P>new RegExp("test"): <SCRIPT LANGUAGE="JavaScript">document.write(re1);</SCRIPT></P>
+<P>new RegExp("hello", "i"): <SCRIPT LANGUAGE="JavaScript">document.write(re2);</SCRIPT></P>
+<P>/pattern/: <SCRIPT LANGUAGE="JavaScript">document.write(re3);</SCRIPT></P>
+<P>/test/gi: <SCRIPT LANGUAGE="JavaScript">document.write(re4);</SCRIPT></P>
+
+<H2>Test 74: RegExp test() Method</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var re = /hello/;
+var test1 = re.test("hello world");
+var test2 = re.test("goodbye");
+var reCase = /hello/i;
+var test3 = reCase.test("HELLO");
+//-->
+</SCRIPT>
+<P>Pattern: /hello/</P>
+<P>test("hello world"): <SCRIPT LANGUAGE="JavaScript">document.write(test1);</SCRIPT></P>
+<P>test("goodbye"): <SCRIPT LANGUAGE="JavaScript">document.write(test2);</SCRIPT></P>
+<P>Pattern: /hello/i (case-insensitive)</P>
+<P>test("HELLO"): <SCRIPT LANGUAGE="JavaScript">document.write(test3);</SCRIPT></P>
+
+<H2>Test 75: RegExp exec() Method</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var re = /(\d+)/;
+var result1 = re.exec("abc123def");
+var result1Str = result1 ? result1[0] : "null";
+var result2 = re.exec("no numbers");
+var result2Str = result2 ? result2[0] : "null";
+//-->
+</SCRIPT>
+<P>Pattern: /(\d+)/</P>
+<P>exec("abc123def")[0]: <SCRIPT LANGUAGE="JavaScript">document.write(result1Str);</SCRIPT></P>
+<P>exec("no numbers"): <SCRIPT LANGUAGE="JavaScript">document.write(result2Str);</SCRIPT></P>
+
+<H2>Test 76: RegExp Properties - source, global, ignoreCase, multiline</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var re1 = /test/gi;
+var source1 = re1.source;
+var global1 = re1.global;
+var ignoreCase1 = re1.ignoreCase;
+var multiline1 = re1.multiline;
+var re2 = /pattern/m;
+var multiline2 = re2.multiline;
+//-->
+</SCRIPT>
+<P>Pattern: /test/gi</P>
+<P>source: <SCRIPT LANGUAGE="JavaScript">document.write(source1);</SCRIPT></P>
+<P>global: <SCRIPT LANGUAGE="JavaScript">document.write(global1);</SCRIPT></P>
+<P>ignoreCase: <SCRIPT LANGUAGE="JavaScript">document.write(ignoreCase1);</SCRIPT></P>
+<P>multiline: <SCRIPT LANGUAGE="JavaScript">document.write(multiline1);</SCRIPT></P>
+<P>Pattern: /pattern/m</P>
+<P>multiline: <SCRIPT LANGUAGE="JavaScript">document.write(multiline2);</SCRIPT></P>
+
+<H2>Test 77: RegExp lastIndex Property</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var re = /test/g;
+var test1 = re.test("test test");
+var lastIndex1 = re.lastIndex;
+var test2 = re.test("test test");
+var lastIndex2 = re.lastIndex;
+re.lastIndex = 0;
+var lastIndex3 = re.lastIndex;
+//-->
+</SCRIPT>
+<P>Pattern: /test/g (global)</P>
+<P>After first test(), lastIndex: <SCRIPT LANGUAGE="JavaScript">document.write(lastIndex1);</SCRIPT></P>
+<P>After second test(), lastIndex: <SCRIPT LANGUAGE="JavaScript">document.write(lastIndex2);</SCRIPT></P>
+<P>After setting lastIndex = 0: <SCRIPT LANGUAGE="JavaScript">document.write(lastIndex3);</SCRIPT></P>
+
+<H2>Test 78: RegExp with String match()</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var str = "Hello World";
+var match1 = str.match(/o/);
+var match1Str = match1 ? match1[0] : "null";
+var match2 = str.match(/x/);
+var match2Str = match2 ? match2[0] : "null";
+var match3 = str.match(/o/g);
+var match3Str = match3 ? match3.join(", ") : "null";
+//-->
+</SCRIPT>
+<P>String: "Hello World"</P>
+<P>match(/o/)[0]: <SCRIPT LANGUAGE="JavaScript">document.write(match1Str);</SCRIPT></P>
+<P>match(/x/): <SCRIPT LANGUAGE="JavaScript">document.write(match2Str);</SCRIPT></P>
+<P>match(/o/g): <SCRIPT LANGUAGE="JavaScript">document.write(match3Str);</SCRIPT></P>
+
+<H2>Test 79: RegExp with String search()</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var str = "Hello World";
+var search1 = str.search(/World/);
+var search2 = str.search(/x/);
+var search3 = str.search(/o/i);
+//-->
+</SCRIPT>
+<P>String: "Hello World"</P>
+<P>search(/World/): <SCRIPT LANGUAGE="JavaScript">document.write(search1);</SCRIPT></P>
+<P>search(/x/): <SCRIPT LANGUAGE="JavaScript">document.write(search2);</SCRIPT></P>
+<P>search(/o/i): <SCRIPT LANGUAGE="JavaScript">document.write(search3);</SCRIPT></P>
+
+<H2>Test 80: RegExp with String replace()</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var str1 = "Hello World";
+var replace1 = str1.replace(/World/, "Universe");
+var str2 = "test test test";
+var replace2 = str2.replace(/test/g, "TEST");
+var str3 = "abc123def456";
+var replace3 = str3.replace(/\d+/, "NUM");
+//-->
+</SCRIPT>
+<P>String: "Hello World"</P>
+<P>replace(/World/, "Universe"): <SCRIPT LANGUAGE="JavaScript">document.write(replace1);</SCRIPT></P>
+<P>String: "test test test"</P>
+<P>replace(/test/g, "TEST"): <SCRIPT LANGUAGE="JavaScript">document.write(replace2);</SCRIPT></P>
+<P>String: "abc123def456"</P>
+<P>replace(/\d+/, "NUM"): <SCRIPT LANGUAGE="JavaScript">document.write(replace3);</SCRIPT></P>
+
+<H2>Test 81: RegExp with String split()</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var str1 = "apple,banana,cherry";
+var split1 = str1.split(/,/);
+var split1Str = split1.join(" | ");
+var str2 = "one two three";
+var split2 = str2.split(/\s+/);
+var split2Str = split2.join(", ");
+//-->
+</SCRIPT>
+<P>String: "apple,banana,cherry"</P>
+<P>split(/,/): <SCRIPT LANGUAGE="JavaScript">document.write(split1Str);</SCRIPT></P>
+<P>String: "one two three"</P>
+<P>split(/\s+/): <SCRIPT LANGUAGE="JavaScript">document.write(split2Str);</SCRIPT></P>
+
+<H2>Test 82: RegExp compile() Method</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var re = new RegExp("test");
+var test1 = re.test("test string");
+re.compile("hello", "i");
+var test2 = re.test("HELLO");
+var source = re.source;
+//-->
+</SCRIPT>
+<P>Pattern: new RegExp("test")</P>
+<P>test("test string"): <SCRIPT LANGUAGE="JavaScript">document.write(test1);</SCRIPT></P>
+<P>After compile("hello", "i"):</P>
+<P>test("HELLO"): <SCRIPT LANGUAGE="JavaScript">document.write(test2);</SCRIPT></P>
+<P>source: <SCRIPT LANGUAGE="JavaScript">document.write(source);</SCRIPT></P>
+
+<H2>Test 83: RegExp Capturing Groups</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var re = /(\d+)-(\d+)/;
+var result = re.exec("123-456");
+var fullMatch = result ? result[0] : "null";
+var group1 = result ? result[1] : "null";
+var group2 = result ? result[2] : "null";
+//-->
+</SCRIPT>
+<P>Pattern: /(\d+)-(\d+)/</P>
+<P>exec("123-456")[0]: <SCRIPT LANGUAGE="JavaScript">document.write(fullMatch);</SCRIPT></P>
+<P>exec("123-456")[1]: <SCRIPT LANGUAGE="JavaScript">document.write(group1);</SCRIPT></P>
+<P>exec("123-456")[2]: <SCRIPT LANGUAGE="JavaScript">document.write(group2);</SCRIPT></P>
+
+<H2>Test 84: RegExp toString() Method</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var re1 = /test/gi;
+var str1 = re1.toString();
+var re2 = new RegExp("hello", "m");
+var str2 = re2.toString();
+//-->
+</SCRIPT>
+<P>Pattern: /test/gi</P>
+<P>toString(): <SCRIPT LANGUAGE="JavaScript">document.write(str1);</SCRIPT></P>
+<P>Pattern: new RegExp("hello", "m")</P>
+<P>toString(): <SCRIPT LANGUAGE="JavaScript">document.write(str2);</SCRIPT></P>
 
 </BODY>
 </HTML>

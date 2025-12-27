@@ -20,7 +20,6 @@
 
 #include "awebjs.h"
 #include "jprotos.h"
-#include <proto/awebplugin.h>
 
 /*-----------------------------------------------------------------------*/
 
