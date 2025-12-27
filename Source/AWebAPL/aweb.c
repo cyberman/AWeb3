@@ -22,6 +22,7 @@
 #include "url.h"
 #include "application.h"
 #include "window.h"
+#include "winprivate.h"
 #include "source.h"
 #include "frame.h"
 #include "jslib.h"
@@ -75,9 +76,12 @@
 #include <proto/penmap.h>
 #include <proto/colorwheel.h>
 #include <proto/timer.h>
+#include <libraries/commodities.h>
+#include <proto/commodities.h>
 
 __near long __stack=16384;
 const char *stack_cookie = "$STACK: 16384";
+LONG oslibversion=40L;
 
 #ifdef DEVELOPER
 #define PROFILE
@@ -123,6 +127,12 @@ UBYTE localinitialurl[16];
 #define AWEBCONTROLPORTNAME   "AWebControlPort"
 
 static struct MsgPort *awebcontrolport;
+
+/* Commodities support */
+static struct Library *CommoditiesBase;
+static struct MsgPort *cxbrokerport;
+static CxObj *cxbroker;
+static BOOL cxbrokeractive;
 
 struct Awebcontrolmsg
 {  struct Message msg;
@@ -535,6 +545,68 @@ static void Processcontrol(void)
    Asetattrs(Aweb(),AOAPP_Tofront,TRUE,TAG_END);
 }
 
+/* Process commodity messages from Exchange program */
+static void Processcommodity(void)
+{  CxMsg *cxmsg;
+   while(cxmsg=(CxMsg *)GetMsg(cxbrokerport))
+   {  if(CxMsgType(cxmsg)==CXM_COMMAND)
+      {  switch(CxMsgID(cxmsg))
+         {  case CXCMD_DISABLE:
+               /* Disable commodity - deactivate broker */
+               if(cxbrokeractive && cxbroker)
+               {  ActivateCxObj(cxbroker,FALSE);
+                  cxbrokeractive=FALSE;
+               }
+               break;
+            case CXCMD_ENABLE:
+               /* Enable commodity - reactivate broker */
+               if(!cxbrokeractive && cxbroker)
+               {  ActivateCxObj(cxbroker,TRUE);
+                  cxbrokeractive=TRUE;
+               }
+               break;
+            case CXCMD_APPEAR:
+               /* Show/uniconify application */
+               {  struct Awindow *win;
+                  struct Window *iwindow;
+                  Iconify(FALSE);
+                  Asetattrs(Aweb(),AOAPP_Tofront,TRUE,TAG_END);
+                  /* Bring all document windows to front */
+                  for(win=windows.first;win->next;win=win->next)
+                  {  if(iwindow=(struct Window *)Agetattr(win,AOWIN_Window))
+                     {  WindowToFront(iwindow);
+                     }
+                  }
+               }
+               break;
+            case CXCMD_DISAPPEAR:
+               /* Hide/iconify application */
+               Iconify(TRUE);
+               break;
+            case CXCMD_KILL:
+               /* Quit application */
+               Quit(TRUE);
+               break;
+            case CXCMD_UNIQUE:
+               /* Another instance tried to start - show ourselves */
+               {  struct Awindow *win;
+                  struct Window *iwindow;
+                  Iconify(FALSE);
+                  Asetattrs(Aweb(),AOAPP_Tofront,TRUE,TAG_END);
+                  /* Bring all document windows to front */
+                  for(win=windows.first;win->next;win=win->next)
+                  {  if(iwindow=(struct Window *)Agetattr(win,AOWIN_Window))
+                     {  WindowToFront(iwindow);
+                     }
+                  }
+               }
+               break;
+         }
+      }
+      ReplyMsg((struct Message *)cxmsg);
+   }
+}
+
 static BOOL Dupstartupcheck(void)
 {  struct Awebcontrolmsg amsg={0};
    struct MsgPort *port;
@@ -928,13 +1000,23 @@ struct Library *Openaweblib(UBYTE *name)
 }
 
 struct Library *Openjslib(void)
-{  if(!AWebJSBase)
-   {  if(!(AWebJSBase=OpenLibrary("aweblib/awebjs.aweblib",0))
+{  printf("[AWeb] Openjslib: entry, AWebJSBase=%p\n", AWebJSBase);
+   if(!AWebJSBase)
+   {  printf("[AWeb] Openjslib: trying to open library...\n");
+      if(!(AWebJSBase=OpenLibrary("aweblib/awebjs.aweblib",0))
       && !(AWebJSBase=OpenLibrary("PROGDIR:aweblib/awebjs.aweblib",0))
       && !(AWebJSBase=OpenLibrary("AWeb:aweblib/awebjs.aweblib",0)))
-      {  Lowlevelreq(AWEBSTR(MSG_ERROR_CANTOPEN),"awebjs.aweblib");
+      {  printf("[AWeb] Openjslib: ERROR - failed to open library\n");
+         Lowlevelreq(AWEBSTR(MSG_ERROR_CANTOPEN),"awebjs.aweblib");
+      }
+      else
+      {  printf("[AWeb] Openjslib: library opened successfully, base=%p\n", AWebJSBase);
       }
    }
+   else
+   {  printf("[AWeb] Openjslib: library already open\n");
+   }
+   printf("[AWeb] Openjslib: exit, returning %p\n", AWebJSBase);
    return AWebJSBase;
 }
 
@@ -1050,6 +1132,23 @@ static void Cleanup(void)
       while(msg=GetMsg(awebcontrolport)) ReplyMsg(msg);
       Permit();
       DeleteMsgPort(awebcontrolport);
+   }
+   /* Cleanup commodities support */
+   if(cxbroker)
+   {  DeleteCxObjAll(cxbroker);
+      cxbroker=NULL;
+   }
+   if(cxbrokerport)
+   {  struct Message *msg;
+      Forbid();
+      while(msg=GetMsg(cxbrokerport)) ReplyMsg(msg);
+      Permit();
+      DeleteMsgPort(cxbrokerport);
+      cxbrokerport=NULL;
+   }
+   if(CommoditiesBase)
+   {  CloseLibrary(CommoditiesBase);
+      CommoditiesBase=NULL;
    }
    report();
 }
@@ -1170,9 +1269,78 @@ static void InitAWebAssign(void)
    }
 }
 
+/* Initialize commodities support - registers AWeb as a commodity */
+static BOOL Initcommodity(void)
+{  struct NewBroker nb;
+   LONG error;
+   
+   /* Initialize to NULL/FALSE in case of early return */
+   CommoditiesBase=NULL;
+   cxbrokerport=NULL;
+   cxbroker=NULL;
+   cxbrokeractive=FALSE;
+   
+   /* Open commodities.library - requires OS 3.0+ */
+   /* Not critical - can run without commodity support */
+   if(!(CommoditiesBase=OpenLibrary("commodities.library",36)))
+   {  return TRUE; /* Non-fatal - continue without commodity support */
+   }
+   
+   /* Create message port for broker */
+   if(!(cxbrokerport=CreateMsgPort()))
+   {  CloseLibrary(CommoditiesBase);
+      CommoditiesBase=NULL;
+      return TRUE; /* Non-fatal */
+   }
+   
+   /* Initialize NewBroker structure */
+   nb.nb_Version=NB_VERSION;
+   nb.nb_Name="AWeb";
+   nb.nb_Title="AWeb";
+   nb.nb_Descr="The Amiga Web Browser";
+   nb.nb_Unique=NBU_UNIQUE|NBU_NOTIFY; /* Unique name, notify on duplicate */
+   nb.nb_Flags=COF_SHOW_HIDE; /* Support show/hide commands */
+   nb.nb_Pri=0; /* Normal priority - could be configurable */
+   nb.nb_Port=cxbrokerport;
+   nb.nb_ReservedChannel=0;
+   
+   /* Create broker */
+   cxbroker=CxBroker(&nb,&error);
+   if(!cxbroker)
+   {  /* Failed to create broker - cleanup and continue */
+      DeleteMsgPort(cxbrokerport);
+      cxbrokerport=NULL;
+      CloseLibrary(CommoditiesBase);
+      CommoditiesBase=NULL;
+      return TRUE; /* Non-fatal - continue without commodity support */
+   }
+   
+   /* Check for errors */
+   if(CxObjError(cxbroker))
+   {  /* Broker created but has errors - cleanup */
+      DeleteCxObjAll(cxbroker);
+      cxbroker=NULL;
+      DeleteMsgPort(cxbrokerport);
+      cxbrokerport=NULL;
+      CloseLibrary(CommoditiesBase);
+      CommoditiesBase=NULL;
+      return TRUE; /* Non-fatal */
+   }
+   
+   /* Activate the broker (brokers are created inactive) */
+   ActivateCxObj(cxbroker,TRUE);
+   cxbrokeractive=TRUE;
+   
+   /* Register signal handler for commodity messages */
+   Setprocessfun(cxbrokerport->mp_SigBit,Processcommodity);
+   
+   return TRUE;
+}
+
 static BOOL Initall(void)
 {
    if(!(locale=OpenLocale(NULL))) return FALSE;
+   if(!Initcommodity()) return FALSE; /* Initialize commodities support */
    if(!Initversion()) return FALSE;
    if(!Initarexx()) return FALSE;   /* must be inited before window */
    if(!Initmime()) return FALSE;    /* must be inited before prefs */
