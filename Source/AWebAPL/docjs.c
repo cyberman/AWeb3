@@ -20,6 +20,7 @@
 
 #include <proto/exec.h>
 #include <proto/dos.h>
+#include <stdio.h>
 #include "aweb.h"
 #include "docprivate.h"
 #include "frame.h"
@@ -288,7 +289,7 @@ static void Domethodwrite(struct Jcontext *jc,BOOL ln)
    if(doc)
    {  for(n=0;jv=Jfargument(jc,n);n++)
       {  s=Jtostring(jc,jv);
-         Addtobuffer(&doc->jout,s,strlen(s));
+         if(s) Addtobuffer(&doc->jout,s,strlen(s));
       }
       if(ln) Addtobuffer(&doc->jout,"\n",1);
       if(doc->pflags&DPF_JRUN)

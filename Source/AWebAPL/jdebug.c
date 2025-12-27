@@ -67,7 +67,7 @@ enum GADGET_IDS
 static short left=0,top=0,width=0;
 
 static void Debugdump(struct Jcontext *jc);
-static USHORT dumpnr;
+static UWORD dumpnr;
 
 /*-----------------------------------------------------------------------*/
 
@@ -205,7 +205,7 @@ static void Closedebug(void)
 static void Testexpression(struct Jcontext *jc,UBYTE *expr)
 {  struct Value val,eval;
    struct Variable *varref;
-   USHORT flags,dflags;
+   UWORD flags,dflags;
    val.type=0;          /* Save current value */
    Asgvalue(&val,jc->val);
    varref=jc->varref;
@@ -477,10 +477,10 @@ static void Debugdump(struct Jcontext *jc)
 {  long fh;
    struct Value val;
    struct Variable *varref;
-   USHORT flags,dflags;
+   UWORD flags,dflags;
    struct Jobject *jo;
    struct Function *f;
-   USHORT d;
+   UWORD d;
    UBYTE *sep="---------------------------------------------------";
    struct FileRequester *fr;
    static UBYTE filename[256]="T:JSDump";

@@ -1098,11 +1098,14 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
    short i;
    long jerr;
    unsigned int clock[2]={ 0,0 };
+   printf("[AWeb] Runjavascriptwith: entry, fr=%p, script=%p, prefs.dojs=%d\n", fr, script, prefs.dojs);
    if(fr && script && prefs.dojs && Openjslib())
-   {  fr=Bodyframe(fr);
+   {  printf("[AWeb] Runjavascriptwith: library open, getting context...\n");
+      fr=Bodyframe(fr);
       Ajsetup(Aweb(),NULL,NULL,NULL);
       jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
-      Jsetfeedback(jc,Feedback);
+      printf("[AWeb] Runjavascriptwith: jc=%p\n", jc);
+      if(jc) Jsetfeedback(jc,Feedback);
       if(jthisp && *jthisp) jthis=*jthisp;
       else jthis=fr->jobject;
       /* If (jthis) is our own object, only use us as global scope, not the
@@ -1117,11 +1120,14 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
       }
       jgscope[i]=NULL;
       if(jc && jthis)
-      {  for(p=script;*p;p++)
-         {  if(*p==0xa0) *p=' ';
+      {  if(script)
+         {  long len=strlen(script);
+            for(p=script;p<script+len;p++)
+            {  if(*p==0xa0) *p=' ';
+            }
          }
          /* for compatabilty purposes ignore a leading "javascript:" */
-         if(prefs.htmlmode!=HTML_STRICT)
+         if(script && prefs.htmlmode!=HTML_STRICT)
          {  UBYTE *p;
             p=strchr(script,':');
             if(p && STRNIEQUAL(script,"javascript:",p+1-script))
@@ -1131,12 +1137,16 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
          animon=Setanimgads(TRUE);
          jerr=(prefs.jserrors?JERRORS_ON:JERRORS_OFF);
          if(prefs.dojs==DOJS_ALL) jerr=JERRORS_CONTINUE;
+         printf("[AWeb] Runjscript: jc=%p, fr->jobject=%p, script=%p, jthis=%p, jgscope=%p\n", jc, fr->jobject, script, jthis, jgscope);
+         if(script) printf("[AWeb] Runjscript: script preview: %.80s\n", script);
          Jerrors(jc,prefs.jserrors,jerr,prefs.jswatch);
 #ifndef DEMOVERSION
          Jdebug(jc,Agetattr(fr->win,AOWIN_Jsdebug));
 #endif
 // Jdumpobjects(jc);
+         printf("[AWeb] Runjscript: calling Runjprogram...\n");
          result=Runjprogram(jc,fr->jobject,script,jthis,jgscope,fr->jprotect,(ULONG)fr);
+         printf("[AWeb] Runjscript: Runjprogram returned %d\n", result);
          timer(clock);
          if(clock[0]>garbagetime)
          {  Jgarbagecollect(jc);

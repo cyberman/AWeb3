@@ -24,6 +24,23 @@
 #include <math.h>
 #include <stdarg.h>
 #include <proto/utility.h>
+#include <proto/awebplugin.h>
+
+/* Forward declaration for Aprintf */
+extern void Aprintf(const char *format, ...);
+
+/* Implementations of isnan() and isinf() for systems without them */
+static int isnan(double x)
+{
+   /* NaN is the only value that is not equal to itself */
+   return (x != x);
+}
+
+static int isinf(double x)
+{
+   /* Infinity times 2 is still infinity, and it's not NaN */
+   return (x == x) && (x * 2.0 == x) && (x != 0.0);
+}
 
 /*-----------------------------------------------------------------------*/
 
@@ -31,6 +48,7 @@ static UBYTE *emsg_noproperty="No such property '%s'";
 static UBYTE *emsg_nofunction="Not a function";
 static UBYTE *emsg_notallowed="Access to '%s' not allowed";
 static UBYTE *emsg_stackoverflow="Stack overflow";
+static UBYTE *emsg_notobject="Not an object";
 
 /* Display the run time error message */
 void Runtimeerror(struct Jcontext *jc,STRPTR type,struct Element *elt,UBYTE *msg,...)
@@ -94,8 +112,8 @@ static BOOL Stackcheck(struct Jcontext *jc,struct Element *elt)
 /*-----------------------------------------------------------------------*/
 
 /* Add a variable to this list */
-static struct Variable *Addvar(void *vlist,UBYTE *name,void *pool)
-{  struct Variable *var=Newvar(name,pool);
+static struct Variable *Addvar(void *vlist,UBYTE *name,struct Jcontext *jc)
+{  struct Variable *var=Newvar(name,jc);
    if(var)
    {  ADDTAIL(vlist,var);
    }
@@ -107,6 +125,7 @@ static struct Variable *Addvar(void *vlist,UBYTE *name,void *pool)
 static struct Variable *Findvar(struct Jcontext *jc,UBYTE *name,struct Jobject **pthis)
 {  struct Variable *var;
    struct With *w;
+   struct Function *f;
    /* Search the with stack for this function */
    for(w=jc->functions.first->with.first;w->next;w=w->next)
    {  if(var=Getproperty(w->jo,name))
@@ -129,15 +148,20 @@ static struct Variable *Findvar(struct Jcontext *jc,UBYTE *name,struct Jobject *
    {  return var;
    }
    /* Try top level global data scopes. */
-   for(w=jc->functions.last->with.first;w->next;w=w->next)
-      {  if((w->flags&WITHF_GLOBAL) && (var=Getproperty(w->jo,name)))
-      {  if(pthis) *pthis=w->jo;
-         return var;
-      }
-   }
-   /* Try JS global variables */
-   for(var=jc->functions.last->local.first;var->next;var=var->next)
-   {  if(var->name && STREQUAL(var->name,name)) return var;
+
+   for(f = jc->functions.first->next;f && f->next;f=f->next)
+   {
+
+       for(w=f->with.first;w->next;w=w->next)
+       {  if((w->flags&WITHF_GLOBAL) && (var=Getproperty(w->jo,name)))
+          {  if(pthis) *pthis=w->jo;
+             return var;
+          }
+       }
+       /* Try JS global variables */
+       for(var=f->local.first;var->next;var=var->next)
+       {  if(var->name && STREQUAL(var->name,name)) return var;
+       }
    }
    /* Not found, add variable to the global scope. */
    var=Addproperty(jc->functions.last->fscope,name);
@@ -154,7 +178,7 @@ static struct Variable *Findlocalvar(struct Jcontext *jc,UBYTE *name)
       {  if(var->name && STREQUAL(var->name,name)) return var;
       }
       /* Not found, add variable. */
-      return Addvar(&jc->functions.first->local,name,jc->pool);
+      return Addvar(&jc->functions.first->local,name,jc);
    }
    else
    {  /* Use global variables */
@@ -191,6 +215,7 @@ struct Function *Newfunction(struct Jcontext *jc,struct Elementfunc *func)
    {  NEWLIST(&f->local);
       NEWLIST(&f->with);
       f->arguments=Newarray(jc);
+      if(f->arguments) Keepobject(f->arguments,TRUE);
       if(func)
       {  f->fscope=func->fscope;
       }
@@ -205,6 +230,7 @@ void Disposefunction(struct Function *f)
    if(f)
    {  while(var=REMHEAD(&f->local)) Disposevar(var);
       while(w=REMHEAD(&f->with)) Disposewith(w);
+      if(f->arguments) Keepobject(f->arguments,FALSE);
       Clearvalue(&f->retval);
       FREE(f);
    }
@@ -212,21 +238,28 @@ void Disposefunction(struct Function *f)
 
 /*-----------------------------------------------------------------------*/
 
-/* Evaluate first argument */
+/* Evaluate first argument (but only if a string) */
 static void Eval(struct Jcontext *jc)
 {  struct Variable *var;
    struct Function *f;
    var=jc->functions.first->local.first;
    if(var->next)
-   {  Tostring(&var->val,jc);
+   {
+       f=(struct Function *)REMHEAD(&jc->functions);
+       if(var->val.type == VTP_STRING)
+       {
+           Jeval(jc,var->val.value.svalue);
+           Asgvalue(&f->retval,jc->val);
+       }
+       else
+       {
+           Asgvalue(&f->retval,&var->val);
+       }
+       ADDHEAD(&jc->functions,f);
    }
    /* Compile and execute the thing. Execution must take place in the
     * caller's context, not the eval() context. So pop the top function
     * and put it back later */
-   f=REMHEAD(&jc->functions);
-   Jeval(jc,var->val.svalue);
-   ADDHEAD(&jc->functions,f);
-   Asgvalue(&f->retval,jc->val);
 }
 
 /* Parse string to integer */
@@ -240,12 +273,12 @@ static void Parseint(struct Jcontext *jc)
    var=jc->functions.first->local.first;
    if(var->next)
    {  Tostring(&var->val,jc);
-      s=var->val.svalue;
+      s=var->val.value.svalue;
       var=var->next;
       if(var->next)
       {  Tonumber(&var->val,jc);
          if(var->val.attr==VNA_VALID)
-         {  radix=(long)var->val.nvalue;
+         {  radix=(long)var->val.value.nvalue;
          }
       }
    }
@@ -295,7 +328,7 @@ static void Parsefloat(struct Jcontext *jc)
    var=jc->functions.first->local.first;
    if(var->next)
    {  Tostring(&var->val,jc);
-      s=var->val.svalue;
+      s=var->val.value.svalue;
    }
    f=0.0;
    if(*s=='-')
@@ -341,7 +374,7 @@ static void Escape(struct Jcontext *jc)
    var=jc->functions.first->local.first;
    if(var->next)
    {  Tostring(&var->val,jc);
-      s=var->val.svalue;
+      s=var->val.value.svalue;
    }
    if(jb=Newjbuffer(jc->pool))
    {  for(;*s;s++)
@@ -370,7 +403,7 @@ static void Unescape(struct Jcontext *jc)
    var=jc->functions.first->local.first;
    if(var->next)
    {  Tostring(&var->val,jc);
-      s=var->val.svalue;
+      s=var->val.value.svalue;
    }
    if(jb=Newjbuffer(jc->pool))
    {  for(;*s;s++)
@@ -417,10 +450,19 @@ static BOOL Member(struct Jcontext *jc,struct Element *elt,struct Jobject *jo,
    UBYTE *mbrname,BOOL asgonly)
 {  struct Variable *mbr;
    BOOL ok=FALSE;
-   mbr=Getproperty(jo,mbrname);
+   if(!jo)
+   {  Runtimeerror(jc,NTE_TYPE,elt,"Cannot access property of null or undefined");
+      return FALSE;
+   }
+   if(!asgonly)
+   {  mbr=Getproperty(jo,mbrname);
+   }
+   else
+   {  mbr=Getownproperty(jo,mbrname);
+   }
    if(!mbr)
    {  if(Callohook(jo,jc,OHC_ADDPROPERTY,mbrname))
-      {  mbr=Getproperty(jo,mbrname);
+      {  mbr=Getownproperty(jo,mbrname);
       }
       else
       {  mbr=Addproperty(jo,mbrname);
@@ -433,8 +475,10 @@ static BOOL Member(struct Jcontext *jc,struct Element *elt,struct Jobject *jo,
       /* Only access member if protection allows it. But keep the reference
        * even without protection to allow assignments (e.g. location.href) */
       if(!jc->protkey || !mbr->protkey || jc->protkey==mbr->protkey || asgonly)
-      {  if(mbr->val.type==VTP_OBJECT && mbr->val.ovalue && mbr->val.ovalue->function)
-         {  Asgfunction(jc->val,mbr->val.ovalue,jo);
+      {  if(mbr->val.type==VTP_OBJECT && mbr->val.value.obj.ovalue && mbr->val.value.obj.ovalue->function)
+         {  /* Always set fthis to the object that owns the property (jo),
+              * not the object where the property was found (which could be in prototype chain) */
+            Asgfunction(jc->val,mbr->val.value.obj.ovalue,jo);
          }
          else
          {  if(!Callvhook(mbr,jc,VHC_GET,jc->val))
@@ -450,13 +494,13 @@ static BOOL Member(struct Jcontext *jc,struct Element *elt,struct Jobject *jo,
       jc->flags|=EXF_KEEPREF;
       ok=TRUE;
    }
-   else Runtimeerror(jc,NTE_GENERAL,elt,emsg_noproperty,mbrname);
+   else Runtimeerror(jc,NTE_REFERENCE,elt,emsg_noproperty,mbrname);
    return ok;
 }
 
 /*-----------------------------------------------------------------------*/
 
-static void Execute(struct Jcontext *jc,struct Element *elt);
+static void Executeinternal(struct Jcontext *jc,struct Element *elt);
 
 static void Exeprogram(struct Jcontext *jc,struct Elementlist *elist)
 {  struct Elementnode *enode,*enext;
@@ -466,7 +510,7 @@ static void Exeprogram(struct Jcontext *jc,struct Elementlist *elist)
    {  enext=enode->next;
       elt=enode->sub;
       if(elt && elt->generation==generation)
-      {  Execute(jc,enode->sub);
+      {  Executeelem(jc,enode->sub);
          /* When used in eval() (not top level call), break out after return */
          if(jc->functions.first->next->next && jc->complete) break;
       }
@@ -487,15 +531,27 @@ static void Exeprogram(struct Jcontext *jc,struct Elementlist *elist)
 void Callfunctionbody(struct Jcontext *jc,struct Elementfunc *func,struct Jobject *jthis)
 {  struct Function *f;
    struct Jobject *oldthis;
-   USHORT oldflags;
+   struct This *tnode;
+   UWORD oldflags;
    if(f=Newfunction(jc,func))
    {  ADDHEAD(&jc->functions,f);
       oldthis=jc->jthis;
       jc->jthis=jthis;
       oldflags=jc->flags;
       jc->flags&=~EXF_CONSTRUCT;
-      Execute(jc,func);
+      if((tnode = ALLOCSTRUCT(This,1,MEMF_CLEAR,jc->pool)))
+      {
+         tnode->this = oldthis;
+         ADDHEAD(&jc->thislist,tnode);
+      }
+      Executeelem(jc,(struct Element *)func);
       jc->jthis=oldthis;
+      if(tnode)
+      {
+         REMOVE(tnode);
+         FREE(tnode);
+      }
+
       jc->flags=oldflags /*&~EXF_ERRORS*/ ;  /* Why did I put that here????? */
       REMOVE(f);
       Disposefunction(f);
@@ -506,27 +562,32 @@ void Callfunctionbody(struct Jcontext *jc,struct Elementfunc *func,struct Jobjec
 void Callfunctionargs(struct Jcontext *jc,struct Elementfunc *func,struct Jobject *jthis,...)
 {  struct Function *f;
    struct Jobject *oldthis;
-   struct Value **val;
+   struct Value *val;
    struct Variable *var;
-   USHORT oldflags;
+   UWORD oldflags;
+   va_list args;
    if(f=Newfunction(jc,func))
-   {  for(val=VARARG(jthis);*val;val++)
-      {  if(var=Newvar(NULL,jc->pool))
+   {  va_start(args,jthis);
+      while((val=va_arg(args,struct Value *)))
+      {  if(var=Newvar(NULL,jc))
          {  ADDTAIL(&f->local,var);
-            Asgvalue(&var->val,*val);
+            Asgvalue(&var->val,val);
          }
       }
-      for(val=VARARG(jthis);*val;val++)
+      va_end(args);
+      va_start(args,jthis);
+      while((val=va_arg(args,struct Value *)))
       {  if(var=Addarrayelt(jc,f->arguments))
-         {  Asgvalue(&var->val,*val);
+         {  Asgvalue(&var->val,val);
          }
       }
+      va_end(args);
       ADDHEAD(&jc->functions,f);
       oldthis=jc->jthis;
       jc->jthis=jthis;
       oldflags=jc->flags;
       jc->flags&=~EXF_CONSTRUCT;
-      Execute(jc,func);
+      Executeelem(jc,(struct Element *)func);
       jc->jthis=oldthis;
       jc->flags=oldflags /*&~EXF_ERRORS*/ ;
       REMOVE(f);
@@ -542,19 +603,29 @@ static void Callfunction(struct Jcontext *jc,struct Elementlist *elist,
    struct Function *f;
    struct Variable *arg,*argv;
    struct Jobject *oldthis,*fdef;
-   USHORT oldflags;
+   UWORD oldflags;
+
+   struct This *tnode = NULL;;
+
    if(!Stackcheck(jc,(struct Element *)elist)) return;
-   Execute(jc,(struct Element *)elist->subs.first->sub);
+   Executeelem(jc,(struct Element *)elist->subs.first->sub);
    Tofunction(jc->val,jc);
-   if(jc->val->ovalue)
-   {  func=jc->val->ovalue->function;
-      fdef=jc->val->ovalue;
+
+ //  Addobjectlist(jc);                 // install temp list
+                                      // all new objects now added to this list and if
+                                      // garbage colection is triggered it will scan
+                                      // against this list, protecting any "floating" objects
+                                      // created by syntax like (new Object()).method()
+
+   if(jc->val->value.obj.ovalue)
+   {  func=jc->val->value.obj.ovalue->function;
+      fdef=jc->val->value.obj.ovalue;
    }
-   if(jc->val->fthis && !construct)
-   {  jthis=jc->val->fthis;
+   if(jc->val->value.obj.fthis && !construct)
+   {  jthis=jc->val->value.obj.fthis;
    }
-   if(construct && jthis && jc->val->ovalue)
-   {  Initconstruct(jc,jthis,NULL,jc->val->ovalue);
+   if(construct && jthis && jc->val->value.obj.ovalue)
+   {  Initconstruct(jc,jthis,NULL,jc->val->value.obj.ovalue);
    }
    /* Call constructor */
    if(func)
@@ -562,15 +633,17 @@ static void Callfunction(struct Jcontext *jc,struct Elementlist *elist,
       {  f->def=fdef;
          oldflags=jc->flags;
          jc->flags&=~EXF_CONSTRUCT;
+
          /* Create local variables for all actual parameters */
          for(enode=elist->subs.first->next;enode && enode->next;enode=enode->next)
-         {  Execute(jc,enode->sub);
-            if(arg=Newvar(NULL,jc->pool))
+         {
+            Executeelem(jc,enode->sub);
+            if(arg=Newvar(NULL,jc))
             {  ADDTAIL(&f->local,arg);
                Asgvalue(&arg->val,jc->val);
             }
          }
-         /* Create the arguments array */
+         /* Create the arguments array n*/
          for(argv=f->local.first;argv->next;argv=argv->next)
          {  if(arg=Addarrayelt(jc,f->arguments))
             {  Asgvalue(&arg->val,&argv->val);
@@ -579,39 +652,47 @@ static void Callfunction(struct Jcontext *jc,struct Elementlist *elist,
          ADDHEAD(&jc->functions,f);
          oldthis=jc->jthis;
          jc->jthis=jthis;
-         /* Install temporary objects list for function execution */
-         NEWLIST(&jc->tmp);
+         if((tnode = ALLOCSTRUCT(This,1,MEMF_CLEAR,jc->pool)))
+         {
+            tnode->this = oldthis;
+            ADDHEAD(&jc->thislist,tnode);
+         }
          if(construct) jc->flags|=EXF_CONSTRUCT;
-         Execute(jc,func);
-         /* Garbage collect temporary objects and merge survivors to objects */
-         Garbagecollect(jc);
+         Executeelem(jc,func);
          jc->jthis=oldthis;
+         if(tnode)
+         {
+            REMOVE(tnode);
+            FREE(tnode);
+         }
          jc->flags=oldflags;
          REMOVE(f);
          Disposefunction(f);
       }
    }
-   else if(jc->val->ovalue && (jc->val->ovalue->flags&OBJF_ASFUNCTION))
+   else if(jc->val->value.obj.ovalue && (jc->val->value.obj.ovalue->flags&OBJF_ASFUNCTION))
    {  /* Copy of Exeindex() here: */
-      struct Value val,sval;
-      BOOL ok=FALSE;
-      Asgvalue(&val,jc->val);
       enode=elist->subs.first->next;
       if(enode && enode->next)
-      {  Execute(jc,enode->sub);
+      {
+         struct Value val,sval;
+         BOOL ok=FALSE;
+         val.type=sval.type=0;
+         Asgvalue(&val,jc->val);
+         Executeelem(jc,enode->sub);
          Asgvalue(&sval,jc->val);
          Tostring(&sval,jc);
-         ok=Member(jc,(struct Element *)elist,val.ovalue,sval.svalue,FALSE);
+         ok=Member(jc,(struct Element *)elist,val.value.obj.ovalue,sval.value.svalue,FALSE);
          Clearvalue(&val);
          if(!ok) Clearvalue(jc->val);
          Clearvalue(&sval);
       }
       else
-      {  Runtimeerror(jc,NTE_GENERAL,(struct Element *)elist,emsg_nofunction);
+      {  Runtimeerror(jc,NTE_TYPE,(struct Element *)elist,emsg_nofunction);
       }
    }
    else
-   {  Runtimeerror(jc,NTE_GENERAL,(struct Element *)elist,emsg_nofunction);
+   {  Runtimeerror(jc,NTE_TYPE,(struct Element *)elist,emsg_nofunction);
    }
 }
 
@@ -623,7 +704,7 @@ static void Execompound(struct Jcontext *jc,struct Elementlist *elist)
 {  struct Elementnode *enode;
    for(enode=elist->subs.first;enode->next;enode=enode->next)
    {  if(enode->sub)
-      {  Execute(jc,enode->sub);
+      {  Executeelem(jc,enode->sub);
          if(jc->complete) break;
       }
    }
@@ -633,7 +714,7 @@ static void Exevarlist(struct Jcontext *jc,struct Elementlist *elist)
 {  struct Elementnode *enode;
    for(enode=elist->subs.first;enode->next;enode=enode->next)
    {  if(enode->sub)
-      {  Execute(jc,enode->sub);
+      {  Executeelem(jc,enode->sub);
          /* Keep reference to last variable */
          jc->flags|=EXF_KEEPREF;
       }
@@ -660,48 +741,37 @@ static void Exefunction(struct Jcontext *jc,struct Elementfunc *func)
    for(;enode && enode->next;enode=enode->next)
    {  arg=enode->sub;
       if(arg && arg->type==ET_IDENTIFIER)
-      {  if(var=Newvar(arg->svalue,jc->pool))
+      {  if(var=Newvar(arg->svalue,jc))
          {  ADDTAIL(&f->local,var);
          }
       }
    }
    /* Link the arguments array to a local variable
     * and to the function object .arguments property */
-   if(var=Newvar("arguments",jc->pool))
+   if(var=Newvar("arguments",jc))
    {  ADDTAIL(&f->local,var);
       Asgobject(&var->val,f->arguments);
+      var->flags |= VARF_DONTDELETE;
    }
-   if((avar=Getproperty(f->def,"arguments"))
+   if((avar=Getownproperty(f->def,"arguments"))
    || (avar=Addproperty(f->def,"arguments")))
    {  Asgobject(&avar->val,f->arguments);
+      avar->flags |= VARF_DONTDELETE;
    }
    /* Link the caller to a variable */
-   if(var=Newvar("caller",jc->pool))
+   if(var=Newvar("caller",jc))
    {  ADDTAIL(&f->local,var);
       Asgobject(&var->val,f->next->def);
+      var->flags |= VARF_DONTDELETE;
    }
    /* Create function call object */
-   if(func->name && (var=Newvar(func->name,jc->pool)))
+   if(var=Newvar(func->name,jc))
    {  ADDTAIL(&f->local,var);
       Asgfunction(&var->val,f->def,NULL);
-   }
-   /* Set function.length property if not already set */
-   if(f->def)
-   {  struct Variable *length;
-      if(!(length=Getproperty(f->def,"length")))
-      {  struct Elementnode *enode;
-         long paramcount=0;
-         for(enode=func->subs.first;enode->next;enode=enode->next)
-         {  paramcount++;
-         }
-         if(length=Addproperty(f->def,"length"))
-         {  Asgnumber(&length->val,VNA_VALID,(double)paramcount);
-            length->flags|=VARF_HIDDEN;
-         }
-      }
+      var->flags |= VARF_DONTDELETE;
    }
    /* Execute the function body */
-   Execute(jc,func->body);
+   Executeelem(jc,func->body);
    if(jc->complete<=ECO_RETURN)
    {  jc->complete=ECO_NORMAL;
    }
@@ -713,6 +783,51 @@ static void Exefunction(struct Jcontext *jc,struct Elementfunc *func)
    Asgvalue(jc->val,&f->retval);
 }
 
+static void Exefuncref(struct Jcontext *jc, struct Elementfuncref *funcref)
+{  Asgobject(jc->val, funcref->func);
+}
+
+static void Exetry(struct Jcontext *jc, struct Elementtry *elt)
+{  /*
+     * Execution:
+     *     Execute try.
+     *         If return is eco_NORMAL and no final return result;
+     *         If return is ECO_THROW execute catch
+     *     If Final execute final
+     *         If return is normal return the result of try.
+     */
+   struct Variable *var;
+   struct Value val;
+   void * oldtry = jc->try;
+   val.type = 0;
+
+   jc->flags|=EXF_ASGONLY;
+   Executeelem(jc,elt->catchvar);
+   jc->flags&=~EXF_ASGONLY;
+   var = jc->varref;
+
+   jc->try = elt;
+
+   Executeelem(jc,elt->try);
+   if(jc->complete == ECO_THROW)
+   {  Asgvalue(&var->val,jc->throwval);
+      var->flags |= VARF_DONTDELETE;
+      jc->try = oldtry;
+      Executeelem(jc,elt->catch);
+   }
+   jc->try = oldtry;
+
+   Asgvalue(&val,jc->val);
+   if(elt->finally)
+   {  Executeelem(jc,elt->finally);
+      if(jc->complete != ECO_NORMAL)
+      {  Asgvalue(&val,jc->val);
+      }
+   }
+   Asgvalue(jc->val,&val);
+   Clearvalue(&val);
+}
+
 static void Exebreak(struct Jcontext *jc,struct Element *elt)
 {  jc->complete=ECO_BREAK;
 }
@@ -722,7 +837,14 @@ static void Execontinue(struct Jcontext *jc,struct Element *elt)
 }
 
 static void Exethis(struct Jcontext *jc,struct Element *elt)
-{  Asgobject(jc->val,jc->jthis);
+{
+    struct Variable *var;
+    Asgobject(jc->val,jc->jthis);
+    if((var = Findlocalvar(jc,"this")))
+    {
+        Asgobject(&var->val,jc->jthis);
+    }
+
 }
 
 static void Exenull(struct Jcontext *jc,struct Element *elt)
@@ -732,11 +854,11 @@ static void Exenull(struct Jcontext *jc,struct Element *elt)
 static void Exenegative(struct Jcontext *jc,struct Element *elt)
 {  double n;
    UBYTE v;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    Tonumber(jc->val,jc);
    switch(jc->val->attr)
    {  case VNA_VALID:
-         n=-jc->val->nvalue;
+         n=-jc->val->value.nvalue;
          v=VNA_VALID;
          break;
       case VNA_INFINITY:
@@ -752,62 +874,68 @@ static void Exenegative(struct Jcontext *jc,struct Element *elt)
    Asgnumber(jc->val,v,n);      
 }
 
+static void Exepositive(struct Jcontext *jc,struct Element *elt)
+{  Executeelem(jc,elt->sub1);
+   Tonumber(jc->val,jc);
+}
+
 static void Exenot(struct Jcontext *jc,struct Element *elt)
-{  Execute(jc,elt->sub1);
+{  Executeelem(jc,elt->sub1);
    Toboolean(jc->val,jc);
-   Asgboolean(jc->val,!jc->val->bvalue);
+   Asgboolean(jc->val,!jc->val->value.bvalue);
 }
 
 static void Exebitneg(struct Jcontext *jc,struct Element *elt)
-{  ULONG n=0.0;
-   Execute(jc,elt->sub1);
+{
+   LONG n=0;
+   Executeelem(jc,elt->sub1);
    Tonumber(jc->val,jc);
    if(jc->val->attr==VNA_VALID)
-   {  n=~((ULONG)(long)jc->val->nvalue);
+   {  n=~((long)jc->val->value.nvalue);
    }
    Asgnumber(jc->val,VNA_VALID,(double)n);
 }
 
 static void Exepreinc(struct Jcontext *jc,struct Element *elt)
-{  Execute(jc,elt->sub1);
+{  Executeelem(jc,elt->sub1);
    if(jc->varref)
    {  Tonumber(&jc->varref->val,jc);
       if(jc->varref->val.attr==VNA_VALID)
-      {  jc->varref->val.nvalue+=1.0;
+      {  jc->varref->val.value.nvalue+=1.0;
       }
       Asgvalue(jc->val,&jc->varref->val);
    }
 }
 
 static void Exepredec(struct Jcontext *jc,struct Element *elt)
-{  Execute(jc,elt->sub1);
+{  Executeelem(jc,elt->sub1);
    if(jc->varref)
    {  Tonumber(&jc->varref->val,jc);
       if(jc->varref->val.attr==VNA_VALID)
-      {  jc->varref->val.nvalue-=1.0;
+      {  jc->varref->val.value.nvalue-=1.0;
       }
       Asgvalue(jc->val,&jc->varref->val);
    }
 }
 
 static void Exepostinc(struct Jcontext *jc,struct Element *elt)
-{  Execute(jc,elt->sub1);
+{  Executeelem(jc,elt->sub1);
    if(jc->varref)
    {  Tonumber(&jc->varref->val,jc);
       Asgvalue(jc->val,&jc->varref->val);
       if(jc->varref->val.attr==VNA_VALID)
-      {  jc->varref->val.nvalue+=1.0;
+      {  jc->varref->val.value.nvalue+=1.0;
       }
    }
 }
 
 static void Exepostdec(struct Jcontext *jc,struct Element *elt)
-{  Execute(jc,elt->sub1);
+{  Executeelem(jc,elt->sub1);
    if(jc->varref)
    {  Tonumber(&jc->varref->val,jc);
       Asgvalue(jc->val,&jc->varref->val);
       if(jc->varref->val.attr==VNA_VALID)
-      {  jc->varref->val.nvalue-=1.0;
+      {  jc->varref->val.value.nvalue-=1.0;
       }
    }
 }
@@ -815,8 +943,11 @@ static void Exepostdec(struct Jcontext *jc,struct Element *elt)
 static void Exenew(struct Jcontext *jc,struct Element *elt)
 {  struct Jobject *jo;
    struct Element *ctr=elt->sub1;
+   BOOL kept=FALSE;
    if(jo=Newobject(jc))
-   {  if(ctr)
+   {  Keepobject(jo,TRUE);
+      kept=TRUE;
+      if(ctr)
       {  if(ctr->type==ET_CALL)
          {  Callfunction(jc,elt->sub1,jo,TRUE);
          }
@@ -834,95 +965,93 @@ static void Exenew(struct Jcontext *jc,struct Element *elt)
             Callfunction(jc,&call,jo,TRUE);
          }
       }
+      if(kept) Keepobject(jo,FALSE);
       Asgobject(jc->val,jo);
    }
 }
 
 static void Exedelete(struct Jcontext *jc,struct Element *elt)
-{  BOOL result=FALSE;
+{
+   BOOL result = FALSE;
    struct Variable *rhs;
-   struct Element *sub1;
-   if(elt && elt->sub1)
-   {  sub1=(struct Element *)elt->sub1;
-      if(sub1->type==ET_IDENTIFIER
-      || sub1->type==ET_DOT
-      || sub1->type==ET_INDEX)
-      {  jc->flags|=EXF_ASGONLY;
-         Execute(jc,sub1);
-         jc->flags&=~EXF_ASGONLY;
-         rhs=jc->varref;
-         if(rhs)
-         {  if(!(rhs->flags&VARF_DONTDELETE))
-            {  REMOVE(rhs);
-               Disposevar(rhs);
-               result=TRUE;
-            }
-            else
-            {  result=FALSE;
-            }
-         }
-      }
-      else
-      {  result=TRUE;
-      }
+   if( ((struct Element *)elt->sub1)->type == ET_IDENTIFIER ||
+       ((struct Element *)elt->sub1)->type == ET_DOT  ||
+       ((struct Element *)elt->sub1)->type == ET_INDEX
+     )
+   {
+       jc->flags|=EXF_ASGONLY;
+       Executeelem(jc,elt->sub1);
+       jc->flags&=~EXF_ASGONLY;
+       rhs=jc->varref;
+   }
+   else
+   {
+       rhs = NULL;
+       result = TRUE;
+   }
+   if(rhs)
+   {
+       if(!(rhs->flags & VARF_DONTDELETE))
+       {
+           REMOVE(rhs);
+           Disposevar(rhs);
+           result = TRUE;
+       }
+       else
+       {
+           result = FALSE;
+       }
    }
    Asgboolean(jc->val,result);
 }
 
 static void Exetypeof(struct Jcontext *jc,struct Element *elt)
 {  UBYTE *tp;
-   UBYTE valtype;
-   struct Jobject *valobj;
-   if(elt && elt->sub1 && jc && jc->val)
-   {  Execute(jc,elt->sub1);
-      if(jc->val)
-      {  valtype=jc->val->type;
-         if(valtype==VTP_OBJECT)
-         {  valobj=jc->val->ovalue;
+   Executeelem(jc,elt->sub1);
+   switch(jc->val->type)
+   {  case VTP_NUMBER:  tp="number";break;
+      case VTP_BOOLEAN: tp="boolean";break;
+      case VTP_STRING:  tp="string";break;
+      case VTP_OBJECT:
+         if(jc->val->value.obj.ovalue && jc->val->value.obj.ovalue->function)
+         {  tp="function";
          }
          else
-         {  valobj=NULL;
+         {  tp="object";
          }
-         switch(valtype)
-         {  case VTP_NUMBER:  tp="number";break;
-            case VTP_BOOLEAN: tp="boolean";break;
-            case VTP_STRING:  tp="string";break;
-            case VTP_OBJECT:
-               if(valobj && valobj->function)
-               {  tp="function";
-               }
-               else
-               {  tp="object";
-               }
-               break;
-            default:          tp="undefined";break;
-         }
-         Asgstring(jc->val,tp,jc->pool);
-      }
-      else
-      {  Asgstring(&jc->valvar->val,"undefined",jc->pool);
-      }
+         break;
+      default:          tp="undefined";break;
    }
-   else
-   {  if(jc && jc->val) Asgstring(jc->val,"undefined",jc->pool);
-      else if(jc && jc->valvar) Asgstring(&jc->valvar->val,"undefined",jc->pool);
-   }
+   Asgstring(jc->val,tp,jc->pool);
 }
 
 static void Exevoid(struct Jcontext *jc,struct Element *elt)
-{  Execute(jc,elt->sub1);
+{  Executeelem(jc,elt->sub1);
    Clearvalue(jc->val);
 }
 
 static void Exereturn(struct Jcontext *jc,struct Element *elt)
 {  if(elt->sub1)
-   {  Execute(jc,elt->sub1);
+   {  Executeelem(jc,elt->sub1);
       Asgvalue(&jc->functions.first->retval,jc->val);
    }
    else
    {  Clearvalue(&jc->functions.first->retval);
    }
    jc->complete=ECO_RETURN;
+}
+
+static void Exethrow(struct Jcontext *jc,struct Element *elt)
+{  /* NB must adapt this to check for try catch else error */
+   if(elt->sub1)
+   {  Executeelem(jc,elt->sub1);
+      Asgvalue(&jc->functions.first->retval,jc->val);
+      Asgvalue(jc->throwval,jc->val);
+   }
+   else
+   {  Clearvalue(&jc->functions.first->retval);
+   }
+   jc->complete=ECO_THROW;
 }
 
 static void Exeinternal(struct Jcontext *jc,struct Element *elt)
@@ -934,31 +1063,37 @@ static void Exeinternal(struct Jcontext *jc,struct Element *elt)
 }
 
 static void Exefunceval(struct Jcontext *jc,struct Element *elt)
-{  Execute(jc,elt->sub1);
+{  Executeelem(jc,elt->sub1);
    Tostring(jc->val,jc);
-   Jeval(jc,jc->val->svalue);
+   Jeval(jc,jc->val->value.svalue);
+}
+
+static void Execase(struct Jcontext *jc,struct Elementcase *elt)
+{  if(elt->expr)
+   {  Executeelem(jc,elt->expr);
+   }
 }
 
 static void Exeplus(struct Jcontext *jc,struct Element *elt)
 {  static UBYTE attrtab[4][4]=
    {/* a+b   valid            nan      +inf              -inf */
-   /*valid*/ VNA_VALID,       VNA_NAN, VNA_INFINITY,     VNA_NEGINFINITY,
-   /* nan */ VNA_NAN,         VNA_NAN, VNA_NAN,          VNA_NAN,
-   /* +inf*/ VNA_INFINITY,    VNA_NAN, VNA_INFINITY,     VNA_NAN,
-   /* -inf*/ VNA_NEGINFINITY, VNA_NAN, VNA_NAN,          VNA_NEGINFINITY,
+   /*valid*/ {VNA_VALID,       VNA_NAN, VNA_INFINITY,     VNA_NEGINFINITY},
+   /* nan */ {VNA_NAN,         VNA_NAN, VNA_NAN,          VNA_NAN},
+   /* +inf*/ {VNA_INFINITY,    VNA_NAN, VNA_INFINITY,     VNA_NAN},
+   /* -inf*/ {VNA_NEGINFINITY, VNA_NAN, VNA_NAN,          VNA_NEGINFINITY}
    };
    struct Value val1,val2;
    struct Variable *lhs;
    BOOL concat=FALSE;
    val1.type=val2.type=0;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    lhs=jc->varref;
    Asgvalue(&val1,jc->val);
-   Execute(jc,elt->sub2);
+   Executeelem(jc,elt->sub2);
    Asgvalue(&val2,jc->val);
    /* If object, see if it string-convertible */
-   if(val1.type==VTP_OBJECT && val1.ovalue && !val1.ovalue->function)
-   {  if(!Callproperty(jc,val1.ovalue,"valueOf") || jc->val->type>=VTP_STRING)
+   if(val1.type==VTP_OBJECT && val1.value.obj.ovalue && !val1.value.obj.ovalue->function)
+   {  if(!Callproperty(jc,val1.value.obj.ovalue,"valueOf") || jc->val->type>=VTP_STRING)
       {  /* Not number-convertible */
          concat=TRUE;
       }
@@ -966,8 +1101,8 @@ static void Exeplus(struct Jcontext *jc,struct Element *elt)
    else if(val1.type>=VTP_STRING)
    {  concat=TRUE;
    }
-   if(!concat && val2.type==VTP_OBJECT && val2.ovalue && !val2.ovalue->function)
-   {  if(!Callproperty(jc,val2.ovalue,"valueOf") || jc->val->type>=VTP_STRING)
+   if(!concat && val2.type==VTP_OBJECT && val2.value.obj.ovalue && !val2.value.obj.ovalue->function)
+   {  if(!Callproperty(jc,val2.value.obj.ovalue,"valueOf") || jc->val->type>=VTP_STRING)
       {  /* Not number-convertible */
          concat=TRUE;
       }
@@ -981,10 +1116,10 @@ static void Exeplus(struct Jcontext *jc,struct Element *elt)
       UBYTE *s;
       Tostring(&val1,jc);
       Tostring(&val2,jc);
-      l=strlen(val1.svalue)+strlen(val2.svalue);
+      l=strlen(val1.value.svalue)+strlen(val2.value.svalue);
       if(s=ALLOCTYPE(UBYTE,l+1,0,jc->pool))
-      {  strcpy(s,val1.svalue);
-         strcat(s,val2.svalue);
+      {  strcpy(s,val1.value.svalue);
+         strcat(s,val2.value.svalue);
          Asgstring(jc->val,s,jc->pool);
          FREE(s);
       }
@@ -996,11 +1131,11 @@ static void Exeplus(struct Jcontext *jc,struct Element *elt)
       Tonumber(&val1,jc);
       Tonumber(&val2,jc);
       if((v=attrtab[val1.attr][val2.attr])==VNA_VALID)
-      {  _FPERR=0;
-         n=val1.nvalue+val2.nvalue;
-         if(_FPERR)
-         {  if(val1.nvalue>0) v=VNA_INFINITY;
-            else v=VNA_NEGINFINITY;
+      {
+         n = val1.value.nvalue +val2.value.nvalue;
+         if (isinf(n))
+         {
+            v = val1.value.nvalue>0 ? VNA_INFINITY : VNA_NEGINFINITY;
          }
       }
       Asgnumber(jc->val,v,n);
@@ -1018,28 +1153,30 @@ static void Exeplus(struct Jcontext *jc,struct Element *elt)
 static void Exeminus(struct Jcontext *jc,struct Element *elt)
 {  static UBYTE attrtab[4][4]=
    {/* a-b   valid            nan      +inf              -inf */
-   /*valid*/ VNA_VALID,       VNA_NAN, VNA_NEGINFINITY,  VNA_INFINITY,
-   /* nan */ VNA_NAN,         VNA_NAN, VNA_NAN,          VNA_NAN,
-   /* +inf*/ VNA_INFINITY,    VNA_NAN, VNA_NAN,          VNA_INFINITY,
-   /* -inf*/ VNA_NEGINFINITY, VNA_NAN, VNA_NEGINFINITY,  VNA_NAN,
+   /*valid*/ {VNA_VALID,       VNA_NAN, VNA_NEGINFINITY,  VNA_INFINITY},
+   /* nan */ {VNA_NAN,         VNA_NAN, VNA_NAN,          VNA_NAN},
+   /* +inf*/ {VNA_INFINITY,    VNA_NAN, VNA_NAN,          VNA_INFINITY},
+   /* -inf*/ {VNA_NEGINFINITY, VNA_NAN, VNA_NEGINFINITY,  VNA_NAN},
    };
    struct Value val1,val2;
    struct Variable *lhs;
    double n=0.0;
    UBYTE v;
    val1.type=val2.type=0;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    lhs=jc->varref;
    Tonumber(jc->val,jc);
    Asgvalue(&val1,jc->val);
-   Execute(jc,elt->sub2);
+   Executeelem(jc,elt->sub2);
    Tonumber(jc->val,jc);
    Asgvalue(&val2,jc->val);
+
    if((v=attrtab[val1.attr][val2.attr])==VNA_VALID)
-   {  _FPERR=0;
-      n=val1.nvalue-val2.nvalue;
-      if(_FPERR)
-      {  if(val1.nvalue>0) v=VNA_INFINITY;
+   {
+      n = val1.value.nvalue - val2.value.nvalue;
+      if(isinf(n))
+      {
+         if(val1.value.nvalue>0) v=VNA_INFINITY;
          else v=VNA_NEGINFINITY;
       }
    }
@@ -1063,23 +1200,23 @@ static void Exemult(struct Jcontext *jc,struct Element *elt)
    UBYTE v;
    short sign=0;
    val1.type=val2.type=0;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    lhs=jc->varref;
    Tonumber(jc->val,jc);
    Asgvalue(&val1,jc->val);
-   Execute(jc,elt->sub2);
+   Executeelem(jc,elt->sub2);
    Tonumber(jc->val,jc);
    Asgvalue(&val2,jc->val);
    if(val1.attr==VNA_NAN || val2.attr==VNA_NAN)
    {  v=VNA_NAN;
    }
    else
-   {  sign=FSIGN(val1.nvalue)*FSIGN(val2.nvalue);
+   {  sign=FSIGN(val1.value.nvalue)*FSIGN(val2.value.nvalue);
       if(val1.attr==VNA_VALID && val2.attr==VNA_VALID)
-      {  _FPERR=0;
-         n=val1.nvalue*val2.nvalue;
-         if(_FPERR)
-         {  v=(sign>0)?VNA_INFINITY:VNA_NEGINFINITY;
+      {
+         n = val1.value.nvalue * val2.value.nvalue;
+         if(isinf(n))
+         {  v = (sign>0) ? VNA_INFINITY : VNA_NEGINFINITY;
          }
          else
          {  v=VNA_VALID;
@@ -1114,21 +1251,21 @@ static void Exediv(struct Jcontext *jc,struct Element *elt)
    UBYTE v;
    short sign=0;
    val1.type=val2.type=0;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    lhs=jc->varref;
    Tonumber(jc->val,jc);
    Asgvalue(&val1,jc->val);
-   Execute(jc,elt->sub2);
+   Executeelem(jc,elt->sub2);
    Tonumber(jc->val,jc);
    Asgvalue(&val2,jc->val);
    if(val1.attr==VNA_NAN || val2.attr==VNA_NAN)
    {  v=VNA_NAN;
    }
    else
-   {  sign=FSIGN(val1.nvalue)*FSIGN(val2.nvalue);
+   {  sign=FSIGN(val1.value.nvalue)*FSIGN(val2.value.nvalue);
       if(val1.attr==VNA_VALID)
-      {  if(val1.nvalue==0.0)
-         {  if(val2.nvalue==0.0)
+      {  if(val1.value.nvalue==0.0)
+         {  if(val2.value.nvalue==0.0)
             {  /* 0/0 */
                v=VNA_NAN;
             }
@@ -1140,20 +1277,19 @@ static void Exediv(struct Jcontext *jc,struct Element *elt)
          }
          else
          {  if(val2.attr==VNA_VALID)
-            {  if(val2.nvalue==0.0)
+            {  if(val2.value.nvalue==0.0)
                {  /* n/0 */
-                  if(FSIGN(val1.nvalue)>0) v=VNA_INFINITY;
+                  if(FSIGN(val1.value.nvalue)>0) v=VNA_INFINITY;
                   else v=VNA_NEGINFINITY;
                }
                else
                {  /* n/n */
-                  _FPERR=0;
-                  n=val1.nvalue/val2.nvalue;
-                  if(_FPERR==_FPEUND)
+                  n = val1.value.nvalue / val2.value.nvalue;
+                  if(isinf(n))
                   {  n=0.0;
                      v=VNA_VALID;
                   }
-                  else if(_FPERR)
+                  else if(isnan(n))
                   {  v=(sign>0)?VNA_INFINITY:VNA_NEGINFINITY;
                   }
                   else
@@ -1170,7 +1306,7 @@ static void Exediv(struct Jcontext *jc,struct Element *elt)
       }
       else
       {  if(val2.attr==VNA_VALID)
-         {  if(val2.nvalue==0.0)
+         {  if(val2.value.nvalue==0.0)
             {  /* i/0 */
                v=val1.attr;
             }
@@ -1202,26 +1338,26 @@ static void Exerem(struct Jcontext *jc,struct Element *elt)
    double n=0.0;
    UBYTE v;
    val1.type=val2.type=0;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    lhs=jc->varref;
    Tonumber(jc->val,jc);
    Asgvalue(&val1,jc->val);
-   Execute(jc,elt->sub2);
+   Executeelem(jc,elt->sub2);
    Tonumber(jc->val,jc);
    Asgvalue(&val2,jc->val);
    if(val1.attr==VNA_NAN || val2.attr==VNA_NAN)
    {  v=VNA_NAN;
    }
    else
-   {  if(val1.attr!=VNA_VALID || val2.nvalue==0.0)
+   {  if(val1.attr!=VNA_VALID || val2.value.nvalue==0.0)
       {  v=VNA_NAN;
       }
-      else if(val2.attr!=VNA_VALID || val1.nvalue==0.0)
-      {  n=val1.nvalue;
+      else if(val2.attr!=VNA_VALID || val1.value.nvalue==0.0)
+      {  n=val1.value.nvalue;
          v=VNA_VALID;
       }
       else
-      {  n=fmod(val1.nvalue,val2.nvalue);
+      {  n=fmod(val1.value.nvalue,val2.value.nvalue);
          v=VNA_VALID;
       }
    }
@@ -1241,15 +1377,15 @@ static void Exebitand(struct Jcontext *jc,struct Element *elt)
    struct Variable *lhs;
    ULONG n=0;
    val1.type=val2.type=0;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    lhs=jc->varref;
    Tonumber(jc->val,jc);
    Asgvalue(&val1,jc->val);
-   Execute(jc,elt->sub2);
+   Executeelem(jc,elt->sub2);
    Tonumber(jc->val,jc);
    Asgvalue(&val2,jc->val);
    if(val1.attr==VNA_VALID && val2.attr==VNA_VALID)
-   {  n=((ULONG)val1.nvalue) & ((ULONG)val2.nvalue);
+   {  n=((ULONG)val1.value.nvalue) & ((ULONG)val2.value.nvalue);
    }
    Asgnumber(jc->val,VNA_VALID,(double)n);
    Clearvalue(&val1);
@@ -1267,15 +1403,15 @@ static void Exebitor(struct Jcontext *jc,struct Element *elt)
    struct Variable *lhs;
    ULONG n=0;
    val1.type=val2.type=0;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    lhs=jc->varref;
    Tonumber(jc->val,jc);
    Asgvalue(&val1,jc->val);
-   Execute(jc,elt->sub2);
+   Executeelem(jc,elt->sub2);
    Tonumber(jc->val,jc);
    Asgvalue(&val2,jc->val);
    if(val1.attr==VNA_VALID && val2.attr==VNA_VALID)
-   {  n=((ULONG)val1.nvalue) | ((ULONG)val2.nvalue);
+   {  n=((ULONG)val1.value.nvalue) | ((ULONG)val2.value.nvalue);
    }
    Asgnumber(jc->val,VNA_VALID,(double)n);
    Clearvalue(&val1);
@@ -1293,15 +1429,15 @@ static void Exebitxor(struct Jcontext *jc,struct Element *elt)
    struct Variable *lhs;
    ULONG n=0;
    val1.type=val2.type=0;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    lhs=jc->varref;
    Tonumber(jc->val,jc);
    Asgvalue(&val1,jc->val);
-   Execute(jc,elt->sub2);
+   Executeelem(jc,elt->sub2);
    Tonumber(jc->val,jc);
    Asgvalue(&val2,jc->val);
    if(val1.attr==VNA_VALID && val2.attr==VNA_VALID)
-   {  n=((ULONG)val1.nvalue) ^ ((ULONG)val2.nvalue);
+   {  n=((ULONG)val1.value.nvalue) ^ ((ULONG)val2.value.nvalue);
    }
    Asgnumber(jc->val,VNA_VALID,(double)n);
    Clearvalue(&val1);
@@ -1319,15 +1455,15 @@ static void Exeshleft(struct Jcontext *jc,struct Element *elt)
    struct Variable *lhs;
    ULONG n;
    val1.type=val2.type=0;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    lhs=jc->varref;
    Tonumber(jc->val,jc);
    Asgvalue(&val1,jc->val);
-   Execute(jc,elt->sub2);
+   Executeelem(jc,elt->sub2);
    Tonumber(jc->val,jc);
    Asgvalue(&val2,jc->val);
       if(val1.attr==VNA_VALID && val2.attr==VNA_VALID)
-   {  n=((ULONG)val1.nvalue) << (((ULONG)val2.nvalue)&0x1f);
+   {  n=((ULONG)val1.value.nvalue) << (((ULONG)val2.value.nvalue)&0x1f);
    }
    Asgnumber(jc->val,VNA_VALID,(double)n);
    Clearvalue(&val1);
@@ -1345,15 +1481,15 @@ static void Exeshright(struct Jcontext *jc,struct Element *elt)
    struct Variable *lhs;
    ULONG n;
    val1.type=val2.type=0;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    lhs=jc->varref;
    Tonumber(jc->val,jc);
    Asgvalue(&val1,jc->val);
-   Execute(jc,elt->sub2);
+   Executeelem(jc,elt->sub2);
    Tonumber(jc->val,jc);
    Asgvalue(&val2,jc->val);
       if(val1.attr==VNA_VALID && val2.attr==VNA_VALID)
-   {  n=((long)val1.nvalue) >> (((ULONG)val2.nvalue)&0x1f);
+   {  n=((long)val1.value.nvalue) >> (((ULONG)val2.value.nvalue)&0x1f);
    }
    Asgnumber(jc->val,VNA_VALID,(double)n);
    Clearvalue(&val1);
@@ -1371,15 +1507,15 @@ static void Exeushright(struct Jcontext *jc,struct Element *elt)
    struct Variable *lhs;
    ULONG n;
    val1.type=val2.type=0;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    lhs=jc->varref;
    Tonumber(jc->val,jc);
    Asgvalue(&val1,jc->val);
-   Execute(jc,elt->sub2);
+   Executeelem(jc,elt->sub2);
    Tonumber(jc->val,jc);
    Asgvalue(&val2,jc->val);
       if(val1.attr==VNA_VALID && val2.attr==VNA_VALID)
-   {  n=((ULONG)(long)val1.nvalue) >> (((ULONG)val2.nvalue)&0x1f);
+   {  n=((ULONG)(long)val1.value.nvalue) >> (((ULONG)val2.value.nvalue)&0x1f);
    }
    Asgnumber(jc->val,VNA_VALID,(double)n);
    Clearvalue(&val1);
@@ -1396,27 +1532,27 @@ static void Exeequality(struct Jcontext *jc,struct Element *elt)
 {  struct Value val1,val2;
    BOOL b;
    val1.type=val2.type=0;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    Asgvalue(&val1,jc->val);
-   Execute(jc,elt->sub2);
+   Executeelem(jc,elt->sub2);
    Asgvalue(&val2,jc->val);
    if(val1.type==VTP_OBJECT && val2.type==VTP_OBJECT)
    {  /* Reference comparison */
-      b=(BOOL)(val1.ovalue==val2.ovalue);
+      b=(BOOL)(val1.value.obj.ovalue==val2.value.obj.ovalue);
    }
-   else if(val1.type==VTP_OBJECT && !val1.ovalue)
+   else if(val1.type==VTP_OBJECT && !val1.value.obj.ovalue)
    {  Toobject(&val2,jc);
-      b=!val2.ovalue;
+      b=!val2.value.obj.ovalue;
    }
-   else if(val2.type==VTP_OBJECT && !val2.ovalue)
+   else if(val2.type==VTP_OBJECT && !val2.value.obj.ovalue)
    {  Toobject(&val1,jc);
-      b=!val1.ovalue;
+      b=!val1.value.obj.ovalue;
    }
    else if(val1.type>=VTP_STRING || val2.type>=VTP_STRING)
    {  /* String comparison */
       Tostring(&val1,jc);
       Tostring(&val2,jc);
-      b=!strcmp(val1.svalue,val2.svalue);
+      b=!strcmp(val1.value.svalue,val2.value.svalue);
    }
    else
    {  /* Numeric comparison */
@@ -1426,7 +1562,7 @@ static void Exeequality(struct Jcontext *jc,struct Element *elt)
       {  b=FALSE; /* NaN != NaN */
       }
       else if(val1.attr==VNA_VALID && val2.attr==VNA_VALID)
-      {  b=(val1.nvalue==val2.nvalue);
+      {  b=(val1.value.nvalue==val2.value.nvalue);
       }
       else
       {  b=(val1.attr==val2.attr);
@@ -1438,15 +1574,65 @@ static void Exeequality(struct Jcontext *jc,struct Element *elt)
    Clearvalue(&val2);
 }
 
+BOOL Exactequality(struct Jcontext *jc, struct Value *val1, struct Value *val2)
+{  BOOL b;
+   if(val1->type!=val2->type)
+   {  b=FALSE;
+   }
+   else if(val1->type==VTP_OBJECT)
+   {  /* Reference comparison */
+      b=(BOOL)(val1->value.obj.ovalue==val2->value.obj.ovalue);
+   }
+   else if(val1->type>=VTP_STRING)
+   {  /* String comparison */
+      Tostring(val1,jc);
+      Tostring(val2,jc);
+      b=!strcmp(val1->value.svalue,val2->value.svalue);
+   }
+   else if(val1->type == VTP_BOOLEAN)
+   {  b=(val1->value.bvalue == val2->value.bvalue);
+   }
+   else
+   {  /* Numeric comparison */
+      Tonumber(val1,jc);
+      Tonumber(val2,jc);
+      if(val1->attr==VNA_NAN || val2->attr==VNA_NAN)
+      {  b=FALSE; /* NaN != NaN */
+      }
+      else if(val1->attr==VNA_VALID && val2->attr==VNA_VALID)
+      {  b=(val1->value.nvalue==val2->value.nvalue);
+      }
+      else
+      {  b=(val1->attr==val2->attr);
+      }
+   }
+   return b;
+}
+
+static void Exeexactequality(struct Jcontext *jc,struct Element *elt)
+{  struct Value val1,val2;
+   BOOL b;
+   val1.type=val2.type=0;
+   Executeelem(jc,elt->sub1);
+   Asgvalue(&val1,jc->val);
+   Executeelem(jc,elt->sub2);
+   Asgvalue(&val2,jc->val);
+   b = Exactequality(jc,&val1,&val2);
+   if(elt->type==ET_NEXEQ) b=!b;
+   Asgboolean(jc->val,b);
+   Clearvalue(&val1);
+   Clearvalue(&val2);
+}
+
 static void Exerelational(struct Jcontext *jc,struct Element *elt)
 {  struct Value val1,val2;
    double dc;
    long c;
    BOOL b,gotb=FALSE;
    val1.type=val2.type=0;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    Asgvalue(&val1,jc->val);
-   Execute(jc,elt->sub2);
+   Executeelem(jc,elt->sub2);
    Asgvalue(&val2,jc->val);
    /* NS 3 heuristic: if either value is numeric, convert both to numeric */
    if(val1.type==VTP_NUMBER || val2.type==VTP_NUMBER)
@@ -1457,7 +1643,7 @@ static void Exerelational(struct Jcontext *jc,struct Element *elt)
    {  /* String comparison */
       Tostring(&val1,jc);
       Tostring(&val2,jc);
-      c=strcmp(val1.svalue,val2.svalue);
+      c=strcmp(val1.value.svalue,val2.value.svalue);
    }
    else
    {  /* Numeric comparison */
@@ -1469,7 +1655,7 @@ static void Exerelational(struct Jcontext *jc,struct Element *elt)
       }
       else
       {  if(val1.attr==VNA_VALID && val2.attr==VNA_VALID)
-         {  dc=val1.nvalue-val2.nvalue;
+         {  dc=val1.value.nvalue-val2.value.nvalue;
             if(dc>0) c=1;
             else if(dc<0) c=-1;
             else c=0;
@@ -1502,53 +1688,150 @@ static void Exerelational(struct Jcontext *jc,struct Element *elt)
 }
 
 static void Exeand(struct Jcontext *jc,struct Element *elt)
-{  Execute(jc,elt->sub1);
-   Toboolean(jc->val,jc);
-   if(jc->val->bvalue)
-   {  Execute(jc,elt->sub2);
-      Toboolean(jc->val,jc);
+{
+   /* 1.2 > version returns the values with no converion to boolen */
+   /* a && b , return a if  a is false else return b */
+   struct Value v;
+   v.type = 0;
+   Executeelem(jc,elt->sub1);
+   Asgvalue(&v,jc->val);
+   Toboolean(&v,jc);
+   if(v.value.bvalue)
+   {
+       Executeelem(jc,elt->sub2);
    }
+   Clearvalue(&v);
 }
 
 static void Exeor(struct Jcontext *jc,struct Element *elt)
-{  Execute(jc,elt->sub1);
-   Toboolean(jc->val,jc);
-   if(!jc->val->bvalue)
-   {  Execute(jc,elt->sub2);
-      Toboolean(jc->val,jc);
+{
+   struct Value v;
+   v.type = 0;
+   Executeelem(jc,elt->sub1);
+   Asgvalue(&v,jc->val);
+   Toboolean(&v,jc);
+   if(!v.value.bvalue)
+   {
+       Executeelem(jc,elt->sub2);
    }
+   Clearvalue(&v);
 }
 
 static void Exeassign(struct Jcontext *jc,struct Element *elt)
-{  struct Variable *lhs;
+{
+   struct Variable *lhs;
    jc->flags|=EXF_ASGONLY;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    jc->flags&=~EXF_ASGONLY;
    lhs=jc->varref;
    if(lhs)
-   {  Execute(jc,elt->sub2);
+   {  if(AwebPluginBase && lhs->name) Aprintf("[JS] Exeassign: assigning to '%s'\n", lhs->name);
+      Executeelem(jc,elt->sub2);
+      if(AwebPluginBase) Aprintf("[JS] Exeassign: after Executeelem, jc->val->type=%d, attr=%d", jc->val->type, jc->val->attr);
+      if(jc->val->type==VTP_NUMBER && AwebPluginBase) Aprintf(", nvalue=%g", jc->val->value.nvalue);
+      if(AwebPluginBase) Aprintf("\n");
       if(!Callvhook(lhs,jc,VHC_SET,jc->val))
       {  Asgvalue(&lhs->val,jc->val);
+         if(AwebPluginBase) Aprintf("[JS] Exeassign: after Asgvalue, lhs->val.type=%d, attr=%d", lhs->val.type, lhs->val.attr);
+         if(lhs->val.type==VTP_NUMBER && AwebPluginBase) Aprintf(", nvalue=%g", lhs->val.value.nvalue);
+         if(AwebPluginBase) Aprintf("\n");
          lhs->flags&=~VARF_HIDDEN;
       }
+
    }
+   else if(AwebPluginBase) Aprintf("[JS] Exeassign: ERROR - lhs is NULL!\n");
 }
 
 static void Execomma(struct Jcontext *jc,struct Element *elt)
-{  Execute(jc,elt->sub1);
-   Execute(jc,elt->sub2);
+{  Executeelem(jc,elt->sub1);
+   Executeelem(jc,elt->sub2);
+}
+
+static void Exein(struct Jcontext *jc, struct Element *elt)
+{  UBYTE* name;
+   Executeelem(jc,elt->sub1);
+   Tostring(jc->val,jc);
+   name = jc->val->value.svalue;
+   Executeelem(jc,elt->sub2);
+   if(jc->val->type == VTP_OBJECT && jc->val->value.obj.ovalue)
+   {  BOOL result = FALSE;
+      struct Variable *prop;
+      if(name && (prop = Getproperty(jc->val->value.obj.ovalue,name)))
+      {  result = TRUE;
+      }
+      Asgboolean(jc->val,result);
+   }
+   else
+   {  Runtimeerror(jc,NTE_TYPE,elt,"Right hand side of in statement is not an object");
+   }
+}
+
+static void Exeinstanceof(struct Jcontext *jc, struct Element *elt)
+{  struct Value res1;
+   Executeelem(jc,elt->sub1);
+   Asgvalue(&res1,jc->val);
+   Executeelem(jc,elt->sub2);
+   if(jc->val->type == VTP_OBJECT && jc->val->value.obj.ovalue)
+   {  BOOL result = FALSE;
+      struct Variable *proto;
+      if(res1.type == VTP_OBJECT)
+      {  if((proto = Getproperty(jc->val->value.obj.ovalue,"prototype")))
+         {  if(proto->val.type == VTP_OBJECT)
+            {  if(res1.value.obj.ovalue->prototype == proto->val.value.obj.ovalue)
+               {  result = TRUE;
+               }
+            }
+            else
+            {  Runtimeerror(jc,NTE_TYPE,elt,"Instanceof operand is of wrong type");
+            }
+         }
+      }
+      Asgboolean(jc->val,result);
+   }
+   else
+   {  Runtimeerror(jc,NTE_TYPE,elt,"Instance of operand is of wrong type");
+   }
+   Clearvalue(&res1);
 }
 
 static void Exewhile(struct Jcontext *jc,struct Element *elt)
 {  for(;!(jc->flags&EXF_STOP);)
-   {  Execute(jc,elt->sub1);
+   {  Executeelem(jc,elt->sub1);
       Toboolean(jc->val,jc);
-      if(!jc->val->bvalue) break;
-      Execute(jc,elt->sub2);
+      if(!jc->val->value.bvalue) break;
+      Executeelem(jc,elt->sub2);
       if(jc->complete>=ECO_RETURN) break;
       if(jc->complete==ECO_BREAK)
-      {  jc->complete=ECO_NORMAL;
+      {
+         /* Check the curlabel, if it points us (or NULL) then it was
+          * our break otherwise don't reset to ECO_NORMAL,
+          * this will then filter up the exe tree
+          */
+         if(jc->curlabel)
+         {
+            if(jc->curlabel->elt == elt)
+            {
+                jc->complete=ECO_NORMAL;
+                jc->curlabel=NULL;
+            }
+         }
+         else
+         {
+            jc->complete=ECO_NORMAL;
+         }
          break;
+      }
+      if(jc->complete==ECO_CONTINUE)
+      {
+         /* Check the cur label if it's null or points to us continue */
+         if(jc->curlabel)
+         {
+            if(jc->curlabel->elt != elt)
+            {
+                break;
+            }
+            jc->curlabel=NULL;
+         }
       }
       jc->complete=ECO_NORMAL;
    }
@@ -1556,27 +1839,63 @@ static void Exewhile(struct Jcontext *jc,struct Element *elt)
 
 static void Exedo(struct Jcontext *jc,struct Element *elt)
 {  for(;!(jc->flags&EXF_STOP);)
-   {  Execute(jc,elt->sub1);
+   {  Executeelem(jc,elt->sub1);
       if(jc->complete>=ECO_RETURN) break;
-      if(jc->complete==ECO_BREAK)
-      {  jc->complete=ECO_NORMAL;
-         break;
-      }
+         if(jc->complete==ECO_BREAK)
+         {
+            /* Check the curlabel, if it points us (or NULL) then it was
+             * our break otherwise don't reset to ECO_NORMAL,
+             * this will then filter up the exe tree
+             */
+            if(jc->curlabel)
+            {
+               if(jc->curlabel->elt == elt)
+               {
+                   jc->complete=ECO_NORMAL;
+                   jc->curlabel=NULL;
+               }
+            }
+            else
+            {
+                jc->complete=ECO_NORMAL;
+            }
+            break;
+         }
+         if(jc->complete==ECO_CONTINUE)
+         {
+            /* Check the cur label if it's null or points to us continue */
+            if(jc->curlabel)
+            {
+               if(jc->curlabel->elt != elt)
+               {
+                   break;
+               }
+               jc->curlabel=NULL;
+            }
+         }
+
       jc->complete=ECO_NORMAL;
-      Execute(jc,elt->sub2);
+      Executeelem(jc,elt->sub2);
       Toboolean(jc->val,jc);
-      if(!jc->val->bvalue) break;
+      if(!jc->val->value.bvalue) break;
    }
 }
 
 static void Exewith(struct Jcontext *jc,struct Element *elt)
 {  struct With *w;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    Toobject(jc->val,jc);
-   if(w=Addwith(jc,jc->val->ovalue))
-   {  Execute(jc,elt->sub2);
-      REMOVE(w);
-      Disposewith(w);
+   if(jc->val->value.obj.ovalue)
+   {
+       if(w=Addwith(jc,jc->val->value.obj.ovalue))
+       {  Executeelem(jc,elt->sub2);
+          REMOVE(w);
+          Disposewith(w);
+       }
+   }
+   else
+   {
+       Runtimeerror(jc,NTE_TYPE,elt,"Argument to with is null or undefined");
    }
 }
 
@@ -1584,15 +1903,20 @@ static void Exedot(struct Jcontext *jc,struct Element *elt)
 {  struct Elementstring *mbrname=elt->sub2;
    BOOL ok=FALSE,temp=FALSE;
    BOOL asgonly=BOOLVAL(jc->flags&EXF_ASGONLY);
+   struct Jobject *jo;
    jc->flags&=~EXF_ASGONLY;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    temp=(jc->val->type!=VTP_OBJECT);
    Toobject(jc->val,jc);
-   if(temp && jc->val->ovalue)
-   {  jc->val->ovalue->flags|=OBJF_TEMP;
+
+   if(temp && jc->val->value.obj.ovalue)
+   {  jc->val->value.obj.ovalue->flags|=OBJF_TEMP;
+      Keepobject(jc->val->value.obj.ovalue,TRUE);
    }
-   if(mbrname && mbrname->type==ET_IDENTIFIER && jc->val->ovalue)
-   {  ok=Member(jc,elt,jc->val->ovalue,mbrname->svalue,asgonly);
+   if(mbrname && mbrname->type==ET_IDENTIFIER && jc->val->value.obj.ovalue)
+   {
+       jo = jc->val->value.obj.ovalue;
+       ok=Member(jc,elt,jo,mbrname->svalue,asgonly);
    }
    if(!ok) Clearvalue(jc->val);
 }
@@ -1601,17 +1925,20 @@ static void Exeindex(struct Jcontext *jc,struct Element *elt)
 {  struct Value val,sval;
    BOOL ok=FALSE,temp=FALSE;
    val.type=sval.type=0;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    temp=(jc->val->type!=VTP_OBJECT);
    Toobject(jc->val,jc);
-   if(temp && jc->val->ovalue)
-   {  jc->val->ovalue->flags|=OBJF_TEMP;
+   if(temp && jc->val->value.obj.ovalue)
+   {  jc->val->value.obj.ovalue->flags|=OBJF_TEMP;
+      Keepobject(jc->val->value.obj.ovalue,TRUE);
    }
    Asgvalue(&val,jc->val);
-   Execute(jc,elt->sub2);
+   Executeelem(jc,elt->sub2);
    Asgvalue(&sval,jc->val);
    Tostring(&sval,jc);
-   ok=Member(jc,elt,val.ovalue,sval.svalue,FALSE);
+   if(val.value.obj.ovalue)
+   {  ok=Member(jc,elt,val.value.obj.ovalue,sval.value.svalue,FALSE);
+   }
    Clearvalue(&val);
    if(!ok) Clearvalue(jc->val);
    Clearvalue(&sval);
@@ -1621,38 +1948,47 @@ static void Exevar(struct Jcontext *jc,struct Element *elt)
 {  struct Elementstring *vid=elt->sub1;
    struct Variable *var;
    if(vid && vid->type==ET_IDENTIFIER)
-   {  var=Findlocalvar(jc,vid->svalue);
-      if(elt->sub2)
-      {  Execute(jc,elt->sub2);
-         Asgvalue(&var->val,jc->val);
-      }
-      jc->varref=var;
-      jc->flags|=EXF_KEEPREF;
+   {  if(AwebPluginBase) Aprintf("[JS] Exevar: declaring variable '%s'\n", vid->svalue);
+      var=Findlocalvar(jc,vid->svalue);
       if(var)
-      {  Asgvalue(jc->val,&var->val);
+      {  if(AwebPluginBase) Aprintf("[JS] Exevar: variable found/created, var=%p\n", var);
+         if(elt->sub2)
+         {  Executeelem(jc,elt->sub2);
+            if(AwebPluginBase) Aprintf("[JS] Exevar: after Executeelem, jc->val->type=%d, attr=%d", jc->val->type, jc->val->attr);
+            if(jc->val->type==VTP_NUMBER && AwebPluginBase) Aprintf(", nvalue=%g", jc->val->value.nvalue);
+            if(AwebPluginBase) Aprintf("\n");
+            Asgvalue(&var->val,jc->val);
+            if(AwebPluginBase) Aprintf("[JS] Exevar: after Asgvalue, var->val.type=%d, attr=%d", var->val.type, var->val.attr);
+            if(var->val.type==VTP_NUMBER && AwebPluginBase) Aprintf(", nvalue=%g", var->val.value.nvalue);
+            if(AwebPluginBase) Aprintf("\n");
+         }
+         var->flags |= VARF_DONTDELETE;
+         jc->varref=var;
+         jc->flags|=EXF_KEEPREF;
       }
+      else if(AwebPluginBase) Aprintf("[JS] Exevar: ERROR - Findlocalvar returned NULL!\n");
    }
 }
 
 static void Execond(struct Jcontext *jc,struct Element *elt)
-{  Execute(jc,elt->sub1);
+{  Executeelem(jc,elt->sub1);
    Toboolean(jc->val,jc);
-   if(jc->val->bvalue)
-   {  Execute(jc,elt->sub2);
+   if(jc->val->value.bvalue)
+   {  Executeelem(jc,elt->sub2);
    }
    else
-   {  Execute(jc,elt->sub3);
+   {  Executeelem(jc,elt->sub3);
    }
 }
 
 static void Exeif(struct Jcontext *jc,struct Element *elt)
-{  Execute(jc,elt->sub1);
+{  Executeelem(jc,elt->sub1);
    Toboolean(jc->val,jc);
-   if(jc->val->bvalue)
-   {  Execute(jc,elt->sub2);
+   if(jc->val->value.bvalue)
+   {  Executeelem(jc,elt->sub2);
    }
    else
-   {  Execute(jc,elt->sub3);
+   {  Executeelem(jc,elt->sub3);
    }
 }
 
@@ -1660,57 +1996,194 @@ static void Exeforin(struct Jcontext *jc,struct Element *elt)
 {  struct Variable *var,*lhs;
    struct Jobject *jo;
    long n,i;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    lhs=jc->varref;
    if(lhs)
    {  for(n=0;!(jc->flags&EXF_STOP);n++)
-      {  Execute(jc,elt->sub2);  /* Specs say must be evaluated for each iteration */
+      {  Executeelem(jc,elt->sub2);  /* Specs say must be evaluated for each iteration */
          Toobject(jc->val,jc);
-         if(jo=jc->val->ovalue)
+         if(jo=jc->val->value.obj.ovalue)
          {  for(var=jo->properties.first,i=0;var->next && i<n;var=var->next,i++);
             if(!var->next) break;
             if(var->name && !(var->flags&VARF_HIDDEN))
             {  Asgstring(&lhs->val,var->name,jc->pool);
                lhs->flags&=~VARF_HIDDEN;
-               Execute(jc,elt->sub3);
+               Executeelem(jc,elt->sub3);
             }
-         }
+         }else{break;}
+
          if(jc->complete>=ECO_RETURN) break;
          if(jc->complete==ECO_BREAK)
-         {  jc->complete=ECO_NORMAL;
+         {
+            /* Check the curlabel, if it points us (or NULL) then it was
+             * our break otherwise don't reset to ECO_NORMAL,
+             * this will then filter up the exe tree
+             */
+            if(jc->curlabel)
+            {
+               if(jc->curlabel->elt == elt)
+               {
+                   jc->complete=ECO_NORMAL;
+                   jc->curlabel=NULL;
+               }
+            }
+            else
+            {
+                jc->complete=ECO_NORMAL;
+            }
             break;
          }
+         if(jc->complete==ECO_CONTINUE)
+         {
+            /* Check the cur label if it's null or points to us continue */
+            if(jc->curlabel)
+            {
+               if(jc->curlabel->elt != elt)
+               {
+                   break;
+               }
+               jc->curlabel=NULL;
+            }
+         }
+
          jc->complete=ECO_NORMAL;
+      }
+   }
+}
+
+static void Exeswitch(struct Jcontext *jc,struct Elementswitch *elt)
+{  /* Execution takes two phases,
+     * 1. Execute elt->cond;
+     * 2. work through elementlist exexcuting any ET_CASE
+     * 3. compare with cond
+     * 4. if equal start executeing statements ignoreing any further
+     *    ET_CASE
+     * 5. if no match found and there is a default, start executing from
+     *    default, ingnoring any further ET_CASE
+     */
+   struct Value val;
+   struct Elementnode *enode;
+   BOOL Casematch = FALSE;
+   val.type = 0;
+   Executeelem(jc,elt->cond);
+   Asgvalue(&val,jc->val);
+   for(enode=elt->subs.first;enode->next;enode=enode->next)
+   {  if(enode->sub && Casematch)
+      {  if(((struct Element *)enode->sub)->type !=ET_CASE)
+         {  Executeelem(jc,enode->sub);
+            if(jc->complete==ECO_BREAK)
+            {  /* Check the curlabel, if it points us (or NULL) then it was
+                * our break otherwise don't reset to ECO_NORMAL,
+                * this will then filter up the exe tree
+                */
+               if(jc->curlabel)
+               {  if(jc->curlabel->elt == elt)
+                  {  jc->complete=ECO_NORMAL;
+                     jc->curlabel=NULL;
+                  }
+               }
+               else
+               {  jc->complete=ECO_NORMAL;
+               }
+               break;
+            }
+            if(jc->complete) break;
+         }
+      }
+      else
+      {  if(((struct Element *)enode->sub)->type==ET_CASE)
+         {  if(!((struct Elementcase *)enode->sub)->isdefault)
+            {  Executeelem(jc,enode->sub);
+               if(Exactequality(jc,&val,jc->val)) Casematch=TRUE;
+            }
+         }
+      }
+   }
+   if(!Casematch)
+   {  /* no case matched go back and exe the default */
+      if(elt->defaultcase)
+      {  for(enode=elt->defaultcase;enode->next;enode=enode->next)
+         {  if(((struct Element *)enode->sub)->type !=ET_CASE)
+            {  Executeelem(jc,enode->sub);
+               if(jc->complete==ECO_BREAK)
+               {  /* Check the curlabel, if it points us (or NULL) then it was
+                   * our break otherwise don't reset to ECO_NORMAL,
+                   * this will then filter up the exe tree
+                   */
+                  if(jc->curlabel)
+                  {  if(jc->curlabel->elt == elt)
+                     {  jc->complete=ECO_NORMAL;
+                        jc->curlabel=NULL;
+                     }
+                  }
+                  else
+                  {  jc->complete=ECO_NORMAL;
+                  }
+                  break;
+               }
+               if(jc->complete) break;
+            }
+         }
       }
    }
 }
 
 static void Exefor(struct Jcontext *jc,struct Element *elt)
 {  BOOL c;
-   Execute(jc,elt->sub1);
+   Executeelem(jc,elt->sub1);
    for(;!(jc->flags&EXF_STOP);)
    {  if(elt->sub2)
-      {  Execute(jc,elt->sub2);
+      {  Executeelem(jc,elt->sub2);
          Toboolean(jc->val,jc);
-         c=jc->val->bvalue;
+         c=jc->val->value.bvalue;
       }
       else c=TRUE;
       if(!c) break;
-      Execute(jc,elt->sub4);
+      Executeelem(jc,elt->sub4);
       if(jc->complete>=ECO_RETURN) break;
       if(jc->complete==ECO_BREAK)
-      {  jc->complete=ECO_NORMAL;
+      {
+         /* Check the curlabel, if it points us (or NULL) then it was
+          * our break otherwise don't reset to ECO_NORMAL,
+          * this will then filter up the exe tree
+          */
+         if(jc->curlabel)
+         {
+            if(jc->curlabel->elt == elt)
+            {
+                jc->complete=ECO_NORMAL;
+                jc->curlabel=NULL;
+            }
+         }
+         else
+         {
+             jc->complete=ECO_NORMAL;
+         }
          break;
+      }
+      if(jc->complete==ECO_CONTINUE)
+      {
+         /* Check the cur label if it's null or points to us continue */
+         if(jc->curlabel)
+         {
+            if(jc->curlabel->elt != elt)
+            {
+                break;
+            }
+            jc->curlabel=NULL;
+         }
       }
       jc->complete=ECO_NORMAL;
       if(elt->sub3)
-      {  Execute(jc,elt->sub3);
+      {  Executeelem(jc,elt->sub3);
       }
    }
 }
 
 static void Exeinteger(struct Jcontext *jc,struct Elementint *elt)
-{  Asgnumber(jc->val,VNA_VALID,(double)elt->ivalue);
+{  if(AwebPluginBase) Aprintf("[JS] Exeinteger: ivalue=%ld, setting jc->val to %g\n", elt->ivalue, (double)elt->ivalue);
+   Asgnumber(jc->val,VNA_VALID,(double)elt->ivalue);
+   if(AwebPluginBase) Aprintf("[JS] Exeinteger: after Asgnumber, jc->val->type=%d, attr=%d, nvalue=%g\n", jc->val->type, jc->val->attr, jc->val->value.nvalue);
 }
 
 static void Exefloat(struct Jcontext *jc,struct Elementfloat *elt)
@@ -1718,7 +2191,7 @@ static void Exefloat(struct Jcontext *jc,struct Elementfloat *elt)
 }
 
 static void Exeboolean(struct Jcontext *jc,struct Elementint *elt)
-{  Asgboolean(jc->val,elt->ivalue != 0.0);
+{  Asgboolean(jc->val,elt->ivalue != 0);
 }
 
 static void Exestring(struct Jcontext *jc,struct Elementstring *elt)
@@ -1727,35 +2200,124 @@ static void Exestring(struct Jcontext *jc,struct Elementstring *elt)
 
 static void Exeidentifier(struct Jcontext *jc,struct Elementstring *elt)
 {  struct Jobject *jthis=NULL;
-   struct Variable *var=Findvar(jc,elt->svalue,&jthis);
+   struct Variable *var;
+   if(AwebPluginBase) Aprintf("[JS] Exeidentifier: looking up '%s'\n", elt->svalue);
+   var=Findvar(jc,elt->svalue,&jthis);
    if(var)
-   {  /* Resolve synonym reference */
+   {  if(AwebPluginBase) Aprintf("[JS] Exeidentifier: variable found, var=%p, var->val.type=%d, attr=%d", var, var->val.type, var->val.attr);
+      if(var->val.type==VTP_NUMBER && AwebPluginBase) Aprintf(", nvalue=%g", var->val.value.nvalue);
+      if(AwebPluginBase) Aprintf("\n");
+      /* Resolve synonym reference */
       while((var->flags&VARF_SYNONYM) && var->hookdata) var=var->hookdata;
 
-      if(var->val.type==VTP_OBJECT && var->val.ovalue && var->val.ovalue->function)
-      {  Asgfunction(jc->val,var->val.ovalue,jthis?jthis:var->val.fthis);
+      if(var->val.type==VTP_OBJECT && var->val.value.obj.ovalue && var->val.value.obj.ovalue->function)
+      {  Asgfunction(jc->val,var->val.value.obj.ovalue,jthis?jthis:var->val.value.obj.fthis);
       }
       else
       {  if(!Callvhook(var,jc,VHC_GET,jc->val))
          {  Asgvalue(jc->val,&var->val);
+            if(AwebPluginBase) Aprintf("[JS] Exeidentifier: after Asgvalue, jc->val->type=%d, attr=%d", jc->val->type, jc->val->attr);
+            if(jc->val->type==VTP_NUMBER && AwebPluginBase) Aprintf(", nvalue=%g", jc->val->value.nvalue);
+            if(AwebPluginBase) Aprintf("\n");
          }
       }
       jc->varref=var;
       jc->flags|=EXF_KEEPREF;
    }
    else
-   {  Clearvalue(jc->val);
+   {  if(AwebPluginBase) Aprintf("[JS] Exeidentifier: variable NOT found, clearing jc->val\n");
+      Clearvalue(jc->val);
    }
+}
+
+static void Exeregexp(struct Jcontext *jc, struct Elementregexp *elt)
+{  struct Jobject *jo;
+   jo = Newregexp(jc,elt->pattern,elt->flags);
+   Asgobject(jc->val,jo);
+}
+
+static void Exearray(struct Jcontext *jc, struct Elementlist *elist)
+{  struct Jobject *array = Newarray(jc);
+   struct Elementnode *enode;
+   struct Variable *arrayelt;
+   if(array)
+   {  Keepobject(array,TRUE);
+      for(enode=elist->subs.first;enode && enode->next;enode=enode->next)
+      {  if(((struct Element *)enode->sub)->type == ET_EMPTY)
+         {  Addarrayelt(jc,array);
+         }
+         else
+         {  Executeelem(jc,enode->sub);
+            if((arrayelt = Addarrayelt(jc,array)))
+            {  Asgvalue(&arrayelt->val,jc->val);
+            }
+         }
+      }
+      Keepobject(array,FALSE);
+   }
+   Asgobject(jc->val,array);
+}
+
+static void Exeobject(struct Jcontext *jc, struct Elementlist *elist)
+{  struct Jobject *object = NULL;
+   struct Elementnode *enode;
+   struct Variable *prop;
+   if(object = Newobject(jc))
+   {  Keepobject(object,TRUE);
+      Initconstruct(jc,object,"Object",NULL);
+      for(enode=elist->subs.first;enode && enode->next;enode=enode->next)
+      {  /* The property can be either a indentifier, string literal
+          * or number */
+         /* If a idenifier use its svalue */
+         /* If a stringlit execute and use its value */
+         /* If a numeric literal execute and use tostring value */
+         /* if other this is an error, (dispose of object, return null?) */
+         UBYTE *propname;
+         switch(((struct Element *)enode->sub)->type)
+         {  case ET_INTEGER:
+            case ET_STRING:
+               Executeelem(jc,enode->sub);
+               Tostring(jc->val,jc);
+               propname=jc->val->value.svalue;
+               break;
+            case ET_IDENTIFIER:
+               propname=((struct Elementstring *)enode->sub)->svalue;
+               break;
+            default:
+               /* temporay code */
+               enode=enode->next;
+               continue;
+               break;
+         }
+         if(!(prop = Getownproperty(object,propname)))
+         {  prop = Addproperty(object,propname);
+         }
+         enode=enode->next;
+         Executeelem(jc,enode->sub);
+         Asgvalue(&prop->val,jc->val);
+      }
+      Keepobject(object,FALSE);
+   }
+   Asgobject(jc->val,object);
+}
+
+static void Exelabel(struct Jcontext *jc,struct Element *elt)
+{  struct Label label;
+   label.name = ((struct Elementstring *)elt->sub1)->svalue;
+   label.elt =  elt->sub2;
+   ADDHEAD(&jc->labels,&label);
+   Executeelem(jc, elt->sub2);
+   REMOVE(&label);
 }
 
 #ifdef JSDEBUG
 static void Exedebug(struct Jcontext *jc,struct Element *elt)
 {  struct Value val;
    val.type=0;
-   Execute(jc,elt->sub1);
+   Executeinternal(jc,elt->sub1);
    Asgvalue(&val,jc->val);
    Tostring(&val,jc);
-   printf("%s\n",val.svalue);
+   printf("%s\n",val.value.svalue);
    Clearvalue(&val);
 }
 #endif
@@ -1765,10 +2327,10 @@ static void Exeaddress(struct Jcontext *jc,struct Element *elt)
 {  struct Value val;
    UBYTE buf[16];
    val.type=0;
-   Execute(jc,elt->sub1);
+   Executeinternal(jc,elt->sub1);
    Asgvalue(&val,jc->val);
    Toobject(&val,jc);
-   sprintf(buf,"0x%08X",val.ovalue);
+   sprintf(buf,"0x%08X",val.value.obj.ovalue);
    Asgstring(jc->val,buf,jc->pool);
 }
 #endif
@@ -1779,91 +2341,126 @@ typedef void Exeelement(void *,void *);
 static Exeelement *exetab[]=
 {
    NULL,
-   Exeprogram,
-   Execall,
-   Execompound,
-   Exevarlist,
-   Exefunction,
-   Exebreak,
-   Execontinue,
-   Exethis,
-   Exenull,
+   (Exeelement *)Exeprogram,
+   (Exeelement *)Execall,
+   (Exeelement *)Execompound,
+   (Exeelement *)Exevarlist,
+   (Exeelement *)Exetry,
+   (Exeelement *)Exefunction,
+   (Exeelement *)Exefuncref,
+   (Exeelement *)Exebreak,
+   (Exeelement *)Execontinue,
+   (Exeelement *)Exethis,
+   (Exeelement *)Exenull,
    NULL,          /* empty */
-   Exenegative,
-   Exenot,
-   Exebitneg,
-   Exepreinc,
-   Exepredec,
-   Exepostinc,
-   Exepostdec,
-   Exenew,
-   Exedelete,
-   Exetypeof,
-   Exevoid,
-   Exereturn,
-   Exeinternal,
-   Exefunceval,
-   Exeplus,
-   Exeminus,
-   Exemult,
-   Exediv,
-   Exerem,
-   Exebitand,
-   Exebitor,
-   Exebitxor,
-   Exeshleft,
-   Exeshright,
-   Exeushright,
-   Exeequality,   /* eq */
-   Exeequality,   /* ne */
-   Exerelational, /* lt */
-   Exerelational, /* gt */
-   Exerelational, /* le */
-   Exerelational, /* ge */
-   Exeand,
-   Exeor,
-   Exeassign,
-   Exeplus,       /* aplus */
-   Exeminus,      /* aminus */
-   Exemult,       /* amult */
-   Exediv,        /* adiv */
-   Exerem,        /* arem */
-   Exebitand,     /* abitand */
-   Exebitor,      /* abitor */
-   Exebitxor,     /* abitxor */
-   Exeshleft,     /* ashleft */
-   Exeshright,    /* ashright */
-   Exeushright,   /* aushright */
-   Execomma,
-   Exewhile,
-   Exedo,
-   Exewith,
-   Exedot,
-   Exeindex,
-   Exevar,
-   Execond,
-   Exeif,
-   Exeforin,
-   Exefor,
-   Exeinteger,
-   Exefloat,
-   Exeboolean,
-   Exestring,
-   Exeidentifier,
+   (Exeelement *)Exenegative,
+   (Exeelement *)Exepositive,
+   (Exeelement *)Exenot,
+   (Exeelement *)Exebitneg,
+   (Exeelement *)Exepreinc,
+   (Exeelement *)Exepredec,
+   (Exeelement *)Exepostinc,
+   (Exeelement *)Exepostdec,
+   (Exeelement *)Exenew,
+   (Exeelement *)Exedelete,
+   (Exeelement *)Exetypeof,
+   (Exeelement *)Exevoid,
+   (Exeelement *)Exereturn,
+   (Exeelement *)Exethrow,
+   (Exeelement *)Exeinternal,
+   (Exeelement *)Exefunceval,
+   (Exeelement *)Execase,
+   (Exeelement *)Exeplus,
+   (Exeelement *)Exeminus,
+   (Exeelement *)Exemult,
+   (Exeelement *)Exediv,
+   (Exeelement *)Exerem,
+   (Exeelement *)Exebitand,
+   (Exeelement *)Exebitor,
+   (Exeelement *)Exebitxor,
+   (Exeelement *)Exeshleft,
+   (Exeelement *)Exeshright,
+   (Exeelement *)Exeushright,
+   (Exeelement *)Exeequality,   /* eq */
+   (Exeelement *)Exeequality,   /* ne */
+   (Exeelement *)Exeexactequality, /* exeq */
+   (Exeelement *)Exeexactequality, /* nexeq */
+   (Exeelement *)Exerelational, /* lt */
+   (Exeelement *)Exerelational, /* gt */
+   (Exeelement *)Exerelational, /* le */
+   (Exeelement *)Exerelational, /* ge */
+   (Exeelement *)Exeand,
+   (Exeelement *)Exeor,
+   (Exeelement *)Exeassign,
+   (Exeelement *)Exeplus,       /* aplus */
+   (Exeelement *)Exeminus,      /* aminus */
+   (Exeelement *)Exemult,       /* amult */
+   (Exeelement *)Exediv,        /* adiv */
+   (Exeelement *)Exerem,        /* arem */
+   (Exeelement *)Exebitand,     /* abitand */
+   (Exeelement *)Exebitor,      /* abitor */
+   (Exeelement *)Exebitxor,     /* abitxor */
+   (Exeelement *)Exeshleft,     /* ashleft */
+   (Exeelement *)Exeshright,    /* ashright */
+   (Exeelement *)Exeushright,   /* aushright */
+   (Exeelement *)Execomma,
+   (Exeelement *)Exein,
+   (Exeelement *)Exeinstanceof,
+   (Exeelement *)Exewhile,
+   (Exeelement *)Exedo,
+   (Exeelement *)Exewith,
+   (Exeelement *)Exedot,
+   (Exeelement *)Exeindex,
+   (Exeelement *)Exevar,
+   (Exeelement *)Execond,
+   (Exeelement *)Exeif,
+   (Exeelement *)Exeforin,
+   (Exeelement *)Exeswitch,
+   (Exeelement *)Exefor,
+   (Exeelement *)Exeinteger,
+   (Exeelement *)Exefloat,
+   (Exeelement *)Exeboolean,
+   (Exeelement *)Exestring,
+   (Exeelement *)Exeidentifier,
+   (Exeelement *)Exeregexp,
+   (Exeelement *)Exearray,
+   (Exeelement *)Exeobject,
+   (Exeelement *)Exelabel,
 #ifdef JSDEBUG
-   Exedebug,
+   (Exeelement *)Exedebug,
 #endif
 #ifdef JSADDRESS
-   Exeaddress,
+   (Exeelement *)Exeaddress,
 #endif
 };
 
-static void Execute(struct Jcontext *jc,struct Element *elt)
-{  BOOL debugover=FALSE;
+static void Executeinternal(struct Jcontext *jc,struct Element *elt)
+{  /* Executeinternal() is kept for internal calls, but Executeelem() contains the main logic */
+   /* For internal calls, we need to preserve jc->elt */
+   struct Element *oldelt;
    if(elt && exetab[elt->type])
-   {  if(!Feedback(jc))
+   {  oldelt=jc->elt;
+      Executeelem(jc,elt);
+      jc->elt=oldelt;
+   }
+}
+
+/* Execute an element - main execution function */
+void Executeelem(struct Jcontext *jc,struct Element *elt)
+{  BOOL debugover=FALSE;
+   struct Jcontext *tc;
+   if(elt && exetab[elt->type])
+   {
+      if(!Feedback(jc))
       {  jc->flags|=EXF_STOP;
+         tc = jc;
+         while(tc = tc->truecontext)
+         {
+            tc->flags |= EXF_STOP;
+         }
       }
+      jc->elt = elt;
+
       if(!(jc->flags&EXF_STOP) && (jc->dflags&DEBF_DBREAK)
       && elt->type!=ET_PROGRAM)
       {  Setdebugger(jc,elt);
@@ -1888,11 +2485,6 @@ static void Execute(struct Jcontext *jc,struct Element *elt)
    }
 }
 
-/* Execute an element - public wrapper for Execute */
-void Executeelem(struct Jcontext *jc,struct Element *elt)
-{  Execute(jc,elt);
-}
-
 /*-----------------------------------------------------------------------*/
 
 /* Create a function object for this internal function.
@@ -1905,6 +2497,7 @@ struct Jobject *InternalfunctionA(struct Jcontext *jc,UBYTE *name,
    struct Element *elt;
    struct Elementstring *arg;
    UBYTE **a;
+   ULONG numargs=0;
    if(func=ALLOCSTRUCT(Elementfunc,1,0,jc->pool))
    {  func->type=ET_FUNCTION;
       func->name=Jdupstr(name,-1,jc->pool);
@@ -1923,9 +2516,15 @@ struct Jobject *InternalfunctionA(struct Jcontext *jc,UBYTE *name,
                ADDTAIL(&func->subs,enode);
             }
          }
+         numargs++;
       }
       if(jo=Newobject(jc))
-      {  jo->function=func;
+      {  struct Variable *var;
+         if((var=Addproperty(jo,"length")))
+         {  Asgnumber(&var->val,VNA_VALID,(double)numargs);
+            var->flags|=(VARF_DONTDELETE|VARF_HIDDEN);
+         }
+         jo->function=func;
       }
    }
    return jo;
@@ -1940,9 +2539,10 @@ struct Jobject *Internalfunction(struct Jcontext *jc,UBYTE *name,
 void Addglobalfunction(struct Jcontext *jc,struct Jobject *f)
 {  struct Variable *var;
    if(f && f->function && f->function->type==ET_FUNCTION)
-   {  if(var=Newvar(f->function->name,jc->pool))
+   {  if(var=Newvar(f->function->name,jc))
       {  ADDTAIL(&jc->functions.first->local,var);
          Asgobject(&var->val,f);
+         var->flags|=VARF_DONTDELETE;
       }
    }
 }
@@ -2072,13 +2672,19 @@ void Initconstruct(struct Jcontext *jc,struct Jobject *jo,STRPTR name,struct Job
 /* Evaluate this string */
 void Jeval(struct Jcontext *jc,UBYTE *s)
 {  struct Jcontext jc2={0};
+   jc2.truecontext = jc;
+   jc->nogc++;
    jc2.pool=jc->pool;
+   jc2.objpool=jc->objpool;
+   jc2.varpool=jc->varpool;
+   jc2.nogc++;
    NEWLIST(&jc2.objects);
    NEWLIST(&jc2.functions);
    jc2.generation=jc->generation;
    Jcompile(&jc2,s);
+   jc->nogc--;
    if(!(jc2.flags&JCF_ERROR))
-   {  Execute(jc,jc2.program);
+   {  Executeelem(jc,jc2.program);
    }
    Jdispose(jc2.program);
 }
@@ -2089,7 +2695,8 @@ void Jexecute(struct Jcontext *jc,struct Jobject *jthis,struct Jobject **gwtab)
 {  struct Jobject *oldjthis,*oldfscope;
    struct With *w1,*w;
    struct Jobject **jp;
-   struct Value oldretval={0};
+   struct Value oldretval;
+   oldretval.type = 0;
    if(jc && jc->program)
    {  if(jc->jthis) Keepobject(jc->jthis,TRUE);
       oldjthis=jc->jthis;
@@ -2113,8 +2720,16 @@ void Jexecute(struct Jcontext *jc,struct Jobject *jthis,struct Jobject **gwtab)
       Asgvalue(&oldretval,&jc->functions.last->retval);
       /* Set default TRUE return value */
       Asgboolean(&jc->functions.last->retval,TRUE);
-      
-      Execute(jc,jc->program);
+
+      if(oldjthis)Keepobject(oldjthis,TRUE);
+      if(oldfscope)Keepobject(oldfscope,TRUE);
+      if(oldretval.type == VTP_OBJECT)
+      {
+          if(oldretval.value.obj.ovalue)Keepobject(oldretval.value.obj.ovalue,TRUE);
+          if(oldretval.value.obj.fthis)Keepobject(oldretval.value.obj.fthis,TRUE);
+      }
+
+      Executeelem(jc,jc->program);
       if(w1)
       {  for(;w1->prev;w1=w)
          {  w=w1->prev;
@@ -2122,6 +2737,15 @@ void Jexecute(struct Jcontext *jc,struct Jobject *jthis,struct Jobject **gwtab)
             Disposewith(w1);
          }
       }
+
+      if(oldjthis)Keepobject(oldjthis,FALSE);
+      if(oldfscope)Keepobject(oldfscope,FALSE);
+      if(oldretval.type == VTP_OBJECT)
+      {
+          if(oldretval.value.obj.ovalue)Keepobject(oldretval.value.obj.ovalue,FALSE);
+          if(oldretval.value.obj.fthis)Keepobject(oldretval.value.obj.fthis,FALSE);
+      }
+
       jc->jthis=oldjthis;
       if(jc->jthis) Keepobject(jc->jthis,FALSE);
       jc->functions.last->fscope=oldfscope;
@@ -2137,16 +2761,38 @@ void Jexecute(struct Jcontext *jc,struct Jobject *jthis,struct Jobject **gwtab)
 BOOL Newexecute(struct Jcontext *jc)
 {  struct Function *f;
    struct Jobject *fo;
+   if(AwebPluginBase) Aprintf("[JS] Newexecute: entry\n");
+   jc->gc = GC_THRESHOLD;
    NEWLIST(&jc->functions);
-   if((jc->valvar=Newvar(NULL,jc->pool))
-   && (jc->result=Newvar(NULL,jc->pool))
+   NEWLIST(&jc->labels);
+   NEWLIST(&jc->thislist);
+   if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Newvar for valvar\n");
+   if((jc->valvar=Newvar(NULL,jc))
+   && (jc->result=Newvar(NULL,jc))
+   && (jc->throw=Newvar(NULL,jc))
    && (jc->jthis=Newobject(jc))
    && (f=Newfunction(jc,NULL)))
-   {  Keepobject(jc->jthis,TRUE);
+   {  if(AwebPluginBase) Aprintf("[JS] Newexecute: basic objects created\n");
+      Keepobject(jc->jthis,TRUE);
       jc->val=&jc->valvar->val;
+      jc->throwval=&jc->throw->val;
       ADDHEAD(&jc->functions,f);
+      jc->functions.last=f;  /* Set last when list was empty */
+      /* Initialize fscope for global scope - use jc->fscope if set, otherwise create new object */
+      if(!f->fscope)
+      {  if(jc->fscope)
+         {  f->fscope=jc->fscope;
+         }
+         else
+         {  f->fscope=Newobject(jc);
+            if(f->fscope) Keepobject(f->fscope,TRUE);
+            jc->fscope=f->fscope;  /* Store in context for later use */
+         }
+      }
+      if(AwebPluginBase) Aprintf("[JS] Newexecute: creating toString\n");
       jc->tostring=Internalfunction(jc,"toString",Defaulttostring,NULL);
       Keepobject(jc->tostring,TRUE);
+      if(AwebPluginBase) Aprintf("[JS] Newexecute: creating global functions\n");
       if(jc->eval=Internalfunction(jc,"eval",Eval,"Expression",NULL))
       {  Addglobalfunction(jc,jc->eval);
       }
@@ -2165,17 +2811,28 @@ BOOL Newexecute(struct Jcontext *jc)
       if(fo=Internalfunction(jc,"isNaN",Isnan,"testValue",NULL))
       {  Addglobalfunction(jc,fo);
       }
-      Initobject(jc,NULL);
-      Initarray(jc,NULL);
-      Initboolean(jc,NULL);
-      Initdate(jc,NULL);
-      Initfunction(jc,NULL);
-      Initmath(jc,NULL);
-      Initnumber(jc,NULL);
-      Initstring(jc,NULL);
-      return TRUE;
-   }
+         if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Initobject\n");
+         Initobject(jc,NULL);
+         if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Initarray\n");
+         Initarray(jc,NULL);
+         if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Initboolean\n");
+         Initboolean(jc,NULL);
+         if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Initfunction\n");
+         Initfunction(jc,NULL);
+         if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Initmath\n");
+         Initmath(jc,NULL);
+         if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Initnumber\n");
+         Initnumber(jc,NULL);
+         if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Initstring\n");
+         Initstring(jc,NULL);
+         if(AwebPluginBase) Aprintf("[JS] Newexecute: calling Initregexp\n");
+         Initregexp(jc,NULL);
+         if(AwebPluginBase) Aprintf("[JS] Newexecute: success, returning TRUE\n");
+         return TRUE;
+      }
+   if(AwebPluginBase) Aprintf("[JS] Newexecute: ERROR - failed to create basic objects\n");
    Freeexecute(jc);
+   return FALSE;
 }
 
 void Freeexecute(struct Jcontext *jc)
@@ -2184,8 +2841,11 @@ void Freeexecute(struct Jcontext *jc)
    {  if(jc->val)
       {  if(jc->valvar) Disposevar(jc->valvar);
          if(jc->result) Disposevar(jc->result);
+         if(jc->throw) Disposevar(jc->throw);
          while(f=REMHEAD(&jc->functions)) Disposefunction(f);
+         REMOVE(jc->jthis);
          Disposeobject(jc->jthis);
+         REMOVE(jc->tostring);
          Disposeobject(jc->tostring);
       }
    }

@@ -20,6 +20,7 @@
 
 #include "awebjs.h"
 #include "jprotos.h"
+#include <proto/awebplugin.h>
 
 struct Array;  /* Forward declaration */
 
@@ -146,7 +147,11 @@ void Asgfunction(struct Value *to,struct Jobject *f,struct Jobject *fthis)
 
 /* Make this value a string */
 void Tostring(struct Value *v,struct Jcontext *jc)
-{  switch(v->type)
+{  if(!jc)
+   {  if(v) v->type=VTP_UNDEFINED;
+      return;
+   }
+   switch(v->type)
    {  case VTP_NUMBER:
          {  UBYTE buffer[32];
             switch(v->attr)
@@ -265,6 +270,9 @@ void Toboolean(struct Value *v,struct Jcontext *jc)
 /* Make this value an object */
 void Toobject(struct Value *v,struct Jcontext *jc)
 {  struct Jobject *jo;
+   if(!v || !jc)
+   {  return;
+   }
    switch(v->type)
    {  case VTP_NUMBER:
          Asgobject(v,jo=Newnumber(jc,v->attr,v->value.nvalue));
@@ -293,9 +301,13 @@ void Tofunction(struct Value *v,struct Jcontext *jc)
 /* Default toString property function */
 void Defaulttostring(struct Jcontext *jc)
 {
-        struct Jobject *jo=jc->jthis;
+        struct Jobject *jo;
    UBYTE *p,*buf;
-   if(Callproperty(jc,jo,"valueOf") && jc->val->type==VTP_STRING)
+   if(!jc)
+   {  return;
+   }
+   jo=jc->jthis;
+   if(Callproperty(jc,jo,"valueOf") && jc->val && jc->val->type==VTP_STRING)
    {  /* We're done */
    }
    else
@@ -328,6 +340,9 @@ void Defaulttostring(struct Jcontext *jc)
 /* Create a new variable */
 struct Variable *Newvar(UBYTE *name,struct Jcontext *jc)
 {  struct Variable *var;
+   if(!jc)
+   {  return NULL;
+   }
    if(var=ALLOCVAR(jc))
    {
       if(name)
@@ -418,9 +433,9 @@ void Clearobject(struct Jobject *jo,UBYTE **except)
          else p=NULL;
          if(!p || !*p)
          {  /* not in exception list */
-            REMOVE(var);
+            Remove((struct Node *)var);
 /*
-            if(var->val.type==VTP_OBJECT && var->val.ovalue)
+            if(var->val.type==VTP_OBJECT && var->val.value.obj.ovalue)
             {  Clearobject(jo,NULL);
             }
 */
@@ -841,6 +856,7 @@ void Garbagecollect(struct Jcontext *jc)
 }
 
 void Keepobject(struct Jobject *jo,BOOL used)
-{  if(used) jo->keepnr++;
+{  if(!jo) return;
+   if(used) jo->keepnr++;
    else if(jo->keepnr) jo->keepnr--;
 }

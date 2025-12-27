@@ -44,7 +44,7 @@ struct Parsestate
 
 struct Keyworddef
 {  UBYTE *kwd;
-   USHORT id;
+   UWORD id;
 };
 
 static struct Keyworddef keywordtab[]=
@@ -505,6 +505,7 @@ struct Token *Nexttoken(struct Parser *pa)
                pa->next++;
                token.id=JT_INTEGERLIT;
                token.ivalue=Gethexint(pa);
+               token.fvalue=(double)token.ivalue;
                break;
             default:
                token.id=JT_INTEGERLIT;
@@ -514,6 +515,7 @@ struct Token *Nexttoken(struct Parser *pa)
                else
                {  token.ivalue=0;
                }
+               token.fvalue=(double)token.ivalue;
                break;
          }
          break;   
@@ -530,6 +532,7 @@ struct Token *Nexttoken(struct Parser *pa)
                default:
                   token.id=JT_INTEGERLIT;
                   token.ivalue=ivalue;
+                  token.fvalue=(double)ivalue;
                   break;
             }
          }

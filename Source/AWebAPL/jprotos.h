@@ -114,7 +114,7 @@ extern void Tofunction(struct Value *v,struct Jcontext *jc);
 extern void Defaulttostring(struct Jcontext *jc);
 
    // Variables
-extern struct Variable *Newvar(UBYTE *name,void *pool);
+extern struct Variable *Newvar(UBYTE *name,struct Jcontext *jc);
 extern void Disposevar(struct Variable *var);
 
    // Objects
@@ -321,6 +321,21 @@ extern void Initstring(struct Jcontext *jc, struct Jobject *jscope);
 
    // Create a new String object, Useobject() it once.
 extern struct Jobject *Newstring(struct Jcontext *jc,UBYTE *svalue);
+
+/*-----------------------------------------------------------------------*/
+/*-- regexp -------------------------------------------------------------*/
+/*-----------------------------------------------------------------------*/
+
+extern void Initregexp(struct Jcontext *jc, struct Jobject *jscope);
+
+   // Create a new RegExp object, Useobject() it once.
+extern struct Jobject *Newregexp(struct Jcontext *jc,UBYTE *pattern, UBYTE *flags);
+
+   // Apply a regular expression to a string
+extern struct Jobject *Applyregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *match);
+
+   // Split a string using a regular expression
+extern struct Jobject *Splitregexp(struct Jcontext *jc, struct Jobject *jo, UBYTE *match, unsigned int limit);
 
 /*-----------------------------------------------------------------------*/
 /*--        -------------------------------------------------------------*/

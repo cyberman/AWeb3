@@ -26,6 +26,7 @@
 #include <intuition/intuition.h>
 #include <intuition/intuitionbase.h>
 #include <exec/resident.h>
+#include <exec/exec.h>
 #include <graphics/gfxbase.h>
 #include <reaction/reaction.h>
 #include <reaction/reaction_macros.h>
@@ -43,13 +44,16 @@
 #include <proto/layout.h>
 #include <proto/button.h>
 #include <proto/label.h>
+#include <proto/awebplugin.h>
 #include <time.h>
 
 #define PUDDLESIZE         16*1024
 #define TRESHSIZE          4*1024
 
+struct ExecBase *SysBase;
 struct Locale *locale;
 struct Hook idcmphook;
+struct Library *AwebPluginBase;
 
 /* Runtime error values */
 #define JERRORS_CONTINUE   -1 /* Don't show errors and try to continue script */
@@ -351,7 +355,8 @@ __asm __saveds struct Library *Initlib(
    register __a6 struct ExecBase *sysbase,
    register __a0 struct SegList *seglist,
    register __d0 struct Library *libbase)
-{  SysBase=sysbase;
+{  /* Note: printf not available yet - dos.library opens in Initaweblib */
+   SysBase=sysbase;
    AWebJSBase=libbase;
    libbase->lib_Revision=AWEBLIBREVISION;
    libseglist=seglist;
@@ -401,18 +406,38 @@ __asm __saveds ULONG Extfunclib(void)
 /*-----------------------------------------------------------------------*/
 
 static ULONG Initaweblib(struct Library *libbase)
-{  if(!(DOSBase=(struct DosLibrary *)OpenLibrary("dos.library",39))) return FALSE;
-   if(!(LocaleBase=OpenLibrary("locale.library",0))) return FALSE;
-   if(!(UtilityBase=OpenLibrary("utility.library",39))) return FALSE;
-   if(!(IntuitionBase=(struct IntuitionBase *)OpenLibrary("intuition.library",39))) return FALSE;
-   if(!(GfxBase=(struct GfxBase *)OpenLibrary("graphics.library",39))) return FALSE;
-   if(!(AslBase=OpenLibrary("asl.library",OSNEED(39,44)))) return FALSE;
-   if(!(locale=OpenLocale(NULL))) return FALSE;
+{  if(!(DOSBase=(struct DosLibrary *)OpenLibrary("dos.library",39)))
+   {  return FALSE;
+   }
+   if(!(LocaleBase=(struct LocaleBase *)OpenLibrary("locale.library",0)))
+   {  return FALSE;
+   }
+   if(!(UtilityBase=OpenLibrary("utility.library",39)))
+   {  return FALSE;
+   }
+   if(!(IntuitionBase=(struct IntuitionBase *)OpenLibrary("intuition.library",39)))
+   {  return FALSE;
+   }
+   if(!(GfxBase=(struct GfxBase *)OpenLibrary("graphics.library",39)))
+   {  return FALSE;
+   }
+   if(!(AslBase=OpenLibrary("asl.library",OSNEED(39,44))))
+   {  return FALSE;
+   }
+   if(!(locale=OpenLocale(NULL)))
+   {  return FALSE;
+   }
+   /* Open awebplugin.library for Aprintf() */
+   AwebPluginBase=OpenLibrary("awebplugin.library",0);
+   if(AwebPluginBase)
+   {  Aprintf("[JS] Initaweblib: success, all libraries opened, AwebPluginBase=%p\n", AwebPluginBase);
+   }
    return TRUE;
 }
 
 static void Expungeaweblib(struct Library *libbase)
-{  if(locale) CloseLocale(locale);
+{  if(AwebPluginBase) CloseLibrary(AwebPluginBase);
+   if(locale) CloseLocale(locale);
    if(AslBase) CloseLibrary(AslBase);
    if(GfxBase) CloseLibrary(GfxBase);
    if(IntuitionBase) CloseLibrary(IntuitionBase);
@@ -694,19 +719,31 @@ BOOL Feedback(struct Jcontext *jc)
 __asm __saveds void *Newjcontext(register __a0 UBYTE *screenname)
 {  struct Jcontext *jc=NULL;
    void *pool;
+   if(AwebPluginBase) Aprintf("[JS] Newjcontext: entry\n");
    /* New Jcontext is created in its own pool */
    if(pool=CreatePool(MEMF_PUBLIC|MEMF_CLEAR,PUDDLESIZE,TRESHSIZE))
-   {  if(jc=ALLOCSTRUCT(Jcontext,1,0,pool))
-      {  jc->pool=pool;
+   {  if(AwebPluginBase) Aprintf("[JS] Newjcontext: pool created\n");
+      if(jc=ALLOCSTRUCT(Jcontext,1,0,pool))
+      {  if(AwebPluginBase) Aprintf("[JS] Newjcontext: Jcontext allocated\n");
+         jc->pool=pool;
          NEWLIST(&jc->objects);
          NEWLIST(&jc->tmp);
+         if(AwebPluginBase) Aprintf("[JS] Newjcontext: calling Newexecute\n");
          Newexecute(jc);
+         if(AwebPluginBase) Aprintf("[JS] Newjcontext: Newexecute returned\n");
          jc->screenname=screenname;
       }
+      else
+      {  if(AwebPluginBase) Aprintf("[JS] Newjcontext: ERROR - failed to allocate Jcontext\n");
+      }
+   }
+   else
+   {  if(AwebPluginBase) Aprintf("[JS] Newjcontext: ERROR - failed to create pool\n");
    }
    if(!jc)
    {  if(pool) DeletePool(pool);
    }
+   if(AwebPluginBase) Aprintf("[JS] Newjcontext: exit, jc=%p\n", jc);
    return jc;
 }
 
@@ -734,15 +771,19 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
    LIST(Jobject) temps;
    struct Jobject *jo,*jn;
    unsigned int clock[2]={ 0,0 };
+   if(AwebPluginBase) Aprintf("[JS] Runjprogram: entry, jc=%p, source=%p\n", jc, source);
    if(jc && source)
-   {  idcmphook.h_Entry=(HOOKFUNC)Idcmphook;
+   {  if(AwebPluginBase) Aprintf("[JS] Runjprogram: setting up hooks\n");
+      idcmphook.h_Entry=(HOOKFUNC)Idcmphook;
       idcmphook.h_Data=jc;
       jc->flags&=~(JCF_ERROR|JCF_IGNORE|EXF_STOP);
       jc->generation++;
       jc->fscope=fscope;
       jc->warntime=0;
       jc->warnmem=0;
+      if(AwebPluginBase) Aprintf("[JS] Runjprogram: calling Jcompile\n");
       Jcompile(jc,source);
+      if(AwebPluginBase) Aprintf("[JS] Runjprogram: Jcompile returned, flags=0x%04x\n", jc->flags);
       jc->linenr=0;
       if(!(jc->flags&JCF_ERROR))
       {  /* Remember existing temporary objects (see comment in jexe.c:Exedot()) */
@@ -769,7 +810,9 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
             jc->warntime=clock[0]+60;
             jc->warnmem=AvailMem(0)/4;
          }
+         if(AwebPluginBase) Aprintf("[JS] Runjprogram: calling Jexecute\n");
          Jexecute(jc,jthis,gwtab);
+         if(AwebPluginBase) Aprintf("[JS] Runjprogram: Jexecute returned\n");
          if(jc->dflags&DEBF_DOPEN)
          {  Stopdebugger(jc);
          }
@@ -790,6 +833,7 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
          }
       }
    }
+   if(AwebPluginBase) Aprintf("[JS] Runjprogram: exit, result=%d\n", result);
    return result;
 }
 
@@ -833,18 +877,42 @@ __asm __saveds struct Jobject *AddjfunctionA(
    register __a4 UBYTE **args)
 {  struct Jobject *f=NULL;
    struct Variable *prop;
+   if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: entry, jo=%p, name='%s', code=%p\n", jo, name ? (char *)name : "(null)", code);
    if(name)
-   {  if((prop=Getproperty(jo,name))
+   {  if((prop=Getownproperty(jo,name))
       || (prop=Addproperty(jo,name)))
-      {  if(f=InternalfunctionA(jc,name,code,args))
-         {  if(f->function)
+      {  if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: property found/added, prop=%p\n", prop);
+         if(f=InternalfunctionA(jc,name,code,args))
+         {  if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: InternalfunctionA returned f=%p, f->function=%p\n", f, f->function);
+            if(f->function)
             {  f->function->fscope=jo;
+               if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: set f->function->fscope=%p\n", jo);
+            }
+            else
+            {  if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: WARNING - f->function is NULL!\n");
             }
             Asgfunction(&prop->val,f,jo);
+            if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: Asgfunction called, prop->val.type=%d, prop->val.value.obj.ovalue=%p, f->function=%p\n", prop->val.type, prop->val.value.obj.ovalue, f ? f->function : NULL);
+         }
+         else
+         {  if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: ERROR - InternalfunctionA returned NULL\n");
          }
       }
+      else
+      {  if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: ERROR - could not get/add property\n");
+      }
    }
+   if(AwebPluginBase) Aprintf("[JS] AddjfunctionA: exit, returning f=%p\n", f);
    return f;
+}
+
+struct Jobject *Addjfunction(struct Jcontext *jc,struct Jobject *jo,UBYTE *name,
+   void (*code)(void *),...)
+{  UBYTE **args;
+   struct Jobject *result;
+   args=(UBYTE **)VARARG(code);
+   result=AddjfunctionA(jc,jo,name,code,args);
+   return result;
 }
 
 __asm __saveds struct Variable *Jfargument(
@@ -860,7 +928,10 @@ __asm __saveds struct Variable *Jfargument(
 __asm __saveds UBYTE *Jtostring(
    register __a0 struct Jcontext *jc,
    register __a1 struct Variable *jv)
-{  Tostring(&jv->val,jc);
+{  if(!jc || !jv)
+   {  return NULL;
+   }
+   Tostring(&jv->val,jc);
    return jv->val.value.svalue;
 }
 
@@ -868,14 +939,20 @@ __asm __saveds void Jasgstring(
    register __a0 struct Jcontext *jc,
    register __a1 struct Variable *jv,
    register __a2 UBYTE *string)
-{  Asgstring(jv?&jv->val:&jc->functions.first->retval,string?string:(UBYTE *)"",jc->pool);
+{  struct Value *val;
+   if(jv) val=&jv->val;
+   else val=&jc->functions.first->retval;
+   Asgstring(val,string?string:(UBYTE *)"",jc->pool);
 }
 
 __asm __saveds void Jasgobject(
    register __a0 struct Jcontext *jc,
    register __a1 struct Variable *jv,
    register __a2 struct Jobject *jo)
-{  Asgobject(jv?&jv->val:&jc->functions.first->retval,jo);
+{  struct Value *val;
+   if(jv) val=&jv->val;
+   else val=&jc->functions.first->retval;
+   Asgobject(val,jo);
 }
 
 __asm __saveds void Setjobject(
@@ -894,10 +971,10 @@ __asm __saveds struct Variable *Jproperty(
    register __a2 UBYTE *name)
 {  struct Variable *var=NULL;
    if(!name) name="";
-   if(!(var=Getproperty(jo,name)))
+   if(!(var=Getownproperty(jo,name)))
    {  var=Addproperty(jo,name);
    }
-   return var;
+   return (struct Variable *)var;
 }
 
 __asm __saveds void Setjproperty(
@@ -931,7 +1008,10 @@ __asm __saveds void Jasgboolean(
    register __a0 struct Jcontext *jc,
    register __a1 struct Variable *jv,
    register __d0 BOOL bvalue)
-{  Asgboolean(jv?&jv->val:&jc->functions.first->retval,bvalue);
+{  struct Value *val;
+   if(jv) val=&jv->val;
+   else val=&jc->functions.first->retval;
+   Asgboolean(val,bvalue);
 }
 
 __asm __saveds BOOL Jtoboolean(
@@ -949,7 +1029,7 @@ __asm __saveds struct Jobject *Newjarray(
 __asm __saveds struct Variable *Jnewarrayelt(
    register __a0 struct Jcontext *jc,
    register __a1 struct Jobject *jo)
-{  return Addarrayelt(jc,jo);
+{  return (struct Variable *)Addarrayelt(jc,jo);
 }
 
 __asm __saveds struct Jobject *Jtoobject(
@@ -973,7 +1053,10 @@ __asm __saveds void Jasgnumber(
    register __a0 struct Jcontext *jc,
    register __a1 struct Variable *jv,
    register __d0 long nvalue)
-{  Asgnumber(jv?&jv->val:&jc->functions.first->retval,VNA_VALID,(double)nvalue);
+{  struct Value *val;
+   if(jv) val=&jv->val;
+   else val=&jc->functions.first->retval;
+   Asgnumber(val,VNA_VALID,(double)nvalue);
 }
 
 __asm __saveds BOOL Jisarray(
@@ -988,7 +1071,7 @@ __asm __saveds struct Jobject *Jfindarray(
    register __a2 UBYTE *name)
 {  struct Variable *var;
    struct Jobject *ja=NULL;
-   if(var=Getproperty(jo,name))
+   if(var=Getownproperty(jo,name))
    {  if(var->val.type==VTP_OBJECT && var->val.value.obj.ovalue && Isarray(var->val.value.obj.ovalue))
       {  ja=var->val.value.obj.ovalue;
       }
@@ -1001,7 +1084,7 @@ __asm __saveds void Jsetprototype(
    register __a1 struct Jobject *jo,
    register __a2 struct Jobject *proto)
 {  struct Variable *var;
-   if((var=Getproperty(jo,"prototype"))
+   if((var=Getownproperty(jo,"prototype"))
    || (var=Addproperty(jo,"prototype")))
    {  if(!proto->constructor) proto->constructor=jo;
       proto->hook=Prototypeohook;
@@ -1179,7 +1262,7 @@ __asm __saveds void Jaddeventhandler(
    register __a3 UBYTE *source)
 {  struct Variable *var;
    struct Jobject *jeventh;
-   if(jc && jo && !Getproperty(jo,name))
+   if(jc && jo && !Getownproperty(jo,name))
    {  if(var=Addproperty(jo,name))
       {  if(source)
          {  jc->generation++;

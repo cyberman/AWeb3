@@ -116,6 +116,14 @@ void Initboolean(struct Jcontext *jc,struct Jobject *jscope)
       if(!jscope)
       {
           jc->boolean=jo;
+          /* Also add to global scope so it can be found by Findvar */
+          if(jc->functions.last && jc->functions.last->fscope)
+          {  if((prop = Addproperty(jc->functions.last->fscope,"Boolean")))
+             {  Asgobject(&prop->val,jo);
+                prop->flags |= VARF_DONTDELETE;
+                Keepobject(jo,FALSE);
+             }
+          }
       }
       else
       if((prop = Addproperty(jscope,"Boolean")))

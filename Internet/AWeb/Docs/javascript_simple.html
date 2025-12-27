@@ -14,10 +14,10 @@ var x = 1;
 <H1>Minimal JavaScript Test</H1>
 <P>If this page loads, basic JavaScript parsing works.</P>
 
-<H2>Test 1: Variable Declaration</H2>
+<H2>Test 1: Variable Declaration - PASS</H2>
 <P>Variable x = <SCRIPT LANGUAGE="JavaScript">document.write(x);</SCRIPT></P>
 
-<H2>Test 2: Basic Arithmetic</H2>
+<H2>Test 2: Basic Arithmetic - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var a = 5;
@@ -30,7 +30,7 @@ var product = a * b;
 <P>Sum (a + b) = <SCRIPT LANGUAGE="JavaScript">document.write(sum);</SCRIPT></P>
 <P>Product (a * b) = <SCRIPT LANGUAGE="JavaScript">document.write(product);</SCRIPT></P>
 
-<H2>Test 3: String Concatenation</H2>
+<H2>Test 3: String Concatenation - FAIL except for Direct concat test</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var greeting = "Hello";
@@ -47,7 +47,7 @@ var message2 = greeting + space + name;
 <P>Direct concat test: <SCRIPT LANGUAGE="JavaScript">document.write("Hello" + " " + "World");</SCRIPT></P>
 <P>Direct concat with vars: <SCRIPT LANGUAGE="JavaScript">document.write(greeting + " " + name);</SCRIPT></P>
 
-<H2>Test 4: Function Call</H2>
+<H2>Test 4: Function Call - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 function addNumbers(num1, num2) {
@@ -58,7 +58,7 @@ var result = addNumbers(10, 20);
 </SCRIPT>
 <P>addNumbers(10, 20) = <SCRIPT LANGUAGE="JavaScript">document.write(result);</SCRIPT></P>
 
-<H2>Test 5: Array Operations</H2>
+<H2>Test 5: Array Operations - FAIL</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var arr = new Array(1, 2, 3, 4, 5);
@@ -71,10 +71,10 @@ var arrayLength = arr.length;
 <P>Array length = <SCRIPT LANGUAGE="JavaScript">document.write(arrayLength);</SCRIPT></P>
 <P>Array type check: <SCRIPT LANGUAGE="JavaScript">document.write(typeof arr);</SCRIPT></P>
 
-<H2>Test 6: Conditional Statement</H2>
+<H2>Test 6: Conditional Statement - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
-var testValue = 7;
+var testValue = 8;
 var isEven = "unknown";
 if (testValue % 2 == 0) {
     isEven = "yes";
@@ -83,10 +83,10 @@ if (testValue % 2 == 0) {
 }
 //-->
 </SCRIPT>
-<P>testValue = 7</P>
+<P>testValue = 8</P>
 <P>Is testValue even? <SCRIPT LANGUAGE="JavaScript">document.write(isEven);</SCRIPT></P>
 
-<H2>Test 7: Comparison Operators</H2>
+<H2>Test 7: Comparison Operators - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var val1 = 5;
@@ -103,7 +103,7 @@ var ne = val1 != val2;
 <P>val1 == val2: <SCRIPT LANGUAGE="JavaScript">document.write(eq);</SCRIPT></P>
 <P>val1 != val2: <SCRIPT LANGUAGE="JavaScript">document.write(ne);</SCRIPT></P>
 
-<H2>Test 8: While Loop</H2>
+<H2>Test 8: While Loop - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var counter = 0;
@@ -116,7 +116,7 @@ while (counter < 3) {
 </SCRIPT>
 <P>Loop result (0 to 2): <SCRIPT LANGUAGE="JavaScript">document.write(loopResult);</SCRIPT></P>
 
-<H2>Test 9: For Loop</H2>
+<H2>Test 9: For Loop - FAIL</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var forResult = "";
@@ -127,7 +127,7 @@ for (var i = 0; i < 3; i = i + 1) {
 </SCRIPT>
 <P>For loop result (0 to 2): <SCRIPT LANGUAGE="JavaScript">document.write(forResult);</SCRIPT></P>
 
-<H2>Test 10: Object Property Access</H2>
+<H2>Test 10: Object Property Access - FAIL</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var obj = new Object();
@@ -138,7 +138,7 @@ obj.value = 42;
 <P>obj.name = <SCRIPT LANGUAGE="JavaScript">document.write(obj.name);</SCRIPT></P>
 <P>obj.value = <SCRIPT LANGUAGE="JavaScript">document.write(obj.value);</SCRIPT></P>
 
-<H2>Test 11: String Methods</H2>
+<H2>Test 11: String Methods - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var str = "Hello World";
@@ -154,7 +154,7 @@ var char = str.charAt(0);
 <P>length: <SCRIPT LANGUAGE="JavaScript">document.write(len);</SCRIPT></P>
 <P>charAt(0): <SCRIPT LANGUAGE="JavaScript">document.write(char);</SCRIPT></P>
 
-<H2>Test 12: Math Object</H2>
+<H2>Test 12: Math Object - FAIL</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var pi = Math.PI;
@@ -170,7 +170,7 @@ var abs = Math.abs(-5);
 <P>Math.min(5, 10): <SCRIPT LANGUAGE="JavaScript">document.write(min);</SCRIPT></P>
 <P>Math.abs(-5): <SCRIPT LANGUAGE="JavaScript">document.write(abs);</SCRIPT></P>
 
-<H2>Test 13: Date Object</H2>
+<H2>Test 13: Date Object - FAIL</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var now = new Date();
@@ -184,7 +184,7 @@ var date = now.getDate();
 <P>getMonth(): <SCRIPT LANGUAGE="JavaScript">document.write(month);</SCRIPT></P>
 <P>getDate(): <SCRIPT LANGUAGE="JavaScript">document.write(date);</SCRIPT></P>
 
-<H2>Test 14: Nested Function Calls</H2>
+<H2>Test 14: Nested Function Calls - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 function multiply(a, b) {
@@ -198,7 +198,7 @@ var result = addAndMultiply(2, 3, 4);
 </SCRIPT>
 <P>addAndMultiply(2, 3, 4) = (2+3)*4 = <SCRIPT LANGUAGE="JavaScript">document.write(result);</SCRIPT></P>
 
-<H2>Test 15: Array with new Array()</H2>
+<H2>Test 15: Array with new Array() - FAIL</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var arr = new Array(1, 2, 3, 4, 5);
@@ -212,7 +212,7 @@ var len = arr.length;
 <P>Last element: <SCRIPT LANGUAGE="JavaScript">document.write(last);</SCRIPT></P>
 <P>Array length: <SCRIPT LANGUAGE="JavaScript">document.write(len);</SCRIPT></P>
 
-<H2>Test 16: Logical Operators</H2>
+<H2>Test 16: Logical Operators - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var a = true;
@@ -236,7 +236,7 @@ var not2 = !b;
 <H2>Test 17: Type Checking (typeof)</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
-// Test direct typeof calls first (simpler)
+// Test direct typeof calls first (simpler) - PASS
 var typeNumDirect = typeof 42;
 var typeStrDirect = typeof "test";
 var typeBoolDirect = typeof true;
@@ -256,12 +256,12 @@ var typeArr = typeof arr;
 var typeFunc = typeof func;
 //-->
 </SCRIPT>
-<P><STRONG>Direct typeof tests (simpler):</STRONG></P>
+<P><STRONG>Direct typeof tests (simpler): - PASS</STRONG></P>
 <P>typeof 42: <SCRIPT LANGUAGE="JavaScript">document.write(typeNumDirect);</SCRIPT></P>
 <P>typeof "test": <SCRIPT LANGUAGE="JavaScript">document.write(typeStrDirect);</SCRIPT></P>
 <P>typeof true: <SCRIPT LANGUAGE="JavaScript">document.write(typeBoolDirect);</SCRIPT></P>
 <P>typeof undefined: <SCRIPT LANGUAGE="JavaScript">document.write(typeUndef);</SCRIPT></P>
-<P><STRONG>typeof with variables:</STRONG></P>
+<P><STRONG>typeof with variables: - FAIL</STRONG></P>
 <P>typeof num (42): <SCRIPT LANGUAGE="JavaScript">document.write(typeNum);</SCRIPT></P>
 <P>typeof str ("hello"): <SCRIPT LANGUAGE="JavaScript">document.write(typeStr);</SCRIPT></P>
 <P>typeof bool (true): <SCRIPT LANGUAGE="JavaScript">document.write(typeBool);</SCRIPT></P>
@@ -269,7 +269,7 @@ var typeFunc = typeof func;
 <P>typeof arr (new Array()): <SCRIPT LANGUAGE="JavaScript">document.write(typeArr);</SCRIPT></P>
 <P>typeof func (function): <SCRIPT LANGUAGE="JavaScript">document.write(typeFunc);</SCRIPT></P>
 
-<H2>Test 18: String indexOf and lastIndexOf</H2>
+<H2>Test 18: String indexOf and lastIndexOf - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var str = "Hello World";
@@ -283,7 +283,7 @@ var idx3 = str.indexOf("x");
 <P>lastIndexOf("o"): <SCRIPT LANGUAGE="JavaScript">document.write(idx2);</SCRIPT></P>
 <P>indexOf("x") (not found): <SCRIPT LANGUAGE="JavaScript">document.write(idx3);</SCRIPT></P>
 
-<H2>Test 19: String substring</H2>
+<H2>Test 19: String substring - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var str = "Hello World";
@@ -295,7 +295,7 @@ var sub2 = str.substring(6);
 <P>substring(0, 5): <SCRIPT LANGUAGE="JavaScript">document.write(sub1);</SCRIPT></P>
 <P>substring(6): <SCRIPT LANGUAGE="JavaScript">document.write(sub2);</SCRIPT></P>
 
-<H2>Test 20: Array join and reverse</H2>
+<H2>Test 20: Array join and reverse - FAIL</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var arr = new Array("a", "b", "c");
@@ -308,7 +308,7 @@ var reversed = arr.join(", ");
 <P>join(", "): <SCRIPT LANGUAGE="JavaScript">document.write(joined);</SCRIPT></P>
 <P>After reverse(), join(", "): <SCRIPT LANGUAGE="JavaScript">document.write(reversed);</SCRIPT></P>
 
-<H2>Test 21: More Math Functions</H2>
+<H2>Test 21: More Math Functions - FAIL</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var pow = Math.pow(2, 8);
@@ -326,7 +326,7 @@ var random = Math.random();
 <P>Math.ceil(3.2): <SCRIPT LANGUAGE="JavaScript">document.write(ceil);</SCRIPT></P>
 <P>Math.random(): <SCRIPT LANGUAGE="JavaScript">document.write(random);</SCRIPT> (should be 0-1)</P>
 
-<H2>Test 22: More Date Methods</H2>
+<H2>Test 22: More Date Methods - FAIL</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var now = new Date();
@@ -344,7 +344,7 @@ var time = now.getTime();
 <P>getDay(): <SCRIPT LANGUAGE="JavaScript">document.write(day);</SCRIPT> (0=Sunday)</P>
 <P>getTime(): <SCRIPT LANGUAGE="JavaScript">document.write(time);</SCRIPT> (milliseconds)</P>
 
-<H2>Test 23: Complex Expressions</H2>
+<H2>Test 23: Complex Expressions - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var a = 10;
@@ -362,7 +362,7 @@ var result4 = (a - b) / c;
 <P>a - b / c (precedence): <SCRIPT LANGUAGE="JavaScript">document.write(result3);</SCRIPT></P>
 <P>(a - b) / c: <SCRIPT LANGUAGE="JavaScript">document.write(result4);</SCRIPT></P>
 
-<H2>Test 24: Object with Multiple Properties</H2>
+<H2>Test 24: Object with Multiple Properties - FAIL</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 var person = new Object();
@@ -379,7 +379,7 @@ var city = person.city;
 <P>person.age: <SCRIPT LANGUAGE="JavaScript">document.write(age);</SCRIPT></P>
 <P>person.city: <SCRIPT LANGUAGE="JavaScript">document.write(city);</SCRIPT></P>
 
-<H2>Test 25: Function with Multiple Statements</H2>
+<H2>Test 25: Function with Multiple Statements - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 function calculate(x, y) {

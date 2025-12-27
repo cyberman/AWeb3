@@ -608,10 +608,20 @@ void Initmath(struct Jcontext *jc, struct Jobject *jscope)
    {
       jo->type=OBJT_MATH;
 
-      if(jscope && (var=Addproperty(jscope,"Math")))
-      {
-         Asgobject(&var->val,jo);
-         var->flags |= VARF_DONTDELETE;
+      if(jscope)
+      {  if((var=Addproperty(jscope,"Math")))
+         {  Asgobject(&var->val,jo);
+            var->flags |= VARF_DONTDELETE;
+         }
+      }
+      else
+      {  /* Add to global scope so it can be found by Findvar */
+         if(jc->functions.last && jc->functions.last->fscope)
+         {  if((var=Addproperty(jc->functions.last->fscope,"Math")))
+            {  Asgobject(&var->val,jo);
+               var->flags |= VARF_DONTDELETE;
+            }
+         }
       }
 
       Addmathproperty(jo,"E",exp(1.0));

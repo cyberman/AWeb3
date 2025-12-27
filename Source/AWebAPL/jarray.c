@@ -316,6 +316,29 @@ static void Arrayreverse(struct Jcontext *jc)
    }
 }
 
+/* add all the elements of array1 to array2 */
+
+static void Addelements(struct Jcontext *jc, struct Jobject *to, struct Jobject *from)
+{
+    /* we assume that we've been passed valid arrays */
+    int length = ((struct Array *)from->internal)->length;
+    int i;
+
+    for(i = 0; i < length; i++)
+    {
+        struct Variable *elt1,*elt2;
+        if((elt2 = Addarrayelt(jc,to)))
+        {
+            if((elt1 = Arrayelt(from,i)))
+            {
+                Asgvalue(&elt2->val,&elt1->val);
+            }
+        }
+    }
+
+
+}
+
 static void Arraysort(struct Jcontext *jc)
 {  struct Jobject *jo=jc->jthis;
    struct Tabelt *tabelts;
@@ -391,7 +414,7 @@ static void Arraypush(struct Jcontext *jc)
       {  if(argslen=Getproperty(args,"length"))
          {  Tonumber(&argslen->val,jc);
             if(argslen->val.attr==VNA_VALID)
-            {  long arglen=(long)argslen->val.nvalue;
+            {  long arglen=(long)argslen->val.value.nvalue;
                for(i=0;i<arglen;i++)
                {  if(arg=Arrayelt(args,i))
                   {  if(jo->internal && jo->hook==Arrayohook)
@@ -499,7 +522,7 @@ static void Arrayunshift(struct Jcontext *jc)
       {  if(argslen=Getproperty(args,"length"))
          {  Tonumber(&argslen->val,jc);
             if(argslen->val.attr==VNA_VALID)
-            {  arglen=(long)argslen->val.nvalue;
+            {  arglen=(long)argslen->val.value.nvalue;
                if(arglen>0)
                {  for(i=len;i>0;i--)
                   {  sprintf(nname,"%d",i-1);
@@ -552,64 +575,58 @@ static void Arrayunshift(struct Jcontext *jc)
 }
 
 static void Arrayconcat(struct Jcontext *jc)
-{  struct Jobject *jo=jc->jthis;
-   struct Jobject *newarray;
-   struct Jobject *args;
-   struct Variable *elt,*arg,*argslen,*newelt;
-   long i;
-   if(jo)
-   {  if(newarray=Newarray(jc))
-      {  if(jo->internal && jo->hook==Arrayohook)
-         {  long len=((struct Array *)jo->internal)->length;
-            for(i=0;i<len;i++)
-            {  if(elt=Arrayelt(jo,i))
-               {  if(newelt=Addarrayelt(jc,newarray))
-                  {  Asgvalue(&newelt->val,&elt->val);
-                  }
-               }
-            }
-         }
-         else
-         {  struct Value v={0};
+{
+    struct Jobject *jo = jc->jthis;
+    struct Jobject *newarray = NULL;
+    struct Jobject *args;
+    struct Variable *elt;
+    struct Variable *arg;
+
+    if((newarray = Newarray(jc)))
+    {
+        if(Isarray(jo))
+        {
+            Addelements(jc,newarray,jo);
+        }
+        else
+        {
+            struct Value v = {0};
             Asgobject(&v,jo);
             Tostring(&v,jc);
-            if(newelt=Addarrayelt(jc,newarray))
-            {  Asgvalue(&newelt->val,&v);
+            if((elt = Addarrayelt(jc,newarray)))
+            {
+                Asgvalue(&elt->val,&v);
             }
             Clearvalue(&v);
-         }
-         if(args=Findarguments(jc))
-         {  if(argslen=Getproperty(args,"length"))
-            {  Tonumber(&argslen->val,jc);
-               if(argslen->val.attr==VNA_VALID)
-               {  long arglen=(long)argslen->val.nvalue;
-                  for(i=0;i<arglen;i++)
-                  {  if(arg=Arrayelt(args,i))
-                     {                 if(arg->val.type==VTP_OBJECT && arg->val.value.obj.ovalue
-                        && arg->val.value.obj.ovalue->internal && arg->val.value.obj.ovalue->hook==Arrayohook)
-                        {  long len=((struct Array *)arg->val.value.obj.ovalue->internal)->length;
-                           long j;
-                           for(j=0;j<len;j++)
-                           {  if(elt=Arrayelt(arg->val.value.obj.ovalue,j))
-                              {  if(newelt=Addarrayelt(jc,newarray))
-                                 {  Asgvalue(&newelt->val,&elt->val);
-                                 }
-                              }
-                           }
+        }
+        /* Now do the same with the args */
+        if((args = Findarguments(jc)))
+        {
+            struct Variable *length;
+            if((length = Getproperty(args,"length")) && length->val.type == VTP_NUMBER)
+            {
+                int l = (int)length->val.value.nvalue;
+                int i;
+                for(i = 0; i < l ; i++)
+                {
+                    arg = Arrayelt(args,i);
+                    if(arg->val.type == VTP_OBJECT && Isarray(arg->val.value.obj.ovalue))
+                    {
+                        Addelements(jc,newarray,arg->val.value.obj.ovalue);
+                    }
+                    else
+                    {
+                        if((elt = Addarrayelt(jc,newarray)))
+                        {
+                            Asgvalue(&elt->val,&arg->val);
                         }
-                        else
-                        {  if(newelt=Addarrayelt(jc,newarray))
-                           {  Asgvalue(&newelt->val,&arg->val);
-                           }
-                        }
-                     }
-                  }
-               }
+                    }
+                }
             }
-         }
-         Asgobject(RETVAL(jc),newarray);
-      }
-   }
+        }
+
+    }
+    Asgobject(RETVAL(jc),newarray);
 }
 
 static void Arrayslice(struct Jcontext *jc)
@@ -705,80 +722,96 @@ static void Arraysplice(struct Jcontext *jc)
       if( arglen < dc)
       {  /* we must close and clear the gap */
          for(k = is; k < l - dc + arglen; k++)
-         {  struct Variable *from,*to;
+         {
+            struct Variable *from,*to;
             sprintf(nname,"%d",(int)(k+dc));
             from = Getproperty(jo,nname);
             sprintf(nname,"%d",(int)(k+arglen));
-            if(!(to = Getproperty(jo,nname)))
-            {  to = Addproperty(jo,nname);
+            if(!(to = Getownproperty(jo,nname)))
+            {
+                to = Addproperty(jo,nname);
             }
             if(from)
-            {  if(to)
-               {  Asgvalue(&to->val,&from->val);
-               }
+            {
+                if(to)
+                {
+                    Asgvalue(&to->val,&from->val);
+                }
             }
-            else if(to)
-            {  Clearvalue(&to->val);
+            else
+            if(to)
+            {
+                Clearvalue(&to->val);
             }
          }
          for(k =l; k > l-dc + arglen;k--)
-         {  sprintf(nname,"%d",(int)k-1);
-            /* Note: Deleteownproperty needs to be added to jdata.c */
-            /* For now, find and remove manually */
-            if((var = Getproperty(jo,nname)))
-            {  REMOVE(var);
-               FREE(var->name);
-               FREE(var);
-            }
+         {
+            sprintf(nname,"%d",(int)k-1);
+            Deleteownproperty(jo,nname);
          }
       }
       if(arglen > dc)
       {  /* we must widen the gap */
          for( k = l - dc; k > is ; k--)
-         {  struct Variable *from, *to;
+         {
+            struct Variable *from, *to;
             sprintf(nname,"%d",(int) k + dc -1);
             from = Getproperty(jo,nname);
             sprintf(nname,"%d",(int) k + arglen -1);
-            if(!(to = Getproperty(jo,nname)))
-            {  to = Addproperty(jo,nname);
+            if(!(to = Getownproperty(jo,nname)))
+            {
+                to = Addproperty(jo,nname);
             }
             if(from)
-            {  if(to)
-               {  Asgvalue(&to->val,&from->val);
-               }
+            {
+                if(to)
+                {
+                    Asgvalue(&to->val,&from->val);
+                }
             }
             else
-            {  if(to)
-               {  Clearvalue(&to->val);
-               }
+            {
+                if(to)
+                {
+                    Clearvalue(&to->val);
+                }
             }
+
          }
       }
       /* now we should have the right size "gap" to copy the new items into */
       if(arglen)
-      {  for(k = 0; k < arglen; k++)
-         {  sprintf(nname,"%d",(int) k + is);
-            if((elt = Arrayelt(args,k + 2)))
-            {  if(!(var = Getproperty(jo,nname)))
-               {  var = Addproperty(jo,nname);
-               }
-               if(var)
-               {  Asgvalue(&var->val,&elt->val);
-               }
+         {
+            for(k = 0; k < arglen; k++)
+            {
+                sprintf(nname,"%d",(int) k + is);
+                if((elt = Arrayelt(args,k + 2)))
+                {
+                    if(!(var = Getownproperty(jo,nname)))
+                    {
+                        var = Addproperty(jo,nname);
+                    }
+                    if(var)
+                    {
+                        Asgvalue(&var->val,&elt->val);
+                    }
+                }
             }
          }
-      }
-      if(!(length = Getproperty(jo,"length")))
-      {  length = Addproperty(jo,"length");
-      }
-      if(length)
-      {  Asgnumber(&length->val,VNA_VALID,(double)(l - dc + arglen));
-      }
-      if(Isarray(jo))
-      {  ((struct Array *)jo->internal)->length = (l -dc + arglen);
-      }
-   }
-   Asgobject(RETVAL(jc),array);
+        if(!(length = Getownproperty(jo,"length")))
+        {
+            length = Addproperty(jo,"length");
+        }
+        if(length)
+        {
+            Asgnumber(&length->val,VNA_VALID,(double)(l - dc + arglen));
+        }
+        if(Isarray(jo))
+        {
+            ((struct Array *)jo->internal)->length = (l -dc + arglen);
+        }
+    }
+    Asgobject(RETVAL(jc),array);
 }
 
 /* When "length" is set, set internal and truncate array as necessary */
@@ -945,6 +978,15 @@ void Initarray(struct Jcontext *jc, struct Jobject *jscope)
       /* Has been created, there may be a better way to do this! */
       if(jscope == NULL)
       {  jc->array=jo;
+         /* Also add to global scope so it can be found by Findvar */
+         if(jc->functions.last && jc->functions.last->fscope)
+         {  if((prop = Addproperty(jc->functions.last->fscope,"Array")))
+            {  Asgobject(&prop->val,jo);
+               prop->flags |= VARF_DONTDELETE;
+               /* no longer need to keep as assigned to scope */
+               Keepobject(jo,FALSE);
+            }
+         }
       }
       else
       {  if((prop = Addproperty(jscope,"Array")))
@@ -999,11 +1041,12 @@ struct Jobject *Newarray(struct Jcontext *jc)
    struct Array *a;
    struct Variable *prop;
    if(jo=Newobject(jc))
-   {  Initconstruct(jc,jo,NULL,jc->array);
+   {  Initconstruct(jc,jo,"Array",NULL);
       if(a=ALLOCSTRUCT(Array,1,0,jc->pool))
       {  jo->internal=a;
-         jo->dispose=Destructor;
+         jo->dispose=(Objdisposehookfunc *)Destructor;
          jo->hook=Arrayohook;
+         jo->type=OBJT_ARRAY;
          a->length=0;
          a->array_length=0;
          a->array=NULL;

@@ -43,7 +43,7 @@ static void Functioncall(struct Jcontext *jc)
     struct Variable *elt;
     struct Jobject *fthis = NULL;
     struct Elementfunc *func;
-    USHORT oldflags;
+    UWORD oldflags;
 
     func = jo->function;
     if((args = Findarguments(jc)))
@@ -119,7 +119,7 @@ static void Functionapply(struct Jcontext *jc)
     struct Jobject *fthis = NULL;
     struct Jobject *fargs = NULL;
     struct Elementfunc *func;
-    USHORT oldflags;
+    UWORD oldflags;
 
     func = jo->function;
     if((args = Findarguments(jc)))
@@ -275,6 +275,14 @@ void Initfunction(struct Jcontext *jc, struct Jobject *jscope)
       if(!jscope)
       {
          jc->function=jo;
+         /* Also add to global scope so it can be found by Findvar */
+         if(jc->functions.last && jc->functions.last->fscope)
+         {  if((prop = Addproperty(jc->functions.last->fscope,"Function")))
+            {  Asgobject(&prop->val,jo);
+               prop->flags |= VARF_DONTDELETE;
+               Keepobject(jo,FALSE);
+            }
+         }
       }
       else
       if((prop = Addproperty(jscope,"Function")))

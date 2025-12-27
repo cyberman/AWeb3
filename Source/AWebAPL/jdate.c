@@ -23,6 +23,7 @@
 #include <libraries/locale.h>
 #include <dos/dos.h>
 #include <time.h>
+#include <proto/locale.h>
 
 struct Date             /* Used as internal object value */
 {  double date;         /* ms since 1-1-1970, now stored as GMT / UTC for easier consistency with ECMA spec */
@@ -562,10 +563,20 @@ void Initdate(struct Jcontext *jc, struct Jobject *jscope)
 
       // Addglobalfunction(jc,jo);
       // Keepobject(jo,TRUE);
-      if((prop = Addproperty(jscope,"Date")))
-      {
-           Asgobject(&prop->val,jo);
-           prop->flags |= VARF_DONTDELETE;
+      if(jscope)
+      {  if((prop = Addproperty(jscope,"Date")))
+         {  Asgobject(&prop->val,jo);
+            prop->flags |= VARF_DONTDELETE;
+         }
+      }
+      else
+      {  /* Add to global scope so it can be found by Findvar */
+         if(jc->functions.last && jc->functions.last->fscope)
+         {  if((prop = Addproperty(jc->functions.last->fscope,"Date")))
+            {  Asgobject(&prop->val,jo);
+               prop->flags |= VARF_DONTDELETE;
+            }
+         }
       }
 
       if(f=Internalfunction(jc,"parse",(Internfunc *)Dateparse,"dateString",NULL))

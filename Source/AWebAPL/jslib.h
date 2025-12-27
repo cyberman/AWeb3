@@ -92,7 +92,7 @@ extern struct Jobject *Newjarray(struct Jcontext *jc);
 typedef BOOL Objhookfunc(struct Objhookdata *data);
 struct Objhookdata
 {  struct Jcontext *jc;       /* Execution context */
-   USHORT code;               /* Function code */
+   UWORD code;               /* Function code */
    struct Jobject *jo;        /* Object affected */
    UBYTE *name;               /* Name of property to add */
 };
@@ -137,7 +137,7 @@ extern void Jpprotect(struct Jvar *jv,ULONG protkey);
 typedef BOOL Varhookfunc(struct Varhookdata *data);
 struct Varhookdata
 {  struct Jcontext *jc;       /* Execution context */
-   USHORT code;               /* Function code VHC_xxx */
+   UWORD code;               /* Function code VHC_xxx */
    struct Jvar *var;          /* Variable affected (that has this hook defined) */
    void *hookdata;            /* Private data for hook */
    struct Jvar *value;        /* Value to set variable to (VHC_SET) or get into (VHC_GET) */
@@ -273,4 +273,3 @@ extern void Jdumpobjects(struct Jcontext *jc);
 #pragma libcall AWebJSBase Jsetobjasfunc 114 0802
 #pragma libcall AWebJSBase Jsetscreen 11a 9802
 #pragma libcall AWebJSBase Jaddeventhandler 120 BA9804
-

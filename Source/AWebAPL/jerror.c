@@ -117,10 +117,20 @@ void Initerror(struct Jcontext *jc, struct Jobject *jscope)
    {
       Initconstruct(jc,jerror,"Object",jc->object);
       Addprototype(jc,jerror,Getprototype(jerror->constructor));
-      if(jscope && (prop = Addproperty(jscope,"Error")))
-      {
-          Asgobject(&prop->val,jerror);
-          prop->flags |= VARF_DONTDELETE;
+      if(jscope)
+      {  if((prop = Addproperty(jscope,"Error")))
+         {  Asgobject(&prop->val,jerror);
+            prop->flags |= VARF_DONTDELETE;
+         }
+      }
+      else
+      {  /* Add to global scope so it can be found by Findvar */
+         if(jc->functions.last && jc->functions.last->fscope)
+         {  if((prop = Addproperty(jc->functions.last->fscope,"Error")))
+            {  Asgobject(&prop->val,jerror);
+               prop->flags |= VARF_DONTDELETE;
+            }
+         }
       }
 
       p = Getprototype(jerror);
@@ -143,10 +153,20 @@ void Initerror(struct Jcontext *jc, struct Jobject *jscope)
     //      jc->nativeErrors[NTE_TYPE] = jo;
     //      Keepobject(jo,TRUE);
 
-          if(jscope && (prop = Addproperty(jscope,NTE_TYPE)))
-          {
-              Asgobject(&prop->val,jo);
-              prop->flags |= VARF_DONTDELETE;
+          if(jscope)
+          {  if((prop = Addproperty(jscope,NTE_TYPE)))
+             {  Asgobject(&prop->val,jo);
+                prop->flags |= VARF_DONTDELETE;
+             }
+          }
+          else
+          {  /* Add to global scope so it can be found by Findvar */
+             if(jc->functions.last && jc->functions.last->fscope)
+             {  if((prop = Addproperty(jc->functions.last->fscope,NTE_TYPE)))
+                {  Asgobject(&prop->val,jo);
+                   prop->flags |= VARF_DONTDELETE;
+                }
+             }
           }
 
           p = Getprototype(jo);
@@ -173,10 +193,20 @@ void Initerror(struct Jcontext *jc, struct Jobject *jscope)
     //      jc->nativeErrors[NTE_EVAL] = jo;
     //      Keepobject(jo,TRUE);
 
-          if(jscope && (prop = Addproperty(jscope,NTE_EVAL)))
-          {
-              Asgobject(&prop->val,jo);
-              prop->flags |= VARF_DONTDELETE;
+          if(jscope)
+          {  if((prop = Addproperty(jscope,NTE_EVAL)))
+             {  Asgobject(&prop->val,jo);
+                prop->flags |= VARF_DONTDELETE;
+             }
+          }
+          else
+          {  /* Add to global scope so it can be found by Findvar */
+             if(jc->functions.last && jc->functions.last->fscope)
+             {  if((prop = Addproperty(jc->functions.last->fscope,NTE_EVAL)))
+                {  Asgobject(&prop->val,jo);
+                   prop->flags |= VARF_DONTDELETE;
+                }
+             }
           }
 
 
@@ -198,10 +228,20 @@ void Initerror(struct Jcontext *jc, struct Jobject *jscope)
        if(jo=Internalfunction(jc,NTE_RANGE,(Internfunc *)Constructor,"errorMessage",NULL))
        {
           Addprototype(jc,jo,Getprototype(jerror));
-          if(jscope && (prop = Addproperty(jscope,NTE_RANGE)))
-          {
-              Asgobject(&prop->val,jo);
-              prop->flags |= VARF_DONTDELETE;
+          if(jscope)
+          {  if((prop = Addproperty(jscope,NTE_RANGE)))
+             {  Asgobject(&prop->val,jo);
+                prop->flags |= VARF_DONTDELETE;
+             }
+          }
+          else
+          {  /* Add to global scope so it can be found by Findvar */
+             if(jc->functions.last && jc->functions.last->fscope)
+             {  if((prop = Addproperty(jc->functions.last->fscope,NTE_RANGE)))
+                {  Asgobject(&prop->val,jo);
+                   prop->flags |= VARF_DONTDELETE;
+                }
+             }
           }
           p = Getprototype(jo);
           if(f=Internalfunction(jc,"toString",(Internfunc *)Errortostring,NULL))
@@ -223,10 +263,20 @@ void Initerror(struct Jcontext *jc, struct Jobject *jscope)
        {
           Addprototype(jc,jo,Getprototype(jerror));
           p = Getprototype(jo);
-          if(jscope && (prop = Addproperty(jscope,NTE_SYNTAX)))
-          {
-              Asgobject(&prop->val,jo);
-              prop->flags |= VARF_DONTDELETE;
+          if(jscope)
+          {  if((prop = Addproperty(jscope,NTE_SYNTAX)))
+             {  Asgobject(&prop->val,jo);
+                prop->flags |= VARF_DONTDELETE;
+             }
+          }
+          else
+          {  /* Add to global scope so it can be found by Findvar */
+             if(jc->functions.last && jc->functions.last->fscope)
+             {  if((prop = Addproperty(jc->functions.last->fscope,NTE_SYNTAX)))
+                {  Asgobject(&prop->val,jo);
+                   prop->flags |= VARF_DONTDELETE;
+                }
+             }
           }
 
           if(f=Internalfunction(jc,"toString",(Internfunc *)Errortostring,NULL))
@@ -249,10 +299,20 @@ void Initerror(struct Jcontext *jc, struct Jobject *jscope)
        {
           Addprototype(jc,jo,Getprototype(jerror));
           p = Getprototype(jo);
-          if(jscope && (prop = Addproperty(jscope,NTE_REFERENCE)))
-          {
-              Asgobject(&prop->val,jo);
-              prop->flags |= VARF_DONTDELETE;
+          if(jscope)
+          {  if((prop = Addproperty(jscope,NTE_REFERENCE)))
+             {  Asgobject(&prop->val,jo);
+                prop->flags |= VARF_DONTDELETE;
+             }
+          }
+          else
+          {  /* Add to global scope so it can be found by Findvar */
+             if(jc->functions.last && jc->functions.last->fscope)
+             {  if((prop = Addproperty(jc->functions.last->fscope,NTE_REFERENCE)))
+                {  Asgobject(&prop->val,jo);
+                   prop->flags |= VARF_DONTDELETE;
+                }
+             }
           }
           if(f=Internalfunction(jc,"toString",(Internfunc *)Errortostring,NULL))
           {  Addtoprototype(jc,jo,f);
@@ -272,10 +332,20 @@ void Initerror(struct Jcontext *jc, struct Jobject *jscope)
        if(jo=Internalfunction(jc,NTE_URI,(Internfunc *)Constructor,"errorMessage",NULL))
        {
           Addprototype(jc,jo,Getprototype(jerror));
-          if(jscope && (prop = Addproperty(jscope,NTE_URI)))
-          {
-              Asgobject(&prop->val,jo);
-              prop->flags |= VARF_DONTDELETE;
+          if(jscope)
+          {  if((prop = Addproperty(jscope,NTE_URI)))
+             {  Asgobject(&prop->val,jo);
+                prop->flags |= VARF_DONTDELETE;
+             }
+          }
+          else
+          {  /* Add to global scope so it can be found by Findvar */
+             if(jc->functions.last && jc->functions.last->fscope)
+             {  if((prop = Addproperty(jc->functions.last->fscope,NTE_URI)))
+                {  Asgobject(&prop->val,jo);
+                   prop->flags |= VARF_DONTDELETE;
+                }
+             }
           }
 
           p = Getprototype(jo);
