@@ -709,15 +709,9 @@ static void Readdir(long sock,struct Fetchdriver *fd,struct Ftpaddr *fa,
          link = NULL;
          if (ftpparse(&fp,line,strlen(line)))
          {
-            link = (UBYTE *)fp.name;
+            /* ftpparse already extracts just the filename, handling symlinks */
             name = Dupstr((UBYTE *)fp.name,fp.namelen);
-            /* Handle symlinks with "->" */
-            if((p = (UBYTE *)strstr((char *)link,"->")))
-            {
-               q = line+strlen(line)-1;
-               while((--p >= line) && isspace(*p));
-               p[1] = '\0';
-            }
+            link = (UBYTE *)fp.name;
          }
          else
          {  /* Fallback to old parsing if ftpparse fails */
@@ -738,17 +732,16 @@ static void Readdir(long sock,struct Fetchdriver *fd,struct Ftpaddr *fa,
                }
             }
          }
-         if(link)
+         if(link && name)
          {  len=link-line;
             if(len>=0)
             {  len=Htmlmove(fd->block,line,len);
             }
-            len+=sprintf(fd->block+len,"<A HREF=\"ftp://%s/%s\">",fa->fullname,link);
-            if(name)
-            {  len+=Htmlmove(fd->block+len,name,strlen((char *)name));
-            }
+            /* Use filename (name) in HREF, not linkname (target) */
+            len+=sprintf(fd->block+len,"<A HREF=\"ftp://%s/%s\">",fa->fullname,name);
+            len+=Htmlmove(fd->block+len,name,strlen((char *)name));
             len+=sprintf(fd->block+len,"</A>\n");
-            if(name && name != link) FREE(name);
+            if(name != link) FREE(name);
          }
       }
       Updatetaskattrs(
