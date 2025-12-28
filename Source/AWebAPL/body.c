@@ -25,6 +25,8 @@
 #include "frprivate.h"
 #include "copy.h"
 #include "window.h"
+#include "css.h"
+#include "html.h"
 
 #include <proto/exec.h>
 #include <proto/dos.h>
@@ -109,6 +111,10 @@ struct Body
    UBYTE *backgroundrepeat; /* CSS background-repeat: "repeat", "no-repeat", "repeat-x", "repeat-y" */
    UBYTE *backgroundposition; /* CSS background-position: "center", "top", "bottom", "left", "right", percentages, lengths */
    UBYTE *backgroundattachment; /* CSS background-attachment: "scroll", "fixed" */
+   UBYTE *transform;       /* CSS transform: "translate(x, y)", "translateX(x)", "translateY(y)", etc. */
+   long toppercent;        /* CSS top position as percentage (0-10000 for 0-100%) */
+   long leftpercent;       /* CSS left position as percentage (0-10000 for 0-100%) */
+   long marginright;       /* CSS margin-right value (can be negative) */
 };
 
 #define BDYF_SUB           0x0001   /* subscript mode */
@@ -756,27 +762,38 @@ static long Layoutbody(struct Body *bd,struct Amlayout *amlp)
    
    /* Apply position: fixed/absolute/relative positioning */
    /* Note: right/bottom calculation happens after body dimensions are known */
+   /* For percentage-based positioning, we need to wait until we know parent dimensions */
+   /* So we only set pixel-based positions here, percentages are handled later */
    if(bd->position && (stricmp((char *)bd->position, "fixed") == 0 || 
                        stricmp((char *)bd->position, "absolute") == 0 ||
                        stricmp((char *)bd->position, "relative") == 0))
    {  long leftPos, topPos;
       
-      /* Get left/top positions */
+      /* Get left/top positions (only for pixel values, not percentages) */
       leftPos = Agetattr((void *)bd, AOBJ_Left);
       topPos = Agetattr((void *)bd, AOBJ_Top);
       
-      /* Apply position - right/bottom will be recalculated after layout */
-      if(stricmp((char *)bd->position, "relative") == 0)
-      {  /* Relative positioning: offset from normal flow position */
-         /* Normal flow position starts at 0, add offset */
-         bd->aox = leftPos;
-         bd->aoy = topPos;
+      /* Only apply pixel-based positioning here - percentages are handled after layout */
+      /* Check if we have percentage values - if so, skip initial positioning */
+      if(bd->leftpercent < 0 && bd->toppercent < 0)
+      {  /* No percentage values, use pixel positioning */
+         if(stricmp((char *)bd->position, "relative") == 0)
+         {  /* Relative positioning: offset from normal flow position */
+            /* Normal flow position starts at 0, add offset */
+            bd->aox = leftPos;
+            bd->aoy = topPos;
+         }
+         else
+         {  /* Fixed/absolute positioning: set absolute position */
+            /* If right/bottom are set, they'll be recalculated after we know dimensions */
+            bd->aox = leftPos;
+            bd->aoy = topPos;
+         }
       }
       else
-      {  /* Fixed/absolute positioning: set absolute position */
-         /* If right/bottom are set, they'll be recalculated after we know dimensions */
-         bd->aox = leftPos;
-         bd->aoy = topPos;
+      {  /* Percentage values present - initialize to 0, will be calculated after layout */
+         bd->aox = 0;
+         bd->aoy = 0;
       }
    }
    else
@@ -1205,6 +1222,151 @@ if(SetSignal(0,0)&SIGBREAKF_CTRL_C) return 0;
          topPos = parentHeight - bd->aoh - bd->bottom;
          bd->aoy = topPos;
       }
+      
+      /* Apply percentage-based top/left positioning */
+      /* This must come before transform so transform can adjust from the percentage position */
+      /* Percentage positioning takes precedence over pixel positioning */
+      if(bd->toppercent >= 0)
+      {  /* Calculate top position from percentage */
+         long topPos;
+         topPos = (parentHeight * bd->toppercent) / 10000;
+         bd->aoy = topPos;
+      }
+      else
+      {  /* No percentage, check if pixel value was set earlier */
+         /* Pixel values were already set in initial positioning, so no change needed */
+      }
+      
+      if(bd->leftpercent >= 0)
+      {  /* Calculate left position from percentage */
+         long leftPos;
+         leftPos = (parentWidth * bd->leftpercent) / 10000;
+         bd->aox = leftPos;
+      }
+      else
+      {  /* No percentage, check if pixel value was set earlier */
+         /* Pixel values were already set in initial positioning, so no change needed */
+      }
+      
+      /* Apply transform: translate() adjustments */
+      if(bd->transform)
+      {  UBYTE *transformStr;
+         UBYTE *p;
+         long translateX, translateY;
+         struct Number numX, numY;
+         BOOL foundTranslate;
+         
+         transformStr = bd->transform;
+         p = transformStr;
+         foundTranslate = FALSE;
+         
+         /* Parse transform: translate(x, y) or translateX(x) or translateY(y) */
+         /* Skip whitespace */
+         while(*p && isspace(*p)) p++;
+         
+         /* Check for translate( */
+         if(strnicmp((char *)p, "translate", 9) == 0)
+         {  p += 9;
+            while(*p && isspace(*p)) p++;
+            if(*p == '(')
+            {  p++;  /* Skip '(' */
+               while(*p && isspace(*p)) p++;
+               
+               /* Parse first value (X) */
+               translateX = ParseCSSLengthValue(p, &numX);
+               /* Skip past the parsed value */
+               while(*p && *p != ',' && *p != ')' && !isspace(*p)) p++;
+               while(*p && isspace(*p)) p++;
+               if(*p == ',')
+               {  p++;  /* Skip ',' */
+                  while(*p && isspace(*p)) p++;
+                  /* Parse second value (Y) */
+                  translateY = ParseCSSLengthValue(p, &numY);
+                  /* Skip past the parsed value */
+                  while(*p && *p != ')' && !isspace(*p)) p++;
+               }
+               else
+               {  /* Only one value - use for both X and Y */
+                  translateY = translateX;
+                  numY = numX;
+               }
+               
+               /* Apply translate adjustments */
+               /* For percentages, calculate based on element dimensions */
+               /* ParseCSSLengthValue returns 0-100 for percentages, convert to 0-10000 scale */
+               if(numX.type == NUMBER_PERCENT)
+               {  long offsetX;
+                  offsetX = (bd->aow * translateX * 100) / 10000;
+                  bd->aox += offsetX;
+               }
+               else if(numX.type == NUMBER_NUMBER || numX.type == NUMBER_SIGNED)
+               {  /* Pixel-based translation */
+                  bd->aox += translateX;
+               }
+               
+               if(numY.type == NUMBER_PERCENT)
+               {  long offsetY;
+                  offsetY = (bd->aoh * translateY * 100) / 10000;
+                  bd->aoy += offsetY;
+               }
+               else if(numY.type == NUMBER_NUMBER || numY.type == NUMBER_SIGNED)
+               {  /* Pixel-based translation */
+                  bd->aoy += translateY;
+               }
+               
+               foundTranslate = TRUE;
+            }
+         }
+         else if(strnicmp((char *)p, "translateX", 10) == 0)
+         {  p += 10;
+            while(*p && isspace(*p)) p++;
+            if(*p == '(')
+            {  p++;  /* Skip '(' */
+               while(*p && isspace(*p)) p++;
+               translateX = ParseCSSLengthValue(p, &numX);
+               /* Skip past the parsed value */
+               while(*p && *p != ')' && !isspace(*p)) p++;
+               if(numX.type == NUMBER_PERCENT)
+               {  long offsetX;
+                  /* ParseCSSLengthValue returns 0-100 for percentages, convert to 0-10000 scale */
+                  offsetX = (bd->aow * translateX * 100) / 10000;
+                  bd->aox += offsetX;
+               }
+               else if(numX.type == NUMBER_NUMBER || numX.type == NUMBER_SIGNED)
+               {  bd->aox += translateX;
+               }
+               foundTranslate = TRUE;
+            }
+         }
+         else if(strnicmp((char *)p, "translateY", 10) == 0)
+         {  p += 10;
+            while(*p && isspace(*p)) p++;
+            if(*p == '(')
+            {  p++;  /* Skip '(' */
+               while(*p && isspace(*p)) p++;
+               translateY = ParseCSSLengthValue(p, &numY);
+               /* Skip past the parsed value */
+               while(*p && *p != ')' && !isspace(*p)) p++;
+               if(numY.type == NUMBER_PERCENT)
+               {  long offsetY;
+                  /* ParseCSSLengthValue returns 0-100 for percentages, convert to 0-10000 scale */
+                  offsetY = (bd->aoh * translateY * 100) / 10000;
+                  bd->aoy += offsetY;
+               }
+               else if(numY.type == NUMBER_NUMBER || numY.type == NUMBER_SIGNED)
+               {  bd->aoy += translateY;
+               }
+               foundTranslate = TRUE;
+            }
+         }
+      }
+   }
+   
+   /* Apply margin-right (affects layout width calculation) */
+   if(bd->marginright != 0)
+   {  /* margin-right is stored but layout engine needs to account for it */
+      /* This affects the available width for content */
+      /* For now, we store it - full implementation would adjust layout width */
    }
    
    /* Clear all pending margins, as MORE starts before the margins anyway. */
@@ -1778,6 +1940,21 @@ static long Setbody(struct Body *bd,struct Amset *ams)
             }
             bd->backgroundattachment = (UBYTE *)tag->ti_Data;
             break;
+         case AOBDY_Transform:
+            if(bd->transform && bd->transform != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->transform);
+            }
+            bd->transform = (UBYTE *)tag->ti_Data;
+            break;
+         case AOBDY_TopPercent:
+            bd->toppercent = tag->ti_Data;
+            break;
+         case AOBDY_LeftPercent:
+            bd->leftpercent = tag->ti_Data;
+            break;
+         case AOBDY_MarginRight:
+            bd->marginright = tag->ti_Data;
+            break;
       }
    }
    if(fontw) Pushfont(bd,fontstyle,fontsize,fontcolor,fontface,fontw);
@@ -1817,6 +1994,7 @@ static void Disposebody(struct Body *bd)
    if(bd->backgroundrepeat) FREE(bd->backgroundrepeat);
    if(bd->backgroundposition) FREE(bd->backgroundposition);
    if(bd->backgroundattachment) FREE(bd->backgroundattachment);
+   if(bd->transform) FREE(bd->transform);
    Amethodas(AOTP_OBJECT,bd,AOM_DISPOSE);
 }
 
@@ -1858,6 +2036,10 @@ static struct Body *Newbody(struct Amset *ams)
       bd->backgroundrepeat = NULL;
       bd->backgroundposition = NULL;
       bd->backgroundattachment = NULL;
+      bd->transform = NULL;
+      bd->toppercent = -1;  /* -1 means not set */
+      bd->leftpercent = -1;  /* -1 means not set */
+      bd->marginright = 0;
       bd->bgalign = NULL;
       bd->tcell = NULL;
       bd->marginleftauto = FALSE;
@@ -2007,6 +2189,18 @@ static long Getbody(struct Body *bd,struct Amset *ams)
             break;
          case AOBDY_BackgroundAttachment:
             PUTATTR(tag,bd->backgroundattachment);
+            break;
+         case AOBDY_Transform:
+            PUTATTR(tag,bd->transform);
+            break;
+         case AOBDY_TopPercent:
+            PUTATTR(tag,bd->toppercent);
+            break;
+         case AOBDY_LeftPercent:
+            PUTATTR(tag,bd->leftpercent);
+            break;
+         case AOBDY_MarginRight:
+            PUTATTR(tag,bd->marginright);
             break;
       }
    }

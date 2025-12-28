@@ -2135,8 +2135,14 @@ static void ReapplyCSSToBodyRecursiveInternal(struct Document *doc, void *body, 
    tagname = (UBYTE *)Agetattr(body, AOBDY_TagName);
    class = (UBYTE *)Agetattr(body, AOBDY_Class);
    id = (UBYTE *)Agetattr(body, AOBDY_Id);
-   if(httpdebug && tagname && stricmp((char *)tagname,"PRE") == 0)
-   {  printf("[CSS] ReapplyCSSToBodyRecursive: Applying CSS to PRE element, body=%p, depth=%ld\n", body, depth);
+   if(httpdebug)
+   {  if(tagname && (stricmp((char *)tagname,"DIV") == 0 || stricmp((char *)tagname,"PRE") == 0))
+      {  printf("[CSS] ReapplyCSSToBodyRecursive: Applying CSS to %s element, body=%p, class=%s, id=%s, depth=%ld\n",
+                tagname ? (char *)tagname : "unknown", body,
+                class ? (char *)class : "NULL",
+                id ? (char *)id : "NULL",
+                depth);
+      }
    }
    ApplyCSSToBody(doc, body, class, id, tagname);
    
@@ -3393,6 +3399,14 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             {  /* Apply top position (can be negative) */
                Asetattrs(body, AOBJ_Top, topValue, TAG_END);
             }
+            else if(topNum.type == NUMBER_PERCENT)
+            {  /* Store percentage value (0-10000 for 0-100%) */
+               /* Convert percentage (0-100) to 0-10000 scale */
+               long percentValue = topNum.n * 100;
+               if(percentValue < 0) percentValue = 0;
+               if(percentValue > 10000) percentValue = 10000;
+               Asetattrs(body, AOBDY_TopPercent, percentValue, TAG_END);
+            }
          }
          /* Apply left */
          else if(stricmp((char *)prop->name,"left") == 0)
@@ -3404,6 +3418,14 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             if(leftNum.type == NUMBER_NUMBER || leftNum.type == NUMBER_SIGNED)
             {  /* Apply left position (can be negative) */
                Asetattrs(body, AOBJ_Left, leftValue, TAG_END);
+            }
+            else if(leftNum.type == NUMBER_PERCENT)
+            {  /* Store percentage value (0-10000 for 0-100%) */
+               /* Convert percentage (0-100) to 0-10000 scale */
+               long percentValue = leftNum.n * 100;
+               if(percentValue < 0) percentValue = 0;
+               if(percentValue > 10000) percentValue = 10000;
+               Asetattrs(body, AOBDY_LeftPercent, percentValue, TAG_END);
             }
          }
          /* Apply right */
@@ -3570,6 +3592,42 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
          else if(stricmp((char *)prop->name,"float") == 0)
          {  /* Float is parsed but not directly applied to body objects */
             /* IsDivInline will check for float:left and prevent line breaks */
+         }
+         /* Apply transform */
+         else if(stricmp((char *)prop->name,"transform") == 0)
+         {  UBYTE *transformStr;
+            UBYTE *pval;
+            
+            pval = prop->value;
+            SkipWhitespace(&pval);
+            
+            /* Store transform value as-is - will be parsed during layout */
+            /* Supported formats: translate(x, y), translateX(x), translateY(y) */
+            transformStr = Dupstr(pval, -1);
+            if(transformStr)
+            {  Asetattrs(body, AOBDY_Transform, transformStr, TAG_END);
+            }
+         }
+         /* Apply margin-right */
+         else if(stricmp((char *)prop->name,"margin-right") == 0)
+         {  long marginRightValue;
+            struct Number marginRightNum;
+            
+            marginRightValue = ParseCSSLengthValue(prop->value, &marginRightNum);
+            /* Allow negative values for margin-right */
+            if(marginRightNum.type == NUMBER_NUMBER || marginRightNum.type == NUMBER_SIGNED)
+            {  /* Store margin-right value (can be negative) */
+               Asetattrs(body, AOBDY_MarginRight, marginRightValue, TAG_END);
+            }
+            else if(marginRightNum.type == NUMBER_PERCENT)
+            {  /* Store percentage value (0-10000 for 0-100%) */
+               /* Convert percentage (0-100) to 0-10000 scale */
+               long percentValue = marginRightNum.n * 100;
+               if(percentValue < -10000) percentValue = -10000;
+               if(percentValue > 10000) percentValue = 10000;
+               /* For negative percentages, store as negative value */
+               Asetattrs(body, AOBDY_MarginRight, percentValue, TAG_END);
+            }
          }
          /* Apply grid-column-start (for grid layout positioning) */
          else if(stricmp((char *)prop->name,"grid-column-start") == 0)

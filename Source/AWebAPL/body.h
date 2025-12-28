@@ -202,6 +202,18 @@
 #define AOBDY_BackgroundAttachment (AOBDY_Dummy+61)  /* SET,GET */
    /* (UBYTE *) CSS background-attachment: "scroll", "fixed" */
 
+#define AOBDY_Transform (AOBDY_Dummy+62)  /* SET,GET */
+   /* (UBYTE *) CSS transform: "translate(x, y)", "translateX(x)", "translateY(y)", etc. */
+
+#define AOBDY_TopPercent (AOBDY_Dummy+63)  /* SET,GET */
+   /* (long) CSS top position as percentage (0-10000 for 0-100%) */
+
+#define AOBDY_LeftPercent (AOBDY_Dummy+64)  /* SET,GET */
+   /* (long) CSS left position as percentage (0-10000 for 0-100%) */
+
+#define AOBDY_MarginRight (AOBDY_Dummy+65)  /* SET,GET */
+   /* (long) CSS margin-right value (can be negative) */
+
 /*--- body support structures ---*/
 
 /* Forward declaration of Body structure (defined in body.c) */

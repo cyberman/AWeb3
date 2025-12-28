@@ -524,6 +524,16 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
       return;
    }
    
+   /* If class/id/tagname are NULL, try to retrieve them from the body element */
+   if(!class)
+   {  class = (UBYTE *)Agetattr(body, AOBDY_Class);
+      if(httpdebug && class)
+      {  printf("[CSS] ApplyCSSToBody: Retrieved class='%s' from body=%p\n", (char *)class, body);
+      }
+   }
+   if(!id) id = (UBYTE *)Agetattr(body, AOBDY_Id);
+   if(!tagname) tagname = (UBYTE *)Agetattr(body, AOBDY_TagName);
+   
    if(httpdebug)
    {  printf("[CSS] ApplyCSSToBody: Called - tagname=%s, class=%s, id=%s, body=%p\n",
              (tagname ? (char *)tagname : "NULL"),
@@ -975,11 +985,14 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   {  posValue = ParseCSSLengthValue(prop->value,&num);
                      if(isAbsolute && num.type == NUMBER_PERCENT)
                      {  /* Percentage-based top positioning */
-                        /* Note: Full percentage positioning requires layout engine changes */
-                        /* For now, we parse but don't apply percentage-based positioning */
+                        /* Convert percentage (0-100) to 0-10000 scale */
+                        long percentValue = num.n * 100;
+                        if(percentValue < 0) percentValue = 0;
+                        if(percentValue > 10000) percentValue = 10000;
+                        Asetattrs(body,AOBDY_TopPercent,percentValue,TAG_END);
                      }
-                     else if(isAbsolute && num.type == NUMBER_NUMBER)
-                     {  /* Pixel-based top positioning */
+                     else if(isAbsolute && (num.type == NUMBER_NUMBER || num.type == NUMBER_SIGNED))
+                     {  /* Pixel-based top positioning (can be negative) */
                         Asetattrs(body,AOBJ_Top,posValue,TAG_END);
                      }
                   }
@@ -988,11 +1001,14 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   {  posValue = ParseCSSLengthValue(prop->value,&num);
                      if(isAbsolute && num.type == NUMBER_PERCENT)
                      {  /* Percentage-based left positioning */
-                        /* Note: Full percentage positioning requires layout engine changes */
-                        /* For now, we parse but don't apply percentage-based positioning */
+                        /* Convert percentage (0-100) to 0-10000 scale */
+                        long percentValue = num.n * 100;
+                        if(percentValue < 0) percentValue = 0;
+                        if(percentValue > 10000) percentValue = 10000;
+                        Asetattrs(body,AOBDY_LeftPercent,percentValue,TAG_END);
                      }
-                     else if(isAbsolute && num.type == NUMBER_NUMBER)
-                     {  /* Pixel-based left positioning */
+                     else if(isAbsolute && (num.type == NUMBER_NUMBER || num.type == NUMBER_SIGNED))
+                     {  /* Pixel-based left positioning (can be negative) */
                         Asetattrs(body,AOBJ_Left,posValue,TAG_END);
                      }
                   }
@@ -1001,13 +1017,15 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   {  posValue = ParseCSSLengthValue(prop->value,&num);
                      if(num.type == NUMBER_PERCENT)
                      {  /* Percentage-based margin */
-                        /* Note: Percentage and negative margins require layout calculation */
-                        /* For now, we parse but don't apply percentage-based margins */
+                        /* Convert percentage (0-100) to 0-10000 scale */
+                        long percentValue = num.n * 100;
+                        if(percentValue < -10000) percentValue = -10000;
+                        if(percentValue > 10000) percentValue = 10000;
+                        Asetattrs(body,AOBDY_MarginRight,percentValue,TAG_END);
                      }
-                     else if(num.type == NUMBER_NUMBER)
-                     {  /* Pixel-based margin */
-                        /* Note: margin-right would need new attribute or layout changes */
-                        /* For now, we parse but don't apply */
+                     else if(num.type == NUMBER_NUMBER || num.type == NUMBER_SIGNED)
+                     {  /* Pixel-based margin (can be negative) */
+                        Asetattrs(body,AOBDY_MarginRight,posValue,TAG_END);
                      }
                   }
                   /* CSS1: margin-left, margin-top, margin-bottom */
@@ -1673,7 +1691,21 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                      /* debug_printf("CSS: grid-row-end='%s' (parsed but not fully implemented)\n",
                                   prop->value ? (char *)prop->value : "NULL"); */
                   }
-                  /* Note: transform is CSS3 and is not implemented (CSS1/CSS2 only) */
+                  /* Apply transform */
+                  else if(stricmp((char *)prop->name,"transform") == 0)
+                  {  UBYTE *transformStr;
+                     UBYTE *pval;
+                     
+                     pval = prop->value;
+                     SkipWhitespace(&pval);
+                     
+                     /* Store transform value as-is - will be parsed during layout */
+                     /* Supported formats: translate(x, y), translateX(x), translateY(y) */
+                     transformStr = Dupstr(pval, -1);
+                     if(transformStr)
+                     {  Asetattrs(body, AOBDY_Transform, transformStr, TAG_END);
+                     }
+                  }
                }
             }
          }
@@ -2812,14 +2844,15 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
    UBYTE *id=NULL;
    struct Tagattr *tap;  /* Save original ta pointer for Checkid */
    BOOL isInline;
+   extern BOOL httpdebug;
    
    /* Save original ta pointer (sentinel) for Checkid */
    tap = ta;
    
    /* Get attributes first to check for display: inline */
    /* ta is the sentinel (list head), ta->next is the first real attribute */
-   /* Iterate over actual attributes starting from ta->next */
-   for(ta=ta->next;ta;ta=ta->next)
+   /* Use exact same pattern as Dopara */
+   for(;ta && ta->next;ta=ta->next)
    {  switch(ta->attr)
       {  case TAGATTR_ALIGN:
             align=Gethalign(ATTR(doc,ta));
@@ -2829,11 +2862,19 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
             break;
          case TAGATTR_CLASS:
             class=ATTR(doc,ta);
+            if(httpdebug && class)
+            {  printf("[DIV] Dodiv: Found class='%s' in attributes\n", (char *)class);
+            }
             break;
          case TAGATTR_ID:
             id=ATTR(doc,ta);
             break;
       }
+   }
+   if(httpdebug)
+   {  printf("[DIV] Dodiv: After parsing attributes - class=%s, id=%s\n",
+             (class ? (char *)class : "NULL"),
+             (id ? (char *)id : "NULL"));
    }
    
    /* Check if this DIV should be inline */
@@ -2859,9 +2900,17 @@ static BOOL Dodiv(struct Document *doc,struct Tagattr *ta)
    body = Docbodync(doc);
    Asetattrs(body,AOBDY_Divalign,align,TAG_END);
    /* Store class/id/tagname on body for CSS matching */
-   if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
+   if(class)
+   {  Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
+      if(httpdebug)
+      {  printf("[DIV] Dodiv: Set class='%s' on body=%p\n", (char *)class, body);
+      }
+   }
    if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
    Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"DIV",-1),TAG_END);
+   if(httpdebug)
+   {  printf("[DIV] Dodiv: Set tagname='DIV' on body=%p, class=%s\n", body, (class ? (char *)class : "NULL"));
+   }
    Checkid(doc,tap);  /* Use original sentinel pointer */
    /* Apply CSS to body based on class/ID */
    ApplyCSSToBody(doc,body,class,id,"DIV");
@@ -3140,7 +3189,8 @@ static BOOL Dopre(struct Document *doc,struct Tagattr *ta)
    
    /* Extract class and id attributes for CSS matching */
    sentinel=ta;
-   for(;ta->next;ta=ta->next)
+   /* Use exact same pattern as Dopara */
+   for(;ta && ta->next;ta=ta->next)
    {  switch(ta->attr)
       {  case TAGATTR_CLASS:
             class=ATTR(doc,ta);
@@ -3283,8 +3333,8 @@ static BOOL Dospan(struct Document *doc,struct Tagattr *ta)
    
    /* Extract class, id, and style attributes */
    /* ta is the sentinel (list head), ta->next is the first real attribute */
-   /* Iterate over actual attributes starting from ta->next */
-   for(ta=ta->next;ta;ta=ta->next)
+   /* Use exact same pattern as Dopara */
+   for(;ta && ta->next;ta=ta->next)
    {  switch(ta->attr)
       {  case TAGATTR_STYLE:
             styleAttr=ATTR(doc,ta);
@@ -3412,14 +3462,43 @@ static BOOL Doaddressend(struct Document *doc)
 
 /*** <BLOCKQUOTE> ***/
 static BOOL Doblockquote(struct Document *doc,struct Tagattr *ta)
-{  if(!Ensurebody(doc)) return FALSE;
+{  UBYTE *class=NULL;
+   UBYTE *id=NULL;
+   void *body;
+   struct Tagattr *sentinel;
+   
+   /* Save sentinel for Checkid */
+   sentinel = ta;
+   
+   /* Parse class and id attributes using same pattern as Dopara */
+   for(;ta && ta->next;ta=ta->next)
+   {  switch(ta->attr)
+      {  case TAGATTR_CLASS:
+            class=ATTR(doc,ta);
+            break;
+         case TAGATTR_ID:
+            id=ATTR(doc,ta);
+            break;
+      }
+   }
+   
+   if(!Ensurebody(doc)) return FALSE;
    if(doc->doctype==DOCTP_BODY)
-   {  Asetattrs(Docbody(doc),
+   {  body = Docbody(doc);
+      Asetattrs(body,
          AOBDY_Style,STYLE_BLOCKQUOTE,
          AOBDY_Blockquote,TRUE,
          TAG_END);
+      /* Store class/id/tagname on body for CSS matching */
+      if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
+      if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
+      Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"BLOCKQUOTE",-1),TAG_END);
+      /* Apply CSS to body based on class/ID */
+      if(doc->cssstylesheet)
+      {  ApplyCSSToBody(doc,body,class,id,"BLOCKQUOTE");
+      }
    }
-   Checkid(doc,ta);
+   Checkid(doc,sentinel);
    Wantbreak(doc,1);
    return TRUE;
 }
@@ -3441,10 +3520,27 @@ static BOOL Doblockquoteend(struct Document *doc)
 /*** <Hn> ***/
 static BOOL Doheading(struct Document *doc,short level,struct Tagattr *ta)
 {  short align=-1;
-   for(;ta->next;ta=ta->next)
+   UBYTE *class=NULL;
+   UBYTE *id=NULL;
+   void *body;
+   struct Tagattr *sentinel;
+   UBYTE *tagname;
+   char tagnamebuf[4];
+   
+   /* Save sentinel for Checkid */
+   sentinel = ta;
+   
+   /* Parse attributes using same pattern as Dopara */
+   for(;ta && ta->next;ta=ta->next)
    {  switch(ta->attr)
       {  case TAGATTR_ALIGN:
             align=Gethalign(ATTR(doc,ta));
+            break;
+         case TAGATTR_CLASS:
+            class=ATTR(doc,ta);
+            break;
+         case TAGATTR_ID:
+            id=ATTR(doc,ta);
             break;
       }
    }
@@ -3452,13 +3548,27 @@ static BOOL Doheading(struct Document *doc,short level,struct Tagattr *ta)
    if(doc->doctype==DOCTP_BODY)
    {  Wantbreak(doc,2);
       if(!Solvebreaks(doc)) return FALSE;
-      Asetattrs(Docbody(doc),
+      body = Docbody(doc);
+      Asetattrs(body,
          AOBDY_Style,STYLE_H1+level,
          AOBDY_Align,align,
          TAG_END);
+      /* Store class/id/tagname on body for CSS matching */
+      if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
+      if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
+      /* Create tagname like "H1", "H2", etc. */
+      tagnamebuf[0] = 'H';
+      tagnamebuf[1] = '1' + level;
+      tagnamebuf[2] = '\0';
+      tagname = (UBYTE *)Dupstr((UBYTE *)tagnamebuf,-1);
+      Asetattrs(body,AOBDY_TagName,tagname,TAG_END);
+      /* Apply CSS to body based on class/ID */
+      if(doc->cssstylesheet)
+      {  ApplyCSSToBody(doc,body,class,id,tagname);
+      }
    }
    if(!Ensuresp(doc)) return FALSE;
-   Checkid(doc,ta);
+   Checkid(doc,sentinel);
    return TRUE;
 }
 
@@ -3651,8 +3761,13 @@ static BOOL Dohr(struct Document *doc,struct Tagattr *ta)
    struct Colorinfo *color=NULL;
    struct Number num;
    void *elt;
-   Checkid(doc,ta);
-   for(;ta->next;ta=ta->next)
+   struct Tagattr *sentinel;
+   
+   /* Save sentinel for Checkid */
+   sentinel = ta;
+   
+   /* Parse attributes using same pattern as Dopara */
+   for(;ta && ta->next;ta=ta->next)
    {  switch(ta->attr)
       {  case TAGATTR_WIDTH:
             width=Getnumber(&num,ATTR(doc,ta));
@@ -4335,16 +4450,17 @@ static BOOL Dodd(struct Document *doc,struct Tagattr *ta)
    body = Docbody(doc);
    
    /* Extract class and style attributes */
+   /* Use exact same pattern as Dopara */
    classAttr = NULL;
    styleAttr = NULL;
-   if(ta)
-   {  for(;ta->next;ta=ta->next)
-      {  if(ta->attr == TAGATTR_CLASS)
-         {  classAttr = ATTR(doc,ta);
-         }
-         else if(ta->attr == TAGATTR_STYLE)
-         {  styleAttr = ATTR(doc,ta);
-         }
+   for(;ta && ta->next;ta=ta->next)
+   {  switch(ta->attr)
+      {  case TAGATTR_CLASS:
+            classAttr = ATTR(doc,ta);
+            break;
+         case TAGATTR_STYLE:
+            styleAttr = ATTR(doc,ta);
+            break;
       }
    }
    
@@ -4377,16 +4493,17 @@ static BOOL Dodl(struct Document *doc,struct Tagattr *ta)
    body = Docbody(doc);
    
    /* Extract class and style attributes */
+   /* Use exact same pattern as Dopara */
    classAttr = NULL;
    styleAttr = NULL;
-   if(ta)
-   {  for(;ta->next;ta=ta->next)
-      {  if(ta->attr == TAGATTR_CLASS)
-         {  classAttr = ATTR(doc,ta);
-         }
-         else if(ta->attr == TAGATTR_STYLE)
-         {  styleAttr = ATTR(doc,ta);
-         }
+   for(;ta && ta->next;ta=ta->next)
+   {  switch(ta->attr)
+      {  case TAGATTR_CLASS:
+            classAttr = ATTR(doc,ta);
+            break;
+         case TAGATTR_STYLE:
+            styleAttr = ATTR(doc,ta);
+            break;
       }
    }
    
@@ -4431,12 +4548,12 @@ static BOOL Dodt(struct Document *doc,struct Tagattr *ta)
    sentinel = ta;
    
    /* Extract class attribute from DT element */
-   if(ta)
-   {  for(;ta->next;ta=ta->next)
-      {  if(ta->attr == TAGATTR_CLASS)
-         {  classAttr = ATTR(doc,ta);
+   /* Use exact same pattern as Dopara */
+   for(;ta && ta->next;ta=ta->next)
+   {  switch(ta->attr)
+      {  case TAGATTR_CLASS:
+            classAttr = ATTR(doc,ta);
             break;
-         }
       }
    }
    
@@ -4905,36 +5022,26 @@ static BOOL Doli(struct Document *doc,struct Tagattr *ta)
       li=(struct Listinfo *)Agetattr(Docbody(doc),AOBDY_List);
    }
    
-   /* Extract class attribute from LI element */
-   if(ta)
-   {  for(attr=ta->next;attr;attr=attr->next)
-      {  if(attr->attr == TAGATTR_CLASS)
-         {  classAttr = ATTR(doc,attr);
-            break;
-         }
-      }
-   }
-   
-   body = Docbody(doc);
-   /* Store tagname on body for CSS matching (needed for element selectors like "li") */
-   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"LI",-1),TAG_END);
-   /* Store class/id on body for CSS matching */
-   if(classAttr)
-   {  Asetattrs(body,AOBDY_Class,Dupstr(classAttr,-1),TAG_END);
-   }
-   /* Apply CSS to LI element based on its own class/id/tagname */
+   /* Extract class and id attributes from LI element */
+   /* Use exact same pattern as Dopara */
    {  UBYTE *idAttr = NULL;
-      struct Tagattr *attr;
-      /* Extract id attribute if present */
-      if(ta)
-      {  for(attr=ta->next;attr;attr=attr->next)
-         {  if(attr->attr == TAGATTR_ID)
-            {  idAttr = ATTR(doc,attr);
+      for(;ta && ta->next;ta=ta->next)
+      {  switch(ta->attr)
+         {  case TAGATTR_CLASS:
+               classAttr = ATTR(doc,ta);
                break;
-            }
+            case TAGATTR_ID:
+               idAttr = ATTR(doc,ta);
+               break;
          }
       }
+      body = Docbody(doc);
+      /* Store tagname on body for CSS matching (needed for element selectors like "li") */
+      Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"LI",-1),TAG_END);
+      /* Store class/id on body for CSS matching */
+      if(classAttr) Asetattrs(body,AOBDY_Class,Dupstr(classAttr,-1),TAG_END);
       if(idAttr) Asetattrs(body,AOBDY_Id,Dupstr(idAttr,-1),TAG_END);
+      /* Apply CSS to LI element based on its own class/id/tagname */
       ApplyCSSToBody(doc,body,classAttr,idAttr,"LI");
    }
    
