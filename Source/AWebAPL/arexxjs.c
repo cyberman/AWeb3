@@ -29,6 +29,7 @@
 #include <proto/dos.h>
 #include <proto/locale.h>
 #include <proto/rexxsyslib.h>
+#include <proto/utility.h>
 #include <rexx/errors.h>
 
 #include "jslib.h"
@@ -202,13 +203,13 @@ BOOL initarexx(struct Jcontext *jc)
         /* Allocate and initialize the hooks */
         if((rmex->rme_SetVarHook = AllocVec(sizeof(struct Hook), MEMF_PUBLIC | MEMF_CLEAR)))
         {
-            rmex->rme_SetVarHook->h_Entry = (APTR)SetJSVarCallBack;
-            rmex->rme_SetVarHook->h_SubEntry = (APTR)SetJSVarCallBack;
+            rmex->rme_SetVarHook->h_Entry = (HOOKFUNC)SetJSVarCallBack;
+            rmex->rme_SetVarHook->h_SubEntry = (HOOKFUNC)SetJSVarCallBack;
             
             if((rmex->rme_GetVarHook = AllocVec(sizeof(struct Hook), MEMF_PUBLIC | MEMF_CLEAR)))
             {
-                rmex->rme_GetVarHook->h_Entry = (APTR)GetJSVarCallBack;
-                rmex->rme_GetVarHook->h_SubEntry = (APTR)GetJSVarCallBack;
+                rmex->rme_GetVarHook->h_Entry = (HOOKFUNC)GetJSVarCallBack;
+                rmex->rme_GetVarHook->h_SubEntry = (HOOKFUNC)GetJSVarCallBack;
                 
                 /* Create a msg port for replies */
                 /* Needn't be public */

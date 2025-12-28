@@ -216,5 +216,4 @@ dtbase=OpenLibrary("datatypes.library",0);
    }
 /* window.class bug workaround */
 if(dtbase) CloseLibrary(dtbase);
-return(0);
 }
