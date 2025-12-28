@@ -3,6 +3,10 @@
 <HEAD>
 <TITLE>Minimal JavaScript Test</TITLE>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
+<STYLE TYPE="text/css">
+.expected { color: #006600; font-weight: bold; font-style: italic; }
+.actual { color: #0000CC; font-weight: normal; }
+</STYLE>
 <SCRIPT LANGUAGE="JavaScript">
 <!--
 // Minimal test - just a variable declaration
@@ -15,7 +19,7 @@ var x = 1;
 <P>If this page loads, basic JavaScript parsing works.</P>
 
 <H2>Test 1: Variable Declaration - PASS</H2>
-<P>Variable x = <SCRIPT LANGUAGE="JavaScript">document.write(x);</SCRIPT></P>
+<P>Variable x = <SPAN CLASS="expected">Expected: 1</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(x);</SCRIPT></SPAN></P>
 
 <H2>Test 2: Basic Arithmetic - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -27,8 +31,8 @@ var product = a * b;
 //-->
 </SCRIPT>
 <P>a = 5, b = 3</P>
-<P>Sum (a + b) = <SCRIPT LANGUAGE="JavaScript">document.write(sum);</SCRIPT></P>
-<P>Product (a * b) = <SCRIPT LANGUAGE="JavaScript">document.write(product);</SCRIPT></P>
+<P>Sum (a + b) = <SPAN CLASS="expected">Expected: 8</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(sum);</SCRIPT></SPAN></P>
+<P>Product (a * b) = <SPAN CLASS="expected">Expected: 15</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(product);</SCRIPT></SPAN></P>
 
 <H2>Test 3: String Concatenation - FAIL except for Direct concat test</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -42,10 +46,10 @@ var message = message1 + name;
 var message2 = greeting + space + name;
 //-->
 </SCRIPT>
-<P>Message (two-step): <SCRIPT LANGUAGE="JavaScript">document.write(message);</SCRIPT></P>
-<P>Message (chained): <SCRIPT LANGUAGE="JavaScript">document.write(message2);</SCRIPT></P>
-<P>Direct concat test: <SCRIPT LANGUAGE="JavaScript">document.write("Hello" + " " + "World");</SCRIPT></P>
-<P>Direct concat with vars: <SCRIPT LANGUAGE="JavaScript">document.write(greeting + " " + name);</SCRIPT></P>
+<P>Message (two-step): <SPAN CLASS="expected">Expected: Hello World</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(message);</SCRIPT></SPAN></P>
+<P>Message (chained): <SPAN CLASS="expected">Expected: Hello World</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(message2);</SCRIPT></SPAN></P>
+<P>Direct concat test: <SPAN CLASS="expected">Expected: Hello World</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write("Hello" + " " + "World");</SCRIPT></SPAN></P>
+<P>Direct concat with vars: <SPAN CLASS="expected">Expected: Hello World</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(greeting + " " + name);</SCRIPT></SPAN></P>
 
 <H2>Test 4: Function Call - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -56,7 +60,7 @@ function addNumbers(num1, num2) {
 var result = addNumbers(10, 20);
 //-->
 </SCRIPT>
-<P>addNumbers(10, 20) = <SCRIPT LANGUAGE="JavaScript">document.write(result);</SCRIPT></P>
+<P>addNumbers(10, 20) = <SPAN CLASS="expected">Expected: 30</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(result);</SCRIPT></SPAN></P>
 
 <H2>Test 5: Array Operations - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -67,9 +71,9 @@ var arrayLength = arr.length;
 //-->
 </SCRIPT>
 <P>Array: [1, 2, 3, 4, 5] (created with new Array)</P>
-<P>First element (arr[0]) = <SCRIPT LANGUAGE="JavaScript">document.write(firstElement);</SCRIPT></P>
-<P>Array length = <SCRIPT LANGUAGE="JavaScript">document.write(arrayLength);</SCRIPT></P>
-<P>Array type check: <SCRIPT LANGUAGE="JavaScript">document.write(typeof arr);</SCRIPT></P>
+<P>First element (arr[0]) = <SPAN CLASS="expected">Expected: 1</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(firstElement);</SCRIPT></SPAN></P>
+<P>Array length = <SPAN CLASS="expected">Expected: 5</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(arrayLength);</SCRIPT></SPAN></P>
+<P>Array type check: <SPAN CLASS="expected">Expected: object</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(typeof arr);</SCRIPT></SPAN></P>
 
 <H2>Test 6: Conditional Statement - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -84,7 +88,7 @@ if (testValue % 2 == 0) {
 //-->
 </SCRIPT>
 <P>testValue = 8</P>
-<P>Is testValue even? <SCRIPT LANGUAGE="JavaScript">document.write(isEven);</SCRIPT></P>
+<P>Is testValue even? <SPAN CLASS="expected">Expected: yes</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(isEven);</SCRIPT></SPAN></P>
 
 <H2>Test 7: Comparison Operators - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -98,10 +102,10 @@ var ne = val1 != val2;
 //-->
 </SCRIPT>
 <P>val1 = 5, val2 = 3</P>
-<P>val1 > val2: <SCRIPT LANGUAGE="JavaScript">document.write(gt);</SCRIPT></P>
-<P>val1 < val2: <SCRIPT LANGUAGE="JavaScript">document.write(lt);</SCRIPT></P>
-<P>val1 == val2: <SCRIPT LANGUAGE="JavaScript">document.write(eq);</SCRIPT></P>
-<P>val1 != val2: <SCRIPT LANGUAGE="JavaScript">document.write(ne);</SCRIPT></P>
+<P>val1 > val2: <SPAN CLASS="expected">Expected: true</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(gt);</SCRIPT></SPAN></P>
+<P>val1 < val2: <SPAN CLASS="expected">Expected: false</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(lt);</SCRIPT></SPAN></P>
+<P>val1 == val2: <SPAN CLASS="expected">Expected: false</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(eq);</SCRIPT></SPAN></P>
+<P>val1 != val2: <SPAN CLASS="expected">Expected: true</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(ne);</SCRIPT></SPAN></P>
 
 <H2>Test 8: While Loop - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -114,7 +118,7 @@ while (counter < 3) {
 }
 //-->
 </SCRIPT>
-<P>Loop result (0 to 2): <SCRIPT LANGUAGE="JavaScript">document.write(loopResult);</SCRIPT></P>
+<P>Loop result (0 to 2): <SPAN CLASS="expected">Expected: 0 1 2 </SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(loopResult);</SCRIPT></SPAN></P>
 
 <H2>Test 9: For Loop - FAIL</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -125,7 +129,7 @@ for (var i = 0; i < 3; i = i + 1) {
 }
 //-->
 </SCRIPT>
-<P>For loop result (0 to 2): <SCRIPT LANGUAGE="JavaScript">document.write(forResult);</SCRIPT></P>
+<P>For loop result (0 to 2): <SPAN CLASS="expected">Expected: 0 1 2 </SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(forResult);</SCRIPT></SPAN></P>
 
 <H2>Test 10: Object Property Access - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -135,8 +139,8 @@ obj.name = "Test";
 obj.value = 42;
 //-->
 </SCRIPT>
-<P>obj.name = <SCRIPT LANGUAGE="JavaScript">document.write(obj.name);</SCRIPT></P>
-<P>obj.value = <SCRIPT LANGUAGE="JavaScript">document.write(obj.value);</SCRIPT></P>
+<P>obj.name = <SPAN CLASS="expected">Expected: Test</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(obj.name);</SCRIPT></SPAN></P>
+<P>obj.value = <SPAN CLASS="expected">Expected: 42</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(obj.value);</SCRIPT></SPAN></P>
 
 <H2>Test 11: String Methods - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -149,10 +153,10 @@ var char = str.charAt(0);
 //-->
 </SCRIPT>
 <P>Original: "Hello World"</P>
-<P>toUpperCase(): <SCRIPT LANGUAGE="JavaScript">document.write(upper);</SCRIPT></P>
-<P>toLowerCase(): <SCRIPT LANGUAGE="JavaScript">document.write(lower);</SCRIPT></P>
-<P>length: <SCRIPT LANGUAGE="JavaScript">document.write(len);</SCRIPT></P>
-<P>charAt(0): <SCRIPT LANGUAGE="JavaScript">document.write(char);</SCRIPT></P>
+<P>toUpperCase(): <SPAN CLASS="expected">Expected: HELLO WORLD</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(upper);</SCRIPT></SPAN></P>
+<P>toLowerCase(): <SPAN CLASS="expected">Expected: hello world</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(lower);</SCRIPT></SPAN></P>
+<P>length: <SPAN CLASS="expected">Expected: 11</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(len);</SCRIPT></SPAN></P>
+<P>charAt(0): <SPAN CLASS="expected">Expected: H</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(char);</SCRIPT></SPAN></P>
 
 <H2>Test 12: Math Object - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -164,11 +168,11 @@ var min = Math.min(5, 10);
 var abs = Math.abs(-5);
 //-->
 </SCRIPT>
-<P>Math.PI: <SCRIPT LANGUAGE="JavaScript">document.write(pi);</SCRIPT></P>
-<P>Math.sqrt(16): <SCRIPT LANGUAGE="JavaScript">document.write(sqrt);</SCRIPT></P>
-<P>Math.max(5, 10): <SCRIPT LANGUAGE="JavaScript">document.write(max);</SCRIPT></P>
-<P>Math.min(5, 10): <SCRIPT LANGUAGE="JavaScript">document.write(min);</SCRIPT></P>
-<P>Math.abs(-5): <SCRIPT LANGUAGE="JavaScript">document.write(abs);</SCRIPT></P>
+<P>Math.PI: <SPAN CLASS="expected">Expected: 3.141592653589793</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(pi);</SCRIPT></SPAN></P>
+<P>Math.sqrt(16): <SPAN CLASS="expected">Expected: 4</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(sqrt);</SCRIPT></SPAN></P>
+<P>Math.max(5, 10): <SPAN CLASS="expected">Expected: 10</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(max);</SCRIPT></SPAN></P>
+<P>Math.min(5, 10): <SPAN CLASS="expected">Expected: 5</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(min);</SCRIPT></SPAN></P>
+<P>Math.abs(-5): <SPAN CLASS="expected">Expected: 5</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(abs);</SCRIPT></SPAN></P>
 
 <H2>Test 13: Date Object - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -180,9 +184,9 @@ var date = now.getDate();
 //-->
 </SCRIPT>
 <P>Current Date object created</P>
-<P>getYear(): <SCRIPT LANGUAGE="JavaScript">document.write(year);</SCRIPT></P>
-<P>getMonth(): <SCRIPT LANGUAGE="JavaScript">document.write(month);</SCRIPT></P>
-<P>getDate(): <SCRIPT LANGUAGE="JavaScript">document.write(date);</SCRIPT></P>
+<P>getYear(): <SPAN CLASS="expected">Expected: current year (e.g., 2025)</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(year);</SCRIPT></SPAN></P>
+<P>getMonth(): <SPAN CLASS="expected">Expected: current month (0-11)</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(month);</SCRIPT></SPAN></P>
+<P>getDate(): <SPAN CLASS="expected">Expected: current day of month (1-31)</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(date);</SCRIPT></SPAN></P>
 
 <H2>Test 14: Nested Function Calls - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -196,7 +200,7 @@ function addAndMultiply(x, y, z) {
 var result = addAndMultiply(2, 3, 4);
 //-->
 </SCRIPT>
-<P>addAndMultiply(2, 3, 4) = (2+3)*4 = <SCRIPT LANGUAGE="JavaScript">document.write(result);</SCRIPT></P>
+<P>addAndMultiply(2, 3, 4) = (2+3)*4 = <SPAN CLASS="expected">Expected: 20</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(result);</SCRIPT></SPAN></P>
 
 <H2>Test 15: Array with new Array() - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -208,9 +212,9 @@ var len = arr.length;
 //-->
 </SCRIPT>
 <P>Array: [1, 2, 3, 4, 5]</P>
-<P>First element: <SCRIPT LANGUAGE="JavaScript">document.write(first);</SCRIPT></P>
-<P>Last element: <SCRIPT LANGUAGE="JavaScript">document.write(last);</SCRIPT></P>
-<P>Array length: <SCRIPT LANGUAGE="JavaScript">document.write(len);</SCRIPT></P>
+<P>First element: <SPAN CLASS="expected">Expected: 1</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(first);</SCRIPT></SPAN></P>
+<P>Last element: <SPAN CLASS="expected">Expected: 5</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(last);</SCRIPT></SPAN></P>
+<P>Array length: <SPAN CLASS="expected">Expected: 5</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(len);</SCRIPT></SPAN></P>
 
 <H2>Test 16: Logical Operators - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -226,12 +230,12 @@ var not2 = !b;
 //-->
 </SCRIPT>
 <P>a = true, b = false</P>
-<P>a && b: <SCRIPT LANGUAGE="JavaScript">document.write(and1);</SCRIPT></P>
-<P>a && a: <SCRIPT LANGUAGE="JavaScript">document.write(and2);</SCRIPT></P>
-<P>a || b: <SCRIPT LANGUAGE="JavaScript">document.write(or1);</SCRIPT></P>
-<P>b || b: <SCRIPT LANGUAGE="JavaScript">document.write(or2);</SCRIPT></P>
-<P>!a: <SCRIPT LANGUAGE="JavaScript">document.write(not1);</SCRIPT></P>
-<P>!b: <SCRIPT LANGUAGE="JavaScript">document.write(not2);</SCRIPT></P>
+<P>a && b: <SPAN CLASS="expected">Expected: false</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(and1);</SCRIPT></SPAN></P>
+<P>a && a: <SPAN CLASS="expected">Expected: true</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(and2);</SCRIPT></SPAN></P>
+<P>a || b: <SPAN CLASS="expected">Expected: true</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(or1);</SCRIPT></SPAN></P>
+<P>b || b: <SPAN CLASS="expected">Expected: false</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(or2);</SCRIPT></SPAN></P>
+<P>!a: <SPAN CLASS="expected">Expected: false</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(not1);</SCRIPT></SPAN></P>
+<P>!b: <SPAN CLASS="expected">Expected: true</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(not2);</SCRIPT></SPAN></P>
 
 <H2>Test 17: Type Checking (typeof)</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -257,17 +261,17 @@ var typeFunc = typeof func;
 //-->
 </SCRIPT>
 <P><STRONG>Direct typeof tests (simpler): - PASS</STRONG></P>
-<P>typeof 42: <SCRIPT LANGUAGE="JavaScript">document.write(typeNumDirect);</SCRIPT></P>
-<P>typeof "test": <SCRIPT LANGUAGE="JavaScript">document.write(typeStrDirect);</SCRIPT></P>
-<P>typeof true: <SCRIPT LANGUAGE="JavaScript">document.write(typeBoolDirect);</SCRIPT></P>
-<P>typeof undefined: <SCRIPT LANGUAGE="JavaScript">document.write(typeUndef);</SCRIPT></P>
+<P>typeof 42: <SPAN CLASS="expected">Expected: number</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(typeNumDirect);</SCRIPT></SPAN></P>
+<P>typeof "test": <SPAN CLASS="expected">Expected: string</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(typeStrDirect);</SCRIPT></SPAN></P>
+<P>typeof true: <SPAN CLASS="expected">Expected: boolean</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(typeBoolDirect);</SCRIPT></SPAN></P>
+<P>typeof undefined: <SPAN CLASS="expected">Expected: undefined</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(typeUndef);</SCRIPT></SPAN></P>
 <P><STRONG>typeof with variables: - PASS</STRONG></P>
-<P>typeof num (42): <SCRIPT LANGUAGE="JavaScript">document.write(typeNum);</SCRIPT></P>
-<P>typeof str ("hello"): <SCRIPT LANGUAGE="JavaScript">document.write(typeStr);</SCRIPT></P>
-<P>typeof bool (true): <SCRIPT LANGUAGE="JavaScript">document.write(typeBool);</SCRIPT></P>
-<P>typeof obj (new Object()): <SCRIPT LANGUAGE="JavaScript">document.write(typeObj);</SCRIPT></P>
-<P>typeof arr (new Array()): <SCRIPT LANGUAGE="JavaScript">document.write(typeArr);</SCRIPT></P>
-<P>typeof func (function): <SCRIPT LANGUAGE="JavaScript">document.write(typeFunc);</SCRIPT></P>
+<P>typeof num (42): <SPAN CLASS="expected">Expected: number</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(typeNum);</SCRIPT></SPAN></P>
+<P>typeof str ("hello"): <SPAN CLASS="expected">Expected: string</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(typeStr);</SCRIPT></SPAN></P>
+<P>typeof bool (true): <SPAN CLASS="expected">Expected: boolean</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(typeBool);</SCRIPT></SPAN></P>
+<P>typeof obj (new Object()): <SPAN CLASS="expected">Expected: object</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(typeObj);</SCRIPT></SPAN></P>
+<P>typeof arr (new Array()): <SPAN CLASS="expected">Expected: object</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(typeArr);</SCRIPT></SPAN></P>
+<P>typeof func (function): <SPAN CLASS="expected">Expected: function</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(typeFunc);</SCRIPT></SPAN></P>
 
 <H2>Test 18: String indexOf and lastIndexOf - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -279,9 +283,9 @@ var idx3 = str.indexOf("x");
 //-->
 </SCRIPT>
 <P>String: "Hello World"</P>
-<P>indexOf("o"): <SCRIPT LANGUAGE="JavaScript">document.write(idx1);</SCRIPT></P>
-<P>lastIndexOf("o"): <SCRIPT LANGUAGE="JavaScript">document.write(idx2);</SCRIPT></P>
-<P>indexOf("x") (not found): <SCRIPT LANGUAGE="JavaScript">document.write(idx3);</SCRIPT></P>
+<P>indexOf("o"): <SPAN CLASS="expected">Expected: 4</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(idx1);</SCRIPT></SPAN></P>
+<P>lastIndexOf("o"): <SPAN CLASS="expected">Expected: 7</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(idx2);</SCRIPT></SPAN></P>
+<P>indexOf("x") (not found): <SPAN CLASS="expected">Expected: -1</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(idx3);</SCRIPT></SPAN></P>
 
 <H2>Test 19: String substring - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -292,8 +296,8 @@ var sub2 = str.substring(6);
 //-->
 </SCRIPT>
 <P>String: "Hello World"</P>
-<P>substring(0, 5): <SCRIPT LANGUAGE="JavaScript">document.write(sub1);</SCRIPT></P>
-<P>substring(6): <SCRIPT LANGUAGE="JavaScript">document.write(sub2);</SCRIPT></P>
+<P>substring(0, 5): <SPAN CLASS="expected">Expected: Hello</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(sub1);</SCRIPT></SPAN></P>
+<P>substring(6): <SPAN CLASS="expected">Expected: World</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(sub2);</SCRIPT></SPAN></P>
 
 <H2>Test 20: Array join and reverse - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -305,8 +309,8 @@ var reversed = arr.join(", ");
 //-->
 </SCRIPT>
 <P>Array: ["a", "b", "c"]</P>
-<P>join(", "): <SCRIPT LANGUAGE="JavaScript">document.write(joined);</SCRIPT></P>
-<P>After reverse(), join(", "): <SCRIPT LANGUAGE="JavaScript">document.write(reversed);</SCRIPT></P>
+<P>join(", "): <SPAN CLASS="expected">Expected: a, b, c</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(joined);</SCRIPT></SPAN></P>
+<P>After reverse(), join(", "): <SPAN CLASS="expected">Expected: c, b, a</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(reversed);</SCRIPT></SPAN></P>
 
 <H2>Test 21: More Math Functions - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -319,12 +323,12 @@ var ceil = Math.ceil(3.2);
 var random = Math.random();
 //-->
 </SCRIPT>
-<P>Math.pow(2, 8): <SCRIPT LANGUAGE="JavaScript">document.write(pow);</SCRIPT></P>
-<P>Math.round(3.7): <SCRIPT LANGUAGE="JavaScript">document.write(round1);</SCRIPT></P>
-<P>Math.round(3.2): <SCRIPT LANGUAGE="JavaScript">document.write(round2);</SCRIPT></P>
-<P>Math.floor(3.7): <SCRIPT LANGUAGE="JavaScript">document.write(floor);</SCRIPT></P>
-<P>Math.ceil(3.2): <SCRIPT LANGUAGE="JavaScript">document.write(ceil);</SCRIPT></P>
-<P>Math.random(): <SCRIPT LANGUAGE="JavaScript">document.write(random);</SCRIPT> (should be 0-1)</P>
+<P>Math.pow(2, 8): <SPAN CLASS="expected">Expected: 256</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(pow);</SCRIPT></SPAN></P>
+<P>Math.round(3.7): <SPAN CLASS="expected">Expected: 4</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(round1);</SCRIPT></SPAN></P>
+<P>Math.round(3.2): <SPAN CLASS="expected">Expected: 3</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(round2);</SCRIPT></SPAN></P>
+<P>Math.floor(3.7): <SPAN CLASS="expected">Expected: 3</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(floor);</SCRIPT></SPAN></P>
+<P>Math.ceil(3.2): <SPAN CLASS="expected">Expected: 4</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(ceil);</SCRIPT></SPAN></P>
+<P>Math.random(): <SPAN CLASS="expected">Expected: [number between 0 and 1]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(random);</SCRIPT></SPAN></P>
 
 <H2>Test 22: More Date Methods - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -338,11 +342,11 @@ var time = now.getTime();
 //-->
 </SCRIPT>
 <P>Current Date object</P>
-<P>getHours(): <SCRIPT LANGUAGE="JavaScript">document.write(hours);</SCRIPT></P>
-<P>getMinutes(): <SCRIPT LANGUAGE="JavaScript">document.write(minutes);</SCRIPT></P>
-<P>getSeconds(): <SCRIPT LANGUAGE="JavaScript">document.write(seconds);</SCRIPT></P>
-<P>getDay(): <SCRIPT LANGUAGE="JavaScript">document.write(day);</SCRIPT> (0=Sunday)</P>
-<P>getTime(): <SCRIPT LANGUAGE="JavaScript">document.write(time);</SCRIPT> (milliseconds)</P>
+<P>getHours(): <SPAN CLASS="expected">Expected: [current hour 0-23]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(hours);</SCRIPT></SPAN></P>
+<P>getMinutes(): <SPAN CLASS="expected">Expected: [current minute 0-59]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(minutes);</SCRIPT></SPAN></P>
+<P>getSeconds(): <SPAN CLASS="expected">Expected: [current second 0-59]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(seconds);</SCRIPT></SPAN></P>
+<P>getDay(): <SPAN CLASS="expected">Expected: [current day 0-6, 0=Sunday]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(day);</SCRIPT></SPAN></P>
+<P>getTime(): <SPAN CLASS="expected">Expected: [milliseconds since epoch]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(time);</SCRIPT></SPAN></P>
 
 <H2>Test 23: Complex Expressions - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -357,10 +361,10 @@ var result4 = (a - b) / c;
 //-->
 </SCRIPT>
 <P>a = 10, b = 5, c = 2</P>
-<P>a + b * c (precedence): <SCRIPT LANGUAGE="JavaScript">document.write(result1);</SCRIPT></P>
-<P>(a + b) * c: <SCRIPT LANGUAGE="JavaScript">document.write(result2);</SCRIPT></P>
-<P>a - b / c (precedence): <SCRIPT LANGUAGE="JavaScript">document.write(result3);</SCRIPT></P>
-<P>(a - b) / c: <SCRIPT LANGUAGE="JavaScript">document.write(result4);</SCRIPT></P>
+<P>a + b * c (precedence): <SPAN CLASS="expected">Expected: 20</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(result1);</SCRIPT></SPAN></P>
+<P>(a + b) * c: <SPAN CLASS="expected">Expected: 30</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(result2);</SCRIPT></SPAN></P>
+<P>a - b / c (precedence): <SPAN CLASS="expected">Expected: 7.5</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(result3);</SCRIPT></SPAN></P>
+<P>(a - b) / c: <SPAN CLASS="expected">Expected: 2.5</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(result4);</SCRIPT></SPAN></P>
 
 <H2>Test 24: Object with Multiple Properties - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -375,9 +379,9 @@ var city = person.city;
 //-->
 </SCRIPT>
 <P>Object with multiple properties</P>
-<P>person.name: <SCRIPT LANGUAGE="JavaScript">document.write(name);</SCRIPT></P>
-<P>person.age: <SCRIPT LANGUAGE="JavaScript">document.write(age);</SCRIPT></P>
-<P>person.city: <SCRIPT LANGUAGE="JavaScript">document.write(city);</SCRIPT></P>
+<P>person.name: <SPAN CLASS="expected">Expected: John</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(name);</SCRIPT></SPAN></P>
+<P>person.age: <SPAN CLASS="expected">Expected: 30</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(age);</SCRIPT></SPAN></P>
+<P>person.city: <SPAN CLASS="expected">Expected: New York</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(city);</SCRIPT></SPAN></P>
 
 <H2>Test 25: Function with Multiple Statements - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -391,7 +395,7 @@ function calculate(x, y) {
 var calcResult = calculate(3, 4);
 //-->
 </SCRIPT>
-<P>calculate(3, 4) = (3+4) + (3*4) = <SCRIPT LANGUAGE="JavaScript">document.write(calcResult);</SCRIPT></P>
+<P>calculate(3, 4) = (3+4) + (3*4) = <SPAN CLASS="expected">Expected: 19</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(calcResult);</SCRIPT></SPAN></P>
 
 <H2>Test 26: Nested Conditionals - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -410,7 +414,7 @@ if (score >= 90) {
 //-->
 </SCRIPT>
 <P>score = 85</P>
-<P>Grade: <SCRIPT LANGUAGE="JavaScript">document.write(grade);</SCRIPT></P>
+<P>Grade: <SPAN CLASS="expected">Expected: B</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(grade);</SCRIPT></SPAN></P>
 
 <H2>Test 27: Array Element Assignment </H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -422,8 +426,8 @@ var len = arr.length;
 //-->
 </SCRIPT>
 <P>Array: [1, 2, 3]</P>
-<P>After arr[1] = 99, arr[1] = <SCRIPT LANGUAGE="JavaScript">document.write(changed);</SCRIPT></P>
-<P>Array length: <SCRIPT LANGUAGE="JavaScript">document.write(len);</SCRIPT></P>
+<P>After arr[1] = 99, arr[1] = <SPAN CLASS="expected">Expected: 99</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(changed);</SCRIPT></SPAN></P>
+<P>Array length: <SPAN CLASS="expected">Expected: 5</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(len);</SCRIPT></SPAN></P>
 
 <H2>Test 28: Modulo Operator</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -433,9 +437,9 @@ var mod2 = 15 % 5;
 var mod3 = 7 % 2;
 //-->
 </SCRIPT>
-<P>10 % 3: <SCRIPT LANGUAGE="JavaScript">document.write(mod1);</SCRIPT></P>
-<P>15 % 5: <SCRIPT LANGUAGE="JavaScript">document.write(mod2);</SCRIPT></P>
-<P>7 % 2: <SCRIPT LANGUAGE="JavaScript">document.write(mod3);</SCRIPT></P>
+<P>10 % 3: <SPAN CLASS="expected">Expected: 1</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(mod1);</SCRIPT></SPAN></P>
+<P>15 % 5: <SPAN CLASS="expected">Expected: 0</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(mod2);</SCRIPT></SPAN></P>
+<P>7 % 2: <SPAN CLASS="expected">Expected: 1</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(mod3);</SCRIPT></SPAN></P>
 
 <H2>Test 29: Bitwise Operators</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -448,9 +452,9 @@ var bitXor = a ^ b;
 //-->
 </SCRIPT>
 <P>a = 5, b = 3</P>
-<P>a & b (bitwise AND): <SCRIPT LANGUAGE="JavaScript">document.write(bitAnd);</SCRIPT></P>
-<P>a | b (bitwise OR): <SCRIPT LANGUAGE="JavaScript">document.write(bitOr);</SCRIPT></P>
-<P>a ^ b (bitwise XOR): <SCRIPT LANGUAGE="JavaScript">document.write(bitXor);</SCRIPT></P>
+<P>a & b (bitwise AND): <SPAN CLASS="expected">Expected: 1</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(bitAnd);</SCRIPT></SPAN></P>
+<P>a | b (bitwise OR): <SPAN CLASS="expected">Expected: 7</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(bitOr);</SCRIPT></SPAN></P>
+<P>a ^ b (bitwise XOR): <SPAN CLASS="expected">Expected: 6</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(bitXor);</SCRIPT></SPAN></P>
 
 <H2>Test 30: Shift Operators</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -461,8 +465,8 @@ var rightShift = num >> 1;
 //-->
 </SCRIPT>
 <P>num = 8</P>
-<P>num << 2 (left shift): <SCRIPT LANGUAGE="JavaScript">document.write(leftShift);</SCRIPT></P>
-<P>num >> 1 (right shift): <SCRIPT LANGUAGE="JavaScript">document.write(rightShift);</SCRIPT></P>
+<P>num << 2 (left shift): <SPAN CLASS="expected">Expected: 32</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(leftShift);</SCRIPT></SPAN></P>
+<P>num >> 1 (right shift): <SPAN CLASS="expected">Expected: 4</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(rightShift);</SCRIPT></SPAN></P>
 
 <H2>Test 31: Assignment Operators</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -479,9 +483,9 @@ var subResult = x;
 //-->
 </SCRIPT>
 <P>Initial x = 10</P>
-<P>After x += 5: <SCRIPT LANGUAGE="JavaScript">document.write(addResult);</SCRIPT></P>
-<P>After x *= 2 (from 10): <SCRIPT LANGUAGE="JavaScript">document.write(multResult);</SCRIPT></P>
-<P>After x -= 3 (from 10): <SCRIPT LANGUAGE="JavaScript">document.write(subResult);</SCRIPT></P>
+<P>After x += 5: <SPAN CLASS="expected">Expected: 15</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(addResult);</SCRIPT></SPAN></P>
+<P>After x *= 2 (from 10): <SPAN CLASS="expected">Expected: 20</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(multResult);</SCRIPT></SPAN></P>
+<P>After x -= 3 (from 10): <SPAN CLASS="expected">Expected: 7</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(subResult);</SCRIPT></SPAN></P>
 
 <H2>Test 32: Increment and Decrement</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -496,10 +500,10 @@ var postDec = b--;
 var decResult = b;
 //-->
 </SCRIPT>
-<P>a = 5, ++a: <SCRIPT LANGUAGE="JavaScript">document.write(preInc);</SCRIPT></P>
-<P>a++, then a: <SCRIPT LANGUAGE="JavaScript">document.write(incResult);</SCRIPT></P>
-<P>b = 5, --b: <SCRIPT LANGUAGE="JavaScript">document.write(preDec);</SCRIPT></P>
-<P>b--, then b: <SCRIPT LANGUAGE="JavaScript">document.write(decResult);</SCRIPT></P>
+<P>a = 5, ++a: <SPAN CLASS="expected">Expected: 6</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(preInc);</SCRIPT></SPAN></P>
+<P>a++, then a: <SPAN CLASS="expected">Expected: 7</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(incResult);</SCRIPT></SPAN></P>
+<P>b = 5, --b: <SPAN CLASS="expected">Expected: 4</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(preDec);</SCRIPT></SPAN></P>
+<P>b--, then b: <SPAN CLASS="expected">Expected: 3</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(decResult);</SCRIPT></SPAN></P>
 
 <H2>Test 33: String charCodeAt</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -511,9 +515,9 @@ var code3 = str.charCodeAt(2);
 //-->
 </SCRIPT>
 <P>String: "ABC"</P>
-<P>charCodeAt(0): <SCRIPT LANGUAGE="JavaScript">document.write(code1);</SCRIPT> (should be 65 for 'A')</P>
-<P>charCodeAt(1): <SCRIPT LANGUAGE="JavaScript">document.write(code2);</SCRIPT> (should be 66 for 'B')</P>
-<P>charCodeAt(2): <SCRIPT LANGUAGE="JavaScript">document.write(code3);</SCRIPT> (should be 67 for 'C')</P>
+<P>charCodeAt(0): <SPAN CLASS="expected">Expected: 65</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(code1);</SCRIPT></SPAN></P>
+<P>charCodeAt(1): <SPAN CLASS="expected">Expected: 66</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(code2);</SCRIPT></SPAN></P>
+<P>charCodeAt(2): <SPAN CLASS="expected">Expected: 67</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(code3);</SCRIPT></SPAN></P>
 
 <H2>Test 34: Array sort</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -524,7 +528,7 @@ var sorted = arr.join(", ");
 //-->
 </SCRIPT>
 <P>Array: [3, 1, 4, 1, 5]</P>
-<P>After sort(): <SCRIPT LANGUAGE="JavaScript">document.write(sorted);</SCRIPT></P>
+<P>After sort(): <SPAN CLASS="expected">Expected: 1, 1, 3, 4, 5</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(sorted);</SCRIPT></SPAN></P>
 
 <H2>Test 35: Nested Objects</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -539,8 +543,8 @@ var zip = person.address.zip;
 //-->
 </SCRIPT>
 <P>Nested object structure</P>
-<P>person.address.city: <SCRIPT LANGUAGE="JavaScript">document.write(city);</SCRIPT></P>
-<P>person.address.zip: <SCRIPT LANGUAGE="JavaScript">document.write(zip);</SCRIPT></P>
+<P>person.address.city: <SPAN CLASS="expected">Expected: New York</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(city);</SCRIPT></SPAN></P>
+<P>person.address.zip: <SPAN CLASS="expected">Expected: 10001</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(zip);</SCRIPT></SPAN></P>
 
 <H2>Test 36: Function Expressions</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -552,7 +556,7 @@ var result = square(5);
 //-->
 </SCRIPT>
 <P>square = function(x) { return x * x; }</P>
-<P>square(5): <SCRIPT LANGUAGE="JavaScript">document.write(result);</SCRIPT></P>
+<P>square(5): <SPAN CLASS="expected">Expected: 25</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(result);</SCRIPT></SPAN></P>
 
 <H2>Test 37: Multiple Return Statements</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -566,7 +570,7 @@ function max(a, b) {
 var maxVal = max(10, 7);
 //-->
 </SCRIPT>
-<P>max(10, 7): <SCRIPT LANGUAGE="JavaScript">document.write(maxVal);</SCRIPT></P>
+<P>max(10, 7): <SPAN CLASS="expected">Expected: 10</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(maxVal);</SCRIPT></SPAN></P>
 
 <H2>Test 38: Variable Scope</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -580,7 +584,7 @@ var scopeResult = testScope();
 //-->
 </SCRIPT>
 <P>global = 10, function has local = 20</P>
-<P>testScope() returns: <SCRIPT LANGUAGE="JavaScript">document.write(scopeResult);</SCRIPT></P>
+<P>testScope() returns: <SPAN CLASS="expected">Expected: 30</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(scopeResult);</SCRIPT></SPAN></P>
 
 <H2>Test 39: Math Constants</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -589,8 +593,8 @@ var pi = Math.PI;
 var e = Math.E;
 //-->
 </SCRIPT>
-<P>Math.PI: <SCRIPT LANGUAGE="JavaScript">document.write(pi);</SCRIPT></P>
-<P>Math.E: <SCRIPT LANGUAGE="JavaScript">document.write(e);</SCRIPT></P>
+<P>Math.PI: <SPAN CLASS="expected">Expected: 3.141592653589793</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(pi);</SCRIPT></SPAN></P>
+<P>Math.E: <SPAN CLASS="expected">Expected: 2.718281828459045</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(e);</SCRIPT></SPAN></P>
 
 <H2>Test 40: Date toString</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -599,7 +603,7 @@ var now = new Date();
 var dateStr = now.toString();
 //-->
 </SCRIPT>
-<P>new Date().toString(): <SCRIPT LANGUAGE="JavaScript">document.write(dateStr);</SCRIPT></P>
+<P>new Date().toString(): <SPAN CLASS="expected">Expected: [date string representation]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(dateStr);</SCRIPT></SPAN></P>
 
 <H2>Test 41: String length</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -611,9 +615,9 @@ var len2 = str2.length;
 var emptyLen = "".length;
 //-->
 </SCRIPT>
-<P>"Hello".length: <SCRIPT LANGUAGE="JavaScript">document.write(len1);</SCRIPT></P>
-<P>"World".length: <SCRIPT LANGUAGE="JavaScript">document.write(len2);</SCRIPT></P>
-<P>"".length: <SCRIPT LANGUAGE="JavaScript">document.write(emptyLen);</SCRIPT></P>
+<P>"Hello".length: <SPAN CLASS="expected">Expected: 5</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(len1);</SCRIPT></SPAN></P>
+<P>"World".length: <SPAN CLASS="expected">Expected: 5</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(len2);</SCRIPT></SPAN></P>
+<P>"".length: <SPAN CLASS="expected">Expected: 0</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(emptyLen);</SCRIPT></SPAN></P>
 
 <H2>Test 42: Array push and pop</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -626,9 +630,9 @@ var afterPop = arr.length;
 //-->
 </SCRIPT>
 <P>Array: [1, 2, 3]</P>
-<P>After push(4), length: <SCRIPT LANGUAGE="JavaScript">document.write(afterPush);</SCRIPT></P>
-<P>pop() returned: <SCRIPT LANGUAGE="JavaScript">document.write(popped);</SCRIPT></P>
-<P>After pop(), length: <SCRIPT LANGUAGE="JavaScript">document.write(afterPop);</SCRIPT></P>
+<P>After push(4), length: <SPAN CLASS="expected">Expected: 4</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(afterPush);</SCRIPT></SPAN></P>
+<P>pop() returned: <SPAN CLASS="expected">Expected: 4</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(popped);</SCRIPT></SPAN></P>
+<P>After pop(), length: <SPAN CLASS="expected">Expected: 3</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(afterPop);</SCRIPT></SPAN></P>
 
 <H2>Test 43: Array shift and unshift</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -641,9 +645,9 @@ var afterShift = arr.length;
 //-->
 </SCRIPT>
 <P>Array: [2, 3, 4]</P>
-<P>After unshift(1), length: <SCRIPT LANGUAGE="JavaScript">document.write(afterUnshift);</SCRIPT></P>
-<P>shift() returned: <SCRIPT LANGUAGE="JavaScript">document.write(shifted);</SCRIPT></P>
-<P>After shift(), length: <SCRIPT LANGUAGE="JavaScript">document.write(afterShift);</SCRIPT></P>
+<P>After unshift(1), length: <SPAN CLASS="expected">Expected: 4</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(afterUnshift);</SCRIPT></SPAN></P>
+<P>shift() returned: <SPAN CLASS="expected">Expected: 1</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(shifted);</SCRIPT></SPAN></P>
+<P>After shift(), length: <SPAN CLASS="expected">Expected: [number]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(afterShift);</SCRIPT></SPAN></P>
 
 <H2>Test 44: Math round, floor, ceil</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -654,10 +658,10 @@ var floor1 = Math.floor(3.7);
 var ceil1 = Math.ceil(3.2);
 //-->
 </SCRIPT>
-<P>Math.round(3.7): <SCRIPT LANGUAGE="JavaScript">document.write(round1);</SCRIPT></P>
-<P>Math.round(3.2): <SCRIPT LANGUAGE="JavaScript">document.write(round2);</SCRIPT></P>
-<P>Math.floor(3.7): <SCRIPT LANGUAGE="JavaScript">document.write(floor1);</SCRIPT></P>
-<P>Math.ceil(3.2): <SCRIPT LANGUAGE="JavaScript">document.write(ceil1);</SCRIPT></P>
+<P>Math.round(3.7): <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(round1);</SCRIPT></SPAN></P>
+<P>Math.round(3.2): <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(round2);</SCRIPT></SPAN></P>
+<P>Math.floor(3.7): <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(floor1);</SCRIPT></SPAN></P>
+<P>Math.ceil(3.2): <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(ceil1);</SCRIPT></SPAN></P>
 
 <H2>Test 45: Math pow and random</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -667,8 +671,8 @@ var pow2 = Math.pow(5, 2);
 var random = Math.random();
 //-->
 </SCRIPT>
-<P>Math.pow(2, 3): <SCRIPT LANGUAGE="JavaScript">document.write(pow1);</SCRIPT></P>
-<P>Math.pow(5, 2): <SCRIPT LANGUAGE="JavaScript">document.write(pow2);</SCRIPT></P>
+<P>Math.pow(2, 3): <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(pow1);</SCRIPT></SPAN></P>
+<P>Math.pow(5, 2): <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(pow2);</SCRIPT></SPAN></P>
 <P>Math.random(): <SCRIPT LANGUAGE="JavaScript">document.write(random);</SCRIPT> (should be 0-1)</P>
 
 <H2>Test 46: Logical AND and OR</H2>
@@ -682,12 +686,12 @@ var andNum = 5 && 3;
 var orNum = 0 || 7;
 //-->
 </SCRIPT>
-<P>true && true: <SCRIPT LANGUAGE="JavaScript">document.write(and1);</SCRIPT></P>
-<P>true && false: <SCRIPT LANGUAGE="JavaScript">document.write(and2);</SCRIPT></P>
-<P>true || false: <SCRIPT LANGUAGE="JavaScript">document.write(or1);</SCRIPT></P>
-<P>false || false: <SCRIPT LANGUAGE="JavaScript">document.write(or2);</SCRIPT></P>
-<P>5 && 3: <SCRIPT LANGUAGE="JavaScript">document.write(andNum);</SCRIPT></P>
-<P>0 || 7: <SCRIPT LANGUAGE="JavaScript">document.write(orNum);</SCRIPT></P>
+<P>true && true: <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(and1);</SCRIPT></SPAN></P>
+<P>true && false: <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(and2);</SCRIPT></SPAN></P>
+<P>true || false: <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(or1);</SCRIPT></SPAN></P>
+<P>false || false: <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(or2);</SCRIPT></SPAN></P>
+<P>5 && 3: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(andNum);</SCRIPT></SPAN></P>
+<P>0 || 7: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(orNum);</SCRIPT></SPAN></P>
 
 <H2>Test 47: Ternary Operator</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -697,9 +701,9 @@ var result2 = (2 > 5) ? "yes" : "no";
 var numResult = (10 > 5) ? 100 : 50;
 //-->
 </SCRIPT>
-<P>(5 > 3) ? "yes" : "no": <SCRIPT LANGUAGE="JavaScript">document.write(result1);</SCRIPT></P>
-<P>(2 > 5) ? "yes" : "no": <SCRIPT LANGUAGE="JavaScript">document.write(result2);</SCRIPT></P>
-<P>(10 > 5) ? 100 : 50: <SCRIPT LANGUAGE="JavaScript">document.write(numResult);</SCRIPT></P>
+<P>(5 > 3) ? "yes" : "no": <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(result1);</SCRIPT></SPAN></P>
+<P>(2 > 5) ? "yes" : "no": <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(result2);</SCRIPT></SPAN></P>
+<P>(10 > 5) ? 100 : 50: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(numResult);</SCRIPT></SPAN></P>
 
 <H2>Test 48: parseInt and parseFloat - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -710,10 +714,10 @@ var float1 = parseFloat("3.14");
 var float2 = parseFloat("42");
 //-->
 </SCRIPT>
-<P>parseInt("42"): <SCRIPT LANGUAGE="JavaScript">document.write(int1);</SCRIPT></P>
-<P>parseInt("3.14"): <SCRIPT LANGUAGE="JavaScript">document.write(int2);</SCRIPT></P>
-<P>parseFloat("3.14"): <SCRIPT LANGUAGE="JavaScript">document.write(float1);</SCRIPT></P>
-<P>parseFloat("42"): <SCRIPT LANGUAGE="JavaScript">document.write(float2);</SCRIPT></P>
+<P>parseInt("42"): <SPAN CLASS="expected">Expected: [parsed number]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(int1);</SCRIPT></SPAN></P>
+<P>parseInt("3.14"): <SPAN CLASS="expected">Expected: [parsed number]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(int2);</SCRIPT></SPAN></P>
+<P>parseFloat("3.14"): <SPAN CLASS="expected">Expected: [parsed number]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(float1);</SCRIPT></SPAN></P>
+<P>parseFloat("42"): <SPAN CLASS="expected">Expected: [parsed number]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(float2);</SCRIPT></SPAN></P>
 
 <H2>Test 49: String concat</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -725,8 +729,8 @@ var concat2 = "A".concat("B", "C");
 //-->
 </SCRIPT>
 <P>str1 = "Hello", str2 = "World"</P>
-<P>str1.concat(" ", str2): <SCRIPT LANGUAGE="JavaScript">document.write(concat1);</SCRIPT></P>
-<P>"A".concat("B", "C"): <SCRIPT LANGUAGE="JavaScript">document.write(concat2);</SCRIPT></P>
+<P>str1.concat(" ", str2): <SPAN CLASS="expected">Expected: [array or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(concat1);</SCRIPT></SPAN></P>
+<P>"A".concat("B", "C"): <SPAN CLASS="expected">Expected: [array or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(concat2);</SCRIPT></SPAN></P>
 
 <H2>Test 50: Array slice</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -739,8 +743,8 @@ var slice2Str = slice2.join(", ");
 //-->
 </SCRIPT>
 <P>Array: [1, 2, 3, 4, 5]</P>
-<P>slice(1, 3): <SCRIPT LANGUAGE="JavaScript">document.write(slice1Str);</SCRIPT></P>
-<P>slice(2): <SCRIPT LANGUAGE="JavaScript">document.write(slice2Str);</SCRIPT></P>
+<P>slice(1, 3): <SPAN CLASS="expected">Expected: [array or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(slice1Str);</SCRIPT></SPAN></P>
+<P>slice(2): <SPAN CLASS="expected">Expected: [array or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(slice2Str);</SCRIPT></SPAN></P>
 
 <H2>Test 51: Do-While Loop</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -754,7 +758,7 @@ do {
 //-->
 </SCRIPT>
 <P>do-while loop: sum from 0 to 4</P>
-<P>Result: <SCRIPT LANGUAGE="JavaScript">document.write(sum);</SCRIPT></P>
+<P>Result: <SPAN CLASS="expected">Expected: inner caught, outer caught</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(sum);</SCRIPT></SPAN></P>
 
 <H2>Test 52: Function Arguments</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -769,7 +773,7 @@ function sum() {
 var result = sum(1, 2, 3, 4, 5);
 //-->
 </SCRIPT>
-<P>sum(1, 2, 3, 4, 5) using arguments: <SCRIPT LANGUAGE="JavaScript">document.write(result);</SCRIPT></P>
+<P>sum(1, 2, 3, 4, 5) using arguments: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(result);</SCRIPT></SPAN></P>
 
 <H2>Test 53: Recursive Function</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -783,7 +787,7 @@ function factorial(n) {
 var fact5 = factorial(5);
 //-->
 </SCRIPT>
-<P>factorial(5): <SCRIPT LANGUAGE="JavaScript">document.write(fact5);</SCRIPT></P>
+<P>factorial(5): <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(fact5);</SCRIPT></SPAN></P>
 
 <H2>Test 54: Date getTime</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -806,9 +810,9 @@ var afterDelete = obj.prop1;
 var stillExists = obj.prop2;
 //-->
 </SCRIPT>
-<P>obj.prop1 before delete: <SCRIPT LANGUAGE="JavaScript">document.write(beforeDelete);</SCRIPT></P>
-<P>obj.prop1 after delete: <SCRIPT LANGUAGE="JavaScript">document.write(afterDelete);</SCRIPT></P>
-<P>obj.prop2 still exists: <SCRIPT LANGUAGE="JavaScript">document.write(stillExists);</SCRIPT></P>
+<P>obj.prop1 before delete: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(beforeDelete);</SCRIPT></SPAN></P>
+<P>obj.prop1 after delete: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(afterDelete);</SCRIPT></SPAN></P>
+<P>obj.prop2 still exists: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(stillExists);</SCRIPT></SPAN></P>
 
 <H2>Test 56: For-In Loop</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -824,7 +828,7 @@ for (var prop in obj) {
 //-->
 </SCRIPT>
 <P>Object properties: name, age, city</P>
-<P>Properties found: <SCRIPT LANGUAGE="JavaScript">document.write(props);</SCRIPT></P>
+<P>Properties found: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(props);</SCRIPT></SPAN></P>
 
 <H2>Test 57: Break Statement</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -839,7 +843,7 @@ for (var i = 0; i < 10; i++) {
 //-->
 </SCRIPT>
 <P>Loop breaks when i > 5</P>
-<P>Sum (0 to 5): <SCRIPT LANGUAGE="JavaScript">document.write(sum);</SCRIPT></P>
+<P>Sum (0 to 5): <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(sum);</SCRIPT></SPAN></P>
 
 <H2>Test 58: Continue Statement</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -854,7 +858,7 @@ for (var i = 0; i < 10; i++) {
 //-->
 </SCRIPT>
 <P>Continue skips even numbers</P>
-<P>Sum of odd numbers (1,3,5,7,9): <SCRIPT LANGUAGE="JavaScript">document.write(sum);</SCRIPT></P>
+<P>Sum of odd numbers (1,3,5,7,9): <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(sum);</SCRIPT></SPAN></P>
 
 <H2>Test 59: Global Functions - escape and unescape - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -865,8 +869,8 @@ var unescaped = unescape(escaped);
 //-->
 </SCRIPT>
 <P>Original: "Hello World!"</P>
-<P>escaped: <SCRIPT LANGUAGE="JavaScript">document.write(escaped);</SCRIPT></P>
-<P>unescaped: <SCRIPT LANGUAGE="JavaScript">document.write(unescaped);</SCRIPT></P>
+<P>escaped: <SPAN CLASS="expected">Expected: [encoded/decoded string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(escaped);</SCRIPT></SPAN></P>
+<P>unescaped: <SPAN CLASS="expected">Expected: [encoded/decoded string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(unescaped);</SCRIPT></SPAN></P>
 
 <H2>Test 60: Global Function - isNaN - PASS</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -876,9 +880,9 @@ var nan2 = isNaN(42);
 var nan3 = isNaN(NaN);
 //-->
 </SCRIPT>
-<P>isNaN("not a number"): <SCRIPT LANGUAGE="JavaScript">document.write(nan1);</SCRIPT></P>
-<P>isNaN(42): <SCRIPT LANGUAGE="JavaScript">document.write(nan2);</SCRIPT></P>
-<P>isNaN(NaN): <SCRIPT LANGUAGE="JavaScript">document.write(nan3);</SCRIPT></P>
+<P>isNaN("not a number"): <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(nan1);</SCRIPT></SPAN></P>
+<P>isNaN(42): <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(nan2);</SCRIPT></SPAN></P>
+<P>isNaN(NaN): <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(nan3);</SCRIPT></SPAN></P>
 
 <H2>Test 61: Array concat</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -891,7 +895,7 @@ var concatStr = concat.join(", ");
 </SCRIPT>
 <P>Array 1: [1, 2, 3]</P>
 <P>Array 2: [4, 5, 6]</P>
-<P>concat result: <SCRIPT LANGUAGE="JavaScript">document.write(concatStr);</SCRIPT></P>
+<P>concat result: <SPAN CLASS="expected">Expected: [array or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(concatStr);</SCRIPT></SPAN></P>
 
 <H2>Test 62: String split</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -902,7 +906,7 @@ var splitStr = arr.join(" | ");
 //-->
 </SCRIPT>
 <P>String: "apple,banana,cherry"</P>
-<P>split(",") result: <SCRIPT LANGUAGE="JavaScript">document.write(splitStr);</SCRIPT></P>
+<P>split(",") result: <SPAN CLASS="expected">Expected: [array of strings]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(splitStr);</SCRIPT></SPAN></P>
 
 <H2>Test 63: With Statement</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -918,7 +922,7 @@ with (obj) {
 </SCRIPT>
 <P>obj.x = 10, obj.y = 20</P>
 <P>with (obj) { result = x + y; }</P>
-<P>Result: <SCRIPT LANGUAGE="JavaScript">document.write(result);</SCRIPT></P>
+<P>Result: <SPAN CLASS="expected">Expected: inner caught, outer caught</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(result);</SCRIPT></SPAN></P>
 
 <H2>Test 64: Void Operator</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -929,8 +933,8 @@ var voidType = typeof voidResult;
 //-->
 </SCRIPT>
 <P>x = 42</P>
-<P>void x: <SCRIPT LANGUAGE="JavaScript">document.write(voidResult);</SCRIPT></P>
-<P>typeof void x: <SCRIPT LANGUAGE="JavaScript">document.write(voidType);</SCRIPT></P>
+<P>void x: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(voidResult);</SCRIPT></SPAN></P>
+<P>typeof void x: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(voidType);</SCRIPT></SPAN></P>
 
 <H2>Test 65: Comma Operator</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -941,8 +945,8 @@ var afterComma = a + b + c;
 //-->
 </SCRIPT>
 <P>a = 1, b = 2, c = 3</P>
-<P>(a++, b++, c++) returns: <SCRIPT LANGUAGE="JavaScript">document.write(commaResult);</SCRIPT></P>
-<P>After comma: a + b + c = <SCRIPT LANGUAGE="JavaScript">document.write(afterComma);</SCRIPT></P>
+<P>(a++, b++, c++) returns: <SPAN CLASS="expected">Expected: 3</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(commaResult);</SCRIPT></SPAN></P>
+<P>After comma: a + b + c = <SPAN CLASS="expected">Expected: 9</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(afterComma);</SCRIPT></SPAN></P>
 
 <H2>Test 66: Object toString</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -952,7 +956,7 @@ obj.name = "test";
 var objStr = obj.toString();
 //-->
 </SCRIPT>
-<P>new Object().toString(): <SCRIPT LANGUAGE="JavaScript">document.write(objStr);</SCRIPT></P>
+<P>new Object().toString(): <SPAN CLASS="expected">Expected: [string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(objStr);</SCRIPT></SPAN></P>
 
 <H2>Test 67: Number toString</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -963,8 +967,8 @@ var num2 = 3.14;
 var num2Str = num2.toString();
 //-->
 </SCRIPT>
-<P>42.toString(): <SCRIPT LANGUAGE="JavaScript">document.write(numStr);</SCRIPT></P>
-<P>3.14.toString(): <SCRIPT LANGUAGE="JavaScript">document.write(num2Str);</SCRIPT></P>
+<P>42.toString(): <SPAN CLASS="expected">Expected: [string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(numStr);</SCRIPT></SPAN></P>
+<P>3.14.toString(): <SPAN CLASS="expected">Expected: [string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(num2Str);</SCRIPT></SPAN></P>
 
 <H2>Test 68: Boolean toString</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -975,8 +979,8 @@ var bool1Str = bool1.toString();
 var bool2Str = bool2.toString();
 //-->
 </SCRIPT>
-<P>true.toString(): <SCRIPT LANGUAGE="JavaScript">document.write(bool1Str);</SCRIPT></P>
-<P>false.toString(): <SCRIPT LANGUAGE="JavaScript">document.write(bool2Str);</SCRIPT></P>
+<P>true.toString(): <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(bool1Str);</SCRIPT></SPAN></P>
+<P>false.toString(): <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(bool2Str);</SCRIPT></SPAN></P>
 
 <H2>Test 69: This Keyword</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -991,8 +995,8 @@ var directValue = obj.value;
 //-->
 </SCRIPT>
 <P>obj.value = 100</P>
-<P>Direct access obj.value: <SCRIPT LANGUAGE="JavaScript">document.write(directValue);</SCRIPT></P>
-<P>obj.getValue() using this: <SCRIPT LANGUAGE="JavaScript">document.write(thisResult);</SCRIPT></P>
+<P>Direct access obj.value: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(directValue);</SCRIPT></SPAN></P>
+<P>obj.getValue() using this: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(thisResult);</SCRIPT></SPAN></P>
 
 <H2>Test 70: Array toString</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -1002,7 +1006,7 @@ var arrStr = arr.toString();
 //-->
 </SCRIPT>
 <P>Array: [1, 2, 3]</P>
-<P>arr.toString(): <SCRIPT LANGUAGE="JavaScript">document.write(arrStr);</SCRIPT></P>
+<P>arr.toString(): <SPAN CLASS="expected">Expected: [string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(arrStr);</SCRIPT></SPAN></P>
 
 <H2>Test 71: Null and Undefined Handling</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -1016,10 +1020,10 @@ var undefinedCheck = (undefinedVar == undefined);
 //-->
 </SCRIPT>
 <P>nullVar = null</P>
-<P>typeof null: <SCRIPT LANGUAGE="JavaScript">document.write(nullType);</SCRIPT></P>
-<P>typeof undefined: <SCRIPT LANGUAGE="JavaScript">document.write(undefinedType);</SCRIPT></P>
-<P>nullVar == null: <SCRIPT LANGUAGE="JavaScript">document.write(nullCheck);</SCRIPT></P>
-<P>undefinedVar == undefined: <SCRIPT LANGUAGE="JavaScript">document.write(undefinedCheck);</SCRIPT></P>
+<P>typeof null: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(nullType);</SCRIPT></SPAN></P>
+<P>typeof undefined: <SPAN CLASS="expected">Expected: undefined</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(undefinedType);</SCRIPT></SPAN></P>
+<P>nullVar == null: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(nullCheck);</SCRIPT></SPAN></P>
+<P>undefinedVar == undefined: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(undefinedCheck);</SCRIPT></SPAN></P>
 
 <H2>Test 72: Function length Property - FAIL</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -1031,7 +1035,7 @@ var funcLength = testFunc.length;
 //-->
 </SCRIPT>
 <P>function testFunc(a, b, c) { ... }</P>
-<P>testFunc.length: <SCRIPT LANGUAGE="JavaScript">document.write(funcLength);</SCRIPT></P>
+<P>testFunc.length: <SPAN CLASS="expected">Expected: [number]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(funcLength);</SCRIPT></SPAN></P>
 
 <H2>Test 73: RegExp Constructor</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -1042,10 +1046,10 @@ var re3 = /pattern/;
 var re4 = /test/gi;
 //-->
 </SCRIPT>
-<P>new RegExp("test"): <SCRIPT LANGUAGE="JavaScript">document.write(re1);</SCRIPT></P>
-<P>new RegExp("hello", "i"): <SCRIPT LANGUAGE="JavaScript">document.write(re2);</SCRIPT></P>
-<P>/pattern/: <SCRIPT LANGUAGE="JavaScript">document.write(re3);</SCRIPT></P>
-<P>/test/gi: <SCRIPT LANGUAGE="JavaScript">document.write(re4);</SCRIPT></P>
+<P>new RegExp("test"): <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(re1);</SCRIPT></SPAN></P>
+<P>new RegExp("hello", "i"): <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(re2);</SCRIPT></SPAN></P>
+<P>/pattern/: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(re3);</SCRIPT></SPAN></P>
+<P>/test/gi: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(re4);</SCRIPT></SPAN></P>
 
 <H2>Test 74: RegExp test() Method</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -1058,10 +1062,10 @@ var test3 = reCase.test("HELLO");
 //-->
 </SCRIPT>
 <P>Pattern: /hello/</P>
-<P>test("hello world"): <SCRIPT LANGUAGE="JavaScript">document.write(test1);</SCRIPT></P>
-<P>test("goodbye"): <SCRIPT LANGUAGE="JavaScript">document.write(test2);</SCRIPT></P>
+<P>test("hello world"): <SPAN CLASS="expected">Expected: [boolean or array]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(test1);</SCRIPT></SPAN></P>
+<P>test("goodbye"): <SPAN CLASS="expected">Expected: [boolean or array]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(test2);</SCRIPT></SPAN></P>
 <P>Pattern: /hello/i (case-insensitive)</P>
-<P>test("HELLO"): <SCRIPT LANGUAGE="JavaScript">document.write(test3);</SCRIPT></P>
+<P>test("HELLO"): <SPAN CLASS="expected">Expected: [boolean or array]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(test3);</SCRIPT></SPAN></P>
 
 <H2>Test 75: RegExp exec() Method</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -1074,8 +1078,8 @@ var result2Str = result2 ? result2[0] : "null";
 //-->
 </SCRIPT>
 <P>Pattern: /(\d+)/</P>
-<P>exec("abc123def")[0]: <SCRIPT LANGUAGE="JavaScript">document.write(result1Str);</SCRIPT></P>
-<P>exec("no numbers"): <SCRIPT LANGUAGE="JavaScript">document.write(result2Str);</SCRIPT></P>
+<P>exec("abc123def")[0]: <SPAN CLASS="expected">Expected: [boolean or array]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(result1Str);</SCRIPT></SPAN></P>
+<P>exec("no numbers"): <SPAN CLASS="expected">Expected: [boolean or array]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(result2Str);</SCRIPT></SPAN></P>
 
 <H2>Test 76: RegExp Properties - source, global, ignoreCase, multiline</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -1090,12 +1094,12 @@ var multiline2 = re2.multiline;
 //-->
 </SCRIPT>
 <P>Pattern: /test/gi</P>
-<P>source: <SCRIPT LANGUAGE="JavaScript">document.write(source1);</SCRIPT></P>
-<P>global: <SCRIPT LANGUAGE="JavaScript">document.write(global1);</SCRIPT></P>
-<P>ignoreCase: <SCRIPT LANGUAGE="JavaScript">document.write(ignoreCase1);</SCRIPT></P>
-<P>multiline: <SCRIPT LANGUAGE="JavaScript">document.write(multiline1);</SCRIPT></P>
+<P>source: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(source1);</SCRIPT></SPAN></P>
+<P>global: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(global1);</SCRIPT></SPAN></P>
+<P>ignoreCase: <SPAN CLASS="expected">Expected: [case result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(ignoreCase1);</SCRIPT></SPAN></P>
+<P>multiline: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(multiline1);</SCRIPT></SPAN></P>
 <P>Pattern: /pattern/m</P>
-<P>multiline: <SCRIPT LANGUAGE="JavaScript">document.write(multiline2);</SCRIPT></P>
+<P>multiline: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(multiline2);</SCRIPT></SPAN></P>
 
 <H2>Test 77: RegExp lastIndex Property</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -1110,9 +1114,9 @@ var lastIndex3 = re.lastIndex;
 //-->
 </SCRIPT>
 <P>Pattern: /test/g (global)</P>
-<P>After first test(), lastIndex: <SCRIPT LANGUAGE="JavaScript">document.write(lastIndex1);</SCRIPT></P>
-<P>After second test(), lastIndex: <SCRIPT LANGUAGE="JavaScript">document.write(lastIndex2);</SCRIPT></P>
-<P>After setting lastIndex = 0: <SCRIPT LANGUAGE="JavaScript">document.write(lastIndex3);</SCRIPT></P>
+<P>After first test(), lastIndex: <SPAN CLASS="expected">Expected: [boolean or array]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(lastIndex1);</SCRIPT></SPAN></P>
+<P>After second test(), lastIndex: <SPAN CLASS="expected">Expected: [boolean or array]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(lastIndex2);</SCRIPT></SPAN></P>
+<P>After setting lastIndex = 0: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(lastIndex3);</SCRIPT></SPAN></P>
 
 <H2>Test 78: RegExp with String match()</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -1127,9 +1131,9 @@ var match3Str = match3 ? match3.join(", ") : "null";
 //-->
 </SCRIPT>
 <P>String: "Hello World"</P>
-<P>match(/o/)[0]: <SCRIPT LANGUAGE="JavaScript">document.write(match1Str);</SCRIPT></P>
-<P>match(/x/): <SCRIPT LANGUAGE="JavaScript">document.write(match2Str);</SCRIPT></P>
-<P>match(/o/g): <SCRIPT LANGUAGE="JavaScript">document.write(match3Str);</SCRIPT></P>
+<P>match(/o/)[0]: <SPAN CLASS="expected">Expected: [match result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(match1Str);</SCRIPT></SPAN></P>
+<P>match(/x/): <SPAN CLASS="expected">Expected: [match result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(match2Str);</SCRIPT></SPAN></P>
+<P>match(/o/g): <SPAN CLASS="expected">Expected: [match result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(match3Str);</SCRIPT></SPAN></P>
 
 <H2>Test 79: RegExp with String search()</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -1141,9 +1145,9 @@ var search3 = str.search(/o/i);
 //-->
 </SCRIPT>
 <P>String: "Hello World"</P>
-<P>search(/World/): <SCRIPT LANGUAGE="JavaScript">document.write(search1);</SCRIPT></P>
-<P>search(/x/): <SCRIPT LANGUAGE="JavaScript">document.write(search2);</SCRIPT></P>
-<P>search(/o/i): <SCRIPT LANGUAGE="JavaScript">document.write(search3);</SCRIPT></P>
+<P>search(/World/): <SPAN CLASS="expected">Expected: [match result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(search1);</SCRIPT></SPAN></P>
+<P>search(/x/): <SPAN CLASS="expected">Expected: [match result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(search2);</SCRIPT></SPAN></P>
+<P>search(/o/i): <SPAN CLASS="expected">Expected: [match result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(search3);</SCRIPT></SPAN></P>
 
 <H2>Test 80: RegExp with String replace()</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -1157,11 +1161,11 @@ var replace3 = str3.replace(/\d+/, "NUM");
 //-->
 </SCRIPT>
 <P>String: "Hello World"</P>
-<P>replace(/World/, "Universe"): <SCRIPT LANGUAGE="JavaScript">document.write(replace1);</SCRIPT></P>
+<P>replace(/World/, "Universe"): <SPAN CLASS="expected">Expected: [match result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(replace1);</SCRIPT></SPAN></P>
 <P>String: "test test test"</P>
-<P>replace(/test/g, "TEST"): <SCRIPT LANGUAGE="JavaScript">document.write(replace2);</SCRIPT></P>
+<P>replace(/test/g, "TEST"): <SPAN CLASS="expected">Expected: [match result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(replace2);</SCRIPT></SPAN></P>
 <P>String: "abc123def456"</P>
-<P>replace(/\d+/, "NUM"): <SCRIPT LANGUAGE="JavaScript">document.write(replace3);</SCRIPT></P>
+<P>replace(/\d+/, "NUM"): <SPAN CLASS="expected">Expected: abcNUMdef456</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(replace3);</SCRIPT></SPAN></P>
 
 <H2>Test 81: RegExp with String split()</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -1175,9 +1179,9 @@ var split2Str = split2.join(", ");
 //-->
 </SCRIPT>
 <P>String: "apple,banana,cherry"</P>
-<P>split(/,/): <SCRIPT LANGUAGE="JavaScript">document.write(split1Str);</SCRIPT></P>
+<P>split(/,/): <SPAN CLASS="expected">Expected: [array of strings]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(split1Str);</SCRIPT></SPAN></P>
 <P>String: "one two three"</P>
-<P>split(/\s+/): <SCRIPT LANGUAGE="JavaScript">document.write(split2Str);</SCRIPT></P>
+<P>split(/\s+/): <SPAN CLASS="expected">Expected: one, two, three</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(split2Str);</SCRIPT></SPAN></P>
 
 <H2>Test 82: RegExp compile() Method</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -1190,10 +1194,10 @@ var source = re.source;
 //-->
 </SCRIPT>
 <P>Pattern: new RegExp("test")</P>
-<P>test("test string"): <SCRIPT LANGUAGE="JavaScript">document.write(test1);</SCRIPT></P>
+<P>test("test string"): <SPAN CLASS="expected">Expected: [boolean or array]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(test1);</SCRIPT></SPAN></P>
 <P>After compile("hello", "i"):</P>
-<P>test("HELLO"): <SCRIPT LANGUAGE="JavaScript">document.write(test2);</SCRIPT></P>
-<P>source: <SCRIPT LANGUAGE="JavaScript">document.write(source);</SCRIPT></P>
+<P>test("HELLO"): <SPAN CLASS="expected">Expected: [boolean or array]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(test2);</SCRIPT></SPAN></P>
+<P>source: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(source);</SCRIPT></SPAN></P>
 
 <H2>Test 83: RegExp Capturing Groups</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -1206,9 +1210,9 @@ var group2 = result ? result[2] : "null";
 //-->
 </SCRIPT>
 <P>Pattern: /(\d+)-(\d+)/</P>
-<P>exec("123-456")[0]: <SCRIPT LANGUAGE="JavaScript">document.write(fullMatch);</SCRIPT></P>
-<P>exec("123-456")[1]: <SCRIPT LANGUAGE="JavaScript">document.write(group1);</SCRIPT></P>
-<P>exec("123-456")[2]: <SCRIPT LANGUAGE="JavaScript">document.write(group2);</SCRIPT></P>
+<P>exec("123-456")[0]: <SPAN CLASS="expected">Expected: [match result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(fullMatch);</SCRIPT></SPAN></P>
+<P>exec("123-456")[1]: <SPAN CLASS="expected">Expected: [boolean or array]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(group1);</SCRIPT></SPAN></P>
+<P>exec("123-456")[2]: <SPAN CLASS="expected">Expected: [boolean or array]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(group2);</SCRIPT></SPAN></P>
 
 <H2>Test 84: RegExp toString() Method</H2>
 <SCRIPT LANGUAGE="JavaScript">
@@ -1220,9 +1224,730 @@ var str2 = re2.toString();
 //-->
 </SCRIPT>
 <P>Pattern: /test/gi</P>
-<P>toString(): <SCRIPT LANGUAGE="JavaScript">document.write(str1);</SCRIPT></P>
+<P>toString(): <SPAN CLASS="expected">Expected: [string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(str1);</SCRIPT></SPAN></P>
 <P>Pattern: new RegExp("hello", "m")</P>
-<P>toString(): <SCRIPT LANGUAGE="JavaScript">document.write(str2);</SCRIPT></P>
+<P>toString(): <SPAN CLASS="expected">Expected: [string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(str2);</SCRIPT></SPAN></P>
+
+<H2>Test 85: Try-Catch Statement</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var tryResult = "none";
+try {
+    var x = 10;
+    var y = x + 5;
+    tryResult = "success";
+} catch (e) {
+    tryResult = "caught";
+}
+//-->
+</SCRIPT>
+<P>try { var x = 10; var y = x + 5; } catch (e) { }</P>
+<P>Result: <SPAN CLASS="expected">Expected: [try-catch result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(tryResult);</SCRIPT></SPAN></P>
+
+<H2>Test 86: Try-Catch with Throw</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var throwResult = "none";
+try {
+    throw "error message";
+    throwResult = "not reached";
+} catch (e) {
+    throwResult = "caught: " + e;
+}
+//-->
+</SCRIPT>
+<P>try { throw "error message"; } catch (e) { }</P>
+<P>Result: <SPAN CLASS="expected">Expected: [thrown value]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(throwResult);</SCRIPT></SPAN></P>
+
+<H2>Test 87: Try-Catch-Finally</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var finallyResult = "none";
+var finallyExecuted = false;
+try {
+    finallyResult = "try";
+} catch (e) {
+    finallyResult = "catch";
+} finally {
+    finallyExecuted = true;
+}
+//-->
+</SCRIPT>
+<P>try-catch-finally block</P>
+<P>try result: <SPAN CLASS="expected">Expected: [try-catch result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(finallyResult);</SCRIPT></SPAN></P>
+<P>finally executed: <SPAN CLASS="expected">Expected: [try-catch result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(finallyExecuted);</SCRIPT></SPAN></P>
+
+<H2>Test 88: Try-Catch-Finally with Throw</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var throwFinallyResult = "none";
+var throwFinallyExecuted = false;
+try {
+    throw "error";
+} catch (e) {
+    throwFinallyResult = "caught";
+} finally {
+    throwFinallyExecuted = true;
+}
+//-->
+</SCRIPT>
+<P>try { throw "error"; } catch (e) { } finally { }</P>
+<P>catch result: <SPAN CLASS="expected">Expected: [thrown value]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(throwFinallyResult);</SCRIPT></SPAN></P>
+<P>finally executed: <SPAN CLASS="expected">Expected: [thrown value]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(throwFinallyExecuted);</SCRIPT></SPAN></P>
+
+<H2>Test 89: Nested Try-Catch</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var nestedResult = "none";
+try {
+    try {
+        throw "inner";
+    } catch (e) {
+        nestedResult = "inner caught";
+        throw "outer";
+    }
+} catch (e) {
+    nestedResult = nestedResult + ", outer caught";
+}
+//-->
+</SCRIPT>
+<P>Nested try-catch blocks</P>
+<P>Result: <SPAN CLASS="expected">Expected: inner caught, outer caught</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(nestedResult);</SCRIPT></SPAN></P>
+
+<H2>Test 90: Instanceof Operator</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var arr = new Array(1, 2, 3);
+var obj = new Object();
+var str = new String("test");
+var inst1 = arr instanceof Array;
+var inst2 = obj instanceof Object;
+var inst3 = str instanceof String;
+var inst4 = arr instanceof Object;
+var inst5 = obj instanceof Array;
+//-->
+</SCRIPT>
+<P>arr instanceof Array: <SPAN CLASS="expected">Expected: true</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(inst1);</SCRIPT></SPAN></P>
+<P>obj instanceof Object: <SPAN CLASS="expected">Expected: true</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(inst2);</SCRIPT></SPAN></P>
+<P>str instanceof String: <SPAN CLASS="expected">Expected: true</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(inst3);</SCRIPT></SPAN></P>
+<P>arr instanceof Object: <SPAN CLASS="expected">Expected: true</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(inst4);</SCRIPT></SPAN></P>
+<P>obj instanceof Array: <SPAN CLASS="expected">Expected: false</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(inst5);</SCRIPT></SPAN></P>
+
+<H2>Test 91: In Operator</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var obj = new Object();
+obj.name = "John";
+obj.age = 30;
+var in1 = "name" in obj;
+var in2 = "age" in obj;
+var in3 = "city" in obj;
+var arr = new Array(1, 2, 3);
+var in4 = "0" in arr;
+var in5 = "length" in arr;
+//-->
+</SCRIPT>
+<P>obj.name = "John", obj.age = 30</P>
+<P>"name" in obj: <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(in1);</SCRIPT></SPAN></P>
+<P>"age" in obj: <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(in2);</SCRIPT></SPAN></P>
+<P>"city" in obj: <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(in3);</SCRIPT></SPAN></P>
+<P>"0" in arr: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(in4);</SCRIPT></SPAN></P>
+<P>"length" in arr: <SPAN CLASS="expected">Expected: [number]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(in5);</SCRIPT></SPAN></P>
+
+<H2>Test 92: Throw Statement</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var throwTest = "none";
+try {
+    throw "test error";
+} catch (e) {
+    throwTest = e;
+}
+var throwNum = "none";
+try {
+    throw 42;
+} catch (e) {
+    throwNum = e;
+}
+//-->
+</SCRIPT>
+<P>throw "test error": <SPAN CLASS="expected">Expected: [Error object or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(throwTest);</SCRIPT></SPAN></P>
+<P>throw 42: <SPAN CLASS="expected">Expected: [thrown value]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(throwNum);</SCRIPT></SPAN></P>
+
+<H2>Test 93: Error Object</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var err = new Error("test error");
+var errMsg = err.message;
+var errName = err.name;
+var errStr = err.toString();
+//-->
+</SCRIPT>
+<P>new Error("test error")</P>
+<P>Error name: <SPAN CLASS="expected">Expected: [Error object or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(errName);</SCRIPT></SPAN></P>
+<P>Error message: <SPAN CLASS="expected">Expected: [Error object or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(errMsg);</SCRIPT></SPAN></P>
+<P>Error toString(): <SPAN CLASS="expected">Expected: [string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(errStr);</SCRIPT></SPAN></P>
+
+<H2>Test 94: TypeError Object</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var typeErr = new TypeError("type error");
+var typeErrName = typeErr.name;
+var typeErrMsg = typeErr.message;
+//-->
+</SCRIPT>
+<P>new TypeError("type error")</P>
+<P>TypeError name: <SPAN CLASS="expected">Expected: [Error object or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(typeErrName);</SCRIPT></SPAN></P>
+<P>TypeError message: <SPAN CLASS="expected">Expected: [Error object or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(typeErrMsg);</SCRIPT></SPAN></P>
+
+<H2>Test 95: RangeError Object</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var rangeErr = new RangeError("range error");
+var rangeErrName = rangeErr.name;
+var rangeErrMsg = rangeErr.message;
+//-->
+</SCRIPT>
+<P>new RangeError("range error")</P>
+<P>RangeError name: <SPAN CLASS="expected">Expected: [Error object or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(rangeErrName);</SCRIPT></SPAN></P>
+<P>RangeError message: <SPAN CLASS="expected">Expected: [Error object or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(rangeErrMsg);</SCRIPT></SPAN></P>
+
+<H2>Test 96: SyntaxError Object</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var syntaxErr = new SyntaxError("syntax error");
+var syntaxErrName = syntaxErr.name;
+var syntaxErrMsg = syntaxErr.message;
+//-->
+</SCRIPT>
+<P>new SyntaxError("syntax error")</P>
+<P>SyntaxError name: <SPAN CLASS="expected">Expected: [Error object or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(syntaxErrName);</SCRIPT></SPAN></P>
+<P>SyntaxError message: <SPAN CLASS="expected">Expected: [Error object or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(syntaxErrMsg);</SCRIPT></SPAN></P>
+
+<H2>Test 97: ReferenceError Object</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var refErr = new ReferenceError("reference error");
+var refErrName = refErr.name;
+var refErrMsg = refErr.message;
+//-->
+</SCRIPT>
+<P>new ReferenceError("reference error")</P>
+<P>ReferenceError name: <SPAN CLASS="expected">Expected: [Error object or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(refErrName);</SCRIPT></SPAN></P>
+<P>ReferenceError message: <SPAN CLASS="expected">Expected: [Error object or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(refErrMsg);</SCRIPT></SPAN></P>
+
+<H2>Test 98: URIError Object</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var uriErr = new URIError("URI error");
+var uriErrName = uriErr.name;
+var uriErrMsg = uriErr.message;
+//-->
+</SCRIPT>
+<P>new URIError("URI error")</P>
+<P>URIError name: <SPAN CLASS="expected">Expected: [Error object or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(uriErrName);</SCRIPT></SPAN></P>
+<P>URIError message: <SPAN CLASS="expected">Expected: [Error object or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(uriErrMsg);</SCRIPT></SPAN></P>
+
+<H2>Test 99: EvalError Object</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var evalErr = new EvalError("eval error");
+var evalErrName = evalErr.name;
+var evalErrMsg = evalErr.message;
+//-->
+</SCRIPT>
+<P>new EvalError("eval error")</P>
+<P>EvalError name: <SPAN CLASS="expected">Expected: [Error object or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(evalErrName);</SCRIPT></SPAN></P>
+<P>EvalError message: <SPAN CLASS="expected">Expected: [Error object or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(evalErrMsg);</SCRIPT></SPAN></P>
+
+<H2>Test 100: Strict Equality (===)</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var strict1 = (5 === 5);
+var strict2 = (5 === "5");
+var strict3 = (null === null);
+var strict4 = (null === undefined);
+var strict5 = (true === true);
+var strict6 = (true === 1);
+//-->
+</SCRIPT>
+<P>5 === 5: <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(strict1);</SCRIPT></SPAN></P>
+<P>5 === "5": <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(strict2);</SCRIPT></SPAN></P>
+<P>null === null: <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(strict3);</SCRIPT></SPAN></P>
+<P>null === undefined: <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(strict4);</SCRIPT></SPAN></P>
+<P>true === true: <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(strict5);</SCRIPT></SPAN></P>
+<P>true === 1: <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(strict6);</SCRIPT></SPAN></P>
+
+<H2>Test 101: Strict Inequality (!==)</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var strictNe1 = (5 !== 5);
+var strictNe2 = (5 !== "5");
+var strictNe3 = (null !== null);
+var strictNe4 = (null !== undefined);
+//-->
+</SCRIPT>
+<P>5 !== 5: <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(strictNe1);</SCRIPT></SPAN></P>
+<P>5 !== "5": <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(strictNe2);</SCRIPT></SPAN></P>
+<P>null !== null: <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(strictNe3);</SCRIPT></SPAN></P>
+<P>null !== undefined: <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(strictNe4);</SCRIPT></SPAN></P>
+
+<H2>Test 102: Switch Statement</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var switchValue = 2;
+var switchResult = "none";
+switch (switchValue) {
+    case 1:
+        switchResult = "one";
+        break;
+    case 2:
+        switchResult = "two";
+        break;
+    case 3:
+        switchResult = "three";
+        break;
+    default:
+        switchResult = "default";
+}
+//-->
+</SCRIPT>
+<P>switch (2) { case 1: ... case 2: ... case 3: ... default: ... }</P>
+<P>Result: <SPAN CLASS="expected">Expected: [case result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(switchResult);</SCRIPT></SPAN></P>
+
+<H2>Test 103: Switch Statement with Default</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var switchDefault = "none";
+switch (99) {
+    case 1:
+        switchDefault = "one";
+        break;
+    case 2:
+        switchDefault = "two";
+        break;
+    default:
+        switchDefault = "default";
+}
+//-->
+</SCRIPT>
+<P>switch (99) with default case</P>
+<P>Result: <SPAN CLASS="expected">Expected: [case result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(switchDefault);</SCRIPT></SPAN></P>
+
+<H2>Test 104: Switch Statement Fall-Through</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var switchFall = "none";
+switch (1) {
+    case 1:
+        switchFall = "one";
+    case 2:
+        switchFall = switchFall + ", two";
+        break;
+    default:
+        switchFall = "default";
+}
+//-->
+</SCRIPT>
+<P>switch (1) with fall-through</P>
+<P>Result: <SPAN CLASS="expected">Expected: [case result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(switchFall);</SCRIPT></SPAN></P>
+
+<H2>Test 105: Labeled Statements</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var labelResult = "";
+outer: for (var i = 0; i < 3; i++) {
+    inner: for (var j = 0; j < 3; j++) {
+        if (j == 1) {
+            break inner;
+        }
+        labelResult = labelResult + i + "," + j + " ";
+    }
+}
+//-->
+</SCRIPT>
+<P>Labeled loops with break</P>
+<P>Result: <SPAN CLASS="expected">Expected: [loop result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(labelResult);</SCRIPT></SPAN></P>
+
+<H2>Test 106: Labeled Break</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var breakLabel = "";
+outer: for (var i = 0; i < 3; i++) {
+    for (var j = 0; j < 3; j++) {
+        if (j == 1 && i == 1) {
+            break outer;
+        }
+        breakLabel = breakLabel + i + "," + j + " ";
+    }
+}
+//-->
+</SCRIPT>
+<P>break outer from inner loop</P>
+<P>Result: <SPAN CLASS="expected">Expected: [loop result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(breakLabel);</SCRIPT></SPAN></P>
+
+<H2>Test 107: Labeled Continue</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var continueLabel = "";
+outer: for (var i = 0; i < 3; i++) {
+    for (var j = 0; j < 3; j++) {
+        if (j == 1) {
+            continue outer;
+        }
+        continueLabel = continueLabel + i + "," + j + " ";
+    }
+}
+//-->
+</SCRIPT>
+<P>continue outer from inner loop</P>
+<P>Result: <SPAN CLASS="expected">Expected: [loop result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(continueLabel);</SCRIPT></SPAN></P>
+
+<H2>Test 108: Number toFixed</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var num1 = 3.14159;
+var fixed1 = num1.toFixed(2);
+var fixed2 = num1.toFixed(0);
+var fixed3 = num1.toFixed(5);
+var num2 = 42;
+var fixed4 = num2.toFixed(2);
+//-->
+</SCRIPT>
+<P>3.14159.toFixed(2): <SPAN CLASS="expected">Expected: [formatted number string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(fixed1);</SCRIPT></SPAN></P>
+<P>3.14159.toFixed(0): <SPAN CLASS="expected">Expected: [formatted number string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(fixed2);</SCRIPT></SPAN></P>
+<P>3.14159.toFixed(5): <SPAN CLASS="expected">Expected: [formatted number string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(fixed3);</SCRIPT></SPAN></P>
+<P>42.toFixed(2): <SPAN CLASS="expected">Expected: [formatted number string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(fixed4);</SCRIPT></SPAN></P>
+
+<H2>Test 109: Number Constants</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var maxVal = Number.MAX_VALUE;
+var minVal = Number.MIN_VALUE;
+var nan = Number.NaN;
+var posInf = Number.POSITIVE_INFINITY;
+var negInf = Number.NEGATIVE_INFINITY;
+//-->
+</SCRIPT>
+<P>Number.MAX_VALUE: <SPAN CLASS="expected">Expected: [number constant]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(maxVal);</SCRIPT></SPAN></P>
+<P>Number.MIN_VALUE: <SPAN CLASS="expected">Expected: [number constant]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(minVal);</SCRIPT></SPAN></P>
+<P>Number.NaN: <SPAN CLASS="expected">Expected: [number constant]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(nan);</SCRIPT></SPAN></P>
+<P>Number.POSITIVE_INFINITY: <SPAN CLASS="expected">Expected: [number constant]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(posInf);</SCRIPT></SPAN></P>
+<P>Number.NEGATIVE_INFINITY: <SPAN CLASS="expected">Expected: [number constant]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(negInf);</SCRIPT></SPAN></P>
+
+<H2>Test 110: Array splice</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var arr1 = new Array(1, 2, 3, 4, 5);
+var removed1 = arr1.splice(1, 2);
+var splice1Str = arr1.join(", ");
+var arr2 = new Array("a", "b", "c", "d");
+arr2.splice(1, 1, "x", "y");
+var splice2Str = arr2.join(", ");
+//-->
+</SCRIPT>
+<P>Array: [1, 2, 3, 4, 5]</P>
+<P>After splice(1, 2): <SPAN CLASS="expected">Expected: 1, 4, 5</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(splice1Str);</SCRIPT></SPAN></P>
+<P>Removed: <SPAN CLASS="expected">Expected: 2, 3</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(removed1.join(", "));</SCRIPT></SPAN></P>
+<P>Array: ["a", "b", "c", "d"]</P>
+<P>After splice(1, 1, "x", "y"): <SPAN CLASS="expected">Expected: a, x, y, c, d</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(splice2Str);</SCRIPT></SPAN></P>
+
+<H2>Test 111: String fromCharCode</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var str1 = String.fromCharCode(65, 66, 67);
+var str2 = String.fromCharCode(72, 101, 108, 108, 111);
+//-->
+</SCRIPT>
+<P>String.fromCharCode(65, 66, 67): <SPAN CLASS="expected">Expected: [string from char codes]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(str1);</SCRIPT></SPAN></P>
+<P>String.fromCharCode(72, 101, 108, 108, 111): <SPAN CLASS="expected">Expected: [string from char codes]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(str2);</SCRIPT></SPAN></P>
+
+<H2>Test 112: String localeCompare</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var str1 = "apple";
+var str2 = "banana";
+var str3 = "apple";
+var comp1 = str1.localeCompare(str2);
+var comp2 = str2.localeCompare(str1);
+var comp3 = str1.localeCompare(str3);
+//-->
+</SCRIPT>
+<P>"apple".localeCompare("banana"): <SPAN CLASS="expected">Expected: [number: -1, 0, or 1]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(comp1);</SCRIPT></SPAN></P>
+<P>"banana".localeCompare("apple"): <SPAN CLASS="expected">Expected: [number: -1, 0, or 1]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(comp2);</SCRIPT></SPAN></P>
+<P>"apple".localeCompare("apple"): <SPAN CLASS="expected">Expected: [number: -1, 0, or 1]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(comp3);</SCRIPT></SPAN></P>
+
+<H2>Test 113: Function call Method</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+function greet(name) {
+    return "Hello, " + name;
+}
+var obj = new Object();
+obj.name = "World";
+var callResult = greet.call(obj, "John");
+var callResult2 = greet.call(null, "Jane");
+//-->
+</SCRIPT>
+<P>function greet(name) { return "Hello, " + name; }</P>
+<P>greet.call(obj, "John"): <SPAN CLASS="expected">Expected: [return value]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(callResult);</SCRIPT></SPAN></P>
+<P>greet.call(null, "Jane"): <SPAN CLASS="expected">Expected: [return value]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(callResult2);</SCRIPT></SPAN></P>
+
+<H2>Test 114: Function apply Method</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+function sum(a, b, c) {
+    return a + b + c;
+}
+var arr = new Array(1, 2, 3);
+var applyResult = sum.apply(null, arr);
+var applyResult2 = sum.apply(null, [10, 20, 30]);
+//-->
+</SCRIPT>
+<P>function sum(a, b, c) { return a + b + c; }</P>
+<P>sum.apply(null, [1, 2, 3]): <SPAN CLASS="expected">Expected: [return value]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(applyResult);</SCRIPT></SPAN></P>
+<P>sum.apply(null, [10, 20, 30]): <SPAN CLASS="expected">Expected: [return value]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(applyResult2);</SCRIPT></SPAN></P>
+
+<H2>Test 115: Function call with This</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var obj = new Object();
+obj.value = 100;
+function getValue() {
+    return this.value;
+}
+var callThis = getValue.call(obj);
+//-->
+</SCRIPT>
+<P>obj.value = 100, function getValue() { return this.value; }</P>
+<P>getValue.call(obj): <SPAN CLASS="expected">Expected: [return value]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(callThis);</SCRIPT></SPAN></P>
+
+<H2>Test 116: Boolean Constructor</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var bool1 = new Boolean(true);
+var bool2 = new Boolean(false);
+var bool3 = new Boolean(1);
+var bool4 = new Boolean(0);
+var bool1Val = bool1.valueOf();
+var bool2Val = bool2.valueOf();
+//-->
+</SCRIPT>
+<P>new Boolean(true): <SPAN CLASS="expected">Expected: true</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(bool1Val);</SCRIPT></SPAN></P>
+<P>new Boolean(false): <SPAN CLASS="expected">Expected: false</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(bool2Val);</SCRIPT></SPAN></P>
+<P>new Boolean(1): <SPAN CLASS="expected">Expected: true</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(bool3.valueOf());</SCRIPT></SPAN></P>
+<P>new Boolean(0): <SPAN CLASS="expected">Expected: false</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(bool4.valueOf());</SCRIPT></SPAN></P>
+
+<H2>Test 117: Number Constructor</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var num1 = new Number(42);
+var num2 = new Number(3.14);
+var num1Val = num1.valueOf();
+var num2Val = num2.valueOf();
+var num1Str = num1.toString();
+//-->
+</SCRIPT>
+<P>new Number(42).valueOf(): <SPAN CLASS="expected">Expected: [primitive value]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(num1Val);</SCRIPT></SPAN></P>
+<P>new Number(3.14).valueOf(): <SPAN CLASS="expected">Expected: [primitive value]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(num2Val);</SCRIPT></SPAN></P>
+<P>new Number(42).toString(): <SPAN CLASS="expected">Expected: [string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(num1Str);</SCRIPT></SPAN></P>
+
+<H2>Test 118: String Constructor</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var str1 = new String("Hello");
+var str2 = new String(42);
+var str1Val = str1.valueOf();
+var str2Val = str2.valueOf();
+var str1Len = str1.length;
+//-->
+</SCRIPT>
+<P>new String("Hello").valueOf(): <SPAN CLASS="expected">Expected: [primitive value]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(str1Val);</SCRIPT></SPAN></P>
+<P>new String(42).valueOf(): <SPAN CLASS="expected">Expected: [primitive value]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(str2Val);</SCRIPT></SPAN></P>
+<P>new String("Hello").length: <SPAN CLASS="expected">Expected: [number]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(str1Len);</SCRIPT></SPAN></P>
+
+<H2>Test 119: Object Methods - hasOwnProperty</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var obj = new Object();
+obj.name = "John";
+var hasOwn1 = obj.hasOwnProperty("name");
+var hasOwn2 = obj.hasOwnProperty("toString");
+var hasOwn3 = obj.hasOwnProperty("nonexistent");
+//-->
+</SCRIPT>
+<P>obj.name = "John"</P>
+<P>obj.hasOwnProperty("name"): <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(hasOwn1);</SCRIPT></SPAN></P>
+<P>obj.hasOwnProperty("toString"): <SPAN CLASS="expected">Expected: [string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(hasOwn2);</SCRIPT></SPAN></P>
+<P>obj.hasOwnProperty("nonexistent"): <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(hasOwn3);</SCRIPT></SPAN></P>
+
+<H2>Test 120: Object Methods - propertyIsEnumerable</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var obj = new Object();
+obj.name = "John";
+var enum1 = obj.propertyIsEnumerable("name");
+var enum2 = obj.propertyIsEnumerable("toString");
+//-->
+</SCRIPT>
+<P>obj.name = "John"</P>
+<P>obj.propertyIsEnumerable("name"): <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(enum1);</SCRIPT></SPAN></P>
+<P>obj.propertyIsEnumerable("toString"): <SPAN CLASS="expected">Expected: [string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(enum2);</SCRIPT></SPAN></P>
+
+<H2>Test 121: Object Methods - isPrototypeOf</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+function Parent() {}
+function Child() {}
+Child.prototype = new Parent();
+var child = new Child();
+var proto1 = Parent.prototype.isPrototypeOf(child);
+var proto2 = Object.prototype.isPrototypeOf(child);
+//-->
+</SCRIPT>
+<P>Parent.prototype.isPrototypeOf(child): <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(proto1);</SCRIPT></SPAN></P>
+<P>Object.prototype.isPrototypeOf(child): <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(proto2);</SCRIPT></SPAN></P>
+
+<H2>Test 122: More Math Methods - Trigonometric</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var sin1 = Math.sin(0);
+var cos1 = Math.cos(0);
+var tan1 = Math.tan(0);
+var asin1 = Math.asin(0);
+var acos1 = Math.acos(1);
+var atan1 = Math.atan(0);
+var atan21 = Math.atan2(0, 1);
+//-->
+</SCRIPT>
+<P>Math.sin(0): <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(sin1);</SCRIPT></SPAN></P>
+<P>Math.cos(0): <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(cos1);</SCRIPT></SPAN></P>
+<P>Math.tan(0): <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(tan1);</SCRIPT></SPAN></P>
+<P>Math.asin(0): <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(asin1);</SCRIPT></SPAN></P>
+<P>Math.acos(1): <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(acos1);</SCRIPT></SPAN></P>
+<P>Math.atan(0): <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(atan1);</SCRIPT></SPAN></P>
+<P>Math.atan2(0, 1): <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(atan21);</SCRIPT></SPAN></P>
+
+<H2>Test 123: More Math Methods - Logarithmic</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var log1 = Math.log(Math.E);
+var log2 = Math.log(1);
+var exp1 = Math.exp(1);
+var exp2 = Math.exp(0);
+//-->
+</SCRIPT>
+<P>Math.log(Math.E): <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(log1);</SCRIPT></SPAN></P>
+<P>Math.log(1): <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(log2);</SCRIPT></SPAN></P>
+<P>Math.exp(1): <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(exp1);</SCRIPT></SPAN></P>
+<P>Math.exp(0): <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(exp2);</SCRIPT></SPAN></P>
+
+<H2>Test 124: More Math Constants</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var ln2 = Math.LN2;
+var ln10 = Math.LN10;
+var log2e = Math.LOG2E;
+var log10e = Math.LOG10E;
+var sqrt1_2 = Math.SQRT1_2;
+var sqrt2 = Math.SQRT2;
+//-->
+</SCRIPT>
+<P>Math.LN2: <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(ln2);</SCRIPT></SPAN></P>
+<P>Math.LN10: <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(ln10);</SCRIPT></SPAN></P>
+<P>Math.LOG2E: <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(log2e);</SCRIPT></SPAN></P>
+<P>Math.LOG10E: <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(log10e);</SCRIPT></SPAN></P>
+<P>Math.SQRT1_2: <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(sqrt1_2);</SCRIPT></SPAN></P>
+<P>Math.SQRT2: <SPAN CLASS="expected">Expected: [trigonometric/logarithmic result]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(sqrt2);</SCRIPT></SPAN></P>
+
+<H2>Test 125: More Date Methods - Setters</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var date = new Date(2000, 0, 1, 12, 30, 45);
+date.setYear(2001);
+var year1 = date.getYear();
+date.setMonth(5);
+var month1 = date.getMonth();
+date.setDate(15);
+var date1 = date.getDate();
+//-->
+</SCRIPT>
+<P>Date setters</P>
+<P>After setYear(2001), getYear(): <SPAN CLASS="expected">Expected: [updated date value]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(year1);</SCRIPT></SPAN></P>
+<P>After setMonth(5), getMonth(): <SPAN CLASS="expected">Expected: [updated date value]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(month1);</SCRIPT></SPAN></P>
+<P>After setDate(15), getDate(): <SPAN CLASS="expected">Expected: [number or date string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(date1);</SCRIPT></SPAN></P>
+
+<H2>Test 126: Date parse Method</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var parsed = Date.parse("2000-01-01");
+var parsedType = typeof parsed;
+//-->
+</SCRIPT>
+<P>Date.parse("2000-01-01"): <SPAN CLASS="expected">Expected: [number or date string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(parsed);</SCRIPT></SPAN></P>
+<P>Type: <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(parsedType);</SCRIPT></SPAN></P>
+
+<H2>Test 127: Global isFinite Function</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var finite1 = isFinite(42);
+var finite2 = isFinite(Infinity);
+var finite3 = isFinite(-Infinity);
+var finite4 = isFinite(NaN);
+var finite5 = isFinite("42");
+//-->
+</SCRIPT>
+<P>isFinite(42): <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(finite1);</SCRIPT></SPAN></P>
+<P>isFinite(Infinity): <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(finite2);</SCRIPT></SPAN></P>
+<P>isFinite(-Infinity): <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(finite3);</SCRIPT></SPAN></P>
+<P>isFinite(NaN): <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(finite4);</SCRIPT></SPAN></P>
+<P>isFinite("42"): <SPAN CLASS="expected">Expected: [boolean]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(finite5);</SCRIPT></SPAN></P>
+
+<H2>Test 128: parseInt with Radix</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var int1 = parseInt("10", 10);
+var int2 = parseInt("10", 2);
+var int3 = parseInt("10", 8);
+var int4 = parseInt("10", 16);
+var int5 = parseInt("FF", 16);
+//-->
+</SCRIPT>
+<P>parseInt("10", 10): <SPAN CLASS="expected">Expected: [parsed number]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(int1);</SCRIPT></SPAN></P>
+<P>parseInt("10", 2): <SPAN CLASS="expected">Expected: [parsed number]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(int2);</SCRIPT></SPAN></P>
+<P>parseInt("10", 8): <SPAN CLASS="expected">Expected: [parsed number]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(int3);</SCRIPT></SPAN></P>
+<P>parseInt("10", 16): <SPAN CLASS="expected">Expected: [parsed number]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(int4);</SCRIPT></SPAN></P>
+<P>parseInt("FF", 16): <SPAN CLASS="expected">Expected: [parsed number]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(int5);</SCRIPT></SPAN></P>
+
+<H2>Test 129: More String Methods - slice</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var str = "Hello World";
+var slice1 = str.slice(0, 5);
+var slice2 = str.slice(6);
+var slice3 = str.slice(-5);
+var slice4 = str.slice(0, -6);
+//-->
+</SCRIPT>
+<P>String: "Hello World"</P>
+<P>slice(0, 5): <SPAN CLASS="expected">Expected: [array or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(slice1);</SCRIPT></SPAN></P>
+<P>slice(6): <SPAN CLASS="expected">Expected: [array or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(slice2);</SCRIPT></SPAN></P>
+<P>slice(-5): <SPAN CLASS="expected">Expected: [array or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(slice3);</SCRIPT></SPAN></P>
+<P>slice(0, -6): <SPAN CLASS="expected">Expected: [array or string]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(slice4);</SCRIPT></SPAN></P>
+
+<H2>Test 130: More String Methods - substr</H2>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+var str = "Hello World";
+var substr1 = str.substr(0, 5);
+var substr2 = str.substr(6);
+var substr3 = str.substr(6, 3);
+//-->
+</SCRIPT>
+<P>String: "Hello World"</P>
+<P>substr(0, 5): <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(substr1);</SCRIPT></SPAN></P>
+<P>substr(6): <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(substr2);</SCRIPT></SPAN></P>
+<P>substr(6, 3): <SPAN CLASS="expected">Expected: [see test code above]</SPAN> | Actual: <SPAN CLASS="actual"><SCRIPT LANGUAGE="JavaScript">document.write(substr3);</SCRIPT></SPAN></P>
 
 </BODY>
 </HTML>

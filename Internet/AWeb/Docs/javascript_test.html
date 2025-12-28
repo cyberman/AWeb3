@@ -249,7 +249,7 @@ function onMouseOut() {
 }
 
 // ECMAScript 3 Features Tests - COMMENTED OUT (JS 1.5 features not yet implemented)
-/*
+
 function testTryCatch() {
     var result = "Try/Catch Test:\n";
     try {
@@ -434,7 +434,7 @@ function testObjectMethods() {
     result += "Object.prototype.isPrototypeOf(obj): " + Object.prototype.isPrototypeOf(obj) + "\n";
     window.alert(result);
 }
-*/
+
 
 // Formless Input Tests
 function testFormlessInput() {
@@ -447,6 +447,353 @@ function testImageOnclick() {
 
 function testObjectOnclick() {
     window.alert("Object onclick handler works! This demonstrates onclick support for OBJECT tags.");
+}
+
+// Location.replace() Test
+function testLocationReplace() {
+    if (window.confirm("This will navigate away from this page. Continue?")) {
+        location.replace("javascript_test.html");
+    }
+}
+
+// Document.cookie Test
+function testCookie() {
+    document.cookie = "testcookie=testvalue; path=/";
+    var cookieValue = document.cookie;
+    window.alert("Cookie test:\nSet cookie: testcookie=testvalue\nRead cookie: " + cookieValue);
+}
+
+// Document.writeln() Test
+function testWriteln() {
+    document.open();
+    document.writeln("<H1>document.writeln() Test</H1>");
+    document.writeln("<P>This line was written with writeln()</P>");
+    document.writeln("<P>This line was also written with writeln()</P>");
+    document.writeln("<P>writeln() adds a newline after each write</P>");
+    document.close();
+}
+
+// Document Collections Test
+function testDocumentCollections() {
+    var info = "Document Collections:\n";
+    info += "Forms: " + document.forms.length + "\n";
+    info += "Links: " + document.links.length + "\n";
+    info += "Images: " + document.images.length + "\n";
+    info += "Anchors: " + document.anchors.length + "\n";
+    info += "Applets: " + document.applets.length + "\n";
+    info += "Embeds: " + document.embeds.length;
+    window.alert(info);
+}
+
+// Form Properties Test
+function testFormProperties() {
+    var form = document.forms[0];
+    if (form) {
+        var info = "Form Properties:\n";
+        info += "Name: " + form.name + "\n";
+        info += "Action: " + form.action + "\n";
+        info += "Method: " + form.method + "\n";
+        info += "Encoding: " + form.encoding + "\n";
+        info += "Target: " + form.target + "\n";
+        info += "Length (elements): " + form.length;
+        window.alert(info);
+    } else {
+        window.alert("No form found on this page");
+    }
+}
+
+// Form Methods Test
+function testFormReset() {
+    var form = document.forms[0];
+    if (form) {
+        form.reset();
+        window.status = "Form reset() method called";
+    }
+}
+
+function testFormSubmit() {
+    if (window.confirm("This will submit the form. Continue?")) {
+        var form = document.forms[0];
+        if (form) {
+            form.submit();
+        }
+    }
+}
+
+// Input Properties and Methods Test
+function testInputProperties() {
+    var form = document.forms[0];
+    if (form && form.elements[0]) {
+        var input = form.elements[0];
+        var info = "Input Properties:\n";
+        info += "Type: " + input.type + "\n";
+        info += "Value: " + input.value + "\n";
+        info += "Default Value: " + input.defaultValue;
+        window.alert(info);
+    }
+}
+
+function testInputMethods() {
+    var form = document.forms[0];
+    if (form && form.elements[0]) {
+        var input = form.elements[0];
+        input.focus();
+        window.status = "Input focus() method called";
+        window.setTimeout(function() {
+            input.select();
+            window.status = "Input select() method called";
+        }, 1000);
+    }
+}
+
+// Select Properties Test
+function testSelectProperties() {
+    var form = document.forms[0];
+    if (form) {
+        for (var i = 0; i < form.elements.length; i++) {
+            if (form.elements[i].tagName && form.elements[i].tagName.toLowerCase() == "select") {
+                var select = form.elements[i];
+                var info = "Select Properties:\n";
+                info += "Length: " + select.length + "\n";
+                info += "Selected Index: " + select.selectedIndex;
+                window.alert(info);
+                return;
+            }
+        }
+    }
+    window.alert("No SELECT element found in form");
+}
+
+// Option Properties Test
+function testOptionProperties() {
+    var form = document.forms[0];
+    if (form) {
+        for (var i = 0; i < form.elements.length; i++) {
+            if (form.elements[i].tagName && form.elements[i].tagName.toLowerCase() == "select") {
+                var select = form.elements[i];
+                if (select.options && select.options.length > 0) {
+                    var opt = select.options[0];
+                    var info = "Option Properties:\n";
+                    info += "Text: " + opt.text + "\n";
+                    info += "Value: " + opt.value + "\n";
+                    info += "Selected: " + opt.selected + "\n";
+                    info += "Default Selected: " + opt.defaultSelected + "\n";
+                    info += "Index: " + opt.index;
+                    window.alert(info);
+                    return;
+                }
+            }
+        }
+    }
+    window.alert("No OPTION element found in form");
+}
+
+// Image Constructor Test
+function testImageConstructor() {
+    var img = new Image();
+    img.src = "aweb.iff";
+    img.width = 96;
+    img.height = 46;
+    var info = "Image Constructor Test:\n";
+    info += "Image object created\n";
+    info += "src: " + img.src + "\n";
+    info += "width: " + img.width + "\n";
+    info += "height: " + img.height;
+    window.alert(info);
+}
+
+// Window Methods Test
+function testWindowFocus() {
+    window.focus();
+    window.status = "Window focus() method called";
+}
+
+function testWindowBlur() {
+    window.blur();
+    window.status = "Window blur() method called";
+}
+
+function testWindowScroll() {
+    window.scroll(0, 0);
+    window.status = "Window scroll(0, 0) method called";
+}
+
+// String Methods Tests
+function testStringCharCodeAt() {
+    var str = "Hello";
+    var info = "String.charCodeAt() Test:\n";
+    info += "String: " + str + "\n";
+    info += "charCodeAt(0): " + str.charCodeAt(0) + " (H)\n";
+    info += "charCodeAt(1): " + str.charCodeAt(1) + " (e)";
+    window.alert(info);
+}
+
+function testStringConcat() {
+    var str1 = "Hello";
+    var str2 = " World";
+    var result = str1.concat(str2);
+    window.alert("String.concat() Test:\n" + str1 + ".concat(" + str2 + ") = " + result);
+}
+
+function testStringSlice() {
+    var str = "Hello World";
+    var info = "String.slice() Test:\n";
+    info += "Original: " + str + "\n";
+    info += "slice(0, 5): " + str.slice(0, 5) + "\n";
+    info += "slice(6): " + str.slice(6) + "\n";
+    info += "slice(-5): " + str.slice(-5);
+    window.alert(info);
+}
+
+function testStringSubstr() {
+    var str = "Hello World";
+    var info = "String.substr() Test:\n";
+    info += "Original: " + str + "\n";
+    info += "substr(0, 5): " + str.substr(0, 5) + "\n";
+    info += "substr(6): " + str.substr(6) + "\n";
+    info += "substr(6, 3): " + str.substr(6, 3);
+    window.alert(info);
+}
+
+function testStringSplit() {
+    var str = "apple,banana,cherry";
+    var arr = str.split(",");
+    var info = "String.split() Test:\n";
+    info += "Original: " + str + "\n";
+    info += "split(','): " + arr.join(" | ");
+    window.alert(info);
+}
+
+function testStringSearch() {
+    var str = "Hello World";
+    var pos = str.search("World");
+    window.alert("String.search() Test:\n" + str + ".search('World') = " + pos);
+}
+
+function testStringMatch() {
+    var str = "Hello World";
+    var result = str.match("World");
+    var info = "String.match() Test:\n";
+    info += "String: " + str + "\n";
+    info += "match('World'): " + (result ? result[0] : "null");
+    window.alert(info);
+}
+
+function testStringReplace() {
+    var str = "Hello World";
+    var result = str.replace("World", "JavaScript");
+    window.alert("String.replace() Test:\n" + str + ".replace('World', 'JavaScript') = " + result);
+}
+
+// Array Methods Tests
+function testArrayConcat() {
+    var arr1 = [1, 2, 3];
+    var arr2 = [4, 5, 6];
+    var arr3 = arr1.concat(arr2);
+    window.alert("Array.concat() Test:\n" + 
+                 "arr1: " + arr1.join(", ") + "\n" +
+                 "arr2: " + arr2.join(", ") + "\n" +
+                 "arr1.concat(arr2): " + arr3.join(", "));
+}
+
+function testArrayPopPush() {
+    var arr = [1, 2, 3];
+    var popped = arr.pop();
+    var newLength = arr.push(4, 5);
+    window.alert("Array.pop()/push() Test:\n" +
+                 "After pop(): " + arr.join(", ") + " (popped: " + popped + ")\n" +
+                 "After push(4,5): " + arr.join(", ") + " (length: " + newLength + ")");
+}
+
+function testArrayShiftUnshift() {
+    var arr = [2, 3, 4];
+    var shifted = arr.shift();
+    var newLength = arr.unshift(0, 1);
+    window.alert("Array.shift()/unshift() Test:\n" +
+                 "After shift(): " + arr.join(", ") + " (shifted: " + shifted + ")\n" +
+                 "After unshift(0,1): " + arr.join(", ") + " (length: " + newLength + ")");
+}
+
+function testArraySlice() {
+    var arr = [0, 1, 2, 3, 4, 5];
+    var slice1 = arr.slice(1, 4);
+    var slice2 = arr.slice(-3);
+    window.alert("Array.slice() Test:\n" +
+                 "Original: " + arr.join(", ") + "\n" +
+                 "slice(1,4): " + slice1.join(", ") + "\n" +
+                 "slice(-3): " + slice2.join(", "));
+}
+
+function testArraySplice() {
+    var arr = [0, 1, 2, 3, 4, 5];
+    var removed = arr.splice(2, 2, 'a', 'b');
+    window.alert("Array.splice() Test:\n" +
+                 "After splice(2,2,'a','b'): " + arr.join(", ") + "\n" +
+                 "Removed: " + removed.join(", "));
+}
+
+// Date Methods Tests
+function testDateSetMethods() {
+    var date = new Date();
+    date.setYear(2025);
+    date.setMonth(0);
+    date.setDate(15);
+    date.setHours(12);
+    date.setMinutes(30);
+    date.setSeconds(45);
+    var info = "Date Set Methods Test:\n";
+    info += "Set to: 2025-01-15 12:30:45\n";
+    info += "getYear(): " + date.getYear() + "\n";
+    info += "getMonth(): " + date.getMonth() + "\n";
+    info += "getDate(): " + date.getDate() + "\n";
+    info += "getHours(): " + date.getHours() + "\n";
+    info += "getMinutes(): " + date.getMinutes() + "\n";
+    info += "getSeconds(): " + date.getSeconds();
+    window.alert(info);
+}
+
+function testDateGetTimezoneOffset() {
+    var date = new Date();
+    var offset = date.getTimezoneOffset();
+    window.alert("Date.getTimezoneOffset() Test:\n" + 
+                 "Timezone offset: " + offset + " minutes");
+}
+
+function testDateToGMTString() {
+    var date = new Date();
+    var gmtStr = date.toGMTString();
+    window.alert("Date.toGMTString() Test:\n" + gmtStr);
+}
+
+// Math Methods Tests
+function testMathTrig() {
+    var result = "Math Trigonometric Functions:\n";
+    result += "sin(0): " + Math.sin(0) + "\n";
+    result += "cos(0): " + Math.cos(0) + "\n";
+    result += "tan(0): " + Math.tan(0) + "\n";
+    result += "asin(0.5): " + Math.asin(0.5) + "\n";
+    result += "acos(0.5): " + Math.acos(0.5) + "\n";
+    result += "atan(1): " + Math.atan(1) + "\n";
+    result += "atan2(1, 1): " + Math.atan2(1, 1);
+    window.alert(result);
+}
+
+function testMathExpLog() {
+    var result = "Math Exponential/Logarithmic:\n";
+    result += "exp(1): " + Math.exp(1) + "\n";
+    result += "log(Math.E): " + Math.log(Math.E) + "\n";
+    result += "pow(2, 3): " + Math.pow(2, 3) + "\n";
+    result += "sqrt(16): " + Math.sqrt(16);
+    window.alert(result);
+}
+
+// Event Handler Tests
+function testOnUnload() {
+    window.status = "onunload event handler is set (check when leaving page)";
+}
+
+function testOnSelect() {
+    window.status = "onselect event triggered - text was selected";
 }
 
 // Page Load Handler
@@ -476,6 +823,9 @@ window.onload = function() {
 <A HREF="#navigator">Navigator Object</A> |
 <A HREF="#location">Location Object</A> |
 <A HREF="#builtin">Built-in Objects</A> |
+<A HREF="#forms">HTML Forms</A> |
+<A HREF="#windowmethods">Window Methods</A> |
+<A HREF="#image">Image Constructor</A> |
 <A HREF="#events">Event Handlers</A> |
 <A HREF="#compatibility">Compatibility Notes</A>
 </CENTER>
@@ -779,6 +1129,45 @@ This is a test div element. Click the button to test getElementById.
 </TR>
 </TABLE>
 
+<H3>Test 5: document.writeln()</H3>
+<P><STRONG>What it tests:</STRONG> The document.writeln() method writes HTML content to the document with a newline after each write.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test document.writeln()" button below.</P>
+<P><STRONG>Expected results:</STRONG> The current page should be replaced with new content written using writeln(). This is similar to document.write() but adds newlines.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testWriteln()" VALUE="Test document.writeln()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 6: document.cookie</H3>
+<P><STRONG>What it tests:</STRONG> The document.cookie property for reading and writing cookies.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test document.cookie" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that a cookie was set and then read back. The cookie value should match what was set.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testCookie()" VALUE="Test document.cookie">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 7: Document Collections (anchors, applets, embeds)</H3>
+<P><STRONG>What it tests:</STRONG> The document.anchors[], document.applets[], and document.embeds[] arrays.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Document Collections" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the count of forms, links, images, anchors, applets, and embeds on the page.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testDocumentCollections()" VALUE="Test Document Collections">
+</TD>
+</TR>
+</TABLE>
+
 <H3>Not Supported</H3>
 <UL>
 <LI>Full DOM Level 1 implementation - Very limited</LI>
@@ -947,6 +1336,19 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
+<H3>Test 4: location.replace()</H3>
+<P><STRONG>What it tests:</STRONG> The location.replace() method replaces the current page in history (doesn't create a new history entry).</P>
+<P><STRONG>How to run:</STRONG> Click the "Test location.replace()" button below.</P>
+<P><STRONG>Expected results:</STRONG> A confirmation dialog should appear. If you click OK, the page should reload using replace() instead of reload(). This means the back button won't go to the previous page.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testLocationReplace()" VALUE="Test location.replace()">
+</TD>
+</TR>
+</TABLE>
+
 <P><A HREF="#top">Back to top</A></P>
 
 <HR>
@@ -978,6 +1380,110 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
+<H3>Test 1a: String.charCodeAt()</H3>
+<P><STRONG>What it tests:</STRONG> The String.charCodeAt() method returns the Unicode value of a character at a given position.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test String.charCodeAt()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the character codes for characters at positions 0 and 1.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testStringCharCodeAt()" VALUE="Test String.charCodeAt()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 1b: String.concat()</H3>
+<P><STRONG>What it tests:</STRONG> The String.concat() method concatenates strings together.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test String.concat()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that two strings were concatenated.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testStringConcat()" VALUE="Test String.concat()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 1c: String.slice()</H3>
+<P><STRONG>What it tests:</STRONG> The String.slice() method extracts a portion of a string.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test String.slice()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that slice() extracted portions of the string, including negative index support.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testStringSlice()" VALUE="Test String.slice()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 1d: String.substr()</H3>
+<P><STRONG>What it tests:</STRONG> The String.substr() method extracts a substring starting at a position with a specified length.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test String.substr()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that substr() extracted substrings from the string.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testStringSubstr()" VALUE="Test String.substr()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 1e: String.split()</H3>
+<P><STRONG>What it tests:</STRONG> The String.split() method splits a string into an array of substrings.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test String.split()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that split() converted a comma-separated string into an array.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testStringSplit()" VALUE="Test String.split()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 1f: String.search()</H3>
+<P><STRONG>What it tests:</STRONG> The String.search() method searches for a pattern in a string.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test String.search()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the position where the search pattern was found.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testStringSearch()" VALUE="Test String.search()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 1g: String.match()</H3>
+<P><STRONG>What it tests:</STRONG> The String.match() method matches a pattern in a string.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test String.match()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the matched substring.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testStringMatch()" VALUE="Test String.match()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 1h: String.replace()</H3>
+<P><STRONG>What it tests:</STRONG> The String.replace() method replaces occurrences of a pattern in a string.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test String.replace()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that "World" was replaced with "JavaScript" in the string.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testStringReplace()" VALUE="Test String.replace()">
+</TD>
+</TR>
+</TABLE>
+
 <H3>Test 2: Array Object Methods (Basic)</H3>
 <P><STRONG>What it tests:</STRONG> Array object methods including length, join(), reverse(), and sort().</P>
 <P><STRONG>How to run:</STRONG> Click the "Test Array Methods" button below.</P>
@@ -994,6 +1500,71 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 <TD>
 <STRONG>Test:</STRONG><BR>
 <INPUT TYPE="button" ONCLICK="testArrayMethods()" VALUE="Test Array Methods">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2a: Array.concat()</H3>
+<P><STRONG>What it tests:</STRONG> The Array.concat() method that concatenates arrays.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Array.concat()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that two arrays [1,2,3] and [4,5,6] were concatenated into [1,2,3,4,5,6].</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testArrayConcat()" VALUE="Test Array.concat()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2b: Array.pop() and Array.push()</H3>
+<P><STRONG>What it tests:</STRONG> The Array.pop() method removes and returns the last element, and Array.push() adds elements to the end.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Array.pop()/push()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that pop() removed the last element and push() added new elements, returning the new length.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testArrayPopPush()" VALUE="Test Array.pop()/push()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2c: Array.shift() and Array.unshift()</H3>
+<P><STRONG>What it tests:</STRONG> The Array.shift() method removes and returns the first element, and Array.unshift() adds elements to the beginning.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Array.shift()/unshift()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that shift() removed the first element and unshift() added new elements to the beginning, returning the new length.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testArrayShiftUnshift()" VALUE="Test Array.shift()/unshift()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2d: Array.slice()</H3>
+<P><STRONG>What it tests:</STRONG> The Array.slice() method extracts a portion of an array without modifying the original.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Array.slice()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that slice() extracted elements from the array, including negative index support.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testArraySlice()" VALUE="Test Array.slice()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2e: Array.splice()</H3>
+<P><STRONG>What it tests:</STRONG> The Array.splice() method removes and/or inserts elements at a specific position.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Array.splice()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that splice() removed elements and inserted new ones, returning the removed elements.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testArraySplice()" VALUE="Test Array.splice()">
 </TD>
 </TR>
 </TABLE>
@@ -1117,6 +1688,32 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
+<H3>Test 3a: Math Trigonometric Functions</H3>
+<P><STRONG>What it tests:</STRONG> Math trigonometric methods including sin(), cos(), tan(), asin(), acos(), atan(), and atan2().</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Math Trig Functions" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the results of various trigonometric calculations.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testMathTrig()" VALUE="Test Math Trig Functions">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 3b: Math Exponential/Logarithmic Functions</H3>
+<P><STRONG>What it tests:</STRONG> Math exponential and logarithmic methods including exp(), log(), pow(), and sqrt().</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Math Exp/Log Functions" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the results of exponential and logarithmic calculations.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testMathExpLog()" VALUE="Test Math Exp/Log Functions">
+</TD>
+</TR>
+</TABLE>
+
 <H3>Test 4: Date Object</H3>
 <P><STRONG>What it tests:</STRONG> Date object creation and methods including getTime(), getYear(), getMonth(), getDate(), getDay(), getHours(), and getMinutes().</P>
 <P><STRONG>How to run:</STRONG> Click the "Test Date Object" button below.</P>
@@ -1141,6 +1738,45 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 </TR>
 </TABLE>
 
+<H3>Test 4a: Date Set Methods</H3>
+<P><STRONG>What it tests:</STRONG> Date setter methods including setYear(), setMonth(), setDate(), setHours(), setMinutes(), and setSeconds().</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Date Set Methods" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that the date was set to specific values and then retrieved.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testDateSetMethods()" VALUE="Test Date Set Methods">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 4b: Date.getTimezoneOffset()</H3>
+<P><STRONG>What it tests:</STRONG> The Date.getTimezoneOffset() method returns the timezone offset in minutes.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Date.getTimezoneOffset()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the timezone offset in minutes.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testDateGetTimezoneOffset()" VALUE="Test Date.getTimezoneOffset()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 4c: Date.toGMTString()</H3>
+<P><STRONG>What it tests:</STRONG> The Date.toGMTString() method converts a date to a GMT string.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Date.toGMTString()" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the date as a GMT string.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testDateToGMTString()" VALUE="Test Date.toGMTString()">
+</TD>
+</TR>
+</TABLE>
+
 <H3>Not Supported</H3>
 <UL>
 <LI>RegExp object - Regular expressions not supported</LI>
@@ -1148,6 +1784,163 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 <LI>Modern Array methods (forEach, map, filter, reduce, etc.) - Not supported</LI>
 <LI>Advanced String methods (split, replace, match, etc.) - Limited or not supported</LI>
 </UL>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="forms"></A>
+<H2>HTML Forms</H2>
+
+<H3>Test 1: Form Properties</H3>
+<P><STRONG>What it tests:</STRONG> Form object properties including name, action, method, encoding, target, and length.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Form Properties" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the values of all form properties for the first form on the page.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testFormProperties()" VALUE="Test Form Properties">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2: Form Methods</H3>
+<P><STRONG>What it tests:</STRONG> Form object methods including reset() and submit().</P>
+<P><STRONG>How to run:</STRONG> Click either the "Test Form.reset()" or "Test Form.submit()" button below.</P>
+<P><STRONG>Expected results:</STRONG> 
+<UL>
+<LI>reset(): The form fields should be reset to their default values.</LI>
+<LI>submit(): A confirmation dialog should appear, and if confirmed, the form should be submitted.</LI>
+</UL>
+</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testFormReset()" VALUE="Test Form.reset()">
+<INPUT TYPE="button" ONCLICK="testFormSubmit()" VALUE="Test Form.submit()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 3: Input Properties</H3>
+<P><STRONG>What it tests:</STRONG> Input object properties including type, value, and defaultValue.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Input Properties" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the type, value, and defaultValue of the first input field in the form.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testInputProperties()" VALUE="Test Input Properties">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 4: Input Methods</H3>
+<P><STRONG>What it tests:</STRONG> Input object methods including focus(), blur(), and select().</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Input Methods" button below.</P>
+<P><STRONG>Expected results:</STRONG> The first input field should receive focus, and after 1 second, its text should be selected. Check the status bar for messages.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testInputMethods()" VALUE="Test Input Methods">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 5: Select Properties</H3>
+<P><STRONG>What it tests:</STRONG> Select object properties including length and selectedIndex.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Select Properties" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the length and selectedIndex of the first SELECT element in the form.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testSelectProperties()" VALUE="Test Select Properties">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 6: Option Properties</H3>
+<P><STRONG>What it tests:</STRONG> Option object properties including text, value, selected, defaultSelected, and index.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Option Properties" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the properties of the first option in the first SELECT element.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testOptionProperties()" VALUE="Test Option Properties">
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="windowmethods"></A>
+<H2>Window Methods</H2>
+
+<H3>Test 1: window.focus()</H3>
+<P><STRONG>What it tests:</STRONG> The window.focus() method brings the window to the front and gives it focus.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test window.focus()" button below.</P>
+<P><STRONG>Expected results:</STRONG> The window should receive focus and the status bar should show "Window focus() method called".</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testWindowFocus()" VALUE="Test window.focus()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 2: window.blur()</H3>
+<P><STRONG>What it tests:</STRONG> The window.blur() method removes focus from the window.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test window.blur()" button below.</P>
+<P><STRONG>Expected results:</STRONG> The window should lose focus and the status bar should show "Window blur() method called".</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testWindowBlur()" VALUE="Test window.blur()">
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 3: window.scroll()</H3>
+<P><STRONG>What it tests:</STRONG> The window.scroll() method scrolls the window to a specific position.</P>
+<P><STRONG>How to run:</STRONG> Scroll down the page, then click the "Test window.scroll()" button below.</P>
+<P><STRONG>Expected results:</STRONG> The window should scroll to the top (position 0,0) and the status bar should show "Window scroll(0, 0) method called".</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testWindowScroll()" VALUE="Test window.scroll()">
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top">Back to top</A></P>
+
+<HR>
+
+<A NAME="image"></A>
+<H2>Image Constructor</H2>
+
+<H3>Test 1: Image() Constructor</H3>
+<P><STRONG>What it tests:</STRONG> The Image() constructor creates a new Image object that can be used to preload images.</P>
+<P><STRONG>How to run:</STRONG> Click the "Test Image Constructor" button below.</P>
+<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that an Image object was created with properties for src, width, and height.</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<INPUT TYPE="button" ONCLICK="testImageConstructor()" VALUE="Test Image Constructor">
+</TD>
+</TR>
+</TABLE>
 
 <P><A HREF="#top">Back to top</A></P>
 
@@ -1241,7 +2034,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 <TD>
 <STRONG>Test:</STRONG><BR>
 <FORM METHOD="POST" ACTION="test.cgi" ONSUBMIT="return validateForm()" ONRESET="window.alert('Form reset!')">
-<P>Name: <INPUT TYPE="text" NAME="name" VALUE="" SIZE="30" ONCHANGE="onInputChange(this)" ONFOCUS="onInputFocus(this)" ONBLUR="onInputBlur(this)"></P>
+<P>Name: <INPUT TYPE="text" NAME="name" VALUE="" SIZE="30" ONCHANGE="onInputChange(this)" ONFOCUS="onInputFocus(this)" ONBLUR="onInputBlur(this)" ONSELECT="testOnSelect()"></P>
 <P>
 <INPUT TYPE="submit" VALUE="Submit Form">
 <INPUT TYPE="reset" VALUE="Reset Form">
@@ -1255,6 +2048,35 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 <P><STRONG>What it tests:</STRONG> The ONLOAD event handler that triggers when the page finishes loading.</P>
 <P><STRONG>How to run:</STRONG> This test runs automatically when the page loads. Check the status bar.</P>
 <P><STRONG>Expected results:</STRONG> When the page loads, the status bar should show "JavaScript 1.1 Test Page Loaded" (set by the BODY ONLOAD attribute).</P>
+
+<H3>Test 7: ONUNLOAD</H3>
+<P><STRONG>What it tests:</STRONG> The ONUNLOAD event handler that triggers when the page is unloaded (user navigates away).</P>
+<P><STRONG>How to run:</STRONG> Navigate away from this page (click a link or use the back button).</P>
+<P><STRONG>Expected results:</STRONG> When you leave the page, the onunload handler should execute. Check the status bar or look for any alert that appears.</P>
+<SCRIPT LANGUAGE="JavaScript">
+<!--
+window.onunload = testOnUnload;
+//-->
+</SCRIPT>
+
+<H3>Test 8: ONERROR and ONABORT (Image Events)</H3>
+<P><STRONG>What it tests:</STRONG> The ONERROR and ONABORT event handlers for image loading errors and aborts.</P>
+<P><STRONG>How to run:</STRONG> The test image below has onerror and onabort handlers. If the image fails to load, onerror will trigger. If loading is aborted, onabort will trigger.</P>
+<P><STRONG>Expected results:</STRONG> If the image fails to load, an alert should appear saying "Image onerror handler triggered". If loading is aborted, an alert should appear saying "Image onabort handler triggered".</P>
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<IMG SRC="nonexistent.iff" WIDTH="96" HEIGHT="46" ALT="(test image)" ONERROR="window.alert('Image onerror handler triggered')" ONABORT="window.alert('Image onabort handler triggered')">
+<BR><SMALL>This image may not exist, triggering onerror</SMALL>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Test 9: ONSELECT</H3>
+<P><STRONG>What it tests:</STRONG> The ONSELECT event handler that triggers when text in an input field is selected.</P>
+<P><STRONG>How to run:</STRONG> Select text in the input field in Test 5 above (click and drag to select).</P>
+<P><STRONG>Expected results:</STRONG> When you select text in the input field, the status bar should show "onselect event triggered - text was selected".</P>
 
 <H3>Partially Supported</H3>
 <UL>
