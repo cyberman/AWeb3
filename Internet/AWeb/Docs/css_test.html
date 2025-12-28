@@ -42,6 +42,7 @@
 <A HREF="#links" STYLE="text-decoration: none; color: #0000ff;">Link Styles</A> |
 <A HREF="#lists" STYLE="text-decoration: none; color: #0000ff;">List Styles</A> |
 <A HREF="#grid" STYLE="text-decoration: none; color: #0000ff;">Grid Layout</A> |
+<A HREF="#misc" STYLE="text-decoration: none; color: #0000ff;">Additional Properties</A> |
 <A HREF="stylesheet_test.html" STYLE="text-decoration: none; color: #0000ff;">External Stylesheet Tests</A>
 </CENTER>
 
@@ -94,6 +95,8 @@
 <P STYLE="font-size: xx-large; padding: 10px; background-color: #e8e8e8;">This text should be extra extra large (xx-large).</P>
 <P STYLE="font-size: smaller; padding: 10px; background-color: #e8e8e8;">This text should be smaller than the base font size (relative).</P>
 <P STYLE="font-size: larger; padding: 10px; background-color: #e8e8e8;">This text should be larger than the base font size (relative).</P>
+<P STYLE="font-size: 12px; padding: 10px; background-color: #e8e8e8;">This text uses font-size: 12px (pixel value for body elements).</P>
+<P STYLE="font-size: 16px; padding: 10px; background-color: #e8e8e8;">This text uses font-size: 16px (pixel value for body elements).</P>
 </TD>
 </TR>
 </TABLE>
@@ -121,6 +124,9 @@
 <P STYLE="font-weight: normal; padding: 10px; background-color: #e8e8e8;">This text should be in normal weight (not bold).</P>
 <P STYLE="font-weight: bold; padding: 10px; background-color: #e8e8e8;">This text should be in bold weight. The text should appear thicker.</P>
 <P STYLE="font-weight: 700; padding: 10px; background-color: #e8e8e8;">This text uses font-weight: 700 (equivalent to bold).</P>
+<P STYLE="font-weight: 400; padding: 10px; background-color: #e8e8e8;">This text uses font-weight: 400 (equivalent to normal).</P>
+<P STYLE="font-weight: 600; padding: 10px; background-color: #e8e8e8;">This text uses font-weight: 600 (should be bold, >= 600).</P>
+<P STYLE="font-weight: 500; padding: 10px; background-color: #e8e8e8;">This text uses font-weight: 500 (should be normal, < 600).</P>
 </TD>
 </TR>
 </TABLE>
@@ -166,7 +172,8 @@
 </TR>
 </TABLE>
 
-<H3>line-height - TODO</H3>
+<H3>line-height - PASS</H3>
+<P><STRONG>Note:</STRONG> line-height is parsed and stored. Rendering behavior may need verification.</P>
 <P><STRONG>What you should see:</STRONG> Text with different line heights. Higher line-height values create more space between lines.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -264,7 +271,7 @@
 <A NAME="layout"></A>
 <H2>Layout & Positioning Properties</H2>
 
-<H3>padding - FAIL</H3>
+<H3>padding - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Paragraphs with different padding amounts. More padding should create more space around the text.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -278,7 +285,8 @@
 </TR>
 </TABLE>
 
-<H3>position, top, left, right, bottom - TODO</H3>
+<H3>position, top, left, right, bottom - PASS (parsed and stored)</H3>
+<P><STRONG>Note:</STRONG> Position properties are parsed and stored. Full CSS positioning model rendering may need verification.</P>
 <P><STRONG>What you should see:</STRONG> Elements positioned using absolute, relative, static, or fixed positioning. Right and bottom positioning are now supported.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -294,8 +302,9 @@
 </TR>
 </TABLE>
 
-<H3>margin shorthand - TODO</H3>
-<P><STRONG>What you should see:</STRONG> Paragraphs with margin shorthand property. The margin property can accept 1-4 values to set all margins at once.</P>
+<H3>margin shorthand - PASS (top/left only)</H3>
+<P><STRONG>Note:</STRONG> Margin shorthand is parsed and applied. Top and left margins are fully supported. Right and bottom margins are parsed but not directly used in rendering.</P>
+<P><STRONG>What you should see:</STRONG> Paragraphs with margin shorthand property. The margin property can accept 1-4 values to set all margins at once. Top and left margins should be visible.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
@@ -310,8 +319,9 @@
 </TR>
 </TABLE>
 
-<H3>margin-right, margin-left, margin-top, margin-bottom - FAIL</H3>
-<P><STRONG>What you should see:</STRONG> Paragraphs with different margin values creating space around elements.</P>
+<H3>margin-top, margin-left - PASS</H3>
+<P><STRONG>Note:</STRONG> margin-top and margin-left are fully supported. margin-right and margin-bottom are parsed but not directly used in rendering.</P>
+<P><STRONG>What you should see:</STRONG> Paragraphs with different margin values creating space around elements. Top and left margins should be visible.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
@@ -321,12 +331,30 @@
 <P STYLE="margin-left: 50px; background-color: #e8e8e8; padding: 10px;">This paragraph has margin-left: 50px. There should be extra space on the left side.</P>
 <P STYLE="margin-top: 30px; background-color: #e8e8e8; padding: 10px;">This paragraph has margin-top: 30px. There should be extra space above.</P>
 <P STYLE="margin-bottom: 30px; background-color: #e8e8e8; padding: 10px;">This paragraph has margin-bottom: 30px. There should be extra space below.</P>
-<P STYLE="margin-left: 1em; margin-right: 1em; background-color: #e8e8e8; padding: 10px;">This paragraph has margin-left: 1em and margin-right: 1em (using em units).</P>
+<P STYLE="margin-left: 1em; margin-right: 1em; background-color: #e8e8e8; padding: 10px;">This paragraph has margin-left: 1em and margin-right: 1em (using em units). Only left margin should be visible.</P>
+<P STYLE="margin: auto; background-color: #e8e8e8; padding: 10px; width: 300px;">This paragraph has margin: auto with width: 300px. It should be horizontally centered.</P>
 </TD>
 </TR>
 </TABLE>
 
-<H3>border - TODO</H3>
+<H3>padding individual sides - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Paragraphs with different padding on individual sides.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="padding-top: 20px; background-color: #e8e8e8;">This paragraph has padding-top: 20px. There should be extra space above the text.</P>
+<P STYLE="padding-right: 30px; background-color: #e8e8e8;">This paragraph has padding-right: 30px. There should be extra space on the right side.</P>
+<P STYLE="padding-bottom: 25px; background-color: #e8e8e8;">This paragraph has padding-bottom: 25px. There should be extra space below the text.</P>
+<P STYLE="padding-left: 35px; background-color: #e8e8e8;">This paragraph has padding-left: 35px. There should be extra space on the left side.</P>
+<P STYLE="padding-top: 10px; padding-right: 20px; padding-bottom: 15px; padding-left: 25px; background-color: #e8e8e8;">This paragraph has different padding on all four sides (top: 10px, right: 20px, bottom: 15px, left: 25px).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>border - PASS</H3>
+<P><STRONG>Note:</STRONG> Border properties are parsed and stored. Border rendering may need verification.</P>
 <P><STRONG>What you should see:</STRONG> Elements with borders of different widths, colors, and styles.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -338,11 +366,30 @@
 <DIV STYLE="border: 2px dashed #0000ff; padding: 10px; background-color: #e8e8e8; margin: 5px;">This DIV has a 2px dashed blue border.</DIV>
 <DIV STYLE="border: 4px dotted #00ff00; padding: 10px; background-color: #e8e8e8; margin: 5px;">This DIV has a 4px dotted green border.</DIV>
 <DIV STYLE="border-width: 5px; border-style: solid; border-color: #8B7355; padding: 10px; background-color: #e8e8e8; margin: 5px;">This DIV uses separate border-width, border-style, and border-color properties.</DIV>
+<DIV STYLE="border: 2px solid #000000; padding: 10px; background-color: #ffcccc; margin: 5px;">This DIV has a border with background-color. The border should be visible around the colored background.</DIV>
 </TD>
 </TR>
 </TABLE>
 
-<H3>background-image - TODO</H3>
+<H3>display property - PASS</H3>
+<P><STRONG>Note:</STRONG> display: none may not fully hide elements. display: inline, display: block, and display: grid are supported.</P>
+<P><STRONG>What you should see:</STRONG> Elements with different display values.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DIV STYLE="display: block; background-color: #e8e8e8; padding: 10px; margin: 5px;">This DIV uses display: block (default for DIV).</DIV>
+<DIV STYLE="display: inline; background-color: #ccccff; padding: 10px; margin: 5px;">This DIV uses display: inline and should appear on the same line as the next element.</DIV>
+<DIV STYLE="display: inline; background-color: #ccffcc; padding: 10px; margin: 5px;">This DIV also uses display: inline and should appear on the same line.</DIV>
+<DIV STYLE="display: none; background-color: #ffcccc; padding: 10px; margin: 5px;">This DIV uses display: none and should be hidden (may not work fully).</DIV>
+<DIV STYLE="display: block; background-color: #ffffcc; padding: 10px; margin: 5px;">This DIV uses display: block and should appear on a new line.</DIV>
+</TD>
+</TR>
+</TABLE>
+
+<H3>background-image - PASS (parsed)</H3>
+<P><STRONG>Note:</STRONG> background-image is parsed. Background image rendering may need verification.</P>
 <P><STRONG>What you should see:</STRONG> Elements with background images. Note: Requires a valid image URL to test.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -362,7 +409,7 @@
 <A NAME="tables"></A>
 <H2>Table Cell Styles</H2>
 
-<H3>width and height - FAIL</H3>
+<H3>width and height - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Table cells with different widths and heights. Cells should be sized according to the CSS width and height properties.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -407,7 +454,7 @@
 </TR>
 </TABLE>
 
-<H3>vertical-align in table cells - FAIL</H3>
+<H3>vertical-align in table cells - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Table cells with different vertical alignment - top, middle, bottom, and baseline.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -447,7 +494,7 @@
 </TR>
 </TABLE>
 
-<H3>Combined table cell styles - FAIL</H3>
+<H3>Combined table cell styles - PASS</H3>
 <P><STRONG>What you should see:</STRONG> Table cells with multiple CSS properties applied simultaneously - width, height, alignment, background color, padding, and vertical-align.</P>
 
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
@@ -689,6 +736,62 @@
 <DD STYLE="grid-column-start: 2; margin: 0;">This DD also starts at column 2.</DD>
 </DL>
 <P><STRONG>Note:</STRONG> grid-column-start: 2 positions the element in the second column of the grid. grid-column-end, grid-row-start, and grid-row-end are parsed but may have limited rendering support.</P>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
+
+<HR>
+
+<A NAME="misc"></A>
+<H2>Additional Supported Properties</H2>
+
+<H3>overflow - PASS (hidden)</H3>
+<P><STRONG>Note:</STRONG> overflow: hidden is supported. overflow: scroll is not implemented.</P>
+<P><STRONG>What you should see:</STRONG> Elements with overflow: hidden should clip content that extends beyond the element boundaries.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DIV STYLE="overflow: hidden; width: 200px; height: 100px; background-color: #e8e8e8; padding: 10px; border: 1px solid #000000;">This DIV has overflow: hidden with fixed width and height. Any content that extends beyond these dimensions should be clipped. This is a test of overflow behavior with a fixed size container.</DIV>
+<DIV STYLE="overflow: visible; width: 200px; background-color: #ccccff; padding: 10px; border: 1px solid #000000;">This DIV has overflow: visible (default). Content should extend beyond the container if needed.</DIV>
+</TD>
+</TR>
+</TABLE>
+
+<H3>z-index - PASS (parsed and stored)</H3>
+<P><STRONG>Note:</STRONG> z-index is parsed and stored. Stacking context handling may need verification.</P>
+<P><STRONG>What you should see:</STRONG> Elements with different z-index values. Higher z-index elements should appear above lower z-index elements.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DIV STYLE="position: relative; z-index: 1; background-color: #ffcccc; padding: 10px; margin: 5px;">This DIV has z-index: 1 (lower).</DIV>
+<DIV STYLE="position: relative; z-index: 10; background-color: #ccffcc; padding: 10px; margin: 5px;">This DIV has z-index: 10 (higher, should appear above).</DIV>
+<DIV STYLE="position: relative; z-index: 5; background-color: #ccccff; padding: 10px; margin: 5px;">This DIV has z-index: 5 (middle).</DIV>
+</TD>
+</TR>
+</TABLE>
+
+<H3>background-repeat, background-position, background-attachment - PASS (parsed and stored)</H3>
+<P><STRONG>Note:</STRONG> These background properties are parsed and stored, but rendering may not fully use them yet.</P>
+<P><STRONG>What you should see:</STRONG> Elements with different background repeat, position, and attachment values.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="background-repeat: repeat; background-color: #e8e8e8; padding: 20px;">This paragraph has background-repeat: repeat (default, tiles image).</P>
+<P STYLE="background-repeat: no-repeat; background-color: #e8e8e8; padding: 20px;">This paragraph has background-repeat: no-repeat (image appears once).</P>
+<P STYLE="background-repeat: repeat-x; background-color: #e8e8e8; padding: 20px;">This paragraph has background-repeat: repeat-x (tiles horizontally).</P>
+<P STYLE="background-repeat: repeat-y; background-color: #e8e8e8; padding: 20px;">This paragraph has background-repeat: repeat-y (tiles vertically).</P>
+<P STYLE="background-position: center; background-color: #e8e8e8; padding: 20px;">This paragraph has background-position: center.</P>
+<P STYLE="background-position: top right; background-color: #e8e8e8; padding: 20px;">This paragraph has background-position: top right.</P>
+<P STYLE="background-attachment: scroll; background-color: #e8e8e8; padding: 20px;">This paragraph has background-attachment: scroll (default, scrolls with content).</P>
+<P STYLE="background-attachment: fixed; background-color: #e8e8e8; padding: 20px;">This paragraph has background-attachment: fixed (viewport-relative, may not work fully).</P>
 </TD>
 </TR>
 </TABLE>

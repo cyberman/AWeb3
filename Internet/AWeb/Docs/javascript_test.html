@@ -19,12 +19,12 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <HTML>
 <HEAD>
-<TITLE>AWeb JavaScript Compatibility Test Page</TITLE>
+<TITLE>AWeb Browser Extensions JavaScript Test Page</TITLE>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
-<META NAME="Description" CONTENT="Comprehensive JavaScript compatibility test for AWeb">
+<META NAME="Description" CONTENT="Browser extensions JavaScript compatibility test for AWeb">
 <SCRIPT LANGUAGE="JavaScript">
 <!--
-// JavaScript 1.5 (ECMAScript 3) Test Functions
+// Browser Extensions Test Functions (window, document, forms, events, etc.)
 
 // Window Object Tests
 function testAlert() {
@@ -56,17 +56,7 @@ function testTimeout() {
     }, 3000);
 }
 
-function testInterval() {
-    var count = 0;
-    var intervalId = window.setInterval(function() {
-        count++;
-        window.status = "Interval count: " + count;
-        if (count >= 5) {
-            window.clearInterval(intervalId);
-            window.status = "Interval stopped";
-        }
-    }, 1000);
-}
+// Note: setInterval/clearInterval are not supported in AWeb - only setTimeout/clearTimeout are available
 
 function testOpenWindow() {
     var newWin = window.open("test.html", "newwin", "width=400,height=300");
@@ -162,60 +152,7 @@ function testReload() {
     }
 }
 
-// String Object Tests
-function testStringMethods() {
-    var str = "Hello World";
-    var info = "Original: " + str + "\n";
-    info += "Length: " + str.length + "\n";
-    info += "UpperCase: " + str.toUpperCase() + "\n";
-    info += "LowerCase: " + str.toLowerCase() + "\n";
-    info += "CharAt(0): " + str.charAt(0) + "\n";
-    info += "IndexOf('o'): " + str.indexOf('o') + "\n";
-    info += "LastIndexOf('o'): " + str.lastIndexOf('o') + "\n";
-    info += "Substring(0,5): " + str.substring(0, 5);
-    window.alert(info);
-}
-
-// Array Object Tests
-function testArrayMethods() {
-    var arr = ["apple", "banana", "cherry"];
-    var info = "Original: " + arr.join(", ") + "\n";
-    info += "Length: " + arr.length + "\n";
-    arr.reverse();
-    info += "Reversed: " + arr.join(", ") + "\n";
-    arr.sort();
-    info += "Sorted: " + arr.join(", ");
-    window.alert(info);
-}
-
-// Math Object Tests
-function testMath() {
-    var result = "PI: " + Math.PI + "\n";
-    result += "E: " + Math.E + "\n";
-    result += "Random: " + Math.random() + "\n";
-    result += "Round 3.7: " + Math.round(3.7) + "\n";
-    result += "Floor 3.7: " + Math.floor(3.7) + "\n";
-    result += "Ceil 3.2: " + Math.ceil(3.2) + "\n";
-    result += "Max(5,10): " + Math.max(5, 10) + "\n";
-    result += "Min(5,10): " + Math.min(5, 10) + "\n";
-    result += "Abs(-5): " + Math.abs(-5) + "\n";
-    result += "Sqrt(16): " + Math.sqrt(16);
-    window.alert(result);
-}
-
-// Date Object Tests
-function testDate() {
-    var now = new Date();
-    var info = "Current Date: " + now.toString() + "\n";
-    info += "getTime(): " + now.getTime() + "\n";
-    info += "getYear(): " + now.getYear() + "\n";
-    info += "getMonth(): " + now.getMonth() + "\n";
-    info += "getDate(): " + now.getDate() + "\n";
-    info += "getDay(): " + now.getDay() + "\n";
-    info += "getHours(): " + now.getHours() + "\n";
-    info += "getMinutes(): " + now.getMinutes();
-    window.alert(info);
-}
+// Note: String, Array, Math, and Date core language tests are in ecmascript_test.html
 
 // Form Event Handlers
 function validateForm() {
@@ -248,192 +185,7 @@ function onMouseOut() {
     window.status = "";
 }
 
-// ECMAScript 3 Features Tests - COMMENTED OUT (JS 1.5 features not yet implemented)
-
-function testTryCatch() {
-    var result = "Try/Catch Test:\n";
-    try {
-        var x = 10;
-        var y = 0;
-        var z = x / y; // This should work (Infinity)
-        result += "Division result: " + z + "\n";
-        throw new Error("Test error message");
-    } catch (e) {
-        result += "Caught error: " + e.message + "\n";
-    } finally {
-        result += "Finally block executed\n";
-    }
-    window.alert(result);
-}
-
-function testThrow() {
-    var result = "Throw Test:\n";
-    try {
-        throw new TypeError("This is a TypeError");
-    } catch (e) {
-        result += "Caught: " + e.name + " - " + e.message + "\n";
-    }
-    try {
-        throw new RangeError("This is a RangeError");
-    } catch (e) {
-        result += "Caught: " + e.name + " - " + e.message + "\n";
-    }
-    window.alert(result);
-}
-
-function testSwitch() {
-    var day = new Date().getDay();
-    var dayName;
-    switch (day) {
-        case 0:
-            dayName = "Sunday";
-            break;
-        case 1:
-            dayName = "Monday";
-            break;
-        case 2:
-            dayName = "Tuesday";
-            break;
-        case 3:
-            dayName = "Wednesday";
-            break;
-        case 4:
-            dayName = "Thursday";
-            break;
-        case 5:
-            dayName = "Friday";
-            break;
-        case 6:
-            dayName = "Saturday";
-            break;
-        default:
-            dayName = "Unknown";
-    }
-    window.alert("Switch Test:\nToday is " + dayName + " (day " + day + ")");
-}
-
-function testInstanceof() {
-    var result = "Instanceof Test:\n";
-    var arr = [1, 2, 3];
-    var str = "Hello";
-    var num = 42;
-    var obj = new Object();
-    var date = new Date();
-    
-    result += "arr instanceof Array: " + (arr instanceof Array) + "\n";
-    result += "str instanceof String: " + (str instanceof String) + "\n";
-    result += "num instanceof Number: " + (num instanceof Number) + "\n";
-    result += "obj instanceof Object: " + (obj instanceof Object) + "\n";
-    result += "date instanceof Date: " + (date instanceof Date) + "\n";
-    result += "date instanceof Object: " + (date instanceof Object) + "\n";
-    
-    window.alert(result);
-}
-
-function testStrictEquality() {
-    var result = "Strict Equality Test:\n";
-    result += "5 === 5: " + (5 === 5) + "\n";
-    result += "5 === '5': " + (5 === '5') + "\n";
-    result += "5 !== '5': " + (5 !== '5') + "\n";
-    result += "null === undefined: " + (null === undefined) + "\n";
-    result += "null !== undefined: " + (null !== undefined) + "\n";
-    result += "true === true: " + (true === true) + "\n";
-    result += "true === 1: " + (true === 1) + "\n";
-    window.alert(result);
-}
-
-function testErrorObjects() {
-    var result = "Error Objects Test:\n";
-    try {
-        throw new Error("Generic error");
-    } catch (e) {
-        result += "Error: " + e.name + " - " + e.message + "\n";
-    }
-    try {
-        throw new TypeError("Type error");
-    } catch (e) {
-        result += "TypeError: " + e.name + " - " + e.message + "\n";
-    }
-    try {
-        throw new RangeError("Range error");
-    } catch (e) {
-        result += "RangeError: " + e.name + " - " + e.message + "\n";
-    }
-    try {
-        throw new SyntaxError("Syntax error");
-    } catch (e) {
-        result += "SyntaxError: " + e.name + " - " + e.message + "\n";
-    }
-    window.alert(result);
-}
-
-// Enhanced Array Methods Tests
-function testArrayConcat() {
-    var arr1 = [1, 2, 3];
-    var arr2 = [4, 5, 6];
-    var arr3 = arr1.concat(arr2);
-    window.alert("Array.concat() Test:\n" + 
-                 "arr1: " + arr1.join(", ") + "\n" +
-                 "arr2: " + arr2.join(", ") + "\n" +
-                 "arr1.concat(arr2): " + arr3.join(", "));
-}
-
-function testArrayPopPush() {
-    var arr = [1, 2, 3];
-    var popped = arr.pop();
-    var newLength = arr.push(4, 5);
-    window.alert("Array.pop()/push() Test:\n" +
-                 "After pop(): " + arr.join(", ") + " (popped: " + popped + ")\n" +
-                 "After push(4,5): " + arr.join(", ") + " (length: " + newLength + ")");
-}
-
-function testArrayShiftUnshift() {
-    var arr = [2, 3, 4];
-    var shifted = arr.shift();
-    var newLength = arr.unshift(0, 1);
-    window.alert("Array.shift()/unshift() Test:\n" +
-                 "After shift(): " + arr.join(", ") + " (shifted: " + shifted + ")\n" +
-                 "After unshift(0,1): " + arr.join(", ") + " (length: " + newLength + ")");
-}
-
-function testArraySlice() {
-    var arr = [0, 1, 2, 3, 4, 5];
-    var slice1 = arr.slice(1, 4);
-    var slice2 = arr.slice(-3);
-    window.alert("Array.slice() Test:\n" +
-                 "Original: " + arr.join(", ") + "\n" +
-                 "slice(1,4): " + slice1.join(", ") + "\n" +
-                 "slice(-3): " + slice2.join(", "));
-}
-
-function testArraySplice() {
-    var arr = [0, 1, 2, 3, 4, 5];
-    var removed = arr.splice(2, 2, 'a', 'b');
-    window.alert("Array.splice() Test:\n" +
-                 "After splice(2,2,'a','b'): " + arr.join(", ") + "\n" +
-                 "Removed: " + removed.join(", "));
-}
-
-function testArrayToLocaleString() {
-    var arr = [new Date(), 1234.56, "test"];
-    var result = arr.toLocaleString();
-    window.alert("Array.toLocaleString() Test:\n" +
-                 "Array: [Date, 1234.56, 'test']\n" +
-                 "toLocaleString(): " + result);
-}
-
-// Object.prototype Methods Tests
-function testObjectMethods() {
-    var obj = {name: "test", value: 42};
-    var obj2 = {name: "test2"};
-    var result = "Object.prototype Methods Test:\n";
-    result += "obj.hasOwnProperty('name'): " + obj.hasOwnProperty('name') + "\n";
-    result += "obj.hasOwnProperty('toString'): " + obj.hasOwnProperty('toString') + "\n";
-    result += "obj.propertyIsEnumerable('name'): " + obj.propertyIsEnumerable('name') + "\n";
-    result += "obj.isPrototypeOf(obj2): " + obj.isPrototypeOf(obj2) + "\n";
-    result += "Object.prototype.isPrototypeOf(obj): " + Object.prototype.isPrototypeOf(obj) + "\n";
-    window.alert(result);
-}
+// Browser Extension Test Functions Only
 
 
 // Formless Input Tests
@@ -618,174 +370,7 @@ function testWindowScroll() {
     window.status = "Window scroll(0, 0) method called";
 }
 
-// String Methods Tests
-function testStringCharCodeAt() {
-    var str = "Hello";
-    var info = "String.charCodeAt() Test:\n";
-    info += "String: " + str + "\n";
-    info += "charCodeAt(0): " + str.charCodeAt(0) + " (H)\n";
-    info += "charCodeAt(1): " + str.charCodeAt(1) + " (e)";
-    window.alert(info);
-}
-
-function testStringConcat() {
-    var str1 = "Hello";
-    var str2 = " World";
-    var result = str1.concat(str2);
-    window.alert("String.concat() Test:\n" + str1 + ".concat(" + str2 + ") = " + result);
-}
-
-function testStringSlice() {
-    var str = "Hello World";
-    var info = "String.slice() Test:\n";
-    info += "Original: " + str + "\n";
-    info += "slice(0, 5): " + str.slice(0, 5) + "\n";
-    info += "slice(6): " + str.slice(6) + "\n";
-    info += "slice(-5): " + str.slice(-5);
-    window.alert(info);
-}
-
-function testStringSubstr() {
-    var str = "Hello World";
-    var info = "String.substr() Test:\n";
-    info += "Original: " + str + "\n";
-    info += "substr(0, 5): " + str.substr(0, 5) + "\n";
-    info += "substr(6): " + str.substr(6) + "\n";
-    info += "substr(6, 3): " + str.substr(6, 3);
-    window.alert(info);
-}
-
-function testStringSplit() {
-    var str = "apple,banana,cherry";
-    var arr = str.split(",");
-    var info = "String.split() Test:\n";
-    info += "Original: " + str + "\n";
-    info += "split(','): " + arr.join(" | ");
-    window.alert(info);
-}
-
-function testStringSearch() {
-    var str = "Hello World";
-    var pos = str.search("World");
-    window.alert("String.search() Test:\n" + str + ".search('World') = " + pos);
-}
-
-function testStringMatch() {
-    var str = "Hello World";
-    var result = str.match("World");
-    var info = "String.match() Test:\n";
-    info += "String: " + str + "\n";
-    info += "match('World'): " + (result ? result[0] : "null");
-    window.alert(info);
-}
-
-function testStringReplace() {
-    var str = "Hello World";
-    var result = str.replace("World", "JavaScript");
-    window.alert("String.replace() Test:\n" + str + ".replace('World', 'JavaScript') = " + result);
-}
-
-// Array Methods Tests
-function testArrayConcat() {
-    var arr1 = [1, 2, 3];
-    var arr2 = [4, 5, 6];
-    var arr3 = arr1.concat(arr2);
-    window.alert("Array.concat() Test:\n" + 
-                 "arr1: " + arr1.join(", ") + "\n" +
-                 "arr2: " + arr2.join(", ") + "\n" +
-                 "arr1.concat(arr2): " + arr3.join(", "));
-}
-
-function testArrayPopPush() {
-    var arr = [1, 2, 3];
-    var popped = arr.pop();
-    var newLength = arr.push(4, 5);
-    window.alert("Array.pop()/push() Test:\n" +
-                 "After pop(): " + arr.join(", ") + " (popped: " + popped + ")\n" +
-                 "After push(4,5): " + arr.join(", ") + " (length: " + newLength + ")");
-}
-
-function testArrayShiftUnshift() {
-    var arr = [2, 3, 4];
-    var shifted = arr.shift();
-    var newLength = arr.unshift(0, 1);
-    window.alert("Array.shift()/unshift() Test:\n" +
-                 "After shift(): " + arr.join(", ") + " (shifted: " + shifted + ")\n" +
-                 "After unshift(0,1): " + arr.join(", ") + " (length: " + newLength + ")");
-}
-
-function testArraySlice() {
-    var arr = [0, 1, 2, 3, 4, 5];
-    var slice1 = arr.slice(1, 4);
-    var slice2 = arr.slice(-3);
-    window.alert("Array.slice() Test:\n" +
-                 "Original: " + arr.join(", ") + "\n" +
-                 "slice(1,4): " + slice1.join(", ") + "\n" +
-                 "slice(-3): " + slice2.join(", "));
-}
-
-function testArraySplice() {
-    var arr = [0, 1, 2, 3, 4, 5];
-    var removed = arr.splice(2, 2, 'a', 'b');
-    window.alert("Array.splice() Test:\n" +
-                 "After splice(2,2,'a','b'): " + arr.join(", ") + "\n" +
-                 "Removed: " + removed.join(", "));
-}
-
-// Date Methods Tests
-function testDateSetMethods() {
-    var date = new Date();
-    date.setYear(2025);
-    date.setMonth(0);
-    date.setDate(15);
-    date.setHours(12);
-    date.setMinutes(30);
-    date.setSeconds(45);
-    var info = "Date Set Methods Test:\n";
-    info += "Set to: 2025-01-15 12:30:45\n";
-    info += "getYear(): " + date.getYear() + "\n";
-    info += "getMonth(): " + date.getMonth() + "\n";
-    info += "getDate(): " + date.getDate() + "\n";
-    info += "getHours(): " + date.getHours() + "\n";
-    info += "getMinutes(): " + date.getMinutes() + "\n";
-    info += "getSeconds(): " + date.getSeconds();
-    window.alert(info);
-}
-
-function testDateGetTimezoneOffset() {
-    var date = new Date();
-    var offset = date.getTimezoneOffset();
-    window.alert("Date.getTimezoneOffset() Test:\n" + 
-                 "Timezone offset: " + offset + " minutes");
-}
-
-function testDateToGMTString() {
-    var date = new Date();
-    var gmtStr = date.toGMTString();
-    window.alert("Date.toGMTString() Test:\n" + gmtStr);
-}
-
-// Math Methods Tests
-function testMathTrig() {
-    var result = "Math Trigonometric Functions:\n";
-    result += "sin(0): " + Math.sin(0) + "\n";
-    result += "cos(0): " + Math.cos(0) + "\n";
-    result += "tan(0): " + Math.tan(0) + "\n";
-    result += "asin(0.5): " + Math.asin(0.5) + "\n";
-    result += "acos(0.5): " + Math.acos(0.5) + "\n";
-    result += "atan(1): " + Math.atan(1) + "\n";
-    result += "atan2(1, 1): " + Math.atan2(1, 1);
-    window.alert(result);
-}
-
-function testMathExpLog() {
-    var result = "Math Exponential/Logarithmic:\n";
-    result += "exp(1): " + Math.exp(1) + "\n";
-    result += "log(Math.E): " + Math.log(Math.E) + "\n";
-    result += "pow(2, 3): " + Math.pow(2, 3) + "\n";
-    result += "sqrt(16): " + Math.sqrt(16);
-    window.alert(result);
-}
+// Note: String, Array, Math, and Date core language methods are tested in ecmascript_test.html
 
 // Event Handler Tests
 function testOnUnload() {
@@ -806,23 +391,20 @@ window.onload = function() {
 </HEAD>
 <BODY BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000" ONLOAD="window.defaultStatus='JavaScript Test Page Loaded'">
 
-<H1><IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)">&nbsp; JavaScript Compatibility Test</H1>
+<H1><IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)">&nbsp; Browser Extensions JavaScript Test</H1>
 
-<P>This page tests AWeb's JavaScript compatibility. Each test includes a description of what it tests, how to run it, what results you should expect, and the interactive test itself.</P>
+<P>This page tests AWeb's browser extension JavaScript APIs (window, document, forms, events, etc.). For ECMAScript 3 core language tests, see <A HREF="ecmascript_test.html">ecmascript_test.html</A>. Each test includes a description of what it tests, how to run it, what results you should expect, and the interactive test itself.</P>
 
 <HR>
 
 <A NAME="top"></A>
 <CENTER>
 <H2>Quick Navigation</H2>
-<A HREF="#core">Core Language</A> |
-<!-- <A HREF="#ecmascript3">ECMAScript 3 Features</A> | -->
 <A HREF="#window">Window Object</A> |
 <A HREF="#document">Document Object</A> |
 <A HREF="#history">History Object</A> |
 <A HREF="#navigator">Navigator Object</A> |
 <A HREF="#location">Location Object</A> |
-<A HREF="#builtin">Built-in Objects</A> |
 <A HREF="#forms">HTML Forms</A> |
 <A HREF="#windowmethods">Window Methods</A> |
 <A HREF="#image">Image Constructor</A> |
@@ -831,133 +413,6 @@ window.onload = function() {
 </CENTER>
 
 <HR>
-
-<A NAME="core"></A>
-<H2>Core Language Features</H2>
-
-<H3>Test 1: Variables and Data Types</H3>
-<P><STRONG>What it tests:</STRONG> JavaScript variable declaration and basic data types (String, Number, Array).</P>
-<P><STRONG>How to run:</STRONG> The test runs automatically when the page loads. Check the output below.</P>
-<P><STRONG>Expected results:</STRONG> You should see a variable test message, an array test showing numbers 1-5, and a function test showing the result of 5+3=8.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test Output:</STRONG><BR>
-<SCRIPT LANGUAGE="JavaScript">
-<!--
-var testVar = "JavaScript is working!";
-document.write("<P><STRONG>Variable test:</STRONG> " + testVar + "</P>");
-
-var testArray = [1, 2, 3, 4, 5];
-document.write("<P><STRONG>Array test:</STRONG> " + testArray.join(", ") + "</P>");
-
-function testFunction(x, y) {
-    return x + y;
-}
-document.write("<P><STRONG>Function test:</STRONG> testFunction(5, 3) = " + testFunction(5, 3) + "</P>");
-//-->
-</SCRIPT>
-</TD>
-</TR>
-</TABLE>
-
-<H3>Not Supported</H3>
-<UL>
-<LI>Regular Expressions (RegExp object) - Very limited or no support</LI>
-<LI>ES6 features (let/const, arrow functions, classes) - Not supported</LI>
-<LI>Modern Array methods (forEach, map, filter, etc.) - Not supported</LI>
-</UL>
-
-<P><A HREF="#top">Back to top</A></P>
-
-<HR>
-
-<!-- ECMAScript 3 (JavaScript 1.5) Features - COMMENTED OUT (not yet implemented)
-<A NAME="ecmascript3"></A>
-<H2>ECMAScript 3 (JavaScript 1.5) Features</H2>
-
-<H3>Test 1: try/catch/finally</H3>
-<P><STRONG>What it tests:</STRONG> Exception handling with try/catch/finally blocks for robust error handling.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test try/catch/finally" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that a try block executed, an error was caught, and the finally block executed.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testTryCatch()" VALUE="Test try/catch/finally">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 2: throw Statement</H3>
-<P><STRONG>What it tests:</STRONG> The throw statement for throwing custom exceptions with Error objects.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test throw" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that TypeError and RangeError exceptions were thrown and caught correctly.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testThrow()" VALUE="Test throw">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 3: switch/case/default</H3>
-<P><STRONG>What it tests:</STRONG> Multi-way branching with switch statements, case labels, and default cases.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test switch" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the current day of the week determined using a switch statement.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testSwitch()" VALUE="Test switch/case/default">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 4: instanceof Operator</H3>
-<P><STRONG>What it tests:</STRONG> The instanceof operator for type checking objects and constructors.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test instanceof" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing instanceof checks for Array, String, Number, Object, and Date types.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testInstanceof()" VALUE="Test instanceof">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 5: Strict Equality (=== and !==)</H3>
-<P><STRONG>What it tests:</STRONG> The strict equality operators (=== and !==) that compare both value and type.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Strict Equality" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that 5 === 5 is true, but 5 === '5' is false (different types), demonstrating type-strict comparison.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testStrictEquality()" VALUE="Test Strict Equality (===, !=)">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 6: Error Objects</H3>
-<P><STRONG>What it tests:</STRONG> Native Error object constructors including Error, TypeError, RangeError, SyntaxError, ReferenceError, URIError, and EvalError.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Error Objects" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that different error types can be created and caught, each with their own name and message properties.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testErrorObjects()" VALUE="Test Error Objects">
-</TD>
-</TR>
-</TABLE>
-
-<P><A HREF="#top">Back to top</A></P>
-
-<HR>
--->
 
 <A NAME="window"></A>
 <H2>Window Object</H2>
@@ -1003,7 +458,7 @@ document.write("<P><STRONG>Function test:</STRONG> testFunction(5, 3) = " + test
 
 <H3>Test 4: window.status and window.defaultStatus</H3>
 <P><STRONG>What it tests:</STRONG> The window.status property controls the status bar text, and window.defaultStatus sets the default status bar text.</P>
-<P><STRONG>How to run:</STRONG> Look at the status bar at the bottom of the browser window. It should show "JavaScript 1.1 Test Page Loaded" when the page loads.</P>
+<P><STRONG>How to run:</STRONG> Look at the status bar at the bottom of the browser window. It should show "JavaScript Test Page Loaded" when the page loads.</P>
 <P><STRONG>Expected results:</STRONG> The status bar should display the default message. When you hover over links or interact with elements that change the status, the status bar text should update accordingly.</P>
 
 <H3>Test 5: window.setTimeout()</H3>
@@ -1021,13 +476,11 @@ document.write("<P><STRONG>Function test:</STRONG> testFunction(5, 3) = " + test
 
 <H3>Test 6: window.setInterval() and window.clearInterval()</H3>
 <P><STRONG>What it tests:</STRONG> The window.setInterval() method repeatedly executes a function at specified intervals, and window.clearInterval() stops the interval.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Interval" button below.</P>
-<P><STRONG>Expected results:</STRONG> The status bar should show "Interval count: 1", then "Interval count: 2", and so on, updating every second. After 5 counts, it should show "Interval stopped" and the interval should stop updating.</P>
+<P><STRONG>Status:</STRONG> <STRONG>NOT SUPPORTED</STRONG> - AWeb only supports setTimeout() and clearTimeout(). setInterval() and clearInterval() are not available.</P>
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
 <TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testInterval()" VALUE="Test Interval">
+<STRONG>Note:</STRONG> To achieve similar functionality, you can use setTimeout() recursively.
 </TD>
 </TR>
 </TABLE>
@@ -1116,7 +569,7 @@ document.write("<P><STRONG>Function test:</STRONG> testFunction(5, 3) = " + test
 <H3>Test 4: document.getElementById()</H3>
 <P><STRONG>What it tests:</STRONG> The document.getElementById() method retrieves an element by its ID attribute.</P>
 <P><STRONG>How to run:</STRONG> Click the "Test getElementById" button below.</P>
-<P><STRONG>Expected results:</STRONG> The status bar should show "Element found (getElementById is supported)" if the method works, or "Element not found (getElementById may not be supported)" if it doesn't. Note: getElementById() may have limited support in AWeb's JavaScript 1.1 implementation.</P>
+<P><STRONG>Expected results:</STRONG> The status bar should show "Element found (getElementById is supported)" if the method works, or "Element not found (getElementById may not be supported)" if it doesn't. Note: getElementById() may have limited support in AWeb's JavaScript implementation.</P>
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
 <TD>
@@ -1353,437 +806,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 
 <HR>
 
-<A NAME="builtin"></A>
-<H2>Built-in Objects</H2>
-
-<H3>Test 1: String Object Methods</H3>
-<P><STRONG>What it tests:</STRONG> String object methods including length, charAt(), indexOf(), lastIndexOf(), substring(), toUpperCase(), and toLowerCase().</P>
-<P><STRONG>How to run:</STRONG> Click the "Test String Methods" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing:
-<UL>
-<LI>Original string: "Hello World"</LI>
-<LI>Length: 11</LI>
-<LI>UpperCase: "HELLO WORLD"</LI>
-<LI>LowerCase: "hello world"</LI>
-<LI>CharAt(0): "H" (first character)</LI>
-<LI>IndexOf('o'): 4 (first occurrence of 'o')</LI>
-<LI>LastIndexOf('o'): 7 (last occurrence of 'o')</LI>
-<LI>Substring(0,5): "Hello" (characters 0-4)</LI>
-</UL>
-</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testStringMethods()" VALUE="Test String Methods">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 1a: String.charCodeAt()</H3>
-<P><STRONG>What it tests:</STRONG> The String.charCodeAt() method returns the Unicode value of a character at a given position.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test String.charCodeAt()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the character codes for characters at positions 0 and 1.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testStringCharCodeAt()" VALUE="Test String.charCodeAt()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 1b: String.concat()</H3>
-<P><STRONG>What it tests:</STRONG> The String.concat() method concatenates strings together.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test String.concat()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that two strings were concatenated.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testStringConcat()" VALUE="Test String.concat()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 1c: String.slice()</H3>
-<P><STRONG>What it tests:</STRONG> The String.slice() method extracts a portion of a string.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test String.slice()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that slice() extracted portions of the string, including negative index support.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testStringSlice()" VALUE="Test String.slice()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 1d: String.substr()</H3>
-<P><STRONG>What it tests:</STRONG> The String.substr() method extracts a substring starting at a position with a specified length.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test String.substr()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that substr() extracted substrings from the string.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testStringSubstr()" VALUE="Test String.substr()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 1e: String.split()</H3>
-<P><STRONG>What it tests:</STRONG> The String.split() method splits a string into an array of substrings.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test String.split()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that split() converted a comma-separated string into an array.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testStringSplit()" VALUE="Test String.split()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 1f: String.search()</H3>
-<P><STRONG>What it tests:</STRONG> The String.search() method searches for a pattern in a string.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test String.search()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the position where the search pattern was found.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testStringSearch()" VALUE="Test String.search()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 1g: String.match()</H3>
-<P><STRONG>What it tests:</STRONG> The String.match() method matches a pattern in a string.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test String.match()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the matched substring.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testStringMatch()" VALUE="Test String.match()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 1h: String.replace()</H3>
-<P><STRONG>What it tests:</STRONG> The String.replace() method replaces occurrences of a pattern in a string.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test String.replace()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that "World" was replaced with "JavaScript" in the string.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testStringReplace()" VALUE="Test String.replace()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 2: Array Object Methods (Basic)</H3>
-<P><STRONG>What it tests:</STRONG> Array object methods including length, join(), reverse(), and sort().</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Array Methods" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing:
-<UL>
-<LI>Original array: "apple, banana, cherry"</LI>
-<LI>Length: 3</LI>
-<LI>Reversed: "cherry, banana, apple"</LI>
-<LI>Sorted: "apple, banana, cherry" (alphabetically sorted)</LI>
-</UL>
-</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testArrayMethods()" VALUE="Test Array Methods">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 2a: Array.concat()</H3>
-<P><STRONG>What it tests:</STRONG> The Array.concat() method that concatenates arrays.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Array.concat()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that two arrays [1,2,3] and [4,5,6] were concatenated into [1,2,3,4,5,6].</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testArrayConcat()" VALUE="Test Array.concat()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 2b: Array.pop() and Array.push()</H3>
-<P><STRONG>What it tests:</STRONG> The Array.pop() method removes and returns the last element, and Array.push() adds elements to the end.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Array.pop()/push()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that pop() removed the last element and push() added new elements, returning the new length.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testArrayPopPush()" VALUE="Test Array.pop()/push()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 2c: Array.shift() and Array.unshift()</H3>
-<P><STRONG>What it tests:</STRONG> The Array.shift() method removes and returns the first element, and Array.unshift() adds elements to the beginning.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Array.shift()/unshift()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that shift() removed the first element and unshift() added new elements to the beginning, returning the new length.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testArrayShiftUnshift()" VALUE="Test Array.shift()/unshift()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 2d: Array.slice()</H3>
-<P><STRONG>What it tests:</STRONG> The Array.slice() method extracts a portion of an array without modifying the original.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Array.slice()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that slice() extracted elements from the array, including negative index support.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testArraySlice()" VALUE="Test Array.slice()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 2e: Array.splice()</H3>
-<P><STRONG>What it tests:</STRONG> The Array.splice() method removes and/or inserts elements at a specific position.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Array.splice()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that splice() removed elements and inserted new ones, returning the removed elements.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testArraySplice()" VALUE="Test Array.splice()">
-</TD>
-</TR>
-</TABLE>
-
-<!-- Enhanced Array Methods Tests - COMMENTED OUT (JS 1.5 features not yet implemented)
-<H3>Test 2a: Array.concat()</H3>
-<P><STRONG>What it tests:</STRONG> The Array.concat() method that concatenates arrays.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Array.concat()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that two arrays [1,2,3] and [4,5,6] were concatenated into [1,2,3,4,5,6].</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testArrayConcat()" VALUE="Test Array.concat()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 2b: Array.pop() and Array.push()</H3>
-<P><STRONG>What it tests:</STRONG> The Array.pop() method removes and returns the last element, and Array.push() adds elements to the end.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Array.pop()/push()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that pop() removed the last element and push() added new elements, returning the new length.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testArrayPopPush()" VALUE="Test Array.pop()/push()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 2c: Array.shift() and Array.unshift()</H3>
-<P><STRONG>What it tests:</STRONG> The Array.shift() method removes and returns the first element, and Array.unshift() adds elements to the beginning.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Array.shift()/unshift()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that shift() removed the first element and unshift() added new elements to the beginning, returning the new length.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testArrayShiftUnshift()" VALUE="Test Array.shift()/unshift()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 2d: Array.slice()</H3>
-<P><STRONG>What it tests:</STRONG> The Array.slice() method extracts a portion of an array without modifying the original.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Array.slice()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that slice() extracted elements from the array, including negative index support.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testArraySlice()" VALUE="Test Array.slice()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 2e: Array.splice()</H3>
-<P><STRONG>What it tests:</STRONG> The Array.splice() method removes and/or inserts elements at a specific position.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Array.splice()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that splice() removed elements and inserted new ones, returning the removed elements.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testArraySplice()" VALUE="Test Array.splice()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 2f: Array.toLocaleString()</H3>
-<P><STRONG>What it tests:</STRONG> The Array.toLocaleString() method converts array elements to locale-aware strings.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Array.toLocaleString()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that toLocaleString() converted array elements (including Date objects) to locale-aware string representations.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testArrayToLocaleString()" VALUE="Test Array.toLocaleString()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 2g: Object.prototype Methods</H3>
-<P><STRONG>What it tests:</STRONG> Object.prototype methods including hasOwnProperty(), propertyIsEnumerable(), and isPrototypeOf().</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Object Methods" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that these methods correctly identify own properties, enumerable properties, and prototype relationships.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testObjectMethods()" VALUE="Test Object.prototype Methods">
-</TD>
-</TR>
-</TABLE>
--->
-
-<H3>Test 3: Math Object</H3>
-<P><STRONG>What it tests:</STRONG> Math object constants and methods including PI, E, random(), round(), floor(), ceil(), max(), min(), abs(), and sqrt().</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Math Object" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing:
-<UL>
-<LI>PI: 3.141592653589793 (or similar)</LI>
-<LI>E: 2.718281828459045 (or similar)</LI>
-<LI>Random: A random number between 0 and 1 (different each time)</LI>
-<LI>Round 3.7: 4</LI>
-<LI>Floor 3.7: 3</LI>
-<LI>Ceil 3.2: 4</LI>
-<LI>Max(5,10): 10</LI>
-<LI>Min(5,10): 5</LI>
-<LI>Abs(-5): 5</LI>
-<LI>Sqrt(16): 4</LI>
-</UL>
-</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testMath()" VALUE="Test Math Object">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 3a: Math Trigonometric Functions</H3>
-<P><STRONG>What it tests:</STRONG> Math trigonometric methods including sin(), cos(), tan(), asin(), acos(), atan(), and atan2().</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Math Trig Functions" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the results of various trigonometric calculations.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testMathTrig()" VALUE="Test Math Trig Functions">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 3b: Math Exponential/Logarithmic Functions</H3>
-<P><STRONG>What it tests:</STRONG> Math exponential and logarithmic methods including exp(), log(), pow(), and sqrt().</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Math Exp/Log Functions" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the results of exponential and logarithmic calculations.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testMathExpLog()" VALUE="Test Math Exp/Log Functions">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 4: Date Object</H3>
-<P><STRONG>What it tests:</STRONG> Date object creation and methods including getTime(), getYear(), getMonth(), getDate(), getDay(), getHours(), and getMinutes().</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Date Object" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing:
-<UL>
-<LI>Current Date: A string representation of the current date and time</LI>
-<LI>getTime(): Number of milliseconds since January 1, 1970</LI>
-<LI>getYear(): Current year (may be 2-digit or 4-digit depending on implementation)</LI>
-<LI>getMonth(): Current month (0-11, where 0 is January)</LI>
-<LI>getDate(): Day of month (1-31)</LI>
-<LI>getDay(): Day of week (0-6, where 0 is Sunday)</LI>
-<LI>getHours(): Current hour (0-23)</LI>
-<LI>getMinutes(): Current minutes (0-59)</LI>
-</UL>
-</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testDate()" VALUE="Test Date Object">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 4a: Date Set Methods</H3>
-<P><STRONG>What it tests:</STRONG> Date setter methods including setYear(), setMonth(), setDate(), setHours(), setMinutes(), and setSeconds().</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Date Set Methods" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing that the date was set to specific values and then retrieved.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testDateSetMethods()" VALUE="Test Date Set Methods">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 4b: Date.getTimezoneOffset()</H3>
-<P><STRONG>What it tests:</STRONG> The Date.getTimezoneOffset() method returns the timezone offset in minutes.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Date.getTimezoneOffset()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the timezone offset in minutes.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testDateGetTimezoneOffset()" VALUE="Test Date.getTimezoneOffset()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Test 4c: Date.toGMTString()</H3>
-<P><STRONG>What it tests:</STRONG> The Date.toGMTString() method converts a date to a GMT string.</P>
-<P><STRONG>How to run:</STRONG> Click the "Test Date.toGMTString()" button below.</P>
-<P><STRONG>Expected results:</STRONG> An alert dialog should appear showing the date as a GMT string.</P>
-<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
-<TR>
-<TD>
-<STRONG>Test:</STRONG><BR>
-<INPUT TYPE="button" ONCLICK="testDateToGMTString()" VALUE="Test Date.toGMTString()">
-</TD>
-</TR>
-</TABLE>
-
-<H3>Not Supported</H3>
-<UL>
-<LI>RegExp object - Regular expressions not supported</LI>
-<LI>JSON object - JSON parsing/stringifying not supported</LI>
-<LI>Modern Array methods (forEach, map, filter, reduce, etc.) - Not supported</LI>
-<LI>Advanced String methods (split, replace, match, etc.) - Limited or not supported</LI>
-</UL>
+<P><STRONG>Note:</STRONG> Core ECMAScript 3 language features (String, Array, Math, Date methods) are tested in <A HREF="ecmascript_test.html">ecmascript_test.html</A>. This page focuses only on browser extension APIs.</P>
 
 <P><A HREF="#top">Back to top</A></P>
 
@@ -2047,7 +1070,7 @@ Current URL: <SCRIPT LANGUAGE="JavaScript">document.write(location.href);</SCRIP
 <H3>Test 6: ONLOAD</H3>
 <P><STRONG>What it tests:</STRONG> The ONLOAD event handler that triggers when the page finishes loading.</P>
 <P><STRONG>How to run:</STRONG> This test runs automatically when the page loads. Check the status bar.</P>
-<P><STRONG>Expected results:</STRONG> When the page loads, the status bar should show "JavaScript 1.1 Test Page Loaded" (set by the BODY ONLOAD attribute).</P>
+<P><STRONG>Expected results:</STRONG> When the page loads, the status bar should show "JavaScript Test Page Loaded" (set by the BODY ONLOAD attribute).</P>
 
 <H3>Test 7: ONUNLOAD</H3>
 <P><STRONG>What it tests:</STRONG> The ONUNLOAD event handler that triggers when the page is unloaded (user navigates away).</P>
@@ -2062,13 +1085,13 @@ window.onunload = testOnUnload;
 <H3>Test 8: ONERROR and ONABORT (Image Events)</H3>
 <P><STRONG>What it tests:</STRONG> The ONERROR and ONABORT event handlers for image loading errors and aborts.</P>
 <P><STRONG>How to run:</STRONG> The test image below has onerror and onabort handlers. If the image fails to load, onerror will trigger. If loading is aborted, onabort will trigger.</P>
-<P><STRONG>Expected results:</STRONG> If the image fails to load, an alert should appear saying "Image onerror handler triggered". If loading is aborted, an alert should appear saying "Image onabort handler triggered".</P>
+<P><STRONG>Expected results:</STRONG> If the image fails to load, the status bar should show "Image onerror handler triggered" (instead of an alert to avoid interrupting page load). If loading is aborted, the status bar should show "Image onabort handler triggered".</P>
 <TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
 <TR>
 <TD>
 <STRONG>Test:</STRONG><BR>
-<IMG SRC="nonexistent.iff" WIDTH="96" HEIGHT="46" ALT="(test image)" ONERROR="window.alert('Image onerror handler triggered')" ONABORT="window.alert('Image onabort handler triggered')">
-<BR><SMALL>This image may not exist, triggering onerror</SMALL>
+<IMG SRC="nonexistent.iff" WIDTH="96" HEIGHT="46" ALT="(test image)" ONERROR="window.status='Image onerror handler triggered'" ONABORT="window.status='Image onabort handler triggered'">
+<BR><SMALL>This image may not exist, triggering onerror - check the status bar</SMALL>
 </TD>
 </TR>
 </TABLE>
@@ -2100,22 +1123,23 @@ window.onunload = testOnUnload;
 <A NAME="compatibility"></A>
 <H2>Compatibility Summary</H2>
 
-<H3>JavaScript Features Fully Supported</H3>
+<H3>Browser Extension Features Fully Supported</H3>
 <UL>
-<LI>Core language features (variables, functions, control structures)</LI>
-<LI>Window object (alert, confirm, prompt, status, setTimeout, setInterval)</LI>
-<LI>Document object (write, title, URL, forms, images, links arrays)</LI>
+<LI>Window object (alert, confirm, prompt, status, setTimeout, clearTimeout, open, close, focus, blur, scroll)</LI>
+<LI>Document object (write, writeln, open, close, title, URL, lastModified, forms, images, links, anchors, applets, embeds arrays, cookie)</LI>
 <LI>History object (back, forward, go, length)</LI>
-<LI>Navigator object (appName, userAgent, javaEnabled, etc.)</LI>
-<LI>Location object (href, protocol, host, reload, etc.)</LI>
-<LI>String object (basic methods)</LI>
-<LI>Array object (basic methods: join, reverse, sort)</LI>
-<LI>Math object (basic methods)</LI>
-<LI>Date object (basic methods)</LI>
-<LI>Event handlers (onclick, onload, onmouseover, etc.)</LI>
+<LI>Navigator object (appName, userAgent, javaEnabled, taintEnabled, etc.)</LI>
+<LI>Location object (href, protocol, host, hostname, port, pathname, search, hash, reload, replace)</LI>
+<LI>Form object (elements, action, encoding, length, method, name, target, reset, submit)</LI>
+<LI>Input object (defaultValue, value, type, focus, blur, select)</LI>
+<LI>Select object (selectedIndex, length)</LI>
+<LI>Option object (text, value, defaultSelected, selected, index)</LI>
+<LI>Image constructor</LI>
+<LI>Event handlers (onclick, onload, onunload, onmouseover, onerror, onabort, onfocus, onblur, onchange, onselect, onreset, onsubmit)</LI>
 <LI>onclick support for buttons outside forms - Fully supported</LI>
 <LI>onclick support for IMG and OBJECT elements - Fully supported</LI>
 </UL>
+<P><STRONG>Note:</STRONG> For ECMAScript 3 core language features (String, Array, Math, Date methods), see <A HREF="ecmascript_test.html">ecmascript_test.html</A>.</P>
 
 <!-- JavaScript 1.5 (ECMAScript 3) Features - COMMENTED OUT (not yet implemented)
 <H3>JavaScript 1.5 (ECMAScript 3) Features Fully Supported</H3>
@@ -2136,7 +1160,7 @@ window.onunload = testOnUnload;
 </UL>
 -->
 
-<H3>JavaScript Features Partially Supported</H3>
+<H3>Browser Extension Features Partially Supported</H3>
 <UL>
 <LI>window.open() and window.close() - Basic support with limitations</LI>
 <LI>document.getElementById() - May have limited support</LI>
@@ -2144,33 +1168,30 @@ window.onunload = testOnUnload;
 <LI>Keyboard events - Limited support</LI>
 </UL>
 
-<H3>JavaScript Features Not Supported</H3>
+<H3>Browser Extension Features Not Supported</H3>
 <UL>
-<LI>Regular Expressions (RegExp object) - Not supported</LI>
+<LI>window.setInterval() and window.clearInterval() - Not supported (only setTimeout/clearTimeout are available)</LI>
+</UL>
+
+<H3>Browser Extension Features Not Supported</H3>
+<UL>
 <LI>Full DOM Level 1 - Very limited implementation</LI>
 <LI>document.createElement() and DOM manipulation - Not supported</LI>
-<LI>JSON parsing/stringifying - Not supported</LI>
-<LI>Modern Array methods (forEach, map, filter, reduce, etc.) - Not supported</LI>
-<LI>Advanced String methods (split, replace, match, etc.) - Limited or not supported</LI>
 <LI>Event bubbling and capturing - Not supported</LI>
 <LI>addEventListener() / removeEventListener() - Not supported</LI>
 <LI>XMLHttpRequest (AJAX) - Not supported</LI>
-<LI>ES6 features (let/const, arrow functions, classes) - Not supported</LI>
-<LI>ECMAScript 3 features (try/catch/finally, throw, switch/case, instanceof, strict equality, Error objects) - Not yet implemented</LI>
-<LI>Enhanced Array methods (concat, pop, push, shift, unshift, slice, splice, toLocaleString) - Not yet implemented</LI>
-<LI>Object.prototype methods (hasOwnProperty, propertyIsEnumerable, isPrototypeOf) - Not yet implemented</LI>
 </UL>
 
-<H3>JavaScript Compatibility Notes</H3>
-<P>AWeb implements JavaScript with support for core language features and basic browser object model functionality. ECMAScript 3 (JavaScript 1.5) features such as exception handling, switch statements, strict equality, and Error objects are planned but not yet implemented.</P>
+<H3>Browser Extensions Compatibility Notes</H3>
+<P>AWeb implements browser extension JavaScript APIs with support for window, document, history, navigator, location, forms, and event handlers. For ECMAScript 3 core language features, see <A HREF="ecmascript_test.html">ecmascript_test.html</A>.</P>
 
 <P><A HREF="#top">Back to top</A></P>
 
 <HR>
 
 <CENTER>
-<P><SMALL>Last Updated: 2025 - AWeb 3 JavaScript Compatibility Test</SMALL></P>
-<P><A HREF="aweb.html">Back to AWeb documentation index</A></P>
+<P><SMALL>Last Updated: 2025 - AWeb 3 Browser Extensions JavaScript Test</SMALL></P>
+<P><A HREF="ecmascript_test.html">ECMAScript 3 Core Language Tests</A> | <A HREF="aweb.html">Back to AWeb documentation index</A></P>
 </CENTER>
 
 </BODY>
