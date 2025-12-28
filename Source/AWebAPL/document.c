@@ -272,6 +272,7 @@ static void Reloaddocument(struct Document *doc)
    doc->wantbreak=0;
    doc->doctype=DOCTP_NONE;
    doc->dflags=0;
+   doc->viewportwidth=0;  /* Reset viewport width to default (use window inner width) */
    doc->bgcolor=NULL;
    doc->textcolor=NULL;
    doc->linkcolor=NULL;
@@ -603,16 +604,26 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
             SETFLAG(doc->pflags,DPF_RELOADVERIFY,tag->ti_Data);
             break;
          case AOCDV_Marginwidth:
+            /* Frame margins are applied as body left margin. This creates visual
+             * spacing within the viewport rather than reducing the viewport width.
+             * The viewport width remains the full window inner width, and margins
+             * are applied as content area reduction. */
             if(!(doc->dflags&DDF_HMARGINSET))
             {  doc->hmargin=tag->ti_Data;
                if(doc->body) Asetattrs(doc->body,AOBDY_Leftmargin,doc->hmargin,TAG_END);
             }
             break;
          case AOCDV_Marginheight:
+            /* Frame margins applied as body top margin (see comment above) */
             if(!(doc->dflags&DDF_VMARGINSET))
             {  doc->vmargin=tag->ti_Data;
                if(doc->body) Asetattrs(doc->body,AOBDY_Topmargin,doc->vmargin,TAG_END);
             }
+            break;
+         case AOCDV_Viewportwidth:
+            /* Viewport width from meta viewport tag. If > 0, overrides default
+             * viewport width (window inner width). Value of 0 means use default. */
+            doc->viewportwidth=tag->ti_Data;
             break;
          case AOINF_Inquire:
             Makeinfo(doc,(void *)tag->ti_Data);

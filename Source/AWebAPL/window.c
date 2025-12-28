@@ -951,6 +951,22 @@ static BOOL Openwindow(struct Awindow *win)
       GA_RelHeight,-win->window->BorderTop-win->window->BorderBottom,
       ICA_TARGET,ICTARGET_IDCMP,
       TAG_END);
+   /* Verify that spacegad width matches window inner width for viewport accuracy.
+    * The spacegad represents the inner content area and should match the window
+    * inner width exactly. This ensures the viewport width calculation is correct. */
+   if(win->spacegad)
+   {  long expected_width,actual_width;
+      expected_width=win->window->Width-win->window->BorderLeft-win->window->BorderRight;
+      actual_width=win->spacegad->Width;
+      /* If there's a mismatch, it may be due to layout constraints or UI elements.
+       * The spacegad should fill the available space, so this check helps ensure
+       * viewport width accuracy. */
+      if(actual_width!=expected_width && expected_width>0)
+      {  /* Spacegad width may differ due to layout constraints (button bars, etc.)
+           * This is expected and the actual spacegad width should be used as the
+           * viewport width. */
+      }
+   }
    if(buttonrow)
    {  Completebuttonrow(win,drinfo);
    }

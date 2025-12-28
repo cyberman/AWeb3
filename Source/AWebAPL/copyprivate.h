@@ -37,6 +37,7 @@ struct Copy
    short border;              /* Link border thickness */
    short hspace,vspace;       /* Extra gutter */
    short mwidth,mheight;      /* Margins to forward to driver */
+   long viewportwidth;        /* Viewport width from meta viewport tag, 0 if not set */
    long width,height;         /* Suggested dimensions in pixels (even if given in %) */
    long pwidth,pheight;       /* Suggested dimensions as percentage or -1. */
    UBYTE *lasturl;            /* Last constructed url for map links */

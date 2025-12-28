@@ -792,6 +792,7 @@ static long Setcopy(struct Copy *cop,struct Amset *ams)
                      AOCDV_Mapdocument,(cop->flags&CPYF_MAPDOCUMENT),
                      AOCDV_Marginwidth,cop->mwidth,
                      AOCDV_Marginheight,cop->mheight,
+                     cop->viewportwidth>0?AOCDV_Viewportwidth:TAG_IGNORE,cop->viewportwidth,
                      ISEMPTY(&cop->params)?TAG_IGNORE:AOCDV_Objectparams,cop->params.first,
                      AOBJ_Cframe,(cop->flags&CPYF_ERROR)?NULL:cop->cframe,
                      AOBJ_Frame,(cop->flags&CPYF_ERROR)?NULL:cop->frame,

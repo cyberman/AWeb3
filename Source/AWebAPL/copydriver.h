@@ -107,6 +107,10 @@
 #define AOCDV_Marginheight (AOCDV_Dummy+26)     /* NEW,SET */
    /* (long) Suggested margin dimensions */
 
+#define AOCDV_Viewportwidth (AOCDV_Dummy+28)   /* NEW,SET */
+   /* (long) Viewport width from meta viewport tag. If > 0, overrides default
+    * viewport width calculation. Value of 0 means use default (window inner width). */
+
 #define AOCDV_Alpha        (AOCDV_Dummy+27)     /* GET */
    /* (ULONG) Does this copy driver support alpha channel? Returns non-zero if alpha channel is available. */
 

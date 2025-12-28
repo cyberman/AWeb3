@@ -535,6 +535,36 @@ static BOOL Layoutcontents(struct Frame *fr,USHORT flags)
       {  h=400;
       }
       else h=fr->layouth;
+      /* For top frames, fr->w is the viewport width (full window inner width).
+       * Frame margins are passed separately via AOCDV_Marginwidth to the document,
+       * which applies them as body margins. This ensures the viewport matches the
+       * window width where feasible, with margins applied as content area reduction.
+       * If a meta viewport tag specifies a width, use that instead. */
+      if(fr->flags&FRMF_TOPFRAME)
+      {  long viewport_width,meta_viewport_width;
+         /* Check if document has a meta viewport width specified */
+         if(fr->copy)
+         {  meta_viewport_width=Agetattr(fr->copy,AOCDV_Viewportwidth);
+            if(meta_viewport_width>0)
+            {  /* Use meta viewport width if specified */
+               fr->w=meta_viewport_width;
+            }
+            else
+            {  /* Otherwise use full window inner width as viewport */
+               viewport_width=Agetattr(fr->win,AOWIN_Innerwidth);
+               if(viewport_width>0)
+               {  fr->w=viewport_width;
+               }
+            }
+         }
+         else
+         {  /* Fallback: use window inner width */
+            viewport_width=Agetattr(fr->win,AOWIN_Innerwidth);
+            if(viewport_width>0)
+            {  fr->w=viewport_width;
+            }
+         }
+      }
       Alayout(fr->copy,fr->w,h,flags,NULL,0,NULL);
    }
    else if(fr->hscroll && fr->vscroll)
@@ -936,6 +966,10 @@ static void Setnewwinhis(struct Frame *fr,void *whis,BOOL noreferer)
          AOCPY_Url,url,
          AOCPY_Defaulttype,"text/plain",
          AOCPY_Reloadverify,BOOLVAL(fr->flags&FRMF_RELOADVERIFY),
+         /* Frame margins are passed to the document and applied as body margins.
+          * This creates visual spacing within the viewport rather than reducing
+          * the viewport width itself. The viewport width (fr->w) remains the
+          * full window inner width. */
          AOCPY_Mwidth,fr->mwidth,
          AOCPY_Mheight,fr->mheight,
          AOCPY_Referer,noreferer?NULL:oldurl,
@@ -977,12 +1011,23 @@ static void Resizeframe(struct Frame *fr,long newaow,long newaoh)
       if(fr->flags&FRMF_HSCROLL) fr->h-=Agetattr(fr->hscroll,AOBJ_Height);
    }
    else
-   {  Agetattrs(fr->win,
+   {  /* For top frames, viewport width should match full window inner width.
+        * Frame margins (fr->mwidth) are applied separately as content area
+        * reduction via AOCDV_Marginwidth, not as viewport reduction. */
+      Agetattrs(fr->win,
          AOWIN_Innerleft,&fr->x,
          AOWIN_Innertop,&fr->y,
          AOWIN_Innerwidth,&fr->w,
          AOWIN_Innerheight,&fr->h,
          TAG_END);
+      /* Ensure viewport width matches window inner width exactly */
+      if(fr->flags&FRMF_TOPFRAME)
+      {  long win_inner_width;
+         win_inner_width=Agetattr(fr->win,AOWIN_Innerwidth);
+         if(win_inner_width>0 && fr->w!=win_inner_width)
+         {  fr->w=win_inner_width;
+         }
+      }
    }
    if(!(fr->flags&FRMF_DUMBFRAME)) fr->layouth=fr->h;
    if(fr->flags&FRMF_CHANGEDCHILD)
@@ -1061,6 +1106,7 @@ static void Reloadframe(struct Frame *fr,void *url)
       AOCPY_Url,url,
       AOCPY_Defaulttype,"text/plain",
       AOCPY_Reloadverify,TRUE,
+      /* Frame margins passed to document as body margins (see comment above) */
       AOCPY_Mwidth,fr->mwidth,
       AOCPY_Mheight,fr->mheight,
       AOBJ_Layoutparent,fr,
@@ -1749,6 +1795,11 @@ static struct Frame *Newframe(struct Amset *ams)
       if(fr->flags&FRMF_TOPFRAME)
       {  fr->flags&=~FRMF_SCROLLING;
          fr->border=0;
+         /* Frame margins for top frames are applied as content area reduction,
+          * not viewport reduction. The viewport width (fr->w) matches the full
+          * window inner width. Frame margins are passed to the document via
+          * AOCDV_Marginwidth and applied as body margins, creating visual spacing
+          * within the viewport rather than reducing the viewport itself. */
          fr->mwidth=fr->mheight=9;
       }
       if(fr->flags&FRMF_SCROLLING)

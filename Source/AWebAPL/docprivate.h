@@ -113,6 +113,7 @@ struct Document
    struct Aobject *bgalign;   /* Object to align background to */
    void *bgsound;             /* Background sound object */
    UBYTE *clientpull;         /* Clientpull string */
+   long viewportwidth;        /* Viewport width from meta viewport tag, 0 if not set */
 
    LIST(Colorinfo) colors;    /* colors used in this document */
    LIST(Aobject) links;       /* links used in this document */

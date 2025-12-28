@@ -2334,6 +2334,71 @@ static BOOL Dometa(struct Document *doc,struct Tagattr *ta)
          SETFLAG(doc->dflags,DDF_FOREIGN,(*p && !STRIEQUAL(p,"ISO-8859-1")));
       }
    }
+   /* Parse viewport meta tag: <meta name="viewport" content="width=device-width, initial-scale=1.0"> */
+   if(name && content && STRIEQUAL(name,"VIEWPORT"))
+   {  UBYTE *content_copy,*p,*key_start,*key_end,*value_start,*value_end;
+      long viewport_width=0;
+      /* Make a copy of content for parsing to avoid modifying original */
+      content_copy=Dupstr(content,-1);
+      if(content_copy)
+      {  p=content_copy;
+         while(p && *p)
+         {  /* Skip whitespace and commas */
+            while(*p && (isspace(*p) || *p==',')) p++;
+            if(!*p) break;
+            /* Find key */
+            key_start=p;
+            while(*p && *p!='=' && !isspace(*p) && *p!=',') p++;
+            if(*p!='=') break;
+            key_end=p;
+            /* Trim trailing whitespace from key */
+            while(key_end>key_start && isspace(key_end[-1])) key_end--;
+            *key_end='\0';
+            p++;
+            /* Skip whitespace after = */
+            while(*p && isspace(*p)) p++;
+            if(!*p) break;
+            /* Find value */
+            value_start=p;
+            if(*p=='"')
+            {  p++;
+               value_start=p;
+               while(*p && *p!='"') p++;
+               value_end=p;
+               if(*p) p++;
+            }
+            else
+            {  while(*p && *p!=',' && !isspace(*p)) p++;
+               value_end=p;
+            }
+            *value_end='\0';
+            /* Parse width value */
+            if(STRIEQUAL(key_start,"WIDTH"))
+            {  if(STRIEQUAL(value_start,"DEVICE-WIDTH"))
+               {  /* device-width means use window inner width (default), so 0 */
+                  viewport_width=0;
+               }
+               else
+               {  struct Number num;
+                  /* Try to parse as number */
+                  Getnumber(&num,value_start);
+                  if(num.type==NUMBER_NUMBER && num.n>0)
+                  {  viewport_width=num.n;
+                  }
+               }
+            }
+            /* Skip to next key=value pair */
+            while(*p && (isspace(*p) || *p==',')) p++;
+         }
+         FREE(content_copy);
+         /* Store viewport width in document */
+         if(viewport_width>=0)
+         {  doc->viewportwidth=viewport_width;
+            /* Pass to copy driver so frame can use it */
+            Asetattrs(doc->copy,AOCDV_Viewportwidth,viewport_width,TAG_END);
+         }
+      }
+   }
    if(httpequiv) name=httpequiv;
    if(name && content)
    {  Addinfotext(doc,name,content,NULL);
