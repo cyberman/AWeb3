@@ -131,6 +131,22 @@ static long Jsetupfield(struct Field *fld,struct Amjsetup *amj)
    if(!fld->jobject)
    {  if(fld->jobject=Newjobject(amj->jc))
       {  Setjobject(fld->jobject,NULL,fld,NULL);
+         Jkeepobject(fld->jobject,TRUE);
+         /* If this is an isolated field ie it has no form we must specify KEEPOBJECT */
+         /* Else it will get garbage collected, also we add to the parent */
+         /* in a similar way to an image, if it's in a form the forms object will */
+         /* effectively protect from garbage collection */
+         if(!fld->form)
+         {  /* This is a case where we use Jaddproperty */
+            /* We don't want to overwrite any existing property */
+            /* with the same name as this can cause multiple disposal */
+            if(fld->name)
+            {  if(jv=Jaddproperty(amj->jc,amj->parent,fld->name))
+               {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
+                  Jasgobject(amj->jc,jv,fld->jobject);
+               }
+            }
+         }
          /* When adding this object to its parent, there are 3 possibilities:
           * 1. There is no property with this name yet, add it as a single object.
           * 2. There is a property that is an array, add this object.

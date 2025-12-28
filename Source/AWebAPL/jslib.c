@@ -242,6 +242,11 @@ __asm __saveds void Jkeepobject(
 __asm __saveds void Jgarbagecollect(
    register __a0 struct Jcontext *jc);
 
+__asm __saveds struct Variable *Jaddproperty(
+   register __a0 struct Jcontext *jc,
+   register __a1 struct Jobject *jo,
+   register __a2 UBYTE *name);
+
 __asm __saveds void Jallowgc(
    register __a0 struct Jcontext *jc,
    register __d0 BOOL allow);
@@ -293,6 +298,7 @@ static APTR functable[]=
    Jasgobject,
    Setjobject,
    Jproperty,
+   Jaddproperty,
    Setjproperty,
    Jthis,
    Jointernal,
@@ -1217,6 +1223,18 @@ __asm __saveds void Jkeepobject(
 __asm __saveds void Jgarbagecollect(
    register __a0 struct Jcontext *jc)
 {  if(jc) Garbagecollect(jc);
+}
+
+__asm __saveds struct Variable *Jaddproperty(
+   register __a0 struct Jcontext *jc,
+   register __a1 struct Jobject *jo,
+   register __a2 UBYTE *name)
+{  struct Variable *var=NULL;
+   if(!name) name="";
+   if(jc && jo && !Getownproperty(jo,name))
+   {  var=Addproperty(jo,name);
+   }
+   return var;
 }
 
 __asm __saveds void Jallowgc(

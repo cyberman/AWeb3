@@ -124,6 +124,9 @@ extern void Jsetprototype(struct Jcontext *jc,struct Jobject *jo,struct Jobject 
 /* Add a property, or return the existing property value */
 extern struct Jvar *Jproperty(struct Jcontext *jc,struct Jobject *jo,UBYTE *name);
 
+/* Add a property only if it doesn't already exist. Returns NULL if property already exists. */
+extern struct Jvar *Jaddproperty(struct Jcontext *jc,struct Jobject *jo,UBYTE *name);
+
 /* Get the name of a property, or NULL */
 extern UBYTE *Jpname(struct Jvar *jv);
 
@@ -234,45 +237,46 @@ extern void Jdumpobjects(struct Jcontext *jc);
 #pragma libcall AWebJSBase Setjobject 5a BA9804
 
 #pragma libcall AWebJSBase Jproperty 60 A9803
-#pragma libcall AWebJSBase Setjproperty 66 A9803
+#pragma libcall AWebJSBase Jaddproperty 66 A9803
+#pragma libcall AWebJSBase Setjproperty 6c A9803
 
-#pragma libcall AWebJSBase Jthis 6c 801
-#pragma libcall AWebJSBase Jointernal 72 801
+#pragma libcall AWebJSBase Jthis 72 801
+#pragma libcall AWebJSBase Jointernal 78 801
 
-#pragma libcall AWebJSBase Jasgboolean 78 09803
-#pragma libcall AWebJSBase Jtoboolean 7e 9802
+#pragma libcall AWebJSBase Jasgboolean 7e 09803
+#pragma libcall AWebJSBase Jtoboolean 84 9802
 
-#pragma libcall AWebJSBase Newjarray 84 801
-#pragma libcall AWebJSBase Jnewarrayelt 8a 9802
+#pragma libcall AWebJSBase Newjarray 8a 801
+#pragma libcall AWebJSBase Jnewarrayelt 90 9802
 
-#pragma libcall AWebJSBase Jtoobject 90 9802
-#pragma libcall AWebJSBase Jtonumber 96 9802
-#pragma libcall AWebJSBase Jasgnumber 9c 09803
+#pragma libcall AWebJSBase Jtoobject 96 9802
+#pragma libcall AWebJSBase Jtonumber 9c 9802
+#pragma libcall AWebJSBase Jasgnumber a2 09803
 
-#pragma libcall AWebJSBase Jisarray a2 9802
-#pragma libcall AWebJSBase Jfindarray a8 A9803
-#pragma libcall AWebJSBase Jsetprototype ae A9803
+#pragma libcall AWebJSBase Jisarray a8 9802
+#pragma libcall AWebJSBase Jfindarray ae A9803
+#pragma libcall AWebJSBase Jsetprototype b4 A9803
 
-#pragma libcall AWebJSBase Jgetuserdata b4 801
-#pragma libcall AWebJSBase Jisnumber ba 801
+#pragma libcall AWebJSBase Jgetuserdata ba 801
+#pragma libcall AWebJSBase Jisnumber c0 801
 
-#pragma libcall AWebJSBase Clearjobject c0 9802
-#pragma libcall AWebJSBase Freejobject c6 801
+#pragma libcall AWebJSBase Clearjobject c6 9802
+#pragma libcall AWebJSBase Freejobject cc 801
 
-#pragma libcall AWebJSBase Jdumpobjects cc 801
-#pragma libcall AWebJSBase Jgetreturnvalue d2 801
-#pragma libcall AWebJSBase Jpprotect d8 0802
-#pragma libcall AWebJSBase Jcprotect de 0802
-#pragma libcall AWebJSBase Jpname e4 801
-#pragma libcall AWebJSBase Jdisposehook ea 801
-#pragma libcall AWebJSBase Jsetfeedback f0 9802
-#pragma libcall AWebJSBase Jdebug f6 0802
-#pragma libcall AWebJSBase Jerrors fc 210804
+#pragma libcall AWebJSBase Jdumpobjects d2 801
+#pragma libcall AWebJSBase Jgetreturnvalue d8 801
+#pragma libcall AWebJSBase Jpprotect de 0802
+#pragma libcall AWebJSBase Jcprotect e4 0802
+#pragma libcall AWebJSBase Jpname ea 801
+#pragma libcall AWebJSBase Jdisposehook f0 801
+#pragma libcall AWebJSBase Jsetfeedback f6 9802
+#pragma libcall AWebJSBase Jdebug fc 0802
+#pragma libcall AWebJSBase Jerrors 102 210804
 
-#pragma libcall AWebJSBase Jkeepobject 102 0802
-#pragma libcall AWebJSBase Jgarbagecollect 108 801
-#pragma libcall AWebJSBase Jsetlinenumber 10e 0802
-#pragma libcall AWebJSBase Jsetobjasfunc 114 0802
-#pragma libcall AWebJSBase Jsetscreen 11a 9802
-#pragma libcall AWebJSBase Jaddeventhandler 120 BA9804
-#pragma libcall AWebJSBase Jallowgc 126 0802
+#pragma libcall AWebJSBase Jkeepobject 108 0802
+#pragma libcall AWebJSBase Jgarbagecollect 10e 801
+#pragma libcall AWebJSBase Jsetlinenumber 114 0802
+#pragma libcall AWebJSBase Jsetobjasfunc 11a 0802
+#pragma libcall AWebJSBase Jsetscreen 120 9802
+#pragma libcall AWebJSBase Jaddeventhandler 126 BA9804
+#pragma libcall AWebJSBase Jallowgc 12c 0802
