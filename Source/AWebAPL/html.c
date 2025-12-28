@@ -2828,10 +2828,33 @@ static BOOL Dobr(struct Document *doc,struct Tagattr *ta)
 
 /*** <CENTER> ***/
 static BOOL Docenter(struct Document *doc,struct Tagattr *ta)
-{  Wantbreak(doc,1);
+{  void *body;
+   UBYTE *class = NULL;
+   UBYTE *id = NULL;
+   struct Tagattr *tap;
+   tap = ta;  /* Save original ta pointer for Checkid */
+   Wantbreak(doc,1);
    if(!Ensurebody(doc)) return FALSE;
-   Asetattrs(Docbodync(doc),AOBDY_Divalign,HALIGN_CENTER,TAG_END);
-   Checkid(doc,ta);
+   body = Docbodync(doc);
+   /* Parse class and id attributes */
+   for(;ta && ta->next;ta=ta->next)
+   {  switch(ta->attr)
+      {  case TAGATTR_CLASS:
+            class = ATTR(doc,ta);
+            break;
+         case TAGATTR_ID:
+            id = ATTR(doc,ta);
+            break;
+      }
+   }
+   Asetattrs(body,AOBDY_Divalign,HALIGN_CENTER,TAG_END);
+   /* Store class/id/tagname on body for CSS matching */
+   if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
+   if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
+   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"CENTER",-1),TAG_END);
+   /* Apply CSS to CENTER element based on its class/id/tagname */
+   ApplyCSSToBody(doc,body,class,id,"CENTER");
+   Checkid(doc,tap);  /* Use original ta pointer */
    return TRUE;
 }
 
@@ -3436,13 +3459,36 @@ static BOOL Dodelend(struct Document *doc)
 
 /*** <ADDRESS> ***/
 static BOOL Doaddress(struct Document *doc,struct Tagattr *ta)
-{  if(!Ensurebody(doc)) return FALSE;
+{  void *body;
+   UBYTE *class = NULL;
+   UBYTE *id = NULL;
+   struct Tagattr *tap;
+   tap = ta;  /* Save original ta pointer for Checkid */
+   if(!Ensurebody(doc)) return FALSE;
+   body = Docbody(doc);
+   /* Parse class and id attributes */
+   for(;ta && ta->next;ta=ta->next)
+   {  switch(ta->attr)
+      {  case TAGATTR_CLASS:
+            class = ATTR(doc,ta);
+            break;
+         case TAGATTR_ID:
+            id = ATTR(doc,ta);
+            break;
+      }
+   }
    if(doc->doctype==DOCTP_BODY)
-   {  Asetattrs(Docbody(doc),
+   {  Asetattrs(body,
          AOBDY_Style,STYLE_ADDRESS,
          TAG_END);
    }
-   Checkid(doc,ta);
+   /* Store class/id/tagname on body for CSS matching */
+   if(class) Asetattrs(body,AOBDY_Class,Dupstr(class,-1),TAG_END);
+   if(id) Asetattrs(body,AOBDY_Id,Dupstr(id,-1),TAG_END);
+   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"ADDRESS",-1),TAG_END);
+   /* Apply CSS to ADDRESS element based on its class/id/tagname */
+   ApplyCSSToBody(doc,body,class,id,"ADDRESS");
+   Checkid(doc,tap);  /* Use original ta pointer */
    Wantbreak(doc,1);
    return TRUE;
 }
@@ -4575,8 +4621,13 @@ static BOOL Dool(struct Document *doc,struct Tagattr *ta)
 {  struct Listinfo li={0},*nestli;
    UBYTE *styleAttr;
    UBYTE *classAttr;
+   UBYTE *idAttr;
+   void *body;
+   struct Tagattr *tap;
    styleAttr = NULL;
    classAttr = NULL;
+   idAttr = NULL;
+   tap = ta;  /* Save original ta pointer for Checkid */
    li.type=BDLT_OL;
    /* Clear previous list class */
    if(doc->currentlistclass) FREE(doc->currentlistclass);
@@ -4588,6 +4639,9 @@ static BOOL Dool(struct Document *doc,struct Tagattr *ta)
             break;
          case TAGATTR_CLASS:
             classAttr=ATTR(doc,ta);
+            break;
+         case TAGATTR_ID:
+            idAttr=ATTR(doc,ta);
             break;
          case TAGATTR_CONTINUE:
             break;
@@ -4773,14 +4827,21 @@ static BOOL Dool(struct Document *doc,struct Tagattr *ta)
       }
    }
    if(!Ensurebody(doc)) return FALSE;
+   body = Docbody(doc);
    /* Add extra space if it is the outer list */
-   nestli=(struct Listinfo *)Agetattr(Docbody(doc),AOBDY_List);
+   nestli=(struct Listinfo *)Agetattr(body,AOBDY_List);
    Wantbreak(doc,nestli->next?1:2);
-   Asetattrs(Docbody(doc),
+   Asetattrs(body,
       AOBDY_Align,-1,
       AOBDY_List,&li,
       TAG_END);
-   Checkid(doc,ta);
+   /* Store class/id/tagname on body for CSS matching */
+   if(classAttr) Asetattrs(body,AOBDY_Class,Dupstr(classAttr,-1),TAG_END);
+   if(idAttr) Asetattrs(body,AOBDY_Id,Dupstr(idAttr,-1),TAG_END);
+   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"OL",-1),TAG_END);
+   /* Apply CSS to OL element based on its class/id/tagname */
+   ApplyCSSToBody(doc,body,classAttr,idAttr,"OL");
+   Checkid(doc,tap);  /* Use original ta pointer */
    return TRUE;
 }
 
@@ -4807,8 +4868,13 @@ static BOOL Doul(struct Document *doc,struct Tagattr *ta)
    struct Listinfo li={0},*nestli;
    UBYTE *styleAttr;
    UBYTE *classAttr;
+   UBYTE *idAttr;
+   void *body;
+   struct Tagattr *tap;
    styleAttr = NULL;
    classAttr = NULL;
+   idAttr = NULL;
+   tap = ta;  /* Save original ta pointer for Checkid */
    li.type=BDLT_UL;
    /* Clear previous list class */
    if(doc->currentlistclass) FREE(doc->currentlistclass);
@@ -4820,6 +4886,9 @@ static BOOL Doul(struct Document *doc,struct Tagattr *ta)
             break;
          case TAGATTR_CLASS:
             classAttr=ATTR(doc,ta);
+            break;
+         case TAGATTR_ID:
+            idAttr=ATTR(doc,ta);
             break;
          case TAGATTR_TYPE:
             if(STRNIEQUAL(ATTR(doc,ta),"DISC",4)) li.bullettype=BDBT_DISC;
@@ -4974,14 +5043,22 @@ static BOOL Doul(struct Document *doc,struct Tagattr *ta)
       }
    }
    if(!Ensurebody(doc)) return FALSE;
+   body = Docbody(doc);
    /* Add extra space if it is the outer list */
-   nestli=(struct Listinfo *)Agetattr(Docbody(doc),AOBDY_List);
+   nestli=(struct Listinfo *)Agetattr(body,AOBDY_List);
    Wantbreak(doc,nestli->next?1:2);
-   Asetattrs(Docbody(doc),
+   Asetattrs(body,
       AOBDY_Align,-1,
       AOBDY_List,&li,
       TAG_END);
-   Checkid(doc,ta);
+   /* Store class/id/tagname on body for CSS matching */
+   /* Note: UL, DIR, and MENU all use this handler - using "UL" as tag name for CSS */
+   if(classAttr) Asetattrs(body,AOBDY_Class,Dupstr(classAttr,-1),TAG_END);
+   if(idAttr) Asetattrs(body,AOBDY_Id,Dupstr(idAttr,-1),TAG_END);
+   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"UL",-1),TAG_END);
+   /* Apply CSS to UL element based on its class/id/tagname */
+   ApplyCSSToBody(doc,body,classAttr,idAttr,"UL");
+   Checkid(doc,tap);  /* Use original ta pointer */
    return TRUE;
 }
 

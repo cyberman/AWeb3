@@ -41,6 +41,7 @@
 <A HREF="#tables" STYLE="text-decoration: none; color: #0000ff;">Table Cell Styles</A> |
 <A HREF="#links" STYLE="text-decoration: none; color: #0000ff;">Link Styles</A> |
 <A HREF="#lists" STYLE="text-decoration: none; color: #0000ff;">List Styles</A> |
+<A HREF="#block" STYLE="text-decoration: none; color: #0000ff;">Block Elements</A> |
 <A HREF="#grid" STYLE="text-decoration: none; color: #0000ff;">Grid Layout</A> |
 <A HREF="#misc" STYLE="text-decoration: none; color: #0000ff;">Additional Properties</A> |
 <A HREF="stylesheet_test.html" STYLE="text-decoration: none; color: #0000ff;">External Stylesheet Tests</A>
@@ -650,6 +651,113 @@
 <LI>No numbering (none)</LI>
 <LI>Second item with no number</LI>
 </OL>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
+
+<HR>
+
+<A NAME="block"></A>
+<H2>Block Element CSS Support</H2>
+
+<P>This section tests CSS class and id selector support for HTML4 block-level elements that were recently enhanced with CSS support.</P>
+
+<H3>OL and UL with class/id selectors - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Ordered and unordered lists with CSS styles applied via class and id selectors from embedded stylesheets.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<STYLE>
+.menu-list { background-color: #e8e8e8; padding: 15px; margin: 10px; border: 1px solid #000000; }
+#navigation { background-color: #ccccff; padding: 20px; border: 2px solid #0000ff; }
+.step-list { background-color: #ccffcc; padding: 15px; margin-left: 30px; }
+#instructions { background-color: #ffcccc; padding: 15px; border: 1px dashed #ff0000; }
+</STYLE>
+<UL CLASS="menu-list">
+<LI>Menu item 1 (UL with class="menu-list")</LI>
+<LI>Menu item 2</LI>
+<LI>Menu item 3</LI>
+</UL>
+<UL ID="navigation">
+<LI>Nav item 1 (UL with id="navigation")</LI>
+<LI>Nav item 2</LI>
+</UL>
+<OL CLASS="step-list">
+<LI>First step (OL with class="step-list")</LI>
+<LI>Second step</LI>
+<LI>Third step</LI>
+</OL>
+<OL ID="instructions">
+<LI>Instruction 1 (OL with id="instructions")</LI>
+<LI>Instruction 2</LI>
+</OL>
+<P><STRONG>Note:</STRONG> Each list should have distinct background colors, padding, margins, and borders applied via CSS class or id selectors. This verifies that OL and UL elements correctly parse class/id attributes and apply CSS rules.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CENTER element with class/id selectors - PASS</H3>
+<P><STRONG>What you should see:</STRONG> CENTER elements with CSS styles applied via class and id selectors from embedded stylesheets.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<STYLE>
+.centered-content { background-color: #e8e8e8; padding: 20px; border: 2px solid #000000; }
+#page-title { background-color: #ccccff; padding: 15px; color: #0000ff; font-weight: bold; }
+.centered-note { background-color: #ffffcc; padding: 10px; border: 1px solid #8B7355; }
+</STYLE>
+<CENTER CLASS="centered-content">
+<P>This CENTER element has class="centered-content" with gray background, padding, and border.</P>
+</CENTER>
+<CENTER ID="page-title">
+<H3>This CENTER element has id="page-title" with blue background and bold blue text.</H3>
+</CENTER>
+<CENTER CLASS="centered-note">
+<P>This CENTER element has class="centered-note" with yellow background and brown border.</P>
+</CENTER>
+<P><STRONG>Note:</STRONG> Each CENTER element should have distinct styling applied via CSS class or id selectors. This verifies that CENTER elements correctly parse class/id attributes and apply CSS rules while maintaining center alignment.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>ADDRESS element with class/id selectors - PASS</H3>
+<P><STRONG>What you should see:</STRONG> ADDRESS elements with CSS styles applied via class and id selectors from embedded stylesheets.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<STYLE>
+.contact-block { background-color: #e8e8e8; padding: 15px; font-style: italic; border: 1px solid #666666; }
+#business-address { background-color: #ffffcc; padding: 20px; border: 2px solid #8B7355; color: #4A4A4A; }
+.footer-contact { background-color: #f0f0f0; padding: 10px; color: #666666; font-size: small; }
+</STYLE>
+<ADDRESS CLASS="contact-block">
+Company Name<BR>
+123 Main Street<BR>
+City, State 12345<BR>
+Phone: (555) 123-4567<BR>
+(ADDRESS with class="contact-block")
+</ADDRESS>
+<ADDRESS ID="business-address">
+Corporate Headquarters<BR>
+456 Business Boulevard<BR>
+Metro City, ST 67890<BR>
+(ADDRESS with id="business-address")
+</ADDRESS>
+<ADDRESS CLASS="footer-contact">
+Footer Contact Information<BR>
+Email: info@example.com<BR>
+Web: www.example.com<BR>
+(ADDRESS with class="footer-contact")
+</ADDRESS>
+<P><STRONG>Note:</STRONG> Each ADDRESS element should have distinct styling applied via CSS class or id selectors. This verifies that ADDRESS elements correctly parse class/id attributes and apply CSS rules. The default italic style may be combined with custom styles.</P>
 </TD>
 </TR>
 </TABLE>
