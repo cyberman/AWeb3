@@ -969,8 +969,38 @@ static SSL_CTX *GetSharedSSLCTX(void) {
   SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
   check_ssl_error("SSL_CTX_set_verify", AmiSSLBase);
   
-  /* Note: We don't set cipher lists or ciphersuites - let OpenSSL use its defaults */
-  /* This ensures maximum compatibility across different OpenSSL builds */
+  /* Set cipher preferences - prioritize CHACHA20 over AES for better performance on older CPUs */
+  /* TLS 1.2 and below: prioritize CHACHA20 ciphers */
+  {
+    int cipher_list_result;
+    /* Try CHACHA20-first list, fallback to standard list if CHACHA20 not available */
+    cipher_list_result = SSL_CTX_set_cipher_list(ctx, "CHACHA20:HIGH:MEDIUM:!LOW:!SSLv2:!SSLv3:!EXP:!aNULL");
+    check_ssl_error("SSL_CTX_set_cipher_list (CHACHA20)", AmiSSLBase);
+    if (cipher_list_result == 0) {
+      /* Fallback to standard list if CHACHA20 not available */
+      debug_printf("DEBUG: GetSharedSSLCTX: CHACHA20 cipher list failed, trying standard list\n");
+      cipher_list_result = SSL_CTX_set_cipher_list(ctx, "HIGH:MEDIUM:!LOW:!SSLv2:!SSLv3:!EXP:!aNULL");
+      check_ssl_error("SSL_CTX_set_cipher_list (HIGH:MEDIUM)", AmiSSLBase);
+    }
+    if (cipher_list_result == 0) {
+      debug_printf("DEBUG: GetSharedSSLCTX: WARNING - All cipher lists failed, using OpenSSL defaults\n");
+      check_ssl_error("SSL_CTX_set_cipher_list (all failed)", AmiSSLBase);
+    } else {
+      debug_printf("DEBUG: GetSharedSSLCTX: Cipher list set successfully (CHACHA20 prioritized)\n");
+    }
+  }
+  
+  /* TLS 1.3: prioritize CHACHA20 ciphersuites */
+  {
+    int ciphersuites_result;
+    ciphersuites_result = SSL_CTX_set_ciphersuites(ctx, "TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256");
+    check_ssl_error("SSL_CTX_set_ciphersuites", AmiSSLBase);
+    if (ciphersuites_result == 0) {
+      debug_printf("DEBUG: GetSharedSSLCTX: WARNING - SSL_CTX_set_ciphersuites() failed (TLS 1.3 may not be available)\n");
+    } else {
+      debug_printf("DEBUG: GetSharedSSLCTX: TLS 1.3 ciphersuites set successfully (CHACHA20 prioritized)\n");
+    }
+  }
   
   /* Store as shared SSL_CTX and set initial refcount to 1 */
   shared_sslctx = ctx;

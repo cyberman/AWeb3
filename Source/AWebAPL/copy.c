@@ -974,6 +974,14 @@ static long Setcopy(struct Copy *cop,struct Amset *ams)
             if(cop->onclick) FREE(cop->onclick);
             cop->onclick=Dupstr((UBYTE *)tag->ti_Data,-1);
             break;
+         case AOCPY_Onmouseover:
+            if(cop->onmouseover) FREE(cop->onmouseover);
+            cop->onmouseover=Dupstr((UBYTE *)tag->ti_Data,-1);
+            break;
+         case AOCPY_Onmouseout:
+            if(cop->onmouseout) FREE(cop->onmouseout);
+            cop->onmouseout=Dupstr((UBYTE *)tag->ti_Data,-1);
+            break;
          case AOCPY_Onimgload:
             if(tag->ti_Data && cop->onload &&
                ((cop->frame && cop->flags&CPYF_JSONLOAD) || cop->flags&CPYF_JSIMAGE))
@@ -1861,6 +1869,8 @@ static void Disposecopy(struct Copy *cop)
    if(cop->onerror) FREE(cop->onerror);
    if(cop->onabort) FREE(cop->onabort);
    if(cop->onclick) FREE(cop->onclick);
+   if(cop->onmouseover) FREE(cop->onmouseover);
+   if(cop->onmouseout) FREE(cop->onmouseout);
    Freejcopy(cop);
    Queuesetmsg(cop,0);
    Amethodas(AOTP_FIELD,cop,AOM_DISPOSE);

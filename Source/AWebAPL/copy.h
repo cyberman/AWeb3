@@ -115,6 +115,8 @@
 #define AOCPY_Onerror      (AOCPY_Dummy+34)  /* NEW */
 #define AOCPY_Onabort      (AOCPY_Dummy+35)  /* NEW */
 #define AOCPY_Onclick      (AOCPY_Dummy+44)  /* NEW */
+#define AOCPY_Onmouseout   (AOCPY_Dummy+45)  /* NEW */
+#define AOCPY_Onmouseover  (AOCPY_Dummy+46)  /* NEW */
    /* (UBYTE *) JS event handlers */
 
 #define AOCPY_Onimgload    (AOCPY_Dummy+36)  /* SET */

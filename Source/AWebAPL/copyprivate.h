@@ -54,6 +54,8 @@ struct Copy
    UBYTE *onerror;
    UBYTE *onabort;
    UBYTE *onclick;            /* onclick handler for images and objects */
+   UBYTE *onmouseover;
+   UBYTE *onmouseout;
    void *jsframe;             /* Related frame object for JS Image() ctr object */
    void *jform;               /* FORM object to add named property to */
 };

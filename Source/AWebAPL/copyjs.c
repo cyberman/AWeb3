@@ -102,6 +102,7 @@ static void Imageconstructor(struct Jcontext *jc)
       AOCPY_Onload,"if(this.onload) this.onload();",
       AOCPY_Onerror,"if(this.onerror) this.onerror();",
       AOCPY_Onabort,"if(this.onabort) this.onabort();",
+      AOCPY_Onclick,"if(this.onclick) this.onclick();",
       TAG_END))
    {  cop->flags|=CPYF_JSIMAGE;
       cop->jsframe=Getjsframe(jc);
@@ -227,9 +228,18 @@ long Jsetupcopy(struct Copy *cop,struct Amjsetup *amj)
 
 long Jonmousecopy(struct Copy *cop,struct Amjonmouse *amj)
 {  long result=0;
-/*
-   if(cop->maparea) result=AmethodA(cop->maparea,amj);
-*/
+   switch(amj->event)
+   {  case AMJE_ONMOUSEOVER:
+         if(cop->onmouseover)
+         {  Runjavascript(cop->frame?cop->frame:cop->jsframe,cop->onmouseover,&cop->jobject);
+         }
+         break;
+      case AMJE_ONMOUSEOUT:
+         if(cop->onmouseout)
+         {  Runjavascript(cop->frame?cop->frame:cop->jsframe,cop->onmouseout,&cop->jobject);
+         }
+         break;
+   }
    return result;
 }
 
