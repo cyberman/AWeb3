@@ -142,7 +142,7 @@ have to be different again. */
 
 #ifndef VPCOMPAT
 PCRE_DATA_SCOPE void *(*pcre_malloc)(size_t);
-PCRE_DATA_SCOPE void  (*pcre_free_ptr)(void *);
+/* pcre_free_ptr is static in pcre.c, not exported */
 PCRE_DATA_SCOPE int   (*pcre_callout)(pcre_callout_block *);
 extern void pcre_free(void *);  /* Wrapper function */
 #else   /* VPCOMPAT */

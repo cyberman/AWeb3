@@ -166,9 +166,12 @@ void Initobject(struct Jcontext *jc, struct Jobject *jscope)
       Addprototype(jc,jo,NULL);
 
      // Addglobalfunction(jc,jo);
+      /* Always set jc->object if not already set, needed by other Init functions */
+      if(!jc->object)
+      {  jc->object=jo;
+      }
       if(!jscope)
       {
-         jc->object=jo;
          /* Also add to global scope so it can be found by Findvar */
          /* Add to jc->fscope which is used by Jexecute */
          if(jc->fscope)

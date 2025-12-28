@@ -598,32 +598,22 @@ void Initregexp(struct Jcontext *jc, struct Jobject *jscope)
         if(!jscope)
         {
            jc->regexp=jo;
-           /* Also add to global scope so it can be found by Findvar */
            /* Add to jc->fscope which is used by Jexecute */
            if(jc->fscope)
            {  if((prop = Addproperty(jc->fscope,"RegExp")))
               {  Asgobject(&prop->val,jo);
                  prop->flags |= VARF_DONTDELETE;
+                 Keepobject(jo,FALSE);
               }
            }
-           /* Also add to jc->functions.first->fscope for Findvar */
-           if(jc->functions.first && jc->functions.first->fscope)
-           {  if((prop = Addproperty(jc->functions.first->fscope,"RegExp")))
-              {  Asgobject(&prop->val,jo);
-                 prop->flags |= VARF_DONTDELETE;
-              }
-           }
-           /* Release keep after adding to scopes */
-           Keepobject(jo,FALSE);
         }
         else
-        {  /* jscope is provided (e.g., from Runjprogram) */
-           if((prop = Addproperty(jscope,"RegExp")))
+        {  if((prop = Addproperty(jscope,"RegExp")))
            {  Asgobject(&prop->val,jo);
               prop->flags |= VARF_DONTDELETE;
               Keepobject(jo,FALSE);
            }
-           /* Also ensure it's in jc->functions.first->fscope if different from jscope */
+           /* Also ensure it's in jc->functions.first->fscope for Findvar */
            if(jc->functions.first && jc->functions.first->fscope && jc->functions.first->fscope != jscope)
            {  if((prop = Addproperty(jc->functions.first->fscope,"RegExp")))
               {  Asgobject(&prop->val,jo);

@@ -205,6 +205,9 @@ extern void Jkeepobject(struct Jobject *jo,BOOL used);
 /* Do the garbage collection */
 extern void Jgarbagecollect(struct Jcontext *jc);
 
+/* Allow or disallow garbage collection */
+extern void Jallowgc(struct Jcontext *jc,BOOL allow);
+
 /* Add an anonymous event handler function to this object.
  * If a property with this name already exists, it does nothing. */
 extern void Jaddeventhandler(struct Jcontext *jc,struct Jobject *jo,
@@ -268,8 +271,8 @@ extern void Jdumpobjects(struct Jcontext *jc);
 
 #pragma libcall AWebJSBase Jkeepobject 102 0802
 #pragma libcall AWebJSBase Jgarbagecollect 108 801
-
 #pragma libcall AWebJSBase Jsetlinenumber 10e 0802
 #pragma libcall AWebJSBase Jsetobjasfunc 114 0802
 #pragma libcall AWebJSBase Jsetscreen 11a 9802
 #pragma libcall AWebJSBase Jaddeventhandler 120 BA9804
+#pragma libcall AWebJSBase Jallowgc 126 0802

@@ -898,7 +898,7 @@ static void Appclosescreen(struct Application *app)
          {  ULONG rwmask=0,mask;
             struct Window *rw=BuildEasyRequest(app->screen->FirstWindow,&closereq,0);
             if(rw==(struct Window *)-1) rw=NULL;
-            if(rw) rwmask=(1<<rw->UserPort->mp_SigBit);
+            if(rw && rw->UserPort) rwmask=(1<<rw->UserPort->mp_SigBit);
             for(;;)
             {  mask=Waitprocessaweb((1<<app->pubsignum)|rwmask);
                if(mask&(1<<app->pubsignum)) break;
@@ -1456,7 +1456,8 @@ static long Jsetupapplication(struct Application *app,struct Amjsetup *js)
       {  app->jcontext=Newjcontext(app->screenname);
       }
       if(app->jcontext)
-      {  if(!app->jnavigator)
+      {  Jallowgc(app->jcontext,FALSE);
+         if(!app->jnavigator)
          {  app->jnavigator=Newjobject(app->jcontext);
             Jkeepobject(app->jnavigator,TRUE);
          }
@@ -1534,6 +1535,7 @@ static long Jsetupapplication(struct Application *app,struct Amjsetup *js)
             }
          }
          Jsetupallwindows(app->jcontext);
+         Jallowgc(app->jcontext,TRUE);
       }
    }
    return 0;

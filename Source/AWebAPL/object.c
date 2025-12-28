@@ -19,6 +19,7 @@
 /* object.c - AWeb re-usable objects */
 
 #include "aweb.h"
+#include "jslib.h"
 #include "object.h"
 #include <proto/utility.h>
 
@@ -594,25 +595,29 @@ ULONG Adragcopy(struct Aobject *ao,void *startobject,ULONG startobjpos,
 ULONG Ajsetup(struct Aobject *ao,struct Jcontext *jc,struct Jobject *parent,
    struct Jobject *parentframe)
 {  struct Amjsetup amj;
-   amj.method=AOM_JSETUP;
+   ULONG result;
+   amj.amsg.method=AOM_JSETUP;
    amj.jc=jc;
    amj.parent=parent;
    amj.parentframe=parentframe;
-   return AmethodA(ao,&amj);
+   Jallowgc(jc,FALSE);
+   result=AmethodA(ao,(struct Amessage *)&amj);
+   Jallowgc(jc,TRUE);
+   return result;
 }
 
 ULONG Ajonmouse(struct Aobject *ao,USHORT event)
 {  struct Amjonmouse amj;
-   amj.method=AOM_JONMOUSE;
+   amj.amsg.method=AOM_JONMOUSE;
    amj.event=event;
-   return AmethodA(ao,&amj);
+   return AmethodA(ao,(struct Amessage *)&amj);
 }
 
 ULONG Anotify(struct Aobject *ao,struct Amessage *nmsg)
 {  struct Amnotify amn;
-   amn.method=AOM_NOTIFY;
+   amn.amsg.method=AOM_NOTIFY;
    amn.nmsg=nmsg;
-   return AmethodA(ao,&amn);
+   return AmethodA(ao,(struct Amessage *)&amn);
 }
 
 void *Allocobject(short type,short size,struct Amset *ams)
@@ -643,8 +648,8 @@ ULONG Anotifyset(struct Aobject *ao,...)
    struct Amnotify amn={0};
    ams.method=AOM_SET;
    ams.tags=VARARG(ao);
-   amn.method=AOM_NOTIFY;
+   amn.amsg.method=AOM_NOTIFY;
    amn.nmsg=&ams;
-   return AmethodA(ao,&amn);
+   return AmethodA(ao,(struct Amessage *)&amn);
 }
 

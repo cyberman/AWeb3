@@ -223,7 +223,11 @@ variable-length repeat, or a anything other than literal characters. */
 /* Miscellaneous definitions */
 
 #ifndef BOOL
+#ifdef __amigaos4__
+/* BOOL is already defined in exec/types.h on AmigaOS 4 */
+#else
 typedef short BOOL;
+#endif
 #endif
 
 #define FALSE   0

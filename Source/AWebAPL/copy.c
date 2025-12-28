@@ -887,9 +887,17 @@ static long Setcopy(struct Copy *cop,struct Amset *ams)
                else cop->flags&=~CPYF_ERROR;
             }
             if(cop->onerror)
-            {  Jkeepobject(cop->jobject,TRUE);
+            {  struct Jobject *original_jobject;  /* C89: declare at start of block */
+               /* Save the original jobject pointer before Runjavascript might change it */
+               original_jobject=cop->jobject;
+               if(original_jobject)
+               {  Jkeepobject(original_jobject,TRUE);
+               }
                Runjavascript(cop->frame?cop->frame:cop->jsframe,cop->onerror,&cop->jobject);
-               Jkeepobject(cop->jobject,FALSE);
+               /* Only unkeep the original object we kept, not any new object that might have been set */
+               if(original_jobject)
+               {  Jkeepobject(original_jobject,FALSE);
+               }
             }
             break;
          case AOCPY_Defaulttype:

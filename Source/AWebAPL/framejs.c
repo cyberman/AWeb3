@@ -179,13 +179,15 @@ static void Methodalert(struct Jcontext *jc)
    long l;
    if(jv=Jfargument(jc,0))
    {  prompt=Jtostring(jc,jv);
-      l=strlen(prompt)+strlen(head)+1;
-      if(text=ALLOCTYPE(UBYTE,l,0))
-      {  strcpy(text,head);
-         strcat(text,prompt);
-         Syncrequest("AWeb JavaScript alert",text,"_Ok",0);
-         FREE(text);
-         Refreshevents();
+      if(prompt)
+      {  l=strlen(prompt)+strlen(head)+1;
+         if(text=ALLOCTYPE(UBYTE,l,0))
+         {  strcpy(text,head);
+            strcat(text,prompt);
+            Syncrequest("AWeb JavaScript alert",text,"_Ok",0);
+            FREE(text);
+            Refreshevents();
+         }
       }
    }
 }
@@ -197,13 +199,15 @@ static void Methodconfirm(struct Jcontext *jc)
    BOOL result=FALSE;
    if(jv=Jfargument(jc,0))
    {  prompt=Jtostring(jc,jv);
-      l=strlen(prompt)+strlen(head)+1;
-      if(text=ALLOCTYPE(UBYTE,l,0))
-      {  strcpy(text,head);
-         strcat(text,prompt);
-         result=BOOLVAL(Syncrequest("AWeb JavaScript confirm",text,"_Ok|_Cancel",0));
-         FREE(text);
-         Refreshevents();
+      if(prompt)
+      {  l=strlen(prompt)+strlen(head)+1;
+         if(text=ALLOCTYPE(UBYTE,l,0))
+         {  strcpy(text,head);
+            strcat(text,prompt);
+            result=BOOLVAL(Syncrequest("AWeb JavaScript confirm",text,"_Ok|_Cancel",0));
+            FREE(text);
+            Refreshevents();
+         }
       }
    }
    Jasgboolean(jc,NULL,result);
@@ -841,7 +845,8 @@ long Jsetupframe(struct Frame *fr,struct Amjsetup *amj)
    long i,length;
    BOOL add;
    if(prefs.dojs && Openjslib())
-   {  if(!fr->jobject)
+   {  Jallowgc(amj->jc,FALSE);
+      if(!fr->jobject)
       {  fr->jobject=Newjobject(amj->jc);
          fr->flags&=~(FRMF_JSIMAGECTR|FRMF_JSOPTIONCTR);
          if(fr->jobject)
@@ -1020,6 +1025,7 @@ long Jsetupframe(struct Frame *fr,struct Amjsetup *amj)
          }
          Ajsetup(fr->copy,amj->jc,fr->jobject,fr->jobject);
       }
+      Jallowgc(amj->jc,TRUE);
    }
    return 0;
 }
@@ -1100,16 +1106,28 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
    unsigned int clock[2]={ 0,0 };
    if(fr && script && prefs.dojs && Openjslib())
    {  fr=Bodyframe(fr);
-      Ajsetup(Aweb(),NULL,NULL,NULL);
+      if(!fr)
+      {  return FALSE;
+      }
+      /* Get jc first, then call Ajsetup - the reentrancy guard in Jsetupapplication
+       * will prevent deadlocks from recursive calls */
       jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
+      Ajsetup(Aweb(),NULL,NULL,NULL);
+      if(!jc) jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
       if(jc) Jsetfeedback(jc,Feedback);
       if(jthisp && *jthisp) jthis=*jthisp;
-      else jthis=fr->jobject;
+      else if(fr && fr->jobject) jthis=fr->jobject;
+      else
+      {  return FALSE;
+      }
       /* If (jthis) is our own object, only use us as global scope, not the
        * document. */
+      if(!fr || !fr->jobject)
+      {  return FALSE;
+      }
       jgscope[0]=fr->jobject;
       i=1;
-      if(jthis!=fr->jobject)
+      if(jthis!=fr->jobject && fr->jdscope)
       {  jgscope[i++]=fr->jdscope;
       }
       if(with)

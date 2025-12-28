@@ -804,11 +804,9 @@ else
     in future, so I haven't "optimized" it. */
 
     default:
-    if ((options & PCRE_EXTRA) != 0) switch(c)
+    if ((options & PCRE_EXTRA) != 0)
       {
-      default:
       *errorptr = ERR3;
-      break;
       }
     break;
     }
@@ -848,7 +846,7 @@ if (*p == '}') return TRUE;
 
 if ((cd->ctypes[*p++] & ctype_digit) == 0) return FALSE;
 while ((cd->ctypes[*p] & ctype_digit) != 0) p++;
-return ((*p == '}') ? TRUE : FALSE);
+return (*p == '}') ? TRUE : FALSE;
 }
 
 

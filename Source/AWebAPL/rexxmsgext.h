@@ -44,3 +44,4 @@ typedef ULONG (*GetVarHookFunc)(struct Hook *, APTR unused1, struct RexxMsg *rm)
 
 #endif /* RXMSGEXT_H */
 
+

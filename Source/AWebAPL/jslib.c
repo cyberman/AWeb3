@@ -242,6 +242,10 @@ __asm __saveds void Jkeepobject(
 __asm __saveds void Jgarbagecollect(
    register __a0 struct Jcontext *jc);
 
+__asm __saveds void Jallowgc(
+   register __a0 struct Jcontext *jc,
+   register __d0 BOOL allow);
+
 __asm __saveds void Jsetlinenumber(
    register __a0 struct Jcontext *jc,
    register __d0 long linenr);
@@ -321,6 +325,7 @@ static APTR functable[]=
    Jsetobjasfunc,
    Jsetscreen,
    Jaddeventhandler,
+   Jallowgc,
    (APTR)-1
 };
 
@@ -353,7 +358,7 @@ __asm __saveds struct Library *Initlib(
    register __a6 struct ExecBase *sysbase,
    register __a0 struct SegList *seglist,
    register __d0 struct Library *libbase)
-{  /* Note: printf not available yet - dos.library opens in Initaweblib */
+{
    SysBase=sysbase;
    AWebJSBase=libbase;
    libbase->lib_Revision=AWEBLIBREVISION;
@@ -489,8 +494,9 @@ BOOL Calleractive(void)
 {  struct IntuitionBase *ibase=(struct IntuitionBase *)IntuitionBase;
    ULONG lock=LockIBase(0);
    BOOL active=FALSE;
-   if(ibase->ActiveWindow && ibase->ActiveWindow->UserPort
-   && ibase->ActiveWindow->UserPort->mp_SigTask==FindTask(NULL))
+   struct MsgPort *userport;
+   if(ibase && ibase->ActiveWindow && (userport=ibase->ActiveWindow->UserPort)
+   && userport->mp_SigTask==FindTask(NULL))
    {  active=TRUE;
    }
    UnlockIBase(lock);
@@ -758,17 +764,17 @@ __asm __saveds BOOL Runjprogram(register __a0 struct Jcontext *jc,
       jc->generation++;
       jc->fscope=fscope;
       /* Ensure built-in objects are in the fscope - add them if not already present */
-      if(fscope && !Getproperty(fscope,"Math"))
-      {  Initmath(jc,fscope);
-         Initarray(jc,fscope);
-         Initdate(jc,fscope);
-         Initobject(jc,fscope);
-         Initboolean(jc,fscope);
-         Initfunction(jc,fscope);
-         Initnumber(jc,fscope);
-         Initstring(jc,fscope);
-         Initregexp(jc,fscope);
-         Initerror(jc,fscope);
+      if(fscope)
+      {  if(!Getproperty(fscope,"Math")) Initmath(jc,fscope);
+         if(!Getproperty(fscope,"Array")) Initarray(jc,fscope);
+         if(!Getproperty(fscope,"Date")) Initdate(jc,fscope);
+         if(!Getproperty(fscope,"Object")) Initobject(jc,fscope);
+         if(!Getproperty(fscope,"Boolean")) Initboolean(jc,fscope);
+         if(!Getproperty(fscope,"Function")) Initfunction(jc,fscope);
+         if(!Getproperty(fscope,"Number")) Initnumber(jc,fscope);
+         if(!Getproperty(fscope,"String")) Initstring(jc,fscope);
+         if(!Getproperty(fscope,"RegExp")) Initregexp(jc,fscope);
+         if(!Getproperty(fscope,"Error")) Initerror(jc,fscope);
          /* Copy global functions from jc->functions.first->local to fscope */
          if(jc->functions.first)
          {  struct Variable *var,*fvar;
@@ -1211,6 +1217,19 @@ __asm __saveds void Jkeepobject(
 __asm __saveds void Jgarbagecollect(
    register __a0 struct Jcontext *jc)
 {  if(jc) Garbagecollect(jc);
+}
+
+__asm __saveds void Jallowgc(
+   register __a0 struct Jcontext *jc,
+   register __d0 BOOL allow)
+{  if(jc)
+   {  if(allow)
+      {  jc->nogc--;
+      }
+      else
+      {  jc->nogc++;
+      }
+   }
 }
 
 __asm __saveds void Jsetlinenumber(
