@@ -29,6 +29,7 @@
 #include "task.h"
 #include "application.h"
 #include "awebtcp.h"
+#include "ftpparse.h"
 #include <exec/resident.h>
 #include <reaction/reaction.h>
 #include <reaction/reaction_macros.h>
@@ -369,6 +370,9 @@ static void Urldecode(UBYTE *string)
    *q='\0';
 }
 
+static STRPTR deflogin = "anonymous";
+static STRPTR defpass = "";
+
 /* Parse [login[:password]@]host[:port][/path[/][;type=X]] */
 static BOOL Makeftpaddr(struct Ftpaddr *fa,UBYTE *name)
 {  UBYTE *p,*q,*r;
@@ -388,14 +392,14 @@ static BOOL Makeftpaddr(struct Ftpaddr *fa,UBYTE *name)
          *q++='\0';
       }
       else
-      {  if(STRIEQUAL(fa->login,"anonymous")) fa->password="";
-         else fa->password="";
+      {  if(STRIEQUAL(fa->login,"anonymous")) fa->password=defpass;
+         else fa->password=defpass;
       }
       p++;
    }
    else
-   {  fa->login="anonymous";
-      fa->password="";
+   {  fa->login=deflogin;
+      fa->password=defpass;
       q=fa->buf;
    }
    /* Copy hostname upto port or path */
@@ -440,8 +444,8 @@ static BOOL Makeftpaddr(struct Ftpaddr *fa,UBYTE *name)
    fa->fullname=q;
    memmove(fa->fullname,name,r-name);
    Urldecode(fa->hostname);
-   Urldecode(fa->login);
-   Urldecode(fa->password);
+   if(fa->login != deflogin) Urldecode(fa->login);
+   if(fa->password != defpass) Urldecode(fa->password);
    Urldecode(fa->abspath);
    return TRUE;
 }
@@ -700,29 +704,52 @@ static void Readdir(long sock,struct Fetchdriver *fd,struct Ftpaddr *fa,
       else
       {  /* Find the last word. If the previous word is "->" is't a link and include
           * it in the anchor. */
-         p=line+strlen(line)-1;
-         while(p>=line && isspace(*p)) p--;
-         /* End of last word */
-         p[1]='\0';
-         while(p>=line && !isspace(*p)) p--;
-         /* Before last word */
-         name=link=p+1;
-         if(p>=line+3)
-         {  p-=2;
-            if(STRNEQUAL(p,"-> ",3))
-            {  p--;
-               while(p>=line && isspace(*p)) p--;
-               while(p>=line && !isspace(*p)) p--;
-               name=p+1;
+         struct ftpparse fp;
+         name = NULL;
+         link = NULL;
+         if (ftpparse(&fp,line,strlen(line)))
+         {
+            link = (UBYTE *)fp.name;
+            name = Dupstr((UBYTE *)fp.name,fp.namelen);
+            /* Handle symlinks with "->" */
+            if((p = (UBYTE *)strstr((char *)link,"->")))
+            {
+               q = line+strlen(line)-1;
+               while((--p >= line) && isspace(*p));
+               p[1] = '\0';
             }
          }
-         len=name-line;
-         if(len>=0)
-         {  len=Htmlmove(fd->block,line,len);
+         else
+         {  /* Fallback to old parsing if ftpparse fails */
+            p=line+strlen(line)-1;
+            while(p>=line && isspace(*p)) p--;
+            /* End of last word */
+            p[1]='\0';
+            while(p>=line && !isspace(*p)) p--;
+            /* Before last word */
+            name=link=p+1;
+            if(p>=line+3)
+            {  p-=2;
+               if(STRNEQUAL(p,"-> ",3))
+               {  p--;
+                  while(p>=line && isspace(*p)) p--;
+                  while(p>=line && !isspace(*p)) p--;
+                  name=p+1;
+               }
+            }
          }
-         len+=sprintf(fd->block+len,"<A HREF=\"ftp://%s/%s\">",fa->fullname,link);
-         len+=Htmlmove(fd->block+len,name,strlen(name));
-         len+=sprintf(fd->block+len,"</A>\n");
+         if(link)
+         {  len=link-line;
+            if(len>=0)
+            {  len=Htmlmove(fd->block,line,len);
+            }
+            len+=sprintf(fd->block+len,"<A HREF=\"ftp://%s/%s\">",fa->fullname,link);
+            if(name)
+            {  len+=Htmlmove(fd->block+len,name,strlen((char *)name));
+            }
+            len+=sprintf(fd->block+len,"</A>\n");
+            if(name && name != link) FREE(name);
+         }
       }
       Updatetaskattrs(
          AOURL_Data,fd->block,
