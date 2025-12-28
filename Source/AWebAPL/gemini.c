@@ -1448,8 +1448,8 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
          {  /* Makegeminaddr failed */
             error=TRUE;
          }
-      /* Cleanup sequence - a_cleanup() automatically calls ClearTaskSSLContext() */
-      /* This matches HTTP pattern: a_cleanup() -> ClearTaskSSLContext() -> CloseLibrary() */
+      /* Cleanup sequence - socket cleanup handles SSL automatically */
+      /* The automatic SSL handling in awebamitcp.c cleans up SSL when a_close() is called */
       if(SocketBase)
       {  a_cleanup(SocketBase);
          CloseLibrary(SocketBase);
