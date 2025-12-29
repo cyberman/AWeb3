@@ -67,6 +67,7 @@ struct Backfillinfo
    short bgpen;
    short left;             /* left offset from message */
    short top;              /* top offset from message */
+   UBYTE *backgroundrepeat; /* CSS background-repeat: "repeat", "no-repeat", "repeat-x", "repeat-y" */
 };
 
 static struct Hook backfillhook;
@@ -97,6 +98,26 @@ static void Drawbackground(struct RastPort *rp,struct Backfillinfo *bf,
    short bw2,bh2; /* blit dimensions for second parts */
    short pos;     /* exponential blit destination position */
    short size;    /* exponential blit destination size */
+   BOOL repeatX = TRUE;  /* Default: repeat horizontally */
+   BOOL repeatY = TRUE;  /* Default: repeat vertically */
+   
+   /* Check background-repeat value */
+   if(bf->backgroundrepeat)
+   {  if(stricmp((char *)bf->backgroundrepeat, "no-repeat") == 0)
+      {  repeatX = FALSE;
+         repeatY = FALSE;
+      }
+      else if(stricmp((char *)bf->backgroundrepeat, "repeat-x") == 0)
+      {  repeatX = TRUE;
+         repeatY = FALSE;
+      }
+      else if(stricmp((char *)bf->backgroundrepeat, "repeat-y") == 0)
+      {  repeatX = FALSE;
+         repeatY = TRUE;
+      }
+      /* else "repeat" (default) - both TRUE */
+   }
+   
    /* adjust rectangle bounds to fit in window */   
    if(x1<bf->coo->minx) x1=bf->coo->minx;
    if(x2>bf->coo->maxx) x2=bf->coo->maxx;
@@ -127,43 +148,47 @@ static void Drawbackground(struct RastPort *rp,struct Backfillinfo *bf,
    {  SetAPen(rp,bf->bgpen);
       RectFill(rp,x1,y1,MIN(x2,x1+bf->bmw-1),MIN(y2,y1+bf->bmh-1));
       BltMaskBitMapRastPort(bf->bitmap,bx1,by1,rp,x1,y1,bw1,bh1,0xe0,bf->mask);
-      if(bx1 && ww>bw1) /* first blit was partial width and room for second part */
+      if(bx1 && ww>bw1 && repeatX) /* first blit was partial width and room for second part */
       {  BltMaskBitMapRastPort(bf->bitmap,0,by1,rp,x1+bw1,y1,bw2,bh1,0xe0,bf->mask);
       }
-      if(by1 && wh>bh1) /* first blits were partial height and room for second part */
+      if(by1 && wh>bh1 && repeatY) /* first blits were partial height and room for second part */
       {  BltMaskBitMapRastPort(bf->bitmap,bx1,0,rp,x1,y1+bh1,bw1,bh2,0xe0,bf->mask);
-         if(bx1 && ww>bw1)
+         if(bx1 && ww>bw1 && repeatX)
          {  BltMaskBitMapRastPort(bf->bitmap,0,0,rp,x1+bw1,y1+bh1,bw2,bh2,0xe0,bf->mask);
          }
       }
    }
    else
    {  BltBitMap(bf->bitmap,bx1,by1,rp->BitMap,x1,y1,bw1,bh1,0xc0,-1,NULL);
-      if(bx1 && ww>bw1) /* first blit was partial width and room for second part */
+      if(bx1 && ww>bw1 && repeatX) /* first blit was partial width and room for second part */
       {  BltBitMap(bf->bitmap,0,by1,rp->BitMap,x1+bw1,y1,bw2,bh1,0xc0,-1,NULL);
       }
-      if(by1 && wh>bh1) /* first blits were partial height and room for second part */
+      if(by1 && wh>bh1 && repeatY) /* first blits were partial height and room for second part */
       {  BltBitMap(bf->bitmap,bx1,0,rp->BitMap,x1,y1+bh1,bw1,bh2,0xc0,-1,NULL);
-         if(bx1 && ww>bw1)
+         if(bx1 && ww>bw1 && repeatX)
          {  BltBitMap(bf->bitmap,0,0,rp->BitMap,x1+bw1,y1+bh1,bw2,bh2,0xc0,-1,NULL);
          }
       }
    }
-   /* Copy the first image exponentially to create the first row */
-   pos=x1+bf->bmw;
-   size=MIN(bf->bmw,x2-pos+1);
-   while(pos<=x2)
-   {  BltBitMap(rp->BitMap,x1,y1,rp->BitMap,pos,y1,size,MIN(bf->bmh,wh),0xc0,-1,NULL);
-      pos+=size;
-      size=MIN(size<<1,x2-pos+1);
+   /* Copy the first image exponentially to create the first row (only if repeatX) */
+   if(repeatX)
+   {  pos=x1+bf->bmw;
+      size=MIN(bf->bmw,x2-pos+1);
+      while(pos<=x2)
+      {  BltBitMap(rp->BitMap,x1,y1,rp->BitMap,pos,y1,size,MIN(bf->bmh,wh),0xc0,-1,NULL);
+         pos+=size;
+         size=MIN(size<<1,x2-pos+1);
+      }
    }
-   /* Copy the first row exponentially over the rest of the area */
-   pos=y1+bf->bmh;
-   size=MIN(bf->bmh,y2-pos+1);
-   while(pos<=y2)
-   {  BltBitMap(rp->BitMap,x1,y1,rp->BitMap,x1,pos,ww,size,0xc0,-1,NULL);
-      pos+=size;
-      size=MIN(size<<1,y2-pos+1);
+   /* Copy the first row exponentially over the rest of the area (only if repeatY) */
+   if(repeatY)
+   {  pos=y1+bf->bmh;
+      size=MIN(bf->bmh,y2-pos+1);
+      while(pos<=y2)
+      {  BltBitMap(rp->BitMap,x1,y1,rp->BitMap,x1,pos,ww,size,0xc0,-1,NULL);
+         pos+=size;
+         size=MIN(size<<1,y2-pos+1);
+      }
    }
    WaitBlit();
 }
@@ -375,11 +400,21 @@ static void Scroll(struct Frame *fr,void *win,struct Coords *coo,
          AOCDV_Imagewidth,&bmw,
          AOCDV_Imageheight,&bmh,
          TAG_END);
-      bfinfo.bmw=bmw;
-      bfinfo.bmh=bmh;
-   }
-   if(prefs.docolors && fr->bgcolor>=0) bfinfo.bgpen=fr->bgcolor;
-   else bfinfo.bgpen=clipcoo->bgcolor;
+         bfinfo.bmw=bmw;
+         bfinfo.bmh=bmh;
+         /* Get background-repeat from body element if available */
+         if(clipcoo->bgalign && ((struct Aobject *)clipcoo->bgalign)->objecttype == AOTP_BODY)
+         {  bfinfo.backgroundrepeat = (UBYTE *)Agetattr(clipcoo->bgalign, AOBDY_BackgroundRepeat);
+         }
+         else
+         {  bfinfo.backgroundrepeat = NULL;
+         }
+      }
+      else
+      {  bfinfo.backgroundrepeat = NULL;
+      }
+      if(prefs.docolors && fr->bgcolor>=0) bfinfo.bgpen=fr->bgcolor;
+      else bfinfo.bgpen=clipcoo->bgcolor;
    LockLayerInfo(bfinfo.rp->Layer->LayerInfo);
    LockLayer(0,bfinfo.rp->Layer);
    Installbg(&bfinfo);
@@ -2535,12 +2570,20 @@ void Erasebg(struct Frame *fr,struct Coords *coo,long xmin,long ymin,long xmax,l
          {  bfinfo.aox = 0;
             bfinfo.aoy = 0;
          }
-         bfinfo.bmw=bmw;
-         bfinfo.bmh=bmh;
+      bfinfo.bmw=bmw;
+      bfinfo.bmh=bmh;
+      /* Get background-repeat from body element if available */
+      if(coo->bgalign && ((struct Aobject *)coo->bgalign)->objecttype == AOTP_BODY)
+      {  bfinfo.backgroundrepeat = (UBYTE *)Agetattr(coo->bgalign, AOBDY_BackgroundRepeat);
+      }
+      else
+      {  bfinfo.backgroundrepeat = NULL;
+      }
       }
       else
       {  bfinfo.aox = 0;
          bfinfo.aoy = 0;
+         bfinfo.backgroundrepeat = NULL;
       }
       bfinfo.bgpen=coo->bgcolor;
       Installbg(&bfinfo);
@@ -2583,36 +2626,44 @@ struct RastPort *Obtainbgrp(struct Frame *fr,struct Coords *coo,
                AOCDV_Imageheight,&bmh,
                TAG_END);
             if(coo->bgalign)   /* If we got alignment info */
-         {  void *tc;
-            /* If bgalign is a body and is owned by table cell */
-            if(((struct Aobject *)coo->bgalign)->objecttype == AOTP_BODY &&
-               (tc = (void *)Agetattr(coo->bgalign,AOBDY_Tcell)))
-            {  long tabx,taby,bodyx,bodyy;
-               /* Find our parent and it's coords */
-               struct Aobject *tab = (struct Aobject *)Agetattr(coo->bgalign,AOBJ_Layoutparent);
-               Agetattrs(tab,
-                  AOBJ_Left,(Tag)&tabx,
-                  AOBJ_Top,(Tag)&taby,
-                  TAG_END);
-               /* Get the body's position (which is the cell's position relative to table) */
-               Agetattrs(coo->bgalign,
-                  AOBJ_Left,(Tag)&bodyx,
-                  AOBJ_Top,(Tag)&bodyy,
-                  TAG_END);
-               /* find the coords of the cell which owns us relative to the parent */
-               bfinfo.aox = bodyx + tabx;
-               bfinfo.aoy = bodyy + taby;
-            }
+            {  void *tc;
+               /* If bgalign is a body and is owned by table cell */
+               if(((struct Aobject *)coo->bgalign)->objecttype == AOTP_BODY &&
+                  (tc = (void *)Agetattr(coo->bgalign,AOBDY_Tcell)))
+               {  long tabx,taby,bodyx,bodyy;
+                  /* Find our parent and it's coords */
+                  struct Aobject *tab = (struct Aobject *)Agetattr(coo->bgalign,AOBJ_Layoutparent);
+                  Agetattrs(tab,
+                     AOBJ_Left,(Tag)&tabx,
+                     AOBJ_Top,(Tag)&taby,
+                     TAG_END);
+                  /* Get the body's position (which is the cell's position relative to table) */
+                  Agetattrs(coo->bgalign,
+                     AOBJ_Left,(Tag)&bodyx,
+                     AOBJ_Top,(Tag)&bodyy,
+                     TAG_END);
+                  /* find the coords of the cell which owns us relative to the parent */
+                  bfinfo.aox = bodyx + tabx;
+                  bfinfo.aoy = bodyy + taby;
+               }
                else
                {  Agetattrs(coo->bgalign,
                      AOBJ_Left,(Tag)&bfinfo.aox,
                      AOBJ_Top,(Tag)&bfinfo.aoy,
                      TAG_END);
                }
+               /* Get background-repeat from body element if available */
+               if(((struct Aobject *)coo->bgalign)->objecttype == AOTP_BODY)
+               {  bfinfo.backgroundrepeat = (UBYTE *)Agetattr(coo->bgalign, AOBDY_BackgroundRepeat);
+               }
+               else
+               {  bfinfo.backgroundrepeat = NULL;
+               }
             }
             else
             {  bfinfo.aox = 0;
                bfinfo.aoy = 0;
+               bfinfo.backgroundrepeat = NULL;
             }
             bfinfo.bmw=bmw;
             bfinfo.bmh=bmh;
@@ -2620,6 +2671,7 @@ struct RastPort *Obtainbgrp(struct Frame *fr,struct Coords *coo,
          else
          {  bfinfo.aox = 0;
             bfinfo.aoy = 0;
+            bfinfo.backgroundrepeat = NULL;
          }
          bfinfo.bgpen=coo->bgcolor;
          if(bfinfo.bitmap)

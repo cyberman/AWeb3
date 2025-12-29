@@ -115,6 +115,7 @@ struct Body
    long toppercent;        /* CSS top position as percentage (0-10000 for 0-100%) */
    long leftpercent;       /* CSS left position as percentage (0-10000 for 0-100%) */
    long marginright;       /* CSS margin-right value (can be negative) */
+   long marginbottom;      /* CSS margin-bottom value (can be negative) */
 };
 
 #define BDYF_SUB           0x0001   /* subscript mode */
@@ -895,9 +896,13 @@ static long Layoutbody(struct Body *bd,struct Amlayout *amlp)
          y=Findindentmargin(bd,y,left+1);
       }
       Currentmargin(bd,y,&margleft,&margright);
-      /* Apply padding to content area */
+      /* Apply padding and margin-right to content area */
       aml.startx=bd->hmargin+margleft+INDENT(left)+bd->paddingleft;
+      /* Account for margin-right in available width calculation */
       aml.width=amlp->width-bd->hmargin-margright-INDENT(right)-bd->paddingleft-bd->paddingright;
+      if(bd->marginright != 0)
+      {  aml.width -= bd->marginright;
+      }
       aml.flags=nextflags;
       wasmore=BOOLVAL(aml.flags&AMLF_MORE);
       endx=0;
@@ -1362,11 +1367,10 @@ if(SetSignal(0,0)&SIGBREAKF_CTRL_C) return 0;
       }
    }
    
-   /* Apply margin-right (affects layout width calculation) */
-   if(bd->marginright != 0)
-   {  /* margin-right is stored but layout engine needs to account for it */
-      /* This affects the available width for content */
-      /* For now, we store it - full implementation would adjust layout width */
+   /* Apply margin-bottom (affects spacing after body) */
+   if(bd->marginbottom != 0)
+   {  /* Add margin-bottom to body height to create spacing after the body */
+      bd->aoh += bd->marginbottom;
    }
    
    /* Clear all pending margins, as MORE starts before the margins anyway. */
@@ -1955,6 +1959,9 @@ static long Setbody(struct Body *bd,struct Amset *ams)
          case AOBDY_MarginRight:
             bd->marginright = tag->ti_Data;
             break;
+         case AOBDY_MarginBottom:
+            bd->marginbottom = tag->ti_Data;
+            break;
       }
    }
    if(fontw) Pushfont(bd,fontstyle,fontsize,fontcolor,fontface,fontw);
@@ -2040,6 +2047,7 @@ static struct Body *Newbody(struct Amset *ams)
       bd->toppercent = -1;  /* -1 means not set */
       bd->leftpercent = -1;  /* -1 means not set */
       bd->marginright = 0;
+      bd->marginbottom = 0;
       bd->bgalign = NULL;
       bd->tcell = NULL;
       bd->marginleftauto = FALSE;
@@ -2201,6 +2209,9 @@ static long Getbody(struct Body *bd,struct Amset *ams)
             break;
          case AOBDY_MarginRight:
             PUTATTR(tag,bd->marginright);
+            break;
+         case AOBDY_MarginBottom:
+            PUTATTR(tag,bd->marginbottom);
             break;
       }
    }

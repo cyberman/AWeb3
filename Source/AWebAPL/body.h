@@ -214,6 +214,9 @@
 #define AOBDY_MarginRight (AOBDY_Dummy+65)  /* SET,GET */
    /* (long) CSS margin-right value (can be negative) */
 
+#define AOBDY_MarginBottom (AOBDY_Dummy+66)  /* SET,GET */
+   /* (long) CSS margin-bottom value (can be negative) */
+
 /*--- body support structures ---*/
 
 /* Forward declaration of Body structure (defined in body.c) */

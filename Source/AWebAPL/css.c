@@ -2460,13 +2460,31 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
          }
          /* Apply background-color */
          else if(stricmp((char *)prop->name,"background-color") == 0)
-         {  /* Parse color (hex or color name) */
-            Gethexcolor(doc,prop->value,&colorrgb);
-            if(colorrgb != (ULONG)~0)
-            {  /* Use Finddoccolor from docprivate.h */
-               ci = Finddoccolor(doc,colorrgb);
-               if(ci)
-               {  Asetattrs(body,AOBDY_Bgcolor,COLOR(ci),TAG_END);
+         {  /* Check for transparent keyword first */
+            UBYTE *pval = prop->value;
+            BOOL isTransparent = FALSE;
+            
+            /* Skip whitespace */
+            while(*pval && isspace(*pval)) pval++;
+            
+            /* Check if value is "transparent" */
+            if(stricmp((char *)pval, "transparent") == 0)
+            {  isTransparent = TRUE;
+            }
+            
+            if(isTransparent)
+            {  /* Set bgcolor to -1 to indicate transparent (no background color) */
+               Asetattrs(body, AOBDY_Bgcolor, -1, TAG_END);
+            }
+            else
+            {  /* Parse color (hex or color name) */
+               Gethexcolor(doc,prop->value,&colorrgb);
+               if(colorrgb != (ULONG)~0)
+               {  /* Use Finddoccolor from docprivate.h */
+                  ci = Finddoccolor(doc,colorrgb);
+                  if(ci)
+                  {  Asetattrs(body,AOBDY_Bgcolor,COLOR(ci),TAG_END);
+                  }
                }
             }
          }
@@ -2810,11 +2828,19 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                   }
                   tokenLen = tokenEnd - bgValue;
                   if(tokenLen > 0)
-                  {  /* Check if it's a valid color name by trying to parse it */
+                  {  /* Check if it's "transparent" keyword first */
                      token = ALLOCTYPE(UBYTE, tokenLen + 1, MEMF_FAST);
                      if(token)
                      {  memmove(token, bgValue, tokenLen);
                         token[tokenLen] = '\0';
+                        if(stricmp((char *)token, "transparent") == 0)
+                        {  /* Set bgcolor to -1 to indicate transparent */
+                           Asetattrs(body, AOBDY_Bgcolor, -1, TAG_END);
+                           FREE(token);
+                           bgValue = tokenEnd;
+                           continue;
+                        }
+                        /* Check if it's a valid color name by trying to parse it */
                         bgColorRgb = ParseHexColor(token);
                         if(bgColorRgb != ~0)
                         {  /* Valid color name */
@@ -3301,8 +3327,9 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                if(marginRightAuto)
                {  SetBodyMarginRightAuto((struct Body *)body, TRUE);
                }
-               /* Note: margin-right and margin-bottom are not directly supported
-                * by AWeb's body attributes, but we parse them for future use */
+               /* Apply margin-right and margin-bottom */
+               if(marginRight >= 0 && !marginRightAuto) Asetattrs(body, AOBDY_MarginRight, marginRight, TAG_END);
+               if(marginBottom >= 0 && !marginBottomAuto) Asetattrs(body, AOBDY_MarginBottom, marginBottom, TAG_END);
             }
             
             /* Free temporary token buffers */
@@ -3627,6 +3654,27 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                if(percentValue > 10000) percentValue = 10000;
                /* For negative percentages, store as negative value */
                Asetattrs(body, AOBDY_MarginRight, percentValue, TAG_END);
+            }
+         }
+         /* Apply margin-bottom */
+         else if(stricmp((char *)prop->name,"margin-bottom") == 0)
+         {  long marginBottomValue;
+            struct Number marginBottomNum;
+            
+            marginBottomValue = ParseCSSLengthValue(prop->value, &marginBottomNum);
+            /* Allow negative values for margin-bottom */
+            if(marginBottomNum.type == NUMBER_NUMBER || marginBottomNum.type == NUMBER_SIGNED)
+            {  /* Store margin-bottom value (can be negative) */
+               Asetattrs(body, AOBDY_MarginBottom, marginBottomValue, TAG_END);
+            }
+            else if(marginBottomNum.type == NUMBER_PERCENT)
+            {  /* Store percentage value (0-10000 for 0-100%) */
+               /* Convert percentage (0-100) to 0-10000 scale */
+               long percentValue = marginBottomNum.n * 100;
+               if(percentValue < -10000) percentValue = -10000;
+               if(percentValue > 10000) percentValue = 10000;
+               /* For negative percentages, store as negative value */
+               Asetattrs(body, AOBDY_MarginBottom, percentValue, TAG_END);
             }
          }
          /* Apply grid-column-start (for grid layout positioning) */

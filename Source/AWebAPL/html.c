@@ -1066,14 +1066,31 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   }
                   /* Apply background-color */
                   else if(stricmp((char *)prop->name,"background-color") == 0)
-                  {  ULONG colorrgb;
-                     struct Colorinfo *ci;
-                     /* Use Gethexcolor to support both hex colors (#rrggbb) and color names (brown, black, etc.) */
-                     Gethexcolor(doc,prop->value,&colorrgb);
-                     if(colorrgb != (ULONG)~0)
-                     {  ci = Finddoccolor(doc,colorrgb);
-                        if(ci)
-                        {  Asetattrs(body,AOBDY_Bgcolor,COLOR(ci),TAG_END);
+                  {  UBYTE *pval = prop->value;
+                     BOOL isTransparent = FALSE;
+                     
+                     /* Skip whitespace */
+                     while(*pval && isspace(*pval)) pval++;
+                     
+                     /* Check if value is "transparent" */
+                     if(stricmp((char *)pval, "transparent") == 0)
+                     {  isTransparent = TRUE;
+                     }
+                     
+                     if(isTransparent)
+                     {  /* Set bgcolor to -1 to indicate transparent (no background color) */
+                        Asetattrs(body, AOBDY_Bgcolor, -1, TAG_END);
+                     }
+                     else
+                     {  ULONG colorrgb;
+                        struct Colorinfo *ci;
+                        /* Use Gethexcolor to support both hex colors (#rrggbb) and color names (brown, black, etc.) */
+                        Gethexcolor(doc,prop->value,&colorrgb);
+                        if(colorrgb != (ULONG)~0)
+                        {  ci = Finddoccolor(doc,colorrgb);
+                           if(ci)
+                           {  Asetattrs(body,AOBDY_Bgcolor,COLOR(ci),TAG_END);
+                           }
                         }
                      }
                   }
