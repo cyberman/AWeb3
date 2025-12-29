@@ -47,7 +47,7 @@ void freearexx(struct Jcontext *jc);
 
 struct RexxMsgExt _rmex;
 struct RexxMsgExt *rmex = &_rmex;
-BOOL arexxisgood;
+BOOL arexxisgood = FALSE;
 
 struct MsgPort *replyport = NULL;
 
@@ -200,6 +200,11 @@ BOOL initarexx(struct Jcontext *jc)
     /* Note: Cast is safe as struct RxsLib extends struct Library */
     if((RexxSysBase = (struct RxsLib *)OpenLibrary("rexxsyslib.library", 0)))
     {
+        /* Initialize rmex structure */
+        rmex->rme_SetVarHook = NULL;
+        rmex->rme_GetVarHook = NULL;
+        rmex->rme_UserData = NULL;
+        
         /* Allocate and initialize the hooks */
         if((rmex->rme_SetVarHook = AllocVec(sizeof(struct Hook), MEMF_PUBLIC | MEMF_CLEAR)))
         {
@@ -235,6 +240,8 @@ BOOL initarexx(struct Jcontext *jc)
 /* freearexx - Clean up ARexx support */
 void freearexx(struct Jcontext *jc)
 {
+    arexxisgood = FALSE;
+    
     /* Free the hooks */
     if(rmex->rme_SetVarHook)
     {
