@@ -3573,6 +3573,51 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             {  Asetattrs(body, AOBDY_ListStyle, listStyleStr, TAG_END);
             }
          }
+         /* Apply list-style-image */
+         else if(stricmp((char *)prop->name,"list-style-image") == 0)
+         {  UBYTE *urlValue;
+            UBYTE *url;
+            UBYTE *urlStr;
+            
+            /* Parse url(...) format */
+            urlValue = prop->value;
+            /* Skip whitespace */
+            while(*urlValue && isspace(*urlValue)) urlValue++;
+            
+            /* Check for url( */
+            if(strnicmp((char *)urlValue,"url(",4) == 0)
+            {  UBYTE *start;
+               UBYTE *end;
+               long len;
+               start = urlValue + 4;
+               /* Skip whitespace after url( */
+               while(*start && isspace(*start)) start++;
+               /* Find closing ) */
+               end = (UBYTE *)strchr((char *)start,')');
+               if(end && end > start)
+               {  /* Trim quotes if present */
+                  if((*start == '"' || *start == '\'') && end > start + 1)
+                  {  start++;
+                     if(*(end - 1) == '"' || *(end - 1) == '\'')
+                     {  end--;
+                     }
+                  }
+                  len = end - start;
+                  if(len > 0)
+                  {  urlStr = ALLOCTYPE(UBYTE,len + 1,MEMF_FAST);
+                     if(urlStr)
+                     {  memmove(urlStr,start,len);
+                        urlStr[len] = '\0';
+                        Asetattrs(body, AOBDY_ListStyleImage, urlStr, TAG_END);
+                     }
+                  }
+               }
+            }
+            else if(strnicmp((char *)urlValue,"none",4) == 0)
+            {  /* list-style-image: none - clear the image */
+               Asetattrs(body, AOBDY_ListStyleImage, NULL, TAG_END);
+            }
+         }
          /* Apply min-width */
          else if(stricmp((char *)prop->name,"min-width") == 0)
          {  long minWidthValue;
@@ -4185,8 +4230,10 @@ void ApplyCSSToLink(struct Document *doc,void *link,void *body)
             {  if(!isVisited) matches = FALSE;
             }
             else if(stricmp((char *)sel->pseudo,"hover") == 0)
-            {  /* Hover state - not yet implemented, skip for now */
-               matches = FALSE;
+            {  /* Check if this link's body is currently hovered */
+               if(!doc->hoveredElement || doc->hoveredElement != body)
+               {  matches = FALSE;
+               }
             }
          }
          

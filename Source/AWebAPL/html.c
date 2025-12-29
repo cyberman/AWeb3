@@ -4845,6 +4845,22 @@ static BOOL Dool(struct Document *doc,struct Tagattr *ta)
    }
    if(!Ensurebody(doc)) return FALSE;
    body = Docbody(doc);
+   /* Store class/id/tagname on body for CSS matching */
+   if(classAttr) Asetattrs(body,AOBDY_Class,Dupstr(classAttr,-1),TAG_END);
+   if(idAttr) Asetattrs(body,AOBDY_Id,Dupstr(idAttr,-1),TAG_END);
+   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"OL",-1),TAG_END);
+   /* Apply CSS to OL element based on its class/id/tagname */
+   ApplyCSSToBody(doc,body,classAttr,idAttr,"OL");
+   
+   /* Check if list-style-image was set via CSS and apply to Listinfo */
+   {  UBYTE *listStyleImage;
+      listStyleImage = (UBYTE *)Agetattr(body, AOBDY_ListStyleImage);
+      if(listStyleImage)
+      {  li.bulletsrc = Dupstr(listStyleImage, -1);
+         li.bullettype = BDBT_IMAGE;
+      }
+   }
+   
    /* Add extra space if it is the outer list */
    nestli=(struct Listinfo *)Agetattr(body,AOBDY_List);
    Wantbreak(doc,nestli->next?1:2);
@@ -4852,12 +4868,6 @@ static BOOL Dool(struct Document *doc,struct Tagattr *ta)
       AOBDY_Align,-1,
       AOBDY_List,&li,
       TAG_END);
-   /* Store class/id/tagname on body for CSS matching */
-   if(classAttr) Asetattrs(body,AOBDY_Class,Dupstr(classAttr,-1),TAG_END);
-   if(idAttr) Asetattrs(body,AOBDY_Id,Dupstr(idAttr,-1),TAG_END);
-   Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"OL",-1),TAG_END);
-   /* Apply CSS to OL element based on its class/id/tagname */
-   ApplyCSSToBody(doc,body,classAttr,idAttr,"OL");
    Checkid(doc,tap);  /* Use original ta pointer */
    return TRUE;
 }
@@ -5061,13 +5071,6 @@ static BOOL Doul(struct Document *doc,struct Tagattr *ta)
    }
    if(!Ensurebody(doc)) return FALSE;
    body = Docbody(doc);
-   /* Add extra space if it is the outer list */
-   nestli=(struct Listinfo *)Agetattr(body,AOBDY_List);
-   Wantbreak(doc,nestli->next?1:2);
-   Asetattrs(body,
-      AOBDY_Align,-1,
-      AOBDY_List,&li,
-      TAG_END);
    /* Store class/id/tagname on body for CSS matching */
    /* Note: UL, DIR, and MENU all use this handler - using "UL" as tag name for CSS */
    if(classAttr) Asetattrs(body,AOBDY_Class,Dupstr(classAttr,-1),TAG_END);
@@ -5075,6 +5078,23 @@ static BOOL Doul(struct Document *doc,struct Tagattr *ta)
    Asetattrs(body,AOBDY_TagName,Dupstr((UBYTE *)"UL",-1),TAG_END);
    /* Apply CSS to UL element based on its class/id/tagname */
    ApplyCSSToBody(doc,body,classAttr,idAttr,"UL");
+   
+   /* Check if list-style-image was set via CSS and apply to Listinfo */
+   {  UBYTE *listStyleImage;
+      listStyleImage = (UBYTE *)Agetattr(body, AOBDY_ListStyleImage);
+      if(listStyleImage)
+      {  li.bulletsrc = Dupstr(listStyleImage, -1);
+         li.bullettype = BDBT_IMAGE;
+      }
+   }
+   
+   /* Add extra space if it is the outer list */
+   nestli=(struct Listinfo *)Agetattr(body,AOBDY_List);
+   Wantbreak(doc,nestli->next?1:2);
+   Asetattrs(body,
+      AOBDY_Align,-1,
+      AOBDY_List,&li,
+      TAG_END);
    Checkid(doc,tap);  /* Use original ta pointer */
    return TRUE;
 }

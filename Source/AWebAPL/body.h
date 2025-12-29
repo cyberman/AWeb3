@@ -217,6 +217,9 @@
 #define AOBDY_MarginBottom (AOBDY_Dummy+66)  /* SET,GET */
    /* (long) CSS margin-bottom value (can be negative) */
 
+#define AOBDY_ListStyleImage (AOBDY_Dummy+67)  /* SET,GET */
+   /* (UBYTE *) CSS list-style-image: url(...) value */
+
 /*--- body support structures ---*/
 
 /* Forward declaration of Body structure (defined in body.c) */

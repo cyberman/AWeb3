@@ -88,6 +88,7 @@ struct Body
    UBYTE *clear;             /* CSS clear: "none", "left", "right", "both" */
    short verticalalign;      /* CSS vertical-align value */
    UBYTE *liststyle;         /* CSS list-style value */
+   UBYTE *liststyleimage;    /* CSS list-style-image: url(...) value */
    long minwidth;            /* CSS min-width */
    long maxwidth;            /* CSS max-width */
    long minheight;           /* CSS min-height */
@@ -1866,6 +1867,12 @@ static long Setbody(struct Body *bd,struct Amset *ams)
             }
             bd->liststyle = (UBYTE *)tag->ti_Data;
             break;
+         case AOBDY_ListStyleImage:
+            if(bd->liststyleimage && bd->liststyleimage != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->liststyleimage);
+            }
+            bd->liststyleimage = (UBYTE *)tag->ti_Data;
+            break;
          case AOBDY_MinWidth:
             bd->minwidth = (long)tag->ti_Data;
             break;
@@ -1993,8 +2000,9 @@ static void Disposebody(struct Body *bd)
    if(bd->display) FREE(bd->display);
    if(bd->overflow) FREE(bd->overflow);
    if(bd->clear) FREE(bd->clear);
-   if(bd->liststyle) FREE(bd->liststyle);
-   if(bd->borderstyle) FREE(bd->borderstyle);
+      if(bd->liststyle) FREE(bd->liststyle);
+      if(bd->liststyleimage) FREE(bd->liststyleimage);
+      if(bd->borderstyle) FREE(bd->borderstyle);
    if(bd->cursor) FREE(bd->cursor);
    if(bd->texttransform) FREE(bd->texttransform);
    if(bd->whitespace) FREE(bd->whitespace);
@@ -2041,6 +2049,7 @@ static struct Body *Newbody(struct Amset *ams)
       bd->texttransform = NULL;
       bd->whitespace = NULL;
       bd->backgroundrepeat = NULL;
+      bd->liststyleimage = NULL;
       bd->backgroundposition = NULL;
       bd->backgroundattachment = NULL;
       bd->transform = NULL;
@@ -2137,6 +2146,9 @@ static long Getbody(struct Body *bd,struct Amset *ams)
             break;
          case AOBDY_ListStyle:
             PUTATTR(tag,bd->liststyle);
+            break;
+         case AOBDY_ListStyleImage:
+            PUTATTR(tag,bd->liststyleimage);
             break;
          case AOBDY_MinWidth:
             PUTATTR(tag,bd->minwidth);
