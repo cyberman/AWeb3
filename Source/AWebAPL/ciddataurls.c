@@ -30,14 +30,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-/* Debug printf for data: URL handler */
-static void debug_printf(const char *format, ...)
-{  va_list args;
-   va_start(args, format);
-   vprintf(format, args);
-   va_end(args);
-}
-
 /* Base64 character to value conversion */
 static UBYTE Base64Char(UBYTE c)
 {  if(c >= 'A' && c <= 'Z') return (UBYTE)(c - 'A');
@@ -228,21 +220,19 @@ void Dataurltask(struct Fetchdriver *fd)
    UBYTE *decoded_data = NULL;
    long mediatype_len;
    
-   debug_printf("DATA: Dataurltask called, fd->name=%s\n", fd->name ? (char *)fd->name : "(null)");
    /* fd->name contains the data: URL without the "data:" prefix (stripped in fetch.c)
     * We need to reconstruct the full data: URL string for the registry key */
    data_uri = fd->name;
    
    if(!data_uri || !*data_uri)
-   {  debug_printf("DATA: ERROR - data_uri is null or empty\n");
+   {  
       error = TRUE;
    }
    else
    {  /* Parse data URI: data:[<mediatype>][;base64],<data> */
-      debug_printf("DATA: Parsing data URI, len=%ld\n", strlen(data_uri));
       comma = strchr(data_uri, ',');
       if(!comma)
-      {  debug_printf("DATA: ERROR - No comma found in data URI\n");
+      {  
          error = TRUE;
       }
       else
@@ -256,13 +246,12 @@ void Dataurltask(struct Fetchdriver *fd)
             }
          }
          data_str = comma + 1;  /* Point to data */
-         debug_printf("DATA: Found comma, mediatype_len=%ld, data_str len=%ld\n", mediatype_len, strlen(data_str));
          
          if(mediatype_copy)
          {  /* Check for base64 encoding */
             if(strstr(mediatype_copy, ";base64"))
             {  base64 = TRUE;
-               debug_printf("DATA: base64 encoding detected\n");
+               
             }
             
             /* Extract content type */
@@ -271,32 +260,27 @@ void Dataurltask(struct Fetchdriver *fd)
             {  *semicolon = '\0';
             }
             
-            debug_printf("DATA: Mediatype: %s\n", mediatype_copy);
             if(*mediatype_copy)
             {  /* Allocate separate copy for content_type */
                content_type_allocated = Dupstr(mediatype_copy, -1);
                if(content_type_allocated)
                {  content_type = content_type_allocated;
-                  debug_printf("DATA: Content type allocated: %s\n", content_type);
                }
                else
-               {  debug_printf("DATA: ERROR - Failed to allocate content_type\n");
+               {  
                }
             }
          }
          
          /* Decode data */
-         debug_printf("DATA: Decoding data, base64=%ld, data_str len=%ld\n", (ULONG)base64, strlen(data_str));
          if(base64)
          {  decoded_data = DecodeBase64Data((UBYTE *)data_str, strlen(data_str), &datalen);
-            debug_printf("DATA: Base64 decode result: decoded_data=%lx, datalen=%ld\n", (ULONG)decoded_data, datalen);
             if(!decoded_data || datalen <= 0)
-            {  debug_printf("DATA: ERROR - Base64 decode failed\n");
+            {  
                error = TRUE;
             }
             else
             {  data = decoded_data;
-               debug_printf("DATA: Base64 decode successful, datalen=%ld\n", datalen);
             }
          }
          else
@@ -322,10 +306,9 @@ void Dataurltask(struct Fetchdriver *fd)
       Tcperror(fd, TCPERR_XAWEB, fd->name);
    }
    else
-   {  debug_printf("DATA: Setting content type and sending data\n");
+   {  
       /* Set content type first */
       Updatetaskattrs(AOURL_Contenttype, content_type, TAG_END);
-      debug_printf("DATA: Content type set\n");
       
       /* Register decoded data in unified registry for persistence
        * This keeps the data in RAM for the document lifetime
@@ -342,10 +325,9 @@ void Dataurltask(struct Fetchdriver *fd)
             strcat(full_data_url, data_uri);
             Registercidpart(NULL, full_data_url, content_type, data, datalen);
             FREE(full_data_url); /* Registry owns the data, not the URL string */
-            debug_printf("DATA: Registered data: URL in registry for persistence\n");
          }
          else
-         {  debug_printf("DATA: WARNING - Failed to allocate full data: URL string for registry\n");
+         {  
          }
       }
       
@@ -353,38 +335,33 @@ void Dataurltask(struct Fetchdriver *fd)
        * imgsource will use RAM mode (DTST_MEMORY) to render directly from this buffer,
        * avoiding disk I/O. The registry keeps the original data in RAM for the document lifetime. */
       if(data && datalen > 0)
-      {  debug_printf("DATA: Sending RAM data to Updatetaskattrs, data=%lx, datalen=%ld\n", (ULONG)data, datalen);
+      {  
          Updatetaskattrs(
             AOURL_Data, data,
             AOURL_Datalength, datalen,
             TAG_END);
-         debug_printf("DATA: RAM data sent to Updatetaskattrs\n");
          /* NOTE: Do NOT free data here - it's owned by the CID registry and will remain
           * valid for the document lifetime. imgsource will use it directly via RAM mode. */
       }
       else
-      {  debug_printf("DATA: WARNING - No data to send\n");
+      {  
       }
       
       /* Send EOF separately (imgsource processes this after data) */
-      debug_printf("DATA: Sending EOF\n");
       Updatetaskattrs(AOTSK_Async, TRUE,
          AOURL_Error, error,
          AOURL_Eof, eof,
          AOURL_Terminate, TRUE,
          TAG_END);
-      debug_printf("DATA: EOF sent\n");
       
       /* Free allocated strings (but NOT the data - registry owns it now) */
       if(content_type_allocated) FREE(content_type_allocated);
       if(mediatype_copy) FREE(mediatype_copy);
-      debug_printf("DATA: Cleanup complete\n");
       
       /* NOTE: We don't free 'data' here because it's now owned by the registry.
        * The registry keeps it in RAM for the document lifetime and will free it
        * when Unregistercidparts() or Cleanupcidregistry() is called. */
    }
    
-   debug_printf("DATA: Dataurltask complete\n");
 }
 
