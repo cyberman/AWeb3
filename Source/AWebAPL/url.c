@@ -25,6 +25,7 @@
 #include "cache.h"
 #include "fetch.h"
 #include "window.h"
+#include "xhrjs.h"
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/utility.h>
@@ -902,6 +903,15 @@ static void Srcupdatevfetch(struct Url *url,struct Amsrcupdate *ams)
 static void Srcupdatefetch(struct Url *url,struct Amsrcupdate *ams,BOOL cache)
 {  struct TagItem *wtags,*tag,*tstate=ams->tags;
    BOOL terminate=FALSE;
+   /* Check if this is an XHR fetch - if so, let XHR handler process it first */
+   /* We'll call Xhrsrcupdate which will check the mapping and process if it's an XHR */
+   if(ams->fetch)
+   {  /* Xhrsrcupdate will check if this fetch is in our mapping */
+      /* It returns 1 if it processed it (XHR), 0 if not */
+      /* Even if it's an XHR, we continue with normal processing for cache, etc. */
+      Xhrsrcupdate(url,ams);
+      /* Continue with normal processing regardless - XHR just extracts its data */
+   }
    while(tag=NextTagItem(&tstate))
    {  switch(tag->ti_Tag)
       {  case AOURL_Movedto:

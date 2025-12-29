@@ -50,7 +50,7 @@ aweb:       popup.o search.o print.o printwin.o info.o saveiff.o
 aweb:       netstat.o hotlist.o whiswin.o cabrowse.o
 #  Url related objects
 aweb:       url.o source.o copy.o copyjs.o cache.o cookie.o fetch.o mime.o
-aweb:       local.o http.o xaweb.o ciddataurls.o cidregistry.o
+aweb:       local.o http.o xaweb.o ciddataurls.o cidregistry.o xhrjs.o
 #  TCP/SSL drivers
 aweb:       tcp.o tcperr.o nameserv.o author.o awebamitcp.o awebtcp.o amissl.o
 #  zlib compression library
@@ -96,6 +96,10 @@ amissl.o:   amissl.c aweb.h task.h awebssl.h
     @sc idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 IGNORE=101 IGNORE=63 IGNORE=84 $*.c to $*.o
 
 framejs.o:  framejs.c aweb.h frame.h frprivate.h application.h window.h copy.h url.h winhis.h timer.h
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $*.c to $*.o
+
+xhrjs.o:    xhrjs.c aweb.h frame.h frprivate.h fetch.h url.h jslib.h xhrjs.h
     @echo "        Compiling $*.c..."
     @sc $(DEBUG) $*.c to $*.o
 

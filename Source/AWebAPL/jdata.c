@@ -580,7 +580,19 @@ struct Variable *Getproperty(struct Jobject *jo, STRPTR name)
             {
                 return var;
             }
+            /* Validate proto is still valid before accessing proto->prototype */
+            /* Check that object hasn't been disposed and jc pointer is valid */
+            if(!proto->jc || proto->notdisposed != TRUE)
+            {
+                /* Object appears to be invalid or disposed, stop traversal */
+                break;
+            }
             proto = proto->prototype;
+            if(!proto)
+            {
+                /* Reached end of prototype chain */
+                break;
+            }
             if(proto == p1)
             {
                 //adebug("panick! circular prototype chain!\n");

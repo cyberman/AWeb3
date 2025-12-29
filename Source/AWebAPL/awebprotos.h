@@ -414,6 +414,12 @@ extern void Setrexxcookies(struct Arexxcmd *ac,UBYTE *stem,BOOL add);
    // Add the JS Image() constructor to this object */
 extern void Addimageconstructor(struct Jcontext *jc,struct Jobject *parent);
 
+   // Initialize XHR JavaScript support */
+extern void Initxhrjs(void);
+
+   // Add the JS XMLHttpRequest() constructor to this object */
+extern void Addxhrconstructor(struct Jcontext *jc,struct Jobject *parent);
+
 /*-----------------------------------------------------------------------*/
 /*-- element ------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/

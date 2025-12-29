@@ -28,6 +28,7 @@
 #include "winhis.h"
 #include "frprivate.h"
 #include "jslib.h"
+#include "xhrjs.h"
 #include <time.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
@@ -1019,6 +1020,10 @@ long Jsetupframe(struct Frame *fr,struct Amjsetup *amj)
          {  Addoptionconstructor(amj->jc,fr->jobject);
             fr->flags|=FRMF_JSOPTIONCTR;
          }
+         if(!(fr->flags&FRMF_JSXHRCTR))
+         {  Addxhrconstructor(amj->jc,fr->jobject);
+            fr->flags|=FRMF_JSXHRCTR;
+         }
          if(jv=Jproperty(amj->jc,fr->jobject,"navigator"))
          {  Setjproperty(jv,JPROPHOOK_READONLY,NULL);
             Jasgobject(amj->jc,jv,(struct Jobject *)Agetattr(Aweb(),AOAPP_Jnavigator));
@@ -1055,7 +1060,7 @@ void Clearjframe(struct Frame *fr)
    static UBYTE *except[]={ "closed", "opener", NULL };
    if(fr->jobject)
    {  Clearjobject(fr->jobject,except);
-      fr->flags&=~(FRMF_JSIMAGECTR|FRMF_JSOPTIONCTR);
+      fr->flags&=~(FRMF_JSIMAGECTR|FRMF_JSOPTIONCTR|FRMF_JSXHRCTR);
    }
    if(fr->jframes)
    {  Disposejobject(fr->jframes);

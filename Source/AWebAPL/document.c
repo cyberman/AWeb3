@@ -33,6 +33,7 @@
 #include "info.h"
 #include "map.h"
 #include "jslib.h"
+#include "xhrjs.h"
 #include "css.h"
 #include <proto/exec.h>
 #include <proto/graphics.h>
@@ -1235,6 +1236,7 @@ static long Dispatch(struct Document *doc,struct Amessage *amsg)
 
 BOOL Installdocument(void)
 {  Initdocjs();
+   Initxhrjs();
    if(!Amethod(NULL,AOM_INSTALL,AOTP_DOCUMENT,Dispatch)) return FALSE;
    return TRUE;
 }

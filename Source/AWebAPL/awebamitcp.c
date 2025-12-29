@@ -31,7 +31,6 @@ extern struct Library *GetTaskSSLSocketBase(void);
 extern void Setsslsocket(long sock,struct Assl *assl,struct Library *socketbase,UBYTE *hostname);
 extern struct Assl *Getsslsocket(long sock);
 extern void Clrsslsocket(long sock);
-extern void ClearTaskSSLContext(void);
 extern BOOL Assl_openssl(struct Assl *assl);
 extern void Assl_closessl(struct Assl *assl);
 extern long Assl_connect(struct Assl *assl,long sock,UBYTE *hostname);
@@ -121,10 +120,10 @@ __asm int amitcp_connect(register __d0 int a,
       {  /* SSL is enabled for this task */
          /* HTTP/HTTPS ports (80, 8080, 443, 4443) are handled entirely by http.c */
          /* http.c calls Assl_openssl() in Opensocket() before a_connect() for HTTPS */
-         /* For Gemini (port 1965) and other protocols, SSL objects don't exist yet */
+         /* For Gemini (port 1965), FTP implicit TLS (port 990), and other protocols, SSL objects don't exist yet */
          /* So we do automatic SSL for non-HTTP/HTTPS ports */
          if(port != 80 && port != 8080 && port != 443 && port != 4443)
-         {  /* Not HTTP/HTTPS - do automatic SSL (e.g., Gemini on port 1965) */
+         {  /* Not HTTP/HTTPS - do automatic SSL (e.g., Gemini on port 1965, FTPS implicit on port 990) */
             hostname=hent->h_name ? (UBYTE *)hent->h_name : NULL;
             /* Create SSL objects for this connection */
             /* Assl_openssl() will automatically clean up any existing SSL objects before creating new ones */
