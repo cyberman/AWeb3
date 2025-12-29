@@ -55,6 +55,7 @@ struct Ftpaddr
 {  UBYTE *buf;
    UBYTE *hostname;
    long port;
+   BOOL port_explicit;  /* TRUE if port was explicitly specified in URL */
    UBYTE *login;
    UBYTE *password;
    UBYTE *abspath;
@@ -405,6 +406,7 @@ static BOOL Makeftpaddr(struct Ftpaddr *fa,UBYTE *name)
    /* Get port number or default */
    if(*p==':')
    {  fa->port=0;
+      fa->port_explicit=TRUE;  /* Port was explicitly specified */
       p++;
       while(isdigit(*p))
       {  fa->port=10*fa->port+(*p-'0');
@@ -413,7 +415,9 @@ static BOOL Makeftpaddr(struct Ftpaddr *fa,UBYTE *name)
       while(*p && *p!='/') p++;
    }
    else
-   {  fa->port=21;
+   {  /* Default port: 21 (will be changed to 990 for FTPS implicit TLS if needed) */
+      fa->port=21;
+      fa->port_explicit=FALSE;  /* Port was not explicitly specified */
    }
    if(*p) p++;    /* Skip separator '/' */
    /* Get abs path */
@@ -535,6 +539,7 @@ static long Ftpcommand(long sock,struct Ftpresponse *fr,struct Library *SocketBa
    if(a_send(sock,cmd,len,0,SocketBase)!=len) return 999;
    return Getresponse(sock,fr,SocketBase);
 }
+
 
 static BOOL Login(long sock,struct Fetchdriver *fd,struct Ftpresponse *fr,struct Ftpaddr *fa,
    struct Library *SocketBase)
@@ -742,11 +747,21 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
    struct Ftpresponse fr={0};
    long len;
    BOOL file,error=FALSE;
+   BOOL use_ssl;  /* C89: Declare at start */
+   
+   /* Detect SSL mode: FTPS uses implicit TLS on port 990 */
+   use_ssl=(fd->flags&FDVF_SSL)?TRUE:FALSE;
    
    AwebTcpBase=Opentcp(&SocketBase,fd,TRUE);
    if(SocketBase)
    {  if(Makeftpaddr(&fa,fd->name))
-      {  Updatetaskattrs(AOURL_Netstatus,NWS_LOOKUP,TAG_END);
+      {  /* Set default port to 990 for FTPS if port not explicitly specified */
+         if(!fa.port_explicit && fa.port==21 && use_ssl)
+         {  /* Default to implicit TLS (port 990) for FTPS if no port specified */
+            fa.port=990;
+         }
+         
+         Updatetaskattrs(AOURL_Netstatus,NWS_LOOKUP,TAG_END);
          Tcpmessage(fd,TCPMSG_LOOKUP,fa.hostname);
          if(hent=Lookup(fa.hostname,SocketBase))
          {  if((ctrlsock=a_socket(hent->h_addrtype,SOCK_STREAM,0,SocketBase))>=0)
@@ -754,9 +769,23 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
                /* SetSocketTimeouts(ctrlsock, SocketBase); */
                
                Updatetaskattrs(AOURL_Netstatus,NWS_CONNECT,TAG_END);
-               Tcpmessage(fd,TCPMSG_CONNECT,"FTP",hent->h_name);
-               if(!a_connect(ctrlsock,hent,fa.port,SocketBase)
-               && Getresponse(ctrlsock,&fr,SocketBase)<300)
+               if(use_ssl)
+               {  Tcpmessage(fd,TCPMSG_CONNECT,"FTPS",hent->h_name);
+               }
+               else
+               {  Tcpmessage(fd,TCPMSG_CONNECT,"FTP",hent->h_name);
+               }
+               if(!a_connect(ctrlsock,hent,fa.port,SocketBase))
+               {  /* SSL is automatically established by a_connect() for FTPS (port 990) */
+                  /* Read server greeting */
+                  if(Getresponse(ctrlsock,&fr,SocketBase)>=300)
+                  {  error=TRUE;
+                  }
+               }
+               else
+               {  error=TRUE;
+               }
+               if(!error)
                {  if(Login(ctrlsock,fd,&fr,&fa,SocketBase))
                   {  if(Initdatasock(ctrlsock,fd,&fr,hent->h_addrtype,SocketBase,&listsock))
                      {  if(fa.type!='D'
@@ -811,9 +840,13 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
                   }
                }
                else
-               {  Tcperror(fd,TCPERR_NOCONNECT,hent->h_name);
+               {  if(!error)
+                  {  Tcperror(fd,TCPERR_NOCONNECT,hent->h_name);
+                  }
                }
-               a_close(ctrlsock,SocketBase);
+               if(ctrlsock>=0)
+               {  a_close(ctrlsock,SocketBase);
+               }
             }
             else error=TRUE;
          }

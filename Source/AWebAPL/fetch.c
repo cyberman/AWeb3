@@ -527,6 +527,26 @@ static void Driverfunction(struct Fetch *fch)
       }
       fch->flags|=FCHF_NETSLOT;
    }
+   else if(STRNIEQUAL(fch->name,"FTPS://",7))
+   {  /* FTPS (FTP over TLS) - use SSL */
+      if(prefs.ftpproxy && !(fch->flags&FCHF_NOPROXY))
+      {  fch->driverfun=Httptask;
+         fch->fd->name=fch->name;
+         Setproxy(fch->fd,prefs.ftpproxy);
+         fch->flags|=FCHF_NETSLOT;
+      }
+      else if(fch->fdbase=Openaweblib("AWeb:aweblib/ftp.aweblib"))
+      {  fch->driverfun=AWEBLIBENTRY(fch->fdbase,0);
+         fch->fd->name=Unescape(fch->name+7);
+         fch->fd->flags|=FDVF_SSL;
+         fch->flags|=FCHF_NETSLOT;
+      }
+      else
+      {  fch->driverfun=Errorschemetask;
+         fch->fd->name=fch->name;
+         fch->fd->validate=MSG_EPART_NOAWEBLIB;
+      }
+   }
    else if(STRNIEQUAL(fch->name,"FTP://",6))
    {  if(prefs.ftpproxy && !(fch->flags&FCHF_NOPROXY))
       {  fch->driverfun=Httptask;
