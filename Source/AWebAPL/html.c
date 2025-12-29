@@ -592,7 +592,15 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   matches = FALSE;
                }
             }
-            else if(!tagname || stricmp((char *)sel->name,(char *)tagname) != 0)
+            else if(Stricmp((char *)sel->name, "html") == 0)
+            {  /* html selector matches html element OR root element (no tagname) */
+               if(tagname && Stricmp((char *)tagname, "html") != 0)
+               {  /* Has tagname but it's not "html" - doesn't match */
+                  matches = FALSE;
+               }
+               /* If no tagname, this is the root element - html selector matches */
+            }
+            else if(!tagname || Stricmp((char *)sel->name,(char *)tagname) != 0)
             {  /* debug_printf("CSS: Element name mismatch: selector wants '%s' but element is '%s'\n",
                            sel->name, tagname ? (char *)tagname : "NULL"); */
                matches = FALSE;
@@ -676,8 +684,19 @@ void ApplyCSSToBody(struct Document *doc,void *body,UBYTE *class,UBYTE *id,UBYTE
                   matches = FALSE;
                }
             }
-            else if(!tagname || stricmp((char *)sel->name,(char *)tagname) != 0)
-            {  if(httpdebug && tagname && stricmp((char *)tagname,"PRE") == 0)
+            else if(Stricmp((char *)sel->name, "html") == 0)
+            {  /* html selector matches html element OR root element (no tagname) */
+               if(tagname && Stricmp((char *)tagname, "html") != 0)
+               {  /* Has tagname but it's not "html" - doesn't match */
+                  if(httpdebug && tagname && Stricmp((char *)tagname,"PRE") == 0)
+                  {  printf("[CSS] ApplyCSSToBody: Selector 'html' doesn't match tagname=%s\n", tagname);
+                  }
+                  matches = FALSE;
+               }
+               /* If no tagname, this is the root element - html selector matches */
+            }
+            else if(!tagname || Stricmp((char *)sel->name,(char *)tagname) != 0)
+            {  if(httpdebug && tagname && Stricmp((char *)tagname,"PRE") == 0)
                {  printf("[CSS] ApplyCSSToBody: Selector '%s' doesn't match tagname=%s\n",
                         sel->name ? (char *)sel->name : "NULL", tagname);
                }

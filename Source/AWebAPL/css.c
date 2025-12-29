@@ -299,7 +299,7 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
          }
       
          /* Check for @media query - skip it for now (basic support) */
-         if(*p == '@' && strnicmp((char *)p, "@media", 6) == 0)
+         if(*p == '@' && Strnicmp((char *)p, "@media", 6) == 0)
          {  css_debug_printf("ParseCSS: Found @media query at position %ld, skipping\n", p - cssStart);
             p += 6; /* Skip "@media" */
             SkipWhitespace(&p);
@@ -328,7 +328,7 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
          }
          
          /* Check for @import rule - process it to load external stylesheets */
-         if(*p == '@' && strnicmp((char *)p, "@import", 7) == 0)
+         if(*p == '@' && Strnicmp((char *)p, "@import", 7) == 0)
          {  UBYTE *importStart;
             UBYTE *urlStart;
             UBYTE *urlEnd;
@@ -343,7 +343,7 @@ static struct CSSStylesheet* ParseCSS(struct Document *doc,UBYTE *css)
             SkipWhitespace(&p);
             
             /* Parse @import url(...) or @import "..." format */
-            if(*p == 'u' && strnicmp((char *)p, "url(", 4) == 0)
+            if(*p == 'u' && Strnicmp((char *)p, "url(", 4) == 0)
             {  p += 4; /* Skip "url(" */
                SkipWhitespace(&p);
                urlStart = p;
@@ -765,7 +765,7 @@ static struct CSSSelector* ParseSelector(struct Document *doc,UBYTE **p)
    if(**p == ':')
    {  UBYTE *rootCheck = *p + 1;
       UBYTE *rootId = ParseIdentifier(&rootCheck);
-      if(rootId && stricmp((char *)rootId, "root") == 0)
+      if(rootId && Stricmp((char *)rootId, "root") == 0)
       {  /* Check if next char is whitespace, comma, or brace (end of selector) */
          if(!*rootCheck || isspace(*rootCheck) || *rootCheck == ',' || *rootCheck == '{' || *rootCheck == '}')
          {  FREE(rootId);
@@ -1309,7 +1309,7 @@ static BOOL MatchClassAttribute(UBYTE *elementClass, UBYTE *selectorClass)
          
          /* Check if this word matches selector class (case-insensitive) */
          if(elementWordLen == selectorWordLen)
-         {  if(strnicmp((char *)start, (char *)selectorStart, selectorWordLen) == 0)
+         {  if(Strnicmp((char *)start, (char *)selectorStart, selectorWordLen) == 0)
             {  foundMatch = TRUE;
                break;
             }
@@ -1342,7 +1342,7 @@ static UBYTE *stristr_case(UBYTE *haystack, UBYTE *needle)
    if(needleLen > haystackLen) return NULL;
    
    for(i = 0; i <= haystackLen - needleLen; i++)
-   {  if(strnicmp((char *)(haystack + i), (char *)needle, needleLen) == 0)
+   {  if(Strnicmp((char *)(haystack + i), (char *)needle, needleLen) == 0)
       {  return haystack + i;
       }
    }
@@ -1369,7 +1369,7 @@ static BOOL MatchAttributeSelector(struct CSSAttribute *attr, UBYTE *elemAttrVal
       case CSS_ATTR_EQUAL:
          /* [attr=value] - exact match */
          if(!attr->value) return FALSE;
-         return (BOOL)((stricmp((char *)attrVal, (char *)attr->value) == 0) ? TRUE : FALSE);
+         return (BOOL)((Stricmp((char *)attrVal, (char *)attr->value) == 0) ? TRUE : FALSE);
          
       case CSS_ATTR_CONTAINS:
          /* [attr*=value] - contains substring */
@@ -1381,7 +1381,7 @@ static BOOL MatchAttributeSelector(struct CSSAttribute *attr, UBYTE *elemAttrVal
          if(!attr->value) return FALSE;
          len = strlen((char *)attr->value);
          return (BOOL)((strlen((char *)attrVal) >= len && 
-                 strnicmp((char *)attrVal, (char *)attr->value, len) == 0) ? TRUE : FALSE);
+                 Strnicmp((char *)attrVal, (char *)attr->value, len) == 0) ? TRUE : FALSE);
          
       case CSS_ATTR_ENDS:
          /* [attr$=value] - ends with */
@@ -1389,7 +1389,7 @@ static BOOL MatchAttributeSelector(struct CSSAttribute *attr, UBYTE *elemAttrVal
          len = strlen((char *)attr->value);
          {  long attrLen = strlen((char *)attrVal);
             if(attrLen < len) return FALSE;
-            return (BOOL)((stricmp((char *)(attrVal + attrLen - len), (char *)attr->value) == 0) ? TRUE : FALSE);
+            return (BOOL)((Stricmp((char *)(attrVal + attrLen - len), (char *)attr->value) == 0) ? TRUE : FALSE);
          }
          
       case CSS_ATTR_WORD:
@@ -1411,7 +1411,7 @@ static BOOL MatchAttributeSelector(struct CSSAttribute *attr, UBYTE *elemAttrVal
                wordLen = p - wordStart;
                
                /* Check if this word matches */
-               if(wordLen == valueLen && strnicmp((char *)wordStart, (char *)attr->value, wordLen) == 0)
+               if(wordLen == valueLen && Strnicmp((char *)wordStart, (char *)attr->value, wordLen) == 0)
                {  return TRUE;
                }
             }
@@ -1435,7 +1435,7 @@ static BOOL MatchSelectorComponent(struct CSSSelector *sel, void *element)
    /* Match :root selector - matches HTML element */
    if(sel->type & CSS_SEL_ROOT)
    {  elemName = (UBYTE *)Agetattr(element,AOELT_TagName);
-      return (BOOL)((elemName && stricmp((char *)elemName, "html") == 0) ? TRUE : FALSE);
+      return (BOOL)((elemName && Stricmp((char *)elemName, "html") == 0) ? TRUE : FALSE);
    }
    
    /* Get element attributes */
@@ -1445,8 +1445,19 @@ static BOOL MatchSelectorComponent(struct CSSSelector *sel, void *element)
    
    /* Match element name */
    if(sel->type & CSS_SEL_ELEMENT && sel->name)
-   {  if(!elemName || stricmp((char *)sel->name,(char *)elemName) != 0)
-      {  return FALSE;
+   {  /* For 'html' selector, also match if this is the root element (no tagname) */
+      if(Stricmp((char *)sel->name, "html") == 0)
+      {  /* html selector matches html element OR root element (no tagname) */
+         if(elemName && Stricmp((char *)elemName, "html") != 0)
+         {  return FALSE; /* Has tagname but it's not "html" */
+         }
+         /* If no tagname, this is the root element - html selector matches */
+      }
+      else
+      {  /* For other selectors, require exact match */
+         if(!elemName || Stricmp((char *)sel->name,(char *)elemName) != 0)
+         {  return FALSE;
+         }
       }
    }
    
@@ -1459,24 +1470,28 @@ static BOOL MatchSelectorComponent(struct CSSSelector *sel, void *element)
    
    /* Match ID */
    if(sel->type & CSS_SEL_ID && sel->id)
-   {  if(!elemId || stricmp((char *)sel->id,(char *)elemId) != 0)
+   {  if(!elemId || Stricmp((char *)sel->id,(char *)elemId) != 0)
       {  return FALSE;
       }
    }
    
    /* Match attribute selector */
    if(sel->type & CSS_SEL_ATTRIBUTE && sel->attr)
-   {  /* Get attribute value - for now, we check class and id attributes */
-      /* TODO: Support arbitrary attributes via Agetattr with attribute name */
-      if(sel->attr->name && stricmp((char *)sel->attr->name, "class") == 0)
+   {  /* Get attribute value - support class and id attributes directly */
+      /* Note: Other HTML attributes (href, src, alt, etc.) are not stored
+       * in a queryable format - they're converted to specific object attributes
+       * during parsing. Full arbitrary attribute support would require
+       * a more comprehensive attribute storage system. */
+      if(sel->attr->name && Stricmp((char *)sel->attr->name, "class") == 0)
       {  attrValue = elemClass;
       }
-      else if(sel->attr->name && stricmp((char *)sel->attr->name, "id") == 0)
+      else if(sel->attr->name && Stricmp((char *)sel->attr->name, "id") == 0)
       {  attrValue = elemId;
       }
       else
-      {  /* For other attributes, we'd need to query them by name */
-         /* For now, return FALSE for unknown attributes */
+      {  /* For other attributes, we cannot query them by name string
+           * as AWeb's object system uses tag IDs rather than string-based attributes.
+           * Return FALSE for unknown attributes. */
          attrValue = NULL;
       }
       
@@ -1487,7 +1502,7 @@ static BOOL MatchSelectorComponent(struct CSSSelector *sel, void *element)
    
    /* Match :hover pseudo-class - check if element is currently hovered */
    if(sel->type & CSS_SEL_PSEUDO && sel->pseudo)
-   {  if(stricmp((char *)sel->pseudo,"hover") == 0)
+   {  if(Stricmp((char *)sel->pseudo,"hover") == 0)
       {  /* Check if this element is the currently hovered element */
          if(!currentCSSDoc || currentCSSDoc->hoveredElement != element)
          {  return FALSE;
@@ -1513,7 +1528,7 @@ static BOOL MatchSelectorComponentBody(struct CSSSelector *sel, void *body)
    /* Match :root selector - matches HTML element */
    if(sel->type & CSS_SEL_ROOT)
    {  bodyName = (UBYTE *)Agetattr(body,AOBDY_TagName);
-      return (BOOL)((bodyName && stricmp((char *)bodyName, "html") == 0) ? TRUE : FALSE);
+      return (BOOL)((bodyName && Stricmp((char *)bodyName, "html") == 0) ? TRUE : FALSE);
    }
    
    /* Get body attributes */
@@ -1523,8 +1538,19 @@ static BOOL MatchSelectorComponentBody(struct CSSSelector *sel, void *body)
    
    /* Match element name */
    if(sel->type & CSS_SEL_ELEMENT && sel->name)
-   {  if(!bodyName || stricmp((char *)sel->name,(char *)bodyName) != 0)
-      {  return FALSE;
+   {  /* For 'html' selector, also match if this is the root element (no tagname) */
+      if(Stricmp((char *)sel->name, "html") == 0)
+      {  /* html selector matches html element OR root element (no tagname) */
+         if(bodyName && Stricmp((char *)bodyName, "html") != 0)
+         {  return FALSE; /* Has tagname but it's not "html" */
+         }
+         /* If no tagname, this is the root element - html selector matches */
+      }
+      else
+      {  /* For other selectors, require exact match */
+         if(!bodyName || Stricmp((char *)sel->name,(char *)bodyName) != 0)
+         {  return FALSE;
+         }
       }
    }
    
@@ -1537,22 +1563,24 @@ static BOOL MatchSelectorComponentBody(struct CSSSelector *sel, void *body)
    
    /* Match ID */
    if(sel->type & CSS_SEL_ID && sel->id)
-   {  if(!bodyId || stricmp((char *)sel->id,(char *)bodyId) != 0)
+   {  if(!bodyId || Stricmp((char *)sel->id,(char *)bodyId) != 0)
       {  return FALSE;
       }
    }
    
    /* Match attribute selector */
    if(sel->type & CSS_SEL_ATTRIBUTE && sel->attr)
-   {  /* Get attribute value - for now, we check class and id attributes */
-      if(sel->attr->name && stricmp((char *)sel->attr->name, "class") == 0)
+   {  /* Get attribute value - support class and id attributes directly */
+      /* Note: Other HTML attributes are not stored in a queryable format.
+       * See MatchSelectorComponent() for details. */
+      if(sel->attr->name && Stricmp((char *)sel->attr->name, "class") == 0)
       {  attrValue = bodyClass;
       }
-      else if(sel->attr->name && stricmp((char *)sel->attr->name, "id") == 0)
+      else if(sel->attr->name && Stricmp((char *)sel->attr->name, "id") == 0)
       {  attrValue = bodyId;
       }
       else
-      {  /* For other attributes, we'd need to query them by name */
+      {  /* For other attributes, we cannot query them by name string */
          attrValue = NULL;
       }
       
@@ -1585,7 +1613,7 @@ static BOOL MatchSelectorComponentGeneric(struct CSSSelector *sel, void *obj)
       else
       {  name = (UBYTE *)Agetattr(obj, AOELT_TagName);
       }
-      return (BOOL)((name && stricmp((char *)name, "html") == 0) ? TRUE : FALSE);
+      return (BOOL)((name && Stricmp((char *)name, "html") == 0) ? TRUE : FALSE);
    }
    
    /* Check object type to determine which attributes to use */
@@ -1607,8 +1635,19 @@ static BOOL MatchSelectorComponentGeneric(struct CSSSelector *sel, void *obj)
    
    /* Match element name */
    if(sel->type & CSS_SEL_ELEMENT && sel->name)
-   {  if(!name || stricmp((char *)sel->name, (char *)name) != 0)
-      {  return FALSE;
+   {  /* For 'html' selector, also match if this is the root element (no tagname) */
+      if(Stricmp((char *)sel->name, "html") == 0)
+      {  /* html selector matches html element OR root element (no tagname) */
+         if(name && Stricmp((char *)name, "html") != 0)
+         {  return FALSE; /* Has tagname but it's not "html" */
+         }
+         /* If no tagname, this is the root element - html selector matches */
+      }
+      else
+      {  /* For other selectors, require exact match */
+         if(!name || Stricmp((char *)sel->name, (char *)name) != 0)
+         {  return FALSE;
+         }
       }
    }
    
@@ -1621,22 +1660,24 @@ static BOOL MatchSelectorComponentGeneric(struct CSSSelector *sel, void *obj)
    
    /* Match ID */
    if(sel->type & CSS_SEL_ID && sel->id)
-   {  if(!id || stricmp((char *)sel->id, (char *)id) != 0)
+   {  if(!id || Stricmp((char *)sel->id, (char *)id) != 0)
       {  return FALSE;
       }
    }
    
    /* Match attribute selector */
    if(sel->type & CSS_SEL_ATTRIBUTE && sel->attr)
-   {  /* Get attribute value - for now, we check class and id attributes */
-      if(sel->attr->name && stricmp((char *)sel->attr->name, "class") == 0)
+   {  /* Get attribute value - support class and id attributes directly */
+      /* Note: Other HTML attributes are not stored in a queryable format.
+       * See MatchSelectorComponent() for details. */
+      if(sel->attr->name && Stricmp((char *)sel->attr->name, "class") == 0)
       {  attrValue = class;
       }
-      else if(sel->attr->name && stricmp((char *)sel->attr->name, "id") == 0)
+      else if(sel->attr->name && Stricmp((char *)sel->attr->name, "id") == 0)
       {  attrValue = id;
       }
       else
-      {  /* For other attributes, we'd need to query them by name */
+      {  /* For other attributes, we cannot query them by name string */
          attrValue = NULL;
       }
       
@@ -1738,24 +1779,30 @@ static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty 
 {  UBYTE *name;
    UBYTE *value;
    short align;
+   struct Aobject *ao;
+   short objtype;
    
    if(!element || !prop || !prop->name || !prop->value) return;
+   
+   /* Check if this is a BODY element or regular element */
+   ao = (struct Aobject *)element;
+   objtype = ao->objecttype;
    
    name = prop->name;
    value = prop->value;
    
    /* text-align */
-   if(stricmp((char *)name,"text-align") == 0)
-   {  if(stricmp((char *)value,"center") == 0)
+   if(Stricmp((char *)name,"text-align") == 0)
+   {  if(Stricmp((char *)value,"center") == 0)
       {  align = HALIGN_CENTER;
       }
-      else if(stricmp((char *)value,"left") == 0)
+      else if(Stricmp((char *)value,"left") == 0)
       {  align = HALIGN_LEFT;
       }
-      else if(stricmp((char *)value,"right") == 0)
+      else if(Stricmp((char *)value,"right") == 0)
       {  align = HALIGN_RIGHT;
       }
-      else if(stricmp((char *)value,"justify") == 0)
+      else if(Stricmp((char *)value,"justify") == 0)
       {  align = HALIGN_LEFT; /* Justify not supported, use left */
       }
       else
@@ -1764,33 +1811,162 @@ static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty 
       Asetattrs(element,AOELT_Halign,align,TAG_END);
    }
    /* font-family */
-   else if(stricmp((char *)name,"font-family") == 0)
-   {  /* Parse font family list (comma-separated) */
-      UBYTE *fontName = value;
-      UBYTE *comma;
-      
-      /* Find first font name (before comma) */
-      comma = (UBYTE *)strchr((char *)value,',');
-      if(comma)
-      {  long len = comma - value;
-         fontName = ALLOCTYPE(UBYTE,len + 1,MEMF_FAST);
-         if(fontName)
-         {  memmove(fontName,value,len);
-            fontName[len] = '\0';
-            /* Trim whitespace */
-            while(len > 0 && isspace(fontName[len - 1]))
-            {  fontName[--len] = '\0';
+   else if(Stricmp((char *)name,"font-family") == 0)
+   {  /* Handle font-family differently for BODY vs regular elements */
+      if(objtype == AOTP_BODY)
+      {  /* BODY element - use AOBDY_Fontface (like ApplyCSSToBody in html.c) */
+         UBYTE *fontFace;
+         UBYTE *p;
+         UBYTE *q;
+         long len;
+         BOOL inQuotes;
+         UBYTE quote;
+         
+         /* Strip quotes from font names before passing to Matchfont */
+         /* Calculate length needed (without quotes) */
+         len = 0;
+         p = value;
+         inQuotes = FALSE;
+         quote = 0;
+         while(*p)
+         {  if((*p == '"' || *p == '\'') && !inQuotes)
+            {  quote = *p;
+               inQuotes = TRUE;
+               p++;
+            }
+            else if(inQuotes && *p == quote)
+            {  inQuotes = FALSE;
+               quote = 0;
+               p++;
+            }
+            else
+            {  len++;
+               p++;
             }
          }
+         
+         fontFace = ALLOCTYPE(UBYTE, len + 1, MEMF_FAST);
+         if(fontFace)
+         {  /* Copy font value, stripping quotes */
+            p = value;
+            q = fontFace;
+            inQuotes = FALSE;
+            quote = 0;
+            while(*p)
+            {  if((*p == '"' || *p == '\'') && !inQuotes)
+               {  quote = *p;
+                  inQuotes = TRUE;
+                  p++;
+               }
+               else if(inQuotes && *p == quote)
+               {  inQuotes = FALSE;
+                  quote = 0;
+                  p++;
+               }
+               else
+               {  *q++ = *p++;
+               }
+            }
+            *q = '\0';
+            
+            /* Apply font face to body - Matchfont will handle the comma-separated list and generic families */
+            Asetattrs(element, AOBDY_Fontface, fontFace, TAG_END);
+            FREE(fontFace);
+         }
       }
-      
-      /* TODO: Apply font family to element */
-      /* This would require font management system */
-      
-      if(fontName != value) FREE(fontName);
+      else
+      {  /* Regular element - use AOELT_Font */
+         struct TextFont *currentFont;
+         struct Fontprefs *fp;
+         short fontSize;
+         BOOL isFixed;
+         UBYTE *fontFamily;
+         UBYTE *p;
+         UBYTE *q;
+         long len;
+         BOOL inQuotes;
+         UBYTE quote;
+         UBYTE *fontFamilyStripped;
+         
+         /* Get current font from element to determine size and type */
+         currentFont = (struct TextFont *)Agetattr(element, AOELT_Font);
+         if(currentFont)
+         {  /* Determine font size from current font's YSize */
+            /* Map font YSize to HTML size index (0-6 for sizes 1-7) */
+            /* Approximate mapping: use medium (size 3, index 2) as default */
+            /* For more accuracy, we'd need to know the document's font size mapping */
+            fontSize = 2; /* Default to medium (index 2 = size 3) */
+            /* Check if font is fixed-width */
+            isFixed = (BOOL)((currentFont->tf_Flags & FPF_PROPORTIONAL) ? FALSE : TRUE);
+         }
+         else
+         {  /* No current font - use defaults */
+            fontSize = 2; /* Medium size (index 2 = size 3) */
+            isFixed = FALSE; /* Default to proportional */
+         }
+         
+         /* Strip quotes from font names before passing to Matchfont */
+         len = 0;
+         p = value;
+         inQuotes = FALSE;
+         quote = 0;
+         while(*p)
+         {  if((*p == '"' || *p == '\'') && !inQuotes)
+            {  quote = *p;
+               inQuotes = TRUE;
+               p++;
+            }
+            else if(inQuotes && *p == quote)
+            {  inQuotes = FALSE;
+               quote = 0;
+               p++;
+            }
+            else
+            {  len++;
+               p++;
+            }
+         }
+         
+         fontFamilyStripped = ALLOCTYPE(UBYTE, len + 1, MEMF_FAST);
+         if(fontFamilyStripped)
+         {  /* Copy font value, stripping quotes */
+            p = value;
+            q = fontFamilyStripped;
+            inQuotes = FALSE;
+            quote = 0;
+            while(*p)
+            {  if((*p == '"' || *p == '\'') && !inQuotes)
+               {  quote = *p;
+                  inQuotes = TRUE;
+                  p++;
+               }
+               else if(inQuotes && *p == quote)
+               {  inQuotes = FALSE;
+                  quote = 0;
+                  p++;
+               }
+               else
+               {  *q++ = *p++;
+               }
+            }
+            *q = '\0';
+            
+            /* Matchfont can handle comma-separated font lists and generic families */
+            /* Pass the stripped value so Matchfont can try each font in order */
+            fontFamily = fontFamilyStripped;
+            if(fontFamily && *fontFamily)
+            {  fp = Matchfont(fontFamily, fontSize, isFixed);
+               if(fp && fp->font)
+               {  /* Apply the matched font to the element */
+                  Asetattrs(element, AOELT_Font, fp->font, TAG_END);
+               }
+            }
+            FREE(fontFamilyStripped);
+         }
+      }
    }
    /* float */
-   else if(stricmp((char *)name,"float") == 0)
+   else if(Stricmp((char *)name,"float") == 0)
    {  UBYTE *floatValue;
       short halign;
       
@@ -1799,49 +1975,141 @@ static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty 
       while(*floatValue && isspace(*floatValue)) floatValue++;
       
       /* Parse float values */
-      if(stricmp((char *)floatValue,"left") == 0)
+      if(Stricmp((char *)floatValue,"left") == 0)
       {  /* Set floating left */
          halign = HALIGN_FLOATLEFT;
          Asetattrs(element,AOELT_Floating,halign,TAG_END);
       }
-      else if(stricmp((char *)floatValue,"right") == 0)
+      else if(Stricmp((char *)floatValue,"right") == 0)
       {  /* Set floating right */
          halign = HALIGN_FLOATRIGHT;
          Asetattrs(element,AOELT_Floating,halign,TAG_END);
       }
-      else if(stricmp((char *)floatValue,"none") == 0)
+      else if(Stricmp((char *)floatValue,"none") == 0)
       {  /* Clear float */
          Asetattrs(element,AOELT_Floating,0,TAG_END);
       }
    }
    /* font-size */
-   else if(stricmp((char *)name,"font-size") == 0)
+   else if(Stricmp((char *)name,"font-size") == 0)
    {  /* Handle font size values */
-      if(stricmp((char *)value,"xx-small") == 0)
-      {  /* TODO: Apply smaller font size */
+      struct TextFont *currentFont;
+      struct Fontprefs *fp;
+      short fontSize;
+      short sizeIndex;
+      BOOL isFixed;
+      BOOL isRelative;
+      UBYTE *fontFamily;
+      struct Number num;
+      long sizeValue;
+      
+      /* Get current font from element to determine family and type */
+      currentFont = (struct TextFont *)Agetattr(element, AOELT_Font);
+      if(currentFont)
+      {  /* Check if font is fixed-width */
+         isFixed = (BOOL)((currentFont->tf_Flags & FPF_PROPORTIONAL) ? FALSE : TRUE);
+         /* For font family, we can't easily extract it from TextFont, so use NULL for default */
+         fontFamily = NULL;
       }
-      else if(stricmp((char *)value,"x-small") == 0)
-      {  /* TODO: Apply small font size */
+      else
+      {  /* No current font - use defaults */
+         isFixed = FALSE; /* Default to proportional */
+         fontFamily = NULL; /* Will use default font */
       }
-      else if(stricmp((char *)value,"small") == 0)
-      {  /* TODO: Apply small font size */
+      
+      fontSize = 0;
+      isRelative = FALSE;
+      sizeIndex = 2; /* Default to medium (index 2 = size 3) */
+      
+      /* Parse font size keywords */
+      if(Stricmp((char *)value,"xx-small") == 0)
+      {  sizeIndex = 0; /* xx-small = size 1, index 0 */
       }
-      else if(stricmp((char *)value,"medium") == 0)
-      {  /* TODO: Apply medium font size */
+      else if(Stricmp((char *)value,"x-small") == 0)
+      {  sizeIndex = 1; /* x-small = size 2, index 1 */
       }
-      else if(stricmp((char *)value,"large") == 0)
-      {  /* TODO: Apply large font size */
+      else if(Stricmp((char *)value,"small") == 0)
+      {  sizeIndex = 2; /* small = size 3, index 2 */
       }
-      else if(stricmp((char *)value,"x-large") == 0)
-      {  /* TODO: Apply larger font size */
+      else if(Stricmp((char *)value,"medium") == 0)
+      {  sizeIndex = 2; /* medium = size 3, index 2 */
       }
-      else if(stricmp((char *)value,"xx-large") == 0)
-      {  /* TODO: Apply largest font size */
+      else if(Stricmp((char *)value,"large") == 0)
+      {  sizeIndex = 4; /* large = size 5, index 4 */
       }
-      /* TODO: Handle numeric sizes (px, pt, em, etc.) */
+      else if(Stricmp((char *)value,"x-large") == 0)
+      {  sizeIndex = 5; /* x-large = size 6, index 5 */
+      }
+      else if(Stricmp((char *)value,"xx-large") == 0)
+      {  sizeIndex = 6; /* xx-large = size 7, index 6 */
+      }
+      else if(Stricmp((char *)value,"smaller") == 0)
+      {  /* Relative: one size smaller */
+         if(currentFont)
+         {  /* Try to determine current size from font YSize */
+            /* Approximate: use medium as baseline, adjust down */
+            sizeIndex = 1; /* One size smaller than medium */
+         }
+         else
+         {  sizeIndex = 1; /* Default to small if no current font */
+         }
+      }
+      else if(Stricmp((char *)value,"larger") == 0)
+      {  /* Relative: one size larger */
+         if(currentFont)
+         {  /* Try to determine current size from font YSize */
+            /* Approximate: use medium as baseline, adjust up */
+            sizeIndex = 3; /* One size larger than medium */
+         }
+         else
+         {  sizeIndex = 3; /* Default to large if no current font */
+         }
+      }
+      else
+      {  /* Try to parse as numeric value (px, pt, em, etc.) */
+         sizeValue = ParseCSSLengthValue(value, &num);
+         if(num.type == NUMBER_NUMBER && sizeValue > 0)
+         {  /* Map pixel values to AWeb sizes (1-7, indices 0-6)
+              * Approximate mapping: <10px=1, 10-12px=2, 13-14px=3, 15-16px=4, 17-18px=5, 19-22px=6, >22px=7 */
+            if(sizeValue < 10)
+            {  sizeIndex = 0; /* xx-small */
+            }
+            else if(sizeValue <= 12)
+            {  sizeIndex = 1; /* x-small */
+            }
+            else if(sizeValue <= 14)
+            {  sizeIndex = 2; /* small/medium */
+            }
+            else if(sizeValue <= 16)
+            {  sizeIndex = 3; /* medium-large */
+            }
+            else if(sizeValue <= 18)
+            {  sizeIndex = 4; /* large */
+            }
+            else if(sizeValue <= 22)
+            {  sizeIndex = 5; /* x-large */
+            }
+            else
+            {  sizeIndex = 6; /* xx-large */
+            }
+         }
+         /* Note: em, ex, % values would need parent font size context - not fully implemented yet */
+      }
+      
+      /* Clamp size index to valid range (0-6) */
+      if(sizeIndex < 0) sizeIndex = 0;
+      if(sizeIndex > 6) sizeIndex = 6;
+      
+      /* Use Matchfont to get font with current family and new size */
+      /* If fontFamily is NULL, Matchfont will use default font */
+      fp = Matchfont(fontFamily, sizeIndex, isFixed);
+      if(fp && fp->font)
+      {  /* Apply the matched font to the element */
+         Asetattrs(element, AOELT_Font, fp->font, TAG_END);
+      }
    }
    /* color */
-   else if(stricmp((char *)name,"color") == 0)
+   else if(Stricmp((char *)name,"color") == 0)
    {  ULONG colorrgb;
       struct Colorinfo *ci;
       
@@ -1856,17 +2124,17 @@ static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty 
       }
    }
    /* font-weight */
-   else if(stricmp((char *)name,"font-weight") == 0)
+   else if(Stricmp((char *)name,"font-weight") == 0)
    {  USHORT currentStyle;
       USHORT newStyle;
       
       currentStyle = (USHORT)Agetattr(element, AOELT_Style);
       newStyle = currentStyle;
       
-      if(stricmp((char *)value,"bold") == 0 || stricmp((char *)value,"700") == 0 || stricmp((char *)value,"bolder") == 0)
+      if(Stricmp((char *)value,"bold") == 0 || Stricmp((char *)value,"700") == 0 || Stricmp((char *)value,"bolder") == 0)
       {  newStyle |= FSF_BOLD;
       }
-      else if(stricmp((char *)value,"normal") == 0 || stricmp((char *)value,"400") == 0 || stricmp((char *)value,"lighter") == 0)
+      else if(Stricmp((char *)value,"normal") == 0 || Stricmp((char *)value,"400") == 0 || Stricmp((char *)value,"lighter") == 0)
       {  newStyle &= ~FSF_BOLD;
       }
       else
@@ -1887,17 +2155,17 @@ static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty 
       }
    }
    /* font-style */
-   else if(stricmp((char *)name,"font-style") == 0)
+   else if(Stricmp((char *)name,"font-style") == 0)
    {  USHORT currentStyle;
       USHORT newStyle;
       
       currentStyle = (USHORT)Agetattr(element, AOELT_Style);
       newStyle = currentStyle;
       
-      if(stricmp((char *)value,"italic") == 0 || stricmp((char *)value,"oblique") == 0)
+      if(Stricmp((char *)value,"italic") == 0 || Stricmp((char *)value,"oblique") == 0)
       {  newStyle |= FSF_ITALIC;
       }
-      else if(stricmp((char *)value,"normal") == 0)
+      else if(Stricmp((char *)value,"normal") == 0)
       {  newStyle &= ~FSF_ITALIC;
       }
       
@@ -1906,7 +2174,7 @@ static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty 
       }
    }
    /* text-decoration */
-   else if(stricmp((char *)name,"text-decoration") == 0)
+   else if(Stricmp((char *)name,"text-decoration") == 0)
    {  USHORT currentStyle;
       USHORT newStyle;
       UBYTE *decValue;
@@ -1922,13 +2190,13 @@ static void ApplyProperty(struct Document *doc,void *element,struct CSSProperty 
          {  SkipWhitespace(&pdec);
             if(!*pdec) break;
             
-            if(stricmp((char *)pdec,"underline") == 0)
+            if(Stricmp((char *)pdec,"underline") == 0)
             {  newStyle |= FSF_UNDERLINED;
             }
-            else if(stricmp((char *)pdec,"line-through") == 0 || stricmp((char *)pdec,"strikethrough") == 0)
+            else if(Stricmp((char *)pdec,"line-through") == 0 || Stricmp((char *)pdec,"strikethrough") == 0)
             {  newStyle |= FSF_STRIKE;
             }
-            else if(stricmp((char *)pdec,"none") == 0)
+            else if(Stricmp((char *)pdec,"none") == 0)
             {  newStyle &= ~(FSF_UNDERLINED | FSF_STRIKE);
             }
             
@@ -2022,7 +2290,7 @@ void ApplyCSSToElement(struct Document *doc,void *element)
             else
             {  elemId = (UBYTE *)Agetattr(element, AOELT_Id);
             }
-            if(!elemId || stricmp((char *)sel->id, (char *)elemId) != 0)
+            if(!elemId || Stricmp((char *)sel->id, (char *)elemId) != 0)
             {  continue;  /* ID doesn't match, skip this selector */
             }
          }
@@ -2136,7 +2404,7 @@ static void ReapplyCSSToBodyRecursiveInternal(struct Document *doc, void *body, 
    class = (UBYTE *)Agetattr(body, AOBDY_Class);
    id = (UBYTE *)Agetattr(body, AOBDY_Id);
    if(httpdebug)
-   {  if(tagname && (stricmp((char *)tagname,"DIV") == 0 || stricmp((char *)tagname,"PRE") == 0))
+   {  if(tagname && (Stricmp((char *)tagname,"DIV") == 0 || Stricmp((char *)tagname,"PRE") == 0))
       {  printf("[CSS] ReapplyCSSToBodyRecursive: Applying CSS to %s element, body=%p, class=%s, id=%s, depth=%ld\n",
                 tagname ? (char *)tagname : "unknown", body,
                 class ? (char *)class : "NULL",
@@ -2377,7 +2645,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
       prop = ParseProperty(doc,&p);
       if(prop && prop->name && prop->value)
       {           /* Apply padding shorthand */
-         if(stricmp((char *)prop->name,"padding") == 0)
+         if(Stricmp((char *)prop->name,"padding") == 0)
          {  UBYTE *paddingP;
             UBYTE *tokenStart;
             UBYTE *tokenEnd;
@@ -2459,7 +2727,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply background-color */
-         else if(stricmp((char *)prop->name,"background-color") == 0)
+         else if(Stricmp((char *)prop->name,"background-color") == 0)
          {  /* Check for transparent keyword first */
             UBYTE *pval = prop->value;
             BOOL isTransparent = FALSE;
@@ -2468,7 +2736,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             while(*pval && isspace(*pval)) pval++;
             
             /* Check if value is "transparent" */
-            if(stricmp((char *)pval, "transparent") == 0)
+            if(Stricmp((char *)pval, "transparent") == 0)
             {  isTransparent = TRUE;
             }
             
@@ -2489,7 +2757,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply background-image */
-         else if(stricmp((char *)prop->name,"background-image") == 0)
+         else if(Stricmp((char *)prop->name,"background-image") == 0)
          {  UBYTE *urlValue;
             UBYTE *url;
             void *bgimg;
@@ -2498,7 +2766,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             /* Skip whitespace */
             while(*urlValue && isspace(*urlValue)) urlValue++;
             /* Check for url( */
-            if(strnicmp((char *)urlValue,"url(",4) == 0)
+            if(Strnicmp((char *)urlValue,"url(",4) == 0)
             {  UBYTE *start;
                UBYTE *end;
                long len;
@@ -2532,15 +2800,15 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply background-repeat */
-         else if(stricmp((char *)prop->name,"background-repeat") == 0)
+         else if(Stricmp((char *)prop->name,"background-repeat") == 0)
          {  UBYTE *repeatStr;
             repeatStr = Dupstr(prop->value, -1);
             if(repeatStr)
             {  /* Validate values: repeat, no-repeat, repeat-x, repeat-y */
-               if(stricmp((char *)repeatStr, "repeat") == 0 ||
-                  stricmp((char *)repeatStr, "no-repeat") == 0 ||
-                  stricmp((char *)repeatStr, "repeat-x") == 0 ||
-                  stricmp((char *)repeatStr, "repeat-y") == 0)
+               if(Stricmp((char *)repeatStr, "repeat") == 0 ||
+                  Stricmp((char *)repeatStr, "no-repeat") == 0 ||
+                  Stricmp((char *)repeatStr, "repeat-x") == 0 ||
+                  Stricmp((char *)repeatStr, "repeat-y") == 0)
                {  Asetattrs(body, AOBDY_BackgroundRepeat, repeatStr, TAG_END);
                }
                else
@@ -2549,7 +2817,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply background-position */
-         else if(stricmp((char *)prop->name,"background-position") == 0)
+         else if(Stricmp((char *)prop->name,"background-position") == 0)
          {  UBYTE *positionStr;
             positionStr = Dupstr(prop->value, -1);
             if(positionStr)
@@ -2559,13 +2827,13 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply background-attachment */
-         else if(stricmp((char *)prop->name,"background-attachment") == 0)
+         else if(Stricmp((char *)prop->name,"background-attachment") == 0)
          {  UBYTE *attachmentStr;
             attachmentStr = Dupstr(prop->value, -1);
             if(attachmentStr)
             {  /* Validate values: scroll, fixed */
-               if(stricmp((char *)attachmentStr, "scroll") == 0 ||
-                  stricmp((char *)attachmentStr, "fixed") == 0)
+               if(Stricmp((char *)attachmentStr, "scroll") == 0 ||
+                  Stricmp((char *)attachmentStr, "fixed") == 0)
                {  Asetattrs(body, AOBDY_BackgroundAttachment, attachmentStr, TAG_END);
                }
                else
@@ -2574,7 +2842,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply background shorthand - parse all background properties */
-         else if(stricmp((char *)prop->name,"background") == 0)
+         else if(Stricmp((char *)prop->name,"background") == 0)
          {  UBYTE *bgValue;
             UBYTE *tokenStart;
             UBYTE *tokenEnd;
@@ -2610,7 +2878,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                tokenStart = bgValue;
                
                /* Check for url(...) - background image */
-               if(strnicmp((char *)bgValue, "url(", 4) == 0)
+               if(Strnicmp((char *)bgValue, "url(", 4) == 0)
                {  urlStart = bgValue + 4;
                   while(*urlStart && isspace(*urlStart)) urlStart++;
                   urlEnd = (UBYTE *)strchr((char *)urlStart, ')');
@@ -2636,16 +2904,16 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                }
                
                /* Check for keywords: repeat, no-repeat, repeat-x, repeat-y */
-               if(strnicmp((char *)bgValue, "repeat", 6) == 0)
-               {  if(strnicmp((char *)bgValue, "repeat-x", 8) == 0)
+               if(Strnicmp((char *)bgValue, "repeat", 6) == 0)
+               {  if(Strnicmp((char *)bgValue, "repeat-x", 8) == 0)
                   {  bgRepeatStr = Dupstr("repeat-x", -1);
                      bgValue += 8;
                   }
-                  else if(strnicmp((char *)bgValue, "repeat-y", 8) == 0)
+                  else if(Strnicmp((char *)bgValue, "repeat-y", 8) == 0)
                   {  bgRepeatStr = Dupstr("repeat-y", -1);
                      bgValue += 8;
                   }
-                  else if(strnicmp((char *)bgValue, "no-repeat", 9) == 0)
+                  else if(Strnicmp((char *)bgValue, "no-repeat", 9) == 0)
                   {  bgRepeatStr = Dupstr("no-repeat", -1);
                      bgValue += 9;
                   }
@@ -2657,26 +2925,26 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                }
                
                /* Check for attachment: scroll, fixed */
-               if(strnicmp((char *)bgValue, "scroll", 6) == 0)
+               if(Strnicmp((char *)bgValue, "scroll", 6) == 0)
                {  bgAttachmentStr = Dupstr("scroll", -1);
                   bgValue += 6;
                   continue;
                }
-               if(strnicmp((char *)bgValue, "fixed", 5) == 0)
+               if(Strnicmp((char *)bgValue, "fixed", 5) == 0)
                {  bgAttachmentStr = Dupstr("fixed", -1);
                   bgValue += 5;
                   continue;
                }
                
                /* Check for position keywords: center, top, bottom, left, right */
-               if(strnicmp((char *)bgValue, "center", 6) == 0)
+               if(Strnicmp((char *)bgValue, "center", 6) == 0)
                {  if(!bgPositionStr)
                   {  bgPositionStr = Dupstr("center", -1);
                   }
                   bgValue += 6;
                   continue;
                }
-               if(strnicmp((char *)bgValue, "top", 3) == 0)
+               if(Strnicmp((char *)bgValue, "top", 3) == 0)
                {  if(!bgPositionStr)
                   {  bgPositionStr = Dupstr("top", -1);
                   }
@@ -2696,7 +2964,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                   bgValue += 3;
                   continue;
                }
-               if(strnicmp((char *)bgValue, "bottom", 6) == 0)
+               if(Strnicmp((char *)bgValue, "bottom", 6) == 0)
                {  if(!bgPositionStr)
                   {  bgPositionStr = Dupstr("bottom", -1);
                   }
@@ -2715,7 +2983,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                   bgValue += 6;
                   continue;
                }
-               if(strnicmp((char *)bgValue, "left", 4) == 0)
+               if(Strnicmp((char *)bgValue, "left", 4) == 0)
                {  if(!bgPositionStr)
                   {  bgPositionStr = Dupstr("left", -1);
                   }
@@ -2734,7 +3002,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                   bgValue += 4;
                   continue;
                }
-               if(strnicmp((char *)bgValue, "right", 5) == 0)
+               if(Strnicmp((char *)bgValue, "right", 5) == 0)
                {  if(!bgPositionStr)
                   {  bgPositionStr = Dupstr("right", -1);
                   }
@@ -2833,7 +3101,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                      if(token)
                      {  memmove(token, bgValue, tokenLen);
                         token[tokenLen] = '\0';
-                        if(stricmp((char *)token, "transparent") == 0)
+                        if(Stricmp((char *)token, "transparent") == 0)
                         {  /* Set bgcolor to -1 to indicate transparent */
                            Asetattrs(body, AOBDY_Bgcolor, -1, TAG_END);
                            FREE(token);
@@ -2887,7 +3155,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply border - parse width, style, and color from "2px solid #color" or "2px" format */
-         else if(stricmp((char *)prop->name,"border") == 0)
+         else if(Stricmp((char *)prop->name,"border") == 0)
          {  /* Parse border shorthand: width style color */
             UBYTE *pval;
             UBYTE *token;
@@ -2949,7 +3217,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply border-style */
-         else if(stricmp((char *)prop->name,"border-style") == 0)
+         else if(Stricmp((char *)prop->name,"border-style") == 0)
          {  UBYTE *styleStr;
             styleStr = Dupstr(prop->value, -1);
             if(styleStr)
@@ -2957,7 +3225,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply border-color */
-         else if(stricmp((char *)prop->name,"border-color") == 0)
+         else if(Stricmp((char *)prop->name,"border-color") == 0)
          {  ULONG colorrgb;
             struct Colorinfo *ci;
             colorrgb = ParseHexColor(prop->value);
@@ -2969,18 +3237,18 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply border-radius (CSS3 - not implemented, but parse to avoid errors) */
-         else if(stricmp((char *)prop->name,"border-radius") == 0)
+         else if(Stricmp((char *)prop->name,"border-radius") == 0)
          {  /* CSS3 feature - not implemented */
          }
          /* Apply text-align */
-         else if(stricmp((char *)prop->name,"text-align") == 0)
-         {  if(stricmp((char *)prop->value,"center") == 0)
+         else if(Stricmp((char *)prop->name,"text-align") == 0)
+         {  if(Stricmp((char *)prop->value,"center") == 0)
             {  align = HALIGN_CENTER;
             }
-            else if(stricmp((char *)prop->value,"left") == 0)
+            else if(Stricmp((char *)prop->value,"left") == 0)
             {  align = HALIGN_LEFT;
             }
-            else if(stricmp((char *)prop->value,"right") == 0)
+            else if(Stricmp((char *)prop->value,"right") == 0)
             {  align = HALIGN_RIGHT;
             }
             else
@@ -2988,13 +3256,13 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
             if(align >= 0)
             {  /* Apply text-align to various elements that support align attribute */
-               if(tagname && stricmp((char *)tagname,"DIV") == 0)
+               if(tagname && Stricmp((char *)tagname,"DIV") == 0)
                {  Asetattrs(body,AOBDY_Divalign,align,TAG_END);
                }
-               else if(tagname && stricmp((char *)tagname,"P") == 0)
+               else if(tagname && Stricmp((char *)tagname,"P") == 0)
                {  Asetattrs(body,AOBDY_Align,align,TAG_END);
                }
-               else if(tagname && (stricmp((char *)tagname,"TD") == 0 || stricmp((char *)tagname,"TH") == 0))
+               else if(tagname && (Stricmp((char *)tagname,"TD") == 0 || Stricmp((char *)tagname,"TH") == 0))
                {  /* For table cells, alignment is handled via table attributes in ApplyCSSToTableCell */
                   /* But we can also set it on the body */
                   Asetattrs(body,AOBDY_Divalign,align,TAG_END);
@@ -3006,20 +3274,20 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply font-style */
-         else if(stricmp((char *)prop->name,"font-style") == 0)
-         {  if(stricmp((char *)prop->value,"italic") == 0)
+         else if(Stricmp((char *)prop->name,"font-style") == 0)
+         {  if(Stricmp((char *)prop->value,"italic") == 0)
             {  Asetattrs(body,AOBDY_Sethardstyle,FSF_ITALIC,TAG_END);
             }
-            else if(stricmp((char *)prop->value,"normal") == 0)
+            else if(Stricmp((char *)prop->value,"normal") == 0)
             {  Asetattrs(body,AOBDY_Unsethardstyle,FSF_ITALIC,TAG_END);
             }
          }
          /* Apply font-weight */
-         else if(stricmp((char *)prop->name,"font-weight") == 0)
-         {  if(stricmp((char *)prop->value,"bold") == 0 || stricmp((char *)prop->value,"700") == 0 || stricmp((char *)prop->value,"bolder") == 0)
+         else if(Stricmp((char *)prop->name,"font-weight") == 0)
+         {  if(Stricmp((char *)prop->value,"bold") == 0 || Stricmp((char *)prop->value,"700") == 0 || Stricmp((char *)prop->value,"bolder") == 0)
             {  Asetattrs(body,AOBDY_Sethardstyle,FSF_BOLD,TAG_END);
             }
-            else if(stricmp((char *)prop->value,"normal") == 0 || stricmp((char *)prop->value,"400") == 0 || stricmp((char *)prop->value,"lighter") == 0)
+            else if(Stricmp((char *)prop->value,"normal") == 0 || Stricmp((char *)prop->value,"400") == 0 || Stricmp((char *)prop->value,"lighter") == 0)
             {  Asetattrs(body,AOBDY_Unsethardstyle,FSF_BOLD,TAG_END);
             }
             /* Also support numeric values 100-900 */
@@ -3035,7 +3303,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply text-decoration */
-         else if(stricmp((char *)prop->name,"text-decoration") == 0)
+         else if(Stricmp((char *)prop->name,"text-decoration") == 0)
          {  /* text-decoration can have multiple values like "underline line-through" */
             UBYTE *decValue;
             UBYTE *pdec;
@@ -3045,10 +3313,10 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                while(*pdec)
                {  SkipWhitespace(&pdec);
                   if(!*pdec) break;
-                  if(stricmp((char *)pdec,"line-through") == 0 || stricmp((char *)pdec,"strikethrough") == 0)
+                  if(Stricmp((char *)pdec,"line-through") == 0 || Stricmp((char *)pdec,"strikethrough") == 0)
                   {  Asetattrs(body,AOBDY_Sethardstyle,FSF_STRIKE,TAG_END);
                   }
-                  else if(stricmp((char *)pdec,"none") == 0)
+                  else if(Stricmp((char *)pdec,"none") == 0)
                   {  /* Remove all text decorations */
                      Asetattrs(body,AOBDY_Unsethardstyle,FSF_STRIKE,TAG_END);
                   }
@@ -3060,7 +3328,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
          }
          /* Apply white-space */
          /* Apply cursor */
-         else if(stricmp((char *)prop->name,"cursor") == 0)
+         else if(Stricmp((char *)prop->name,"cursor") == 0)
          {  UBYTE *cursorStr;
             cursorStr = Dupstr(prop->value, -1);
             if(cursorStr)
@@ -3068,46 +3336,46 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply white-space */
-         else if(stricmp((char *)prop->name,"white-space") == 0)
+         else if(Stricmp((char *)prop->name,"white-space") == 0)
          {  UBYTE *whitespaceStr;
             whitespaceStr = Dupstr(prop->value, -1);
             if(whitespaceStr)
             {  Asetattrs(body, AOBDY_WhiteSpace, whitespaceStr, TAG_END);
                /* Also apply to AOBDY_Nobr for nowrap */
-               if(stricmp((char *)whitespaceStr, "nowrap") == 0)
+               if(Stricmp((char *)whitespaceStr, "nowrap") == 0)
                {  Asetattrs(body, AOBDY_Nobr, TRUE, TAG_END);
                }
-               else if(stricmp((char *)whitespaceStr, "normal") == 0 || 
-                       stricmp((char *)whitespaceStr, "pre-wrap") == 0 || 
-                       stricmp((char *)whitespaceStr, "pre-line") == 0)
+               else if(Stricmp((char *)whitespaceStr, "normal") == 0 || 
+                       Stricmp((char *)whitespaceStr, "pre-wrap") == 0 || 
+                       Stricmp((char *)whitespaceStr, "pre-line") == 0)
                {  Asetattrs(body, AOBDY_Nobr, FALSE, TAG_END);
                }
                /* Note: "pre" is handled by STYLE_PRE, not white-space */
             }
          }
          /* Apply text-transform */
-         else if(stricmp((char *)prop->name,"text-transform") == 0)
+         else if(Stricmp((char *)prop->name,"text-transform") == 0)
          {  UBYTE *transformStr;
             transformStr = Dupstr(prop->value, -1);
             if(transformStr)
             {  Asetattrs(body, AOBDY_TextTransform, transformStr, TAG_END);
                /* Also set document-level text-transform for compatibility */
-               if(stricmp((char *)transformStr, "uppercase") == 0)
+               if(Stricmp((char *)transformStr, "uppercase") == 0)
                {  doc->texttransform = 1;
                }
-               else if(stricmp((char *)transformStr, "lowercase") == 0)
+               else if(Stricmp((char *)transformStr, "lowercase") == 0)
                {  doc->texttransform = 2;
                }
-               else if(stricmp((char *)transformStr, "capitalize") == 0)
+               else if(Stricmp((char *)transformStr, "capitalize") == 0)
                {  doc->texttransform = 3;
                }
-               else if(stricmp((char *)transformStr, "none") == 0)
+               else if(Stricmp((char *)transformStr, "none") == 0)
                {  doc->texttransform = 0;
                }
             }
          }
          /* Apply font-family */
-         else if(stricmp((char *)prop->name,"font-family") == 0)
+         else if(Stricmp((char *)prop->name,"font-family") == 0)
          {  fontFace = NULL;
             comma = (UBYTE *)strchr((char *)prop->value,',');
             if(comma)
@@ -3130,35 +3398,35 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply font-size */
-         else if(stricmp((char *)prop->name,"font-size") == 0)
+         else if(Stricmp((char *)prop->name,"font-size") == 0)
          {  fontSize = 0;
             isRelative = FALSE;
-            if(stricmp((char *)prop->value,"xx-small") == 0)
+            if(Stricmp((char *)prop->value,"xx-small") == 0)
             {  fontSize = 1;
             }
-            else if(stricmp((char *)prop->value,"x-small") == 0)
+            else if(Stricmp((char *)prop->value,"x-small") == 0)
             {  fontSize = 2;
             }
-            else if(stricmp((char *)prop->value,"small") == 0)
+            else if(Stricmp((char *)prop->value,"small") == 0)
             {  fontSize = 3;
             }
-            else if(stricmp((char *)prop->value,"medium") == 0)
+            else if(Stricmp((char *)prop->value,"medium") == 0)
             {  fontSize = 4;
             }
-            else if(stricmp((char *)prop->value,"large") == 0)
+            else if(Stricmp((char *)prop->value,"large") == 0)
             {  fontSize = 5;
             }
-            else if(stricmp((char *)prop->value,"x-large") == 0)
+            else if(Stricmp((char *)prop->value,"x-large") == 0)
             {  fontSize = 6;
             }
-            else if(stricmp((char *)prop->value,"xx-large") == 0)
+            else if(Stricmp((char *)prop->value,"xx-large") == 0)
             {  fontSize = 7;
             }
-            else if(stricmp((char *)prop->value,"smaller") == 0)
+            else if(Stricmp((char *)prop->value,"smaller") == 0)
             {  fontSize = -1;
                isRelative = TRUE;
             }
-            else if(stricmp((char *)prop->value,"larger") == 0)
+            else if(Stricmp((char *)prop->value,"larger") == 0)
             {  fontSize = 1;
                isRelative = TRUE;
             }
@@ -3172,11 +3440,11 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply color */
-         else if(stricmp((char *)prop->name,"color") == 0)
+         else if(Stricmp((char *)prop->name,"color") == 0)
          {  /* Don't apply color to body font color for anchor tags.
               * Link colors are handled at the document level via ApplyCSSToLinkColors.
               * Setting color on the body would incorrectly affect all body text, not just the link. */
-            if(!tagname || stricmp((char *)tagname,"A") != 0)
+            if(!tagname || Stricmp((char *)tagname,"A") != 0)
             {  Gethexcolor(doc,prop->value,&colorrgb);
                if(colorrgb != (ULONG)~0)
                {  ci = Finddoccolor(doc,colorrgb);
@@ -3187,7 +3455,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply margin shorthand */
-         else if(stricmp((char *)prop->name,"margin") == 0)
+         else if(Stricmp((char *)prop->name,"margin") == 0)
          {  UBYTE *marginP;
             UBYTE *tokenStart;
             UBYTE *tokenEnd;
@@ -3228,7 +3496,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             /* Apply margin values based on count */
             if(marginCount >= 1)
             {  /* Check if first token is "auto" */
-               if(stricmp((char *)marginTokens[0], "auto") == 0)
+               if(Stricmp((char *)marginTokens[0], "auto") == 0)
                {  marginTopAuto = TRUE;
                   marginTop = 0;
                }
@@ -3247,7 +3515,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                   marginBottom = marginTop;
                   marginBottomAuto = marginTopAuto;
                   /* Check if second token is "auto" */
-                  if(stricmp((char *)marginTokens[1], "auto") == 0)
+                  if(Stricmp((char *)marginTokens[1], "auto") == 0)
                   {  marginRightAuto = TRUE;
                      marginLeftAuto = TRUE;
                      marginRight = 0;
@@ -3263,7 +3531,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                else if(marginCount == 3)
                {  /* Top, left/right, bottom */
                   /* Check if second token is "auto" */
-                  if(stricmp((char *)marginTokens[1], "auto") == 0)
+                  if(Stricmp((char *)marginTokens[1], "auto") == 0)
                   {  marginRightAuto = TRUE;
                      marginLeftAuto = TRUE;
                      marginRight = 0;
@@ -3276,7 +3544,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                      marginLeftAuto = FALSE;
                   }
                   /* Check if third token is "auto" */
-                  if(stricmp((char *)marginTokens[2], "auto") == 0)
+                  if(Stricmp((char *)marginTokens[2], "auto") == 0)
                   {  marginBottomAuto = TRUE;
                      marginBottom = 0;
                   }
@@ -3288,7 +3556,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                else if(marginCount == 4)
                {  /* Top, right, bottom, left */
                   /* Check if second token is "auto" */
-                  if(stricmp((char *)marginTokens[1], "auto") == 0)
+                  if(Stricmp((char *)marginTokens[1], "auto") == 0)
                   {  marginRightAuto = TRUE;
                      marginRight = 0;
                   }
@@ -3297,7 +3565,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                      marginRightAuto = FALSE;
                   }
                   /* Check if third token is "auto" */
-                  if(stricmp((char *)marginTokens[2], "auto") == 0)
+                  if(Stricmp((char *)marginTokens[2], "auto") == 0)
                   {  marginBottomAuto = TRUE;
                      marginBottom = 0;
                   }
@@ -3306,7 +3574,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                      marginBottomAuto = FALSE;
                   }
                   /* Check if fourth token is "auto" */
-                  if(stricmp((char *)marginTokens[3], "auto") == 0)
+                  if(Stricmp((char *)marginTokens[3], "auto") == 0)
                   {  marginLeftAuto = TRUE;
                      marginLeft = 0;
                   }
@@ -3338,7 +3606,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply line-height */
-         else if(stricmp((char *)prop->name,"line-height") == 0)
+         else if(Stricmp((char *)prop->name,"line-height") == 0)
          {  struct Body *bd;
             lineHeightStr = prop->value;
             /* Skip whitespace */
@@ -3350,14 +3618,21 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply font-variant */
-         else if(stricmp((char *)prop->name,"font-variant") == 0)
+         else if(Stricmp((char *)prop->name,"font-variant") == 0)
          {  /* font-variant: normal (default) - no special handling needed */
-            /* font-variant: small-caps - would need special rendering, not implemented yet */
-            /* For now, we just parse and ignore (normal is the default) */
-            /* TODO: Implement small-caps rendering if font-variant: small-caps is set */
+            /* font-variant: small-caps - would require special rendering logic
+             * to convert lowercase letters to smaller uppercase letters.
+             * This would need changes to the text rendering code in body.c
+             * and element rendering code. For now, we parse and ignore
+             * (normal is the default behavior). */
+            /* Note: Small-caps rendering is a complex feature that would require:
+             * 1. Detecting lowercase characters in text
+             * 2. Rendering them as smaller uppercase letters
+             * 3. Adjusting character spacing and metrics
+             * This is beyond the scope of CSS property application. */
          }
          /* Apply display */
-         else if(stricmp((char *)prop->name,"display") == 0)
+         else if(Stricmp((char *)prop->name,"display") == 0)
          {  UBYTE *dispStr;
             displayValue = prop->value;
             /* Skip whitespace */
@@ -3368,25 +3643,25 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             {  Asetattrs(body, AOBDY_Display, dispStr, TAG_END);
             }
             /* Parse display values for validation */
-            if(stricmp((char *)displayValue,"none") == 0)
+            if(Stricmp((char *)displayValue,"none") == 0)
             {  /* Hide element - rendering code in body.c checks for this */
             }
-            else if(stricmp((char *)displayValue,"inline") == 0)
+            else if(Stricmp((char *)displayValue,"inline") == 0)
             {  /* Inline display - default for many elements */
                /* Note: AWeb handles this automatically based on element type */
             }
-            else if(stricmp((char *)displayValue,"block") == 0)
+            else if(Stricmp((char *)displayValue,"block") == 0)
             {  /* Block display - default for div, p, etc. */
                /* Note: AWeb handles this automatically based on element type */
             }
-            else if(stricmp((char *)displayValue,"grid") == 0)
+            else if(Stricmp((char *)displayValue,"grid") == 0)
             {  /* CSS Grid - not yet implemented */
                /* Note: CSS Grid requires major architectural changes */
             }
             /* Other display values (flex, table, etc.) not yet supported */
          }
          /* Apply width */
-         else if(stricmp((char *)prop->name,"width") == 0)
+         else if(Stricmp((char *)prop->name,"width") == 0)
          {  long widthValue;
             struct Number widthNum;
             
@@ -3397,7 +3672,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply height */
-         else if(stricmp((char *)prop->name,"height") == 0)
+         else if(Stricmp((char *)prop->name,"height") == 0)
          {  long heightValue;
             struct Number heightNum;
             
@@ -3408,7 +3683,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply position */
-         else if(stricmp((char *)prop->name,"position") == 0)
+         else if(Stricmp((char *)prop->name,"position") == 0)
          {  UBYTE *posValue;
             UBYTE *posStr;
             
@@ -3421,7 +3696,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply top */
-         else if(stricmp((char *)prop->name,"top") == 0)
+         else if(Stricmp((char *)prop->name,"top") == 0)
          {  long topValue;
             struct Number topNum;
             
@@ -3441,7 +3716,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply left */
-         else if(stricmp((char *)prop->name,"left") == 0)
+         else if(Stricmp((char *)prop->name,"left") == 0)
          {  long leftValue;
             struct Number leftNum;
             
@@ -3461,7 +3736,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply right */
-         else if(stricmp((char *)prop->name,"right") == 0)
+         else if(Stricmp((char *)prop->name,"right") == 0)
          {  long rightValue;
             struct Number rightNum;
             
@@ -3472,7 +3747,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply bottom */
-         else if(stricmp((char *)prop->name,"bottom") == 0)
+         else if(Stricmp((char *)prop->name,"bottom") == 0)
          {  long bottomValue;
             struct Number bottomNum;
             
@@ -3483,14 +3758,14 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply z-index */
-         else if(stricmp((char *)prop->name,"z-index") == 0)
+         else if(Stricmp((char *)prop->name,"z-index") == 0)
          {  long zIndexValue;
             UBYTE *zval;
             
             zval = prop->value;
             SkipWhitespace(&zval);
             
-            if(stricmp((char *)zval,"auto") == 0)
+            if(Stricmp((char *)zval,"auto") == 0)
             {  /* Auto z-index (default) - store as 0 */
                zIndexValue = 0;
             }
@@ -3501,7 +3776,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             Asetattrs(body, AOBDY_ZIndex, zIndexValue, TAG_END);
          }
          /* Apply display */
-         else if(stricmp((char *)prop->name,"display") == 0)
+         else if(Stricmp((char *)prop->name,"display") == 0)
          {  UBYTE *dispValue;
             UBYTE *dispStr;
             
@@ -3514,7 +3789,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply vertical-align */
-         else if(stricmp((char *)prop->name,"vertical-align") == 0)
+         else if(Stricmp((char *)prop->name,"vertical-align") == 0)
          {  UBYTE *valignValue;
             short valign;
             
@@ -3522,16 +3797,16 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             SkipWhitespace(&valignValue);
             
             valign = -1;
-            if(stricmp((char *)valignValue,"top") == 0)
+            if(Stricmp((char *)valignValue,"top") == 0)
             {  valign = VALIGN_TOP;
             }
-            else if(stricmp((char *)valignValue,"middle") == 0)
+            else if(Stricmp((char *)valignValue,"middle") == 0)
             {  valign = VALIGN_MIDDLE;
             }
-            else if(stricmp((char *)valignValue,"bottom") == 0)
+            else if(Stricmp((char *)valignValue,"bottom") == 0)
             {  valign = VALIGN_BOTTOM;
             }
-            else if(stricmp((char *)valignValue,"baseline") == 0)
+            else if(Stricmp((char *)valignValue,"baseline") == 0)
             {  valign = VALIGN_BASELINE;
             }
             
@@ -3540,7 +3815,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply clear */
-         else if(stricmp((char *)prop->name,"clear") == 0)
+         else if(Stricmp((char *)prop->name,"clear") == 0)
          {  UBYTE *clearValue;
             UBYTE *clearStr;
             
@@ -3553,7 +3828,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply overflow */
-         else if(stricmp((char *)prop->name,"overflow") == 0)
+         else if(Stricmp((char *)prop->name,"overflow") == 0)
          {  UBYTE *overflowValue;
             UBYTE *overflowStr;
             
@@ -3566,7 +3841,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply list-style */
-         else if(stricmp((char *)prop->name,"list-style") == 0)
+         else if(Stricmp((char *)prop->name,"list-style") == 0)
          {  UBYTE *listStyleValue;
             UBYTE *listStyleStr;
             
@@ -3579,7 +3854,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply list-style-image */
-         else if(stricmp((char *)prop->name,"list-style-image") == 0)
+         else if(Stricmp((char *)prop->name,"list-style-image") == 0)
          {  UBYTE *urlValue;
             UBYTE *url;
             UBYTE *urlStr;
@@ -3590,7 +3865,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             while(*urlValue && isspace(*urlValue)) urlValue++;
             
             /* Check for url( */
-            if(strnicmp((char *)urlValue,"url(",4) == 0)
+            if(Strnicmp((char *)urlValue,"url(",4) == 0)
             {  UBYTE *start;
                UBYTE *end;
                long len;
@@ -3618,13 +3893,13 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
                   }
                }
             }
-            else if(strnicmp((char *)urlValue,"none",4) == 0)
+            else if(Strnicmp((char *)urlValue,"none",4) == 0)
             {  /* list-style-image: none - clear the image */
                Asetattrs(body, AOBDY_ListStyleImage, NULL, TAG_END);
             }
          }
          /* Apply min-width */
-         else if(stricmp((char *)prop->name,"min-width") == 0)
+         else if(Stricmp((char *)prop->name,"min-width") == 0)
          {  long minWidthValue;
             struct Number minWidthNum;
             
@@ -3634,7 +3909,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply max-width */
-         else if(stricmp((char *)prop->name,"max-width") == 0)
+         else if(Stricmp((char *)prop->name,"max-width") == 0)
          {  long maxWidthValue;
             struct Number maxWidthNum;
             
@@ -3644,7 +3919,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply min-height */
-         else if(stricmp((char *)prop->name,"min-height") == 0)
+         else if(Stricmp((char *)prop->name,"min-height") == 0)
          {  long minHeightValue;
             struct Number minHeightNum;
             
@@ -3654,7 +3929,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply max-height */
-         else if(stricmp((char *)prop->name,"max-height") == 0)
+         else if(Stricmp((char *)prop->name,"max-height") == 0)
          {  long maxHeightValue;
             struct Number maxHeightNum;
             
@@ -3666,12 +3941,12 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
          /* Apply float - Note: Body objects don't directly support floating */
          /* But we parse it here for IsDivInline to detect float:left */
          /* The actual floating is handled by preventing line breaks in Dodiv */
-         else if(stricmp((char *)prop->name,"float") == 0)
+         else if(Stricmp((char *)prop->name,"float") == 0)
          {  /* Float is parsed but not directly applied to body objects */
             /* IsDivInline will check for float:left and prevent line breaks */
          }
          /* Apply transform */
-         else if(stricmp((char *)prop->name,"transform") == 0)
+         else if(Stricmp((char *)prop->name,"transform") == 0)
          {  UBYTE *transformStr;
             UBYTE *pval;
             
@@ -3686,7 +3961,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply margin-right */
-         else if(stricmp((char *)prop->name,"margin-right") == 0)
+         else if(Stricmp((char *)prop->name,"margin-right") == 0)
          {  long marginRightValue;
             struct Number marginRightNum;
             
@@ -3707,7 +3982,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply margin-bottom */
-         else if(stricmp((char *)prop->name,"margin-bottom") == 0)
+         else if(Stricmp((char *)prop->name,"margin-bottom") == 0)
          {  long marginBottomValue;
             struct Number marginBottomNum;
             
@@ -3728,7 +4003,7 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply grid-column-start (for grid layout positioning) */
-         else if(stricmp((char *)prop->name,"grid-column-start") == 0)
+         else if(Stricmp((char *)prop->name,"grid-column-start") == 0)
          {  long gridColStart;
             long leftMargin;
             UBYTE *pval;
@@ -3765,15 +4040,15 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             }
          }
          /* Apply grid-column-end (for grid layout positioning) */
-         else if(stricmp((char *)prop->name,"grid-column-end") == 0)
+         else if(Stricmp((char *)prop->name,"grid-column-end") == 0)
          {  /* Parse but not fully implemented */
          }
          /* Apply grid-row-start (for grid layout positioning) */
-         else if(stricmp((char *)prop->name,"grid-row-start") == 0)
+         else if(Stricmp((char *)prop->name,"grid-row-start") == 0)
          {  /* Parse but not fully implemented */
          }
          /* Apply grid-row-end (for grid layout positioning) */
-         else if(stricmp((char *)prop->name,"grid-row-end") == 0)
+         else if(Stricmp((char *)prop->name,"grid-row-end") == 0)
          {  /* Parse but not fully implemented */
          }
          /* Note: width, height, and vertical-align for table cells are handled
@@ -3950,7 +4225,7 @@ ULONG ParseHexColor(UBYTE *pcolor)
       /* Binary search for color name */
       while(a <= b)
       {  mid = (a + b) / 2;
-         c = stricmp((char *)colornames[mid].name, (char *)buf);
+         c = Stricmp((char *)colornames[mid].name, (char *)buf);
          if(c == 0)
          {  rgbval = colornames[mid].color;
             break;
@@ -3979,17 +4254,17 @@ void ApplyInlineCSSToLink(struct Document *doc,void *link,void *body,UBYTE *styl
       prop = ParseProperty(doc,&p);
       if(prop && prop->name && prop->value)
       {           /* Apply text-decoration: none */
-         if(stricmp((char *)prop->name,"text-decoration") == 0)
-         {  if(stricmp((char *)prop->value,"none") == 0)
+         if(Stricmp((char *)prop->name,"text-decoration") == 0)
+         {  if(Stricmp((char *)prop->value,"none") == 0)
             {  Asetattrs(link,AOLNK_NoDecoration,TRUE,TAG_END);
             }
-            else if(stricmp((char *)prop->value,"underline") == 0)
+            else if(Stricmp((char *)prop->value,"underline") == 0)
             {  /* Remove no-decoration flag if underline is explicitly set */
                Asetattrs(link,AOLNK_NoDecoration,FALSE,TAG_END);
             }
          }
          /* Apply color to link (for inline styles) */
-         else if(stricmp((char *)prop->name,"color") == 0)
+         else if(Stricmp((char *)prop->name,"color") == 0)
          {  ULONG colorrgb;
             struct Colorinfo *ci;
             colorrgb = ParseHexColor(prop->value);
@@ -4051,19 +4326,19 @@ void ApplyCSSToLinkColors(struct Document *doc)
          
          /* Match element name - must be 'a' */
          if(sel->type & CSS_SEL_ELEMENT && sel->name)
-         {  if(stricmp((char *)sel->name,"a") != 0)
+         {  if(Stricmp((char *)sel->name,"a") != 0)
             {  matches = FALSE;
             }
          }
          
          /* Match pseudo-class - :link and :visited take priority */
          if(matches && (sel->type & CSS_SEL_PSEUDO) && sel->pseudo)
-         {  if(stricmp((char *)sel->pseudo,"link") == 0)
+         {  if(Stricmp((char *)sel->pseudo,"link") == 0)
             {  /* Apply a:link color to doc->linkcolor */
                for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
                    (struct MinNode *)prop->node.mln_Succ;
                    prop = (struct CSSProperty *)prop->node.mln_Succ)
-               {  if(prop->name && prop->value && stricmp((char *)prop->name,"color") == 0)
+               {  if(prop->name && prop->value && Stricmp((char *)prop->name,"color") == 0)
                   {  colorrgb = ParseHexColor(prop->value);
                      /* debug_printf("CSS: Parsing a:link color='%s', rgb=0x%08lx\n",
                                   prop->value ? (char *)prop->value : "NULL", colorrgb); */
@@ -4085,12 +4360,12 @@ void ApplyCSSToLinkColors(struct Document *doc)
                   }
                }
             }
-            else if(stricmp((char *)sel->pseudo,"visited") == 0)
+            else if(Stricmp((char *)sel->pseudo,"visited") == 0)
             {  /* Apply a:visited color to doc->vlinkcolor */
                for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
                    (struct MinNode *)prop->node.mln_Succ;
                    prop = (struct CSSProperty *)prop->node.mln_Succ)
-               {  if(prop->name && prop->value && stricmp((char *)prop->name,"color") == 0)
+               {  if(prop->name && prop->value && Stricmp((char *)prop->name,"color") == 0)
                   {  colorrgb = ParseHexColor(prop->value);
                      if(colorrgb != ~0)
                      {  ci = Finddoccolor(doc,colorrgb);
@@ -4119,7 +4394,7 @@ void ApplyCSSToLinkColors(struct Document *doc)
             
             /* Match element name - must be 'a' */
             if(sel->type & CSS_SEL_ELEMENT && sel->name)
-            {  if(stricmp((char *)sel->name,"a") != 0)
+            {  if(Stricmp((char *)sel->name,"a") != 0)
                {  matches = FALSE;
                }
             }
@@ -4134,7 +4409,7 @@ void ApplyCSSToLinkColors(struct Document *doc)
             {  for(prop = (struct CSSProperty *)rule->properties.mlh_Head;
                    (struct MinNode *)prop->node.mln_Succ;
                    prop = (struct CSSProperty *)prop->node.mln_Succ)
-               {  if(prop->name && prop->value && stricmp((char *)prop->name,"color") == 0)
+               {  if(prop->name && prop->value && Stricmp((char *)prop->name,"color") == 0)
                   {  colorrgb = ParseHexColor(prop->value);
                      if(colorrgb != ~0)
                      {  ci = Finddoccolor(doc,colorrgb);
@@ -4207,7 +4482,7 @@ void ApplyCSSToLink(struct Document *doc,void *link,void *body)
          
          /* Match element name - must be 'a' */
          if(sel->type & CSS_SEL_ELEMENT && sel->name)
-         {  if(stricmp((char *)sel->name,"a") != 0)
+         {  if(Stricmp((char *)sel->name,"a") != 0)
             {  matches = FALSE;
             }
          }
@@ -4221,26 +4496,26 @@ void ApplyCSSToLink(struct Document *doc,void *link,void *body)
          
          /* Match ID */
          if(matches && sel->type & CSS_SEL_ID && sel->id)
-         {  if(!linkId || stricmp((char *)sel->id,(char *)linkId) != 0)
+         {  if(!linkId || Stricmp((char *)sel->id,(char *)linkId) != 0)
             {  matches = FALSE;
             }
          }
          
          /* Match pseudo-class */
          if(matches && (sel->type & CSS_SEL_PSEUDO) && sel->pseudo)
-         {  if(stricmp((char *)sel->pseudo,"link") == 0)
+         {  if(Stricmp((char *)sel->pseudo,"link") == 0)
             {  if(isVisited) matches = FALSE;
             }
-            else if(stricmp((char *)sel->pseudo,"visited") == 0)
+            else if(Stricmp((char *)sel->pseudo,"visited") == 0)
             {  if(!isVisited) matches = FALSE;
             }
-            else if(stricmp((char *)sel->pseudo,"hover") == 0)
+            else if(Stricmp((char *)sel->pseudo,"hover") == 0)
             {  /* Check if this link's body is currently hovered */
                if(!doc->hoveredElement || doc->hoveredElement != body)
                {  matches = FALSE;
                }
             }
-            else if(stricmp((char *)sel->pseudo,"active") == 0)
+            else if(Stricmp((char *)sel->pseudo,"active") == 0)
             {  /* Check if this link's body is currently active (clicked) */
                if(!doc->activeElement || doc->activeElement != body)
                {  matches = FALSE;
@@ -4258,19 +4533,19 @@ void ApplyCSSToLink(struct Document *doc,void *link,void *body)
                prop = (struct CSSProperty *)prop->node.mln_Succ)
             {  if(prop->name && prop->value)
                {                    /* Apply text-decoration: none */
-                  if(stricmp((char *)prop->name,"text-decoration") == 0)
+                  if(Stricmp((char *)prop->name,"text-decoration") == 0)
                   {  /* debug_printf("CSS: Link property text-decoration=%s\n",prop->value); */
-                     if(stricmp((char *)prop->value,"none") == 0)
+                     if(Stricmp((char *)prop->value,"none") == 0)
                      {  /* debug_printf("CSS: Setting link NoDecoration=TRUE\n"); */
                         Asetattrs(link,AOLNK_NoDecoration,TRUE,TAG_END);
                      }
-                     else if(stricmp((char *)prop->value,"underline") == 0)
+                     else if(Stricmp((char *)prop->value,"underline") == 0)
                      {  /* Remove no-decoration flag if underline is explicitly set */
                         Asetattrs(link,AOLNK_NoDecoration,FALSE,TAG_END);
                      }
                   }
                   /* Apply color to link (for class-based selectors like .link-red) */
-                  else if(stricmp((char *)prop->name,"color") == 0)
+                  else if(Stricmp((char *)prop->name,"color") == 0)
                   {  ULONG colorrgb;
                      struct Colorinfo *ci;
                      colorrgb = ParseHexColor(prop->value);
@@ -4317,7 +4592,7 @@ struct Colorinfo *ExtractBackgroundColorFromRules(struct Document *doc,UBYTE *cl
          
          /* Match element name */
          if(sel->type & CSS_SEL_ELEMENT && sel->name)
-         {  if(!tagname || stricmp((char *)sel->name,(char *)tagname) != 0)
+         {  if(!tagname || Stricmp((char *)sel->name,(char *)tagname) != 0)
             {  matches = FALSE;
             }
          }
@@ -4331,7 +4606,7 @@ struct Colorinfo *ExtractBackgroundColorFromRules(struct Document *doc,UBYTE *cl
          
          /* Match ID */
          if(matches && sel->type & CSS_SEL_ID && sel->id)
-         {  if(!id || stricmp((char *)sel->id,(char *)id) != 0)
+         {  if(!id || Stricmp((char *)sel->id,(char *)id) != 0)
             {  matches = FALSE;
             }
          }
@@ -4347,7 +4622,7 @@ struct Colorinfo *ExtractBackgroundColorFromRules(struct Document *doc,UBYTE *cl
                (struct MinNode *)prop->node.mln_Succ;
                prop = (struct CSSProperty *)prop->node.mln_Succ)
             {  if(prop->name && prop->value && 
-                  stricmp((char *)prop->name,"background-color") == 0)
+                  Stricmp((char *)prop->name,"background-color") == 0)
                {  colorrgb = ParseHexColor(prop->value);
                   if(colorrgb != ~0)
                   {  ci = Finddoccolor(doc,colorrgb);
@@ -4381,7 +4656,7 @@ struct Colorinfo *ExtractBackgroundColorFromStyle(struct Document *doc,UBYTE *st
       /* Parse property */
       prop = ParseProperty(doc,&p);
       if(prop && prop->name && prop->value)
-      {  if(stricmp((char *)prop->name,"background-color") == 0)
+      {  if(Stricmp((char *)prop->name,"background-color") == 0)
          {  colorrgb = ParseHexColor(prop->value);
             if(colorrgb != ~0)
             {  ci = Finddoccolor(doc,colorrgb);
@@ -4444,7 +4719,7 @@ void ApplyCSSToTableCellFromRules(struct Document *doc,void *table,UBYTE *class,
          
          /* Match element name */
          if(sel->type & CSS_SEL_ELEMENT && sel->name)
-         {  if(!tagname || stricmp((char *)sel->name,(char *)tagname) != 0)
+         {  if(!tagname || Stricmp((char *)sel->name,(char *)tagname) != 0)
             {  matches = FALSE;
             }
          }
@@ -4458,7 +4733,7 @@ void ApplyCSSToTableCellFromRules(struct Document *doc,void *table,UBYTE *class,
          
          /* Match ID */
          if(matches && sel->type & CSS_SEL_ID && sel->id)
-         {  if(!id || stricmp((char *)sel->id,(char *)id) != 0)
+         {  if(!id || Stricmp((char *)sel->id,(char *)id) != 0)
             {  matches = FALSE;
             }
          }
@@ -4475,7 +4750,7 @@ void ApplyCSSToTableCellFromRules(struct Document *doc,void *table,UBYTE *class,
                prop = (struct CSSProperty *)prop->node.mln_Succ)
             {  if(prop->name && prop->value)
                {  /* Extract width */
-                  if(stricmp((char *)prop->name,"width") == 0)
+                  if(Stricmp((char *)prop->name,"width") == 0)
                   {  widthValue = ParseCSSLengthValue(prop->value,&num);
                      if(widthValue >= 0 && num.type != NUMBER_NONE)
                      {  if(num.type == NUMBER_PERCENT)
@@ -4487,7 +4762,7 @@ void ApplyCSSToTableCellFromRules(struct Document *doc,void *table,UBYTE *class,
                      }
                   }
                   /* Extract height */
-                  else if(stricmp((char *)prop->name,"height") == 0)
+                  else if(Stricmp((char *)prop->name,"height") == 0)
                   {  heightValue = ParseCSSLengthValue(prop->value,&num);
                      if(heightValue >= 0 && num.type != NUMBER_NONE)
                      {  if(num.type == NUMBER_PERCENT)
@@ -4499,34 +4774,34 @@ void ApplyCSSToTableCellFromRules(struct Document *doc,void *table,UBYTE *class,
                      }
                   }
                   /* Extract vertical-align */
-                  else if(stricmp((char *)prop->name,"vertical-align") == 0)
-                  {  if(stricmp((char *)prop->value,"top") == 0)
+                  else if(Stricmp((char *)prop->name,"vertical-align") == 0)
+                  {  if(Stricmp((char *)prop->value,"top") == 0)
                      {  valign = VALIGN_TOP;
                      }
-                     else if(stricmp((char *)prop->value,"middle") == 0)
+                     else if(Stricmp((char *)prop->value,"middle") == 0)
                      {  valign = VALIGN_MIDDLE;
                      }
-                     else if(stricmp((char *)prop->value,"bottom") == 0)
+                     else if(Stricmp((char *)prop->value,"bottom") == 0)
                      {  valign = VALIGN_BOTTOM;
                      }
-                     else if(stricmp((char *)prop->value,"baseline") == 0)
+                     else if(Stricmp((char *)prop->value,"baseline") == 0)
                      {  valign = VALIGN_BASELINE;
                      }
                   }
                   /* Extract text-align for horizontal alignment */
-                  else if(stricmp((char *)prop->name,"text-align") == 0)
-                  {  if(stricmp((char *)prop->value,"center") == 0)
+                  else if(Stricmp((char *)prop->name,"text-align") == 0)
+                  {  if(Stricmp((char *)prop->value,"center") == 0)
                      {  halign = HALIGN_CENTER;
                      }
-                     else if(stricmp((char *)prop->value,"left") == 0)
+                     else if(Stricmp((char *)prop->value,"left") == 0)
                      {  halign = HALIGN_LEFT;
                      }
-                     else if(stricmp((char *)prop->value,"right") == 0)
+                     else if(Stricmp((char *)prop->value,"right") == 0)
                      {  halign = HALIGN_RIGHT;
                      }
                   }
                   /* Extract background-color for table cells */
-                  else if(stricmp((char *)prop->name,"background-color") == 0)
+                  else if(Stricmp((char *)prop->name,"background-color") == 0)
                   {  colorrgb = ParseHexColor(prop->value);
                      if(colorrgb != ~0)
                      {  cssBgcolor = Finddoccolor(doc,colorrgb);
@@ -4584,7 +4859,7 @@ void ApplyCSSToTableCell(struct Document *doc,void *table,UBYTE *style)
       prop = ParseProperty(doc,&p);
       if(prop && prop->name && prop->value)
       {  /* Extract width */
-         if(stricmp((char *)prop->name,"width") == 0)
+         if(Stricmp((char *)prop->name,"width") == 0)
          {  widthValue = ParseCSSLengthValue(prop->value,&num);
             if(widthValue >= 0 && num.type != NUMBER_NONE)
             {  if(num.type == NUMBER_PERCENT)
@@ -4596,7 +4871,7 @@ void ApplyCSSToTableCell(struct Document *doc,void *table,UBYTE *style)
             }
          }
          /* Extract height */
-         else if(stricmp((char *)prop->name,"height") == 0)
+         else if(Stricmp((char *)prop->name,"height") == 0)
          {  heightValue = ParseCSSLengthValue(prop->value,&num);
             if(heightValue >= 0 && num.type != NUMBER_NONE)
             {  if(num.type == NUMBER_PERCENT)
@@ -4608,31 +4883,31 @@ void ApplyCSSToTableCell(struct Document *doc,void *table,UBYTE *style)
             }
          }
          /* Extract vertical-align */
-         else if(stricmp((char *)prop->name,"vertical-align") == 0)
-         {  if(stricmp((char *)prop->value,"top") == 0)
+         else if(Stricmp((char *)prop->name,"vertical-align") == 0)
+         {  if(Stricmp((char *)prop->value,"top") == 0)
             {  valign = VALIGN_TOP;
             }
-            else if(stricmp((char *)prop->value,"middle") == 0)
+            else if(Stricmp((char *)prop->value,"middle") == 0)
             {  valign = VALIGN_MIDDLE;
             }
-            else if(stricmp((char *)prop->value,"bottom") == 0)
+            else if(Stricmp((char *)prop->value,"bottom") == 0)
             {  valign = VALIGN_BOTTOM;
             }
-            else if(stricmp((char *)prop->value,"baseline") == 0)
+            else if(Stricmp((char *)prop->value,"baseline") == 0)
             {  valign = VALIGN_BASELINE;
             }
          }
          /* Extract text-align for horizontal alignment */
-         else if(stricmp((char *)prop->name,"text-align") == 0)
+         else if(Stricmp((char *)prop->name,"text-align") == 0)
          {  short halign;
             halign = -1;
-            if(stricmp((char *)prop->value,"center") == 0)
+            if(Stricmp((char *)prop->value,"center") == 0)
             {  halign = HALIGN_CENTER;
             }
-            else if(stricmp((char *)prop->value,"left") == 0)
+            else if(Stricmp((char *)prop->value,"left") == 0)
             {  halign = HALIGN_LEFT;
             }
-            else if(stricmp((char *)prop->value,"right") == 0)
+            else if(Stricmp((char *)prop->value,"right") == 0)
             {  halign = HALIGN_RIGHT;
             }
             if(halign >= 0)
@@ -4702,12 +4977,12 @@ void ApplyCSSToImage(struct Document *doc,void *copy,UBYTE *style)
       prop = ParseProperty(doc,&p);
       if(prop && prop->name && prop->value)
       {  /* Extract border */
-         if(stricmp((char *)prop->name,"border") == 0)
+         if(Stricmp((char *)prop->name,"border") == 0)
          {  borderValue = ParseCSSLengthValue(prop->value,&num);
             if(borderValue < 0) borderValue = 0;
          }
          /* Extract width */
-         else if(stricmp((char *)prop->name,"width") == 0)
+         else if(Stricmp((char *)prop->name,"width") == 0)
          {  widthValue = ParseCSSLengthValue(prop->value,&num);
             if(widthValue > 0)
             {  if(num.type == NUMBER_PERCENT)
@@ -4719,7 +4994,7 @@ void ApplyCSSToImage(struct Document *doc,void *copy,UBYTE *style)
             }
          }
          /* Extract height */
-         else if(stricmp((char *)prop->name,"height") == 0)
+         else if(Stricmp((char *)prop->name,"height") == 0)
          {  heightValue = ParseCSSLengthValue(prop->value,&num);
             if(heightValue > 0)
             {  if(num.type == NUMBER_PERCENT)
@@ -4731,7 +5006,7 @@ void ApplyCSSToImage(struct Document *doc,void *copy,UBYTE *style)
             }
          }
          /* Extract hspace via margin-left and margin-right */
-         else if(stricmp((char *)prop->name,"margin-left") == 0 || stricmp((char *)prop->name,"margin-right") == 0)
+         else if(Stricmp((char *)prop->name,"margin-left") == 0 || Stricmp((char *)prop->name,"margin-right") == 0)
          {  long marginValue;
             marginValue = ParseCSSLengthValue(prop->value,&num);
             if(marginValue > 0 && num.type == NUMBER_NUMBER)
@@ -4740,7 +5015,7 @@ void ApplyCSSToImage(struct Document *doc,void *copy,UBYTE *style)
             }
          }
          /* Extract vspace via margin-top and margin-bottom */
-         else if(stricmp((char *)prop->name,"margin-top") == 0 || stricmp((char *)prop->name,"margin-bottom") == 0)
+         else if(Stricmp((char *)prop->name,"margin-top") == 0 || Stricmp((char *)prop->name,"margin-bottom") == 0)
          {  long marginValue;
             marginValue = ParseCSSLengthValue(prop->value,&num);
             if(marginValue > 0 && num.type == NUMBER_NUMBER)
@@ -4812,12 +5087,12 @@ void ApplyCSSToTable(struct Document *doc,void *table,UBYTE *style)
       prop = ParseProperty(doc,&p);
       if(prop && prop->name && prop->value)
       {  /* Extract border */
-         if(stricmp((char *)prop->name,"border") == 0)
+         if(Stricmp((char *)prop->name,"border") == 0)
          {  borderValue = ParseCSSLengthValue(prop->value,&num);
             if(borderValue < 0) borderValue = 0;
          }
          /* Extract width */
-         else if(stricmp((char *)prop->name,"width") == 0)
+         else if(Stricmp((char *)prop->name,"width") == 0)
          {  widthValue = ParseCSSLengthValue(prop->value,&num);
             if(widthValue > 0)
             {  if(num.type == NUMBER_PERCENT)
@@ -4829,14 +5104,14 @@ void ApplyCSSToTable(struct Document *doc,void *table,UBYTE *style)
             }
          }
          /* Extract cellpadding via padding */
-         else if(stricmp((char *)prop->name,"padding") == 0)
+         else if(Stricmp((char *)prop->name,"padding") == 0)
          {  cellpaddingValue = ParseCSSLengthValue(prop->value,&num);
             if(cellpaddingValue < 0) cellpaddingValue = 0;
          }
          /* Extract cellspacing - no direct CSS equivalent, but we can parse it if needed */
          /* Note: CSS border-spacing is CSS2 and not yet supported */
          /* Extract background-color */
-         else if(stricmp((char *)prop->name,"background-color") == 0)
+         else if(Stricmp((char *)prop->name,"background-color") == 0)
          {  ULONG colorrgb;
             colorrgb = ParseHexColor(prop->value);
             if(colorrgb != ~0)
@@ -4844,7 +5119,7 @@ void ApplyCSSToTable(struct Document *doc,void *table,UBYTE *style)
             }
          }
          /* Extract border-color */
-         else if(stricmp((char *)prop->name,"border-color") == 0)
+         else if(Stricmp((char *)prop->name,"border-color") == 0)
          {  ULONG colorrgb;
             struct Colorinfo *ci;
             colorrgb = ParseHexColor(prop->value);
@@ -4925,7 +5200,7 @@ void ApplyCSSToTableFromRules(struct Document *doc,void *table,UBYTE *class,UBYT
          
          /* Match element name (should be "table") */
          if(sel->type & CSS_SEL_ELEMENT && sel->name)
-         {  if(stricmp((char *)sel->name,"table") != 0)
+         {  if(Stricmp((char *)sel->name,"table") != 0)
             {  matches = FALSE;
             }
          }
@@ -4939,7 +5214,7 @@ void ApplyCSSToTableFromRules(struct Document *doc,void *table,UBYTE *class,UBYT
          
          /* Match ID */
          if(matches && sel->type & CSS_SEL_ID && sel->id)
-         {  if(!id || stricmp((char *)sel->id,(char *)id) != 0)
+         {  if(!id || Stricmp((char *)sel->id,(char *)id) != 0)
             {  matches = FALSE;
             }
          }
@@ -4957,12 +5232,12 @@ void ApplyCSSToTableFromRules(struct Document *doc,void *table,UBYTE *class,UBYT
             {  if(!prop->name || !prop->value) continue;
                
                /* Extract border */
-               if(stricmp((char *)prop->name,"border") == 0)
+               if(Stricmp((char *)prop->name,"border") == 0)
                {  borderValue = ParseCSSLengthValue(prop->value,&num);
                   if(borderValue < 0) borderValue = 0;
                }
                /* Extract width */
-               else if(stricmp((char *)prop->name,"width") == 0)
+               else if(Stricmp((char *)prop->name,"width") == 0)
                {  widthValue = ParseCSSLengthValue(prop->value,&num);
                   if(widthValue > 0)
                   {  if(num.type == NUMBER_PERCENT)
@@ -4974,19 +5249,19 @@ void ApplyCSSToTableFromRules(struct Document *doc,void *table,UBYTE *class,UBYT
                   }
                }
                /* Extract cellpadding via padding */
-               else if(stricmp((char *)prop->name,"padding") == 0)
+               else if(Stricmp((char *)prop->name,"padding") == 0)
                {  cellpaddingValue = ParseCSSLengthValue(prop->value,&num);
                   if(cellpaddingValue < 0) cellpaddingValue = 0;
                }
                /* Extract background-color */
-               else if(stricmp((char *)prop->name,"background-color") == 0)
+               else if(Stricmp((char *)prop->name,"background-color") == 0)
                {  colorrgb = ParseHexColor(prop->value);
                   if(colorrgb != ~0)
                   {  cssBgcolor = Finddoccolor(doc,colorrgb);
                   }
                }
                /* Extract border-color */
-               else if(stricmp((char *)prop->name,"border-color") == 0)
+               else if(Stricmp((char *)prop->name,"border-color") == 0)
                {  colorrgb = ParseHexColor(prop->value);
                   if(colorrgb != ~0)
                   {  ci = Finddoccolor(doc,colorrgb);
