@@ -3347,9 +3347,14 @@ void ApplyInlineCSSToBody(struct Document *doc,void *body,UBYTE *style,UBYTE *ta
             if(sscanf((char *)lineHeightStr,"%f",&lineHeightValue) == 1)
             {  /* Store line-height per body for layout calculations */
                SetBodyLineHeight((struct Body *)body, lineHeightValue);
-               /* Also store in document for backwards compatibility */
-               doc->lineheight = lineHeightValue;
             }
+         }
+         /* Apply font-variant */
+         else if(stricmp((char *)prop->name,"font-variant") == 0)
+         {  /* font-variant: normal (default) - no special handling needed */
+            /* font-variant: small-caps - would need special rendering, not implemented yet */
+            /* For now, we just parse and ignore (normal is the default) */
+            /* TODO: Implement small-caps rendering if font-variant: small-caps is set */
          }
          /* Apply display */
          else if(stricmp((char *)prop->name,"display") == 0)
@@ -4232,6 +4237,12 @@ void ApplyCSSToLink(struct Document *doc,void *link,void *body)
             else if(stricmp((char *)sel->pseudo,"hover") == 0)
             {  /* Check if this link's body is currently hovered */
                if(!doc->hoveredElement || doc->hoveredElement != body)
+               {  matches = FALSE;
+               }
+            }
+            else if(stricmp((char *)sel->pseudo,"active") == 0)
+            {  /* Check if this link's body is currently active (clicked) */
+               if(!doc->activeElement || doc->activeElement != body)
                {  matches = FALSE;
                }
             }

@@ -22,11 +22,14 @@
 #include "link.h"
 #include "element.h"
 #include "frame.h"
+#include "frprivate.h"
 #include "popup.h"
 #include "url.h"
 #include "window.h"
 #include "linkprivate.h"
 #include "jslib.h"
+#include "docprivate.h"
+#include "css.h"
 #include <proto/exec.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>
@@ -504,6 +507,11 @@ static long Hittestlink(struct Link *lnk,struct Amhittest *amh)
 static long Goactivelink(struct Link *lnk,struct Amgoactive *amg)
 {  struct Coords *coo;
    struct Component *comp;
+   struct Document *doc;
+   void *body;
+   struct Frame *fr;
+   struct Aobject *ao;
+   
    lnk->flags|=LNKF_SELECTED;
    coo=Clipcoords(lnk->cframe,NULL);
    if(coo->rp)
@@ -513,6 +521,34 @@ static long Goactivelink(struct Link *lnk,struct Amgoactive *amg)
       }
    }
    Unclipcoords(coo);
+   
+   /* Track active state for CSS :active pseudo-class */
+   if(lnk->cframe)
+   {  fr = (struct Frame *)lnk->cframe;
+      if(fr->copy)
+      {  ao = (struct Aobject *)fr->copy;
+         if(ao->objecttype == AOTP_COPYDRIVER)
+         {  doc = (struct Document *)fr->copy;
+            /* Find the body element that contains this link */
+            body = NULL;
+            if(lnk->components.first)
+            {  /* Get parent body from first component */
+               comp = lnk->components.first;
+               body = (void *)Agetattr(comp->object, AOBJ_Layoutparent);
+            }
+            
+            /* Update active state and re-apply CSS if changed */
+            if(doc->activeElement != body)
+            {  doc->activeElement = body;
+               /* Re-apply CSS to all elements to update :active styles */
+               if(doc->cssstylesheet)
+               {  ReapplyCSSToAllElements(doc);
+               }
+            }
+         }
+      }
+   }
+   
    return AMR_ACTIVE;
 }
 
@@ -560,6 +596,31 @@ static long Handleinputlink(struct Link *lnk,struct Aminput *ami)
                   }
                }
             }
+            
+            /* If mouse moved off link while button is down, clear active state */
+            if(!done && (lnk->flags & LNKF_SELECTED))
+            {  struct Document *doc;
+               struct Frame *fr;
+               struct Aobject *ao;
+               
+               if(lnk->cframe)
+               {  fr = (struct Frame *)lnk->cframe;
+                  if(fr->copy)
+                  {  ao = (struct Aobject *)fr->copy;
+                     if(ao->objecttype == AOTP_COPYDRIVER)
+                     {  doc = (struct Document *)fr->copy;
+                        if(doc->activeElement)
+                        {  doc->activeElement = NULL;
+                           /* Re-apply CSS to all elements to update :active styles */
+                           if(doc->cssstylesheet)
+                           {  ReapplyCSSToAllElements(doc);
+                           }
+                        }
+                     }
+                  }
+               }
+            }
+            
             break;
          case IDCMP_MOUSEBUTTONS:
             if(ami->flags&AMHF_POPUPREL)
@@ -572,7 +633,29 @@ static long Handleinputlink(struct Link *lnk,struct Aminput *ami)
                   TAG_END);
             }
             else if(ami->imsg->Code==SELECTUP)
-            {  if(ami->flags&AMHF_DOWNLOAD)
+            {  struct Document *doc;
+               struct Frame *fr;
+               struct Aobject *ao;
+               
+               /* Clear active state when mouse button is released */
+               if(lnk->cframe)
+               {  fr = (struct Frame *)lnk->cframe;
+                  if(fr->copy)
+                  {  ao = (struct Aobject *)fr->copy;
+                     if(ao->objecttype == AOTP_COPYDRIVER)
+                     {  doc = (struct Document *)fr->copy;
+                        if(doc->activeElement)
+                        {  doc->activeElement = NULL;
+                           /* Re-apply CSS to all elements to update :active styles */
+                           if(doc->cssstylesheet)
+                           {  ReapplyCSSToAllElements(doc);
+                           }
+                        }
+                     }
+                  }
+               }
+               
+               if(ami->flags&AMHF_DOWNLOAD)
                {  win=(void *)Agetattr(lnk->frame,AOBJ_Window);
                   url=(void *)Agetattr(lnk->frame,AOFRM_Url);
                   Auload(lnk->url,AUMLF_DOWNLOAD|(Agetattr(win,AOWIN_Noproxy)?AUMLF_NOPROXY:0),
@@ -584,6 +667,10 @@ static long Handleinputlink(struct Link *lnk,struct Aminput *ami)
                   }
                }
             }
+            else if(ami->imsg->Code==SELECTDOWN)
+            {  /* Active state is set in Goactivelink, which is called separately */
+               /* This is just for reference - SELECTDOWN triggers Goactivelink */
+            }
             result=AMR_NOREUSE;
             break;
       }
@@ -594,6 +681,10 @@ static long Handleinputlink(struct Link *lnk,struct Aminput *ami)
 static long Goinactivelink(struct Link *lnk)
 {  struct Coords *coo;
    struct Component *comp;
+   struct Document *doc;
+   struct Frame *fr;
+   struct Aobject *ao;
+   
    lnk->flags&=~(LNKF_SELECTED|LNKF_CLIPDRAG);
    coo=Clipcoords(lnk->cframe,NULL);
    if(coo && coo->rp)
@@ -603,6 +694,26 @@ static long Goinactivelink(struct Link *lnk)
       }
    }
    Unclipcoords(coo);
+   
+   /* Clear active state for CSS :active pseudo-class */
+   if(lnk->cframe)
+   {  fr = (struct Frame *)lnk->cframe;
+      if(fr->copy)
+      {  ao = (struct Aobject *)fr->copy;
+         if(ao->objecttype == AOTP_COPYDRIVER)
+         {  doc = (struct Document *)fr->copy;
+            /* Clear active state and re-apply CSS if it was set */
+            if(doc->activeElement)
+            {  doc->activeElement = NULL;
+               /* Re-apply CSS to all elements to update :active styles */
+               if(doc->cssstylesheet)
+               {  ReapplyCSSToAllElements(doc);
+               }
+            }
+         }
+      }
+   }
+   
    return 0;
 }
 

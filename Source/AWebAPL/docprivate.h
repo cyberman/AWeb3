@@ -143,6 +143,7 @@ struct Document
    long gridcolgap;           /* Grid column gap from parent dl element (for grid-column-start) */
    BOOL currentdivinline;     /* Current DIV is display:inline (prevents line breaks) */
    void *hoveredElement;      /* Currently hovered element (for :hover pseudo-class) */
+   void *activeElement;       /* Currently active (clicked) element (for :active pseudo-class) */
 };
 
 #define DPF_PREFORMAT      0x00000001  /* doing PRE */
