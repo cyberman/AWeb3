@@ -1,4 +1,4 @@
-FROM     ftp.o ftpparse.o
+FROM     ftp.o
 TO       aweblib/ftp.aweblib
 NODEBUG
 LIB      lib:scnb.lib

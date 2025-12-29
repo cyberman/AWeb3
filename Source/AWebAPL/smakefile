@@ -332,15 +332,11 @@ cabrtask.o: cabrtask.c aweblib.h task.h caprivate.h url.h
 
 #- ftp -----------
 
-aweblib/ftp.aweblib: ftp.o ftpparse.o ftp.lnk
+aweblib/ftp.aweblib: ftp.o ftp.lnk
    c/remlib >nil: ftp.aweblib
    slink with ftp.lnk
 
-ftp.o:      ftp.c aweblib.h tcperr.h fetchdriver.h task.h application.h awebtcp.h ftpparse.h
-   @echo "        Compiling $*..."
-   @sc idir=netinclude: $*
-
-ftpparse.o: ftpparse.c ftpparse.h
+ftp.o:      ftp.c aweblib.h tcperr.h fetchdriver.h task.h application.h awebtcp.h
    @echo "        Compiling $*..."
    @sc idir=netinclude: $*
 
