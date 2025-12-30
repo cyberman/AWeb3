@@ -127,10 +127,6 @@
     * relationship.
     * Prefs SET this if blink rate changes. */
 
-#define AOAPP_Marquee       (AOAPP_Dummy+35)
-   /* (BOOL) Update marquee scroll position. SET to childs in AOREL_APP_WANT_MARQUEE
-    * relationship when timer fires. */
-
 #define AOAPP_Processtype  (AOAPP_Dummy+35)  /* SET */
    /* (short) Object type for which the next AOAPP_Processfun is valid */
 
@@ -163,6 +159,11 @@
 
 #define AOAPP_Tooltippen   (AOAPP_Dummy+44)  /* GET */
    /* (long) Pen number for that pale yellow tooltip background */
+
+#define AOAPP_Marquee       (AOAPP_Dummy+45)
+   /* (BOOL) Update marquee scroll position. SET to childs in AOREL_APP_WANT_MARQUEE
+    * relationship when timer fires. */
+
 
 #define AOAPP_    (AOAPP_Dummy+)
 #define AOAPP_    (AOAPP_Dummy+)
