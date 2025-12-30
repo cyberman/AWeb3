@@ -642,7 +642,7 @@ static long Measurebody(struct Body *bd,struct Ammeasure *amm)
    
    /* Check if body should be hidden (display: none) */
    isHidden = FALSE;
-   if(bd->display && stricmp((char *)bd->display, "none") == 0)
+   if(bd->display && Stricmp((char *)bd->display, "none") == 0)
    {  isHidden = TRUE;
    }
    
@@ -746,7 +746,7 @@ static long Layoutbody(struct Body *bd,struct Amlayout *amlp)
    
    /* Check if body should be hidden (display: none) */
    isHidden = FALSE;
-   if(bd->display && stricmp((char *)bd->display, "none") == 0)
+   if(bd->display && Stricmp((char *)bd->display, "none") == 0)
    {  isHidden = TRUE;
    }
    
@@ -760,14 +760,14 @@ static long Layoutbody(struct Body *bd,struct Amlayout *amlp)
    /* Check if we need to clear floats */
    needsClear = FALSE;
    if(bd->clear)
-   {  if(stricmp((char *)bd->clear, "both") == 0)
+   {  if(Stricmp((char *)bd->clear, "both") == 0)
       {  needsClear = TRUE;
       }
-      else if(stricmp((char *)bd->clear, "left") == 0)
+      else if(Stricmp((char *)bd->clear, "left") == 0)
       {  /* Would need to check if left margins exist */
          needsClear = TRUE;
       }
-      else if(stricmp((char *)bd->clear, "right") == 0)
+      else if(Stricmp((char *)bd->clear, "right") == 0)
       {  /* Would need to check if right margins exist */
          needsClear = TRUE;
       }
@@ -777,9 +777,9 @@ static long Layoutbody(struct Body *bd,struct Amlayout *amlp)
    /* Note: right/bottom calculation happens after body dimensions are known */
    /* For percentage-based positioning, we need to wait until we know parent dimensions */
    /* So we only set pixel-based positions here, percentages are handled later */
-   if(bd->position && (stricmp((char *)bd->position, "fixed") == 0 || 
-                       stricmp((char *)bd->position, "absolute") == 0 ||
-                       stricmp((char *)bd->position, "relative") == 0))
+   if(bd->position && (Stricmp((char *)bd->position, "fixed") == 0 || 
+                       Stricmp((char *)bd->position, "absolute") == 0 ||
+                       Stricmp((char *)bd->position, "relative") == 0))
    {  long leftPos, topPos;
       
       /* Get left/top positions (only for pixel values, not percentages) */
@@ -790,7 +790,7 @@ static long Layoutbody(struct Body *bd,struct Amlayout *amlp)
       /* Check if we have percentage values - if so, skip initial positioning */
       if(bd->leftpercent < 0 && bd->toppercent < 0)
       {  /* No percentage values, use pixel positioning */
-         if(stricmp((char *)bd->position, "relative") == 0)
+         if(Stricmp((char *)bd->position, "relative") == 0)
          {  /* Relative positioning: offset from normal flow position */
             /* Normal flow position starts at 0, add offset */
             bd->aox = leftPos;
@@ -1167,14 +1167,14 @@ if(SetSignal(0,0)&SIGBREAKF_CTRL_C) return 0;
    }
    
    /* Recalculate right/bottom positioning now that we know body dimensions */
-   if(bd->position && (stricmp((char *)bd->position, "fixed") == 0 || 
-                       stricmp((char *)bd->position, "absolute") == 0))
+   if(bd->position && (Stricmp((char *)bd->position, "fixed") == 0 || 
+                       Stricmp((char *)bd->position, "absolute") == 0))
    {  long parentWidth, parentHeight;
       void *parentObj;
       BOOL isFixed;
       
       /* Check if this is fixed positioning */
-      isFixed = (bd->position && stricmp((char *)bd->position, "fixed") == 0);
+      isFixed = (bd->position && Stricmp((char *)bd->position, "fixed") == 0);
       
       if(isFixed)
       {  /* For fixed positioning, use viewport (window inner) dimensions */
@@ -1282,7 +1282,7 @@ if(SetSignal(0,0)&SIGBREAKF_CTRL_C) return 0;
          while(*p && isspace(*p)) p++;
          
          /* Check for translate( */
-         if(strnicmp((char *)p, "translate", 9) == 0)
+         if(Strnicmp((char *)p, "translate", 9) == 0)
          {  p += 9;
             while(*p && isspace(*p)) p++;
             if(*p == '(')
@@ -1334,7 +1334,7 @@ if(SetSignal(0,0)&SIGBREAKF_CTRL_C) return 0;
                foundTranslate = TRUE;
             }
          }
-         else if(strnicmp((char *)p, "translateX", 10) == 0)
+         else if(Strnicmp((char *)p, "translateX", 10) == 0)
          {  p += 10;
             while(*p && isspace(*p)) p++;
             if(*p == '(')
@@ -1355,7 +1355,7 @@ if(SetSignal(0,0)&SIGBREAKF_CTRL_C) return 0;
                foundTranslate = TRUE;
             }
          }
-         else if(strnicmp((char *)p, "translateY", 10) == 0)
+         else if(Strnicmp((char *)p, "translateY", 10) == 0)
          {  p += 10;
             while(*p && isspace(*p)) p++;
             if(*p == '(')
@@ -1391,8 +1391,8 @@ if(SetSignal(0,0)&SIGBREAKF_CTRL_C) return 0;
    /* If clear property is set, clear the appropriate margins */
    if(needsClear)
    {  /* Clear left margins if clear: left or both */
-      if(bd->clear && (stricmp((char *)bd->clear, "left") == 0 || 
-                       stricmp((char *)bd->clear, "both") == 0))
+      if(bd->clear && (Stricmp((char *)bd->clear, "left") == 0 || 
+                       Stricmp((char *)bd->clear, "both") == 0))
       {  /* Find highest left margin and clear below it */
          struct Margin *m;
          long highestY = 0;
@@ -1404,8 +1404,8 @@ if(SetSignal(0,0)&SIGBREAKF_CTRL_C) return 0;
          }
       }
       /* Clear right margins if clear: right or both */
-      if(bd->clear && (stricmp((char *)bd->clear, "right") == 0 || 
-                       stricmp((char *)bd->clear, "both") == 0))
+      if(bd->clear && (Stricmp((char *)bd->clear, "right") == 0 || 
+                       Stricmp((char *)bd->clear, "both") == 0))
       {  /* Find highest right margin and clear below it */
          struct Margin *m;
          long highestY = 0;
@@ -1435,7 +1435,7 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
    
    /* Check if body should be hidden (display: none) */
    isHidden = FALSE;
-   if(bd->display && stricmp((char *)bd->display, "none") == 0)
+   if(bd->display && Stricmp((char *)bd->display, "none") == 0)
    {  isHidden = TRUE;
    }
    
@@ -1470,9 +1470,9 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
       clipMaxX = amr->rect.maxx;
       clipMaxY = amr->rect.maxy;
       
-      if(bd->overflow && (stricmp((char *)bd->overflow, "hidden") == 0 || 
-                          stricmp((char *)bd->overflow, "auto") == 0 ||
-                          stricmp((char *)bd->overflow, "scroll") == 0))
+      if(bd->overflow && (Stricmp((char *)bd->overflow, "hidden") == 0 || 
+                          Stricmp((char *)bd->overflow, "auto") == 0 ||
+                          Stricmp((char *)bd->overflow, "scroll") == 0))
       {  /* Clip to body bounds */
          long bodyMinX, bodyMinY, bodyMaxX, bodyMaxY;
          bodyMinX = bd->aox;
@@ -2074,16 +2074,16 @@ static long Setbody(struct Body *bd,struct Amset *ams)
                   TAG_END);
                
                /* Calculate scroll delta based on direction */
-               if(stricmp((char *)bd->marqueedirection,"left")==0)
+               if(Stricmp((char *)bd->marqueedirection,"left")==0)
                {  dx = -bd->marqueescrollamount;
                }
-               else if(stricmp((char *)bd->marqueedirection,"right")==0)
+               else if(Stricmp((char *)bd->marqueedirection,"right")==0)
                {  dx = bd->marqueescrollamount;
                }
-               else if(stricmp((char *)bd->marqueedirection,"up")==0)
+               else if(Stricmp((char *)bd->marqueedirection,"up")==0)
                {  dy = -bd->marqueescrollamount;
                }
-               else if(stricmp((char *)bd->marqueedirection,"down")==0)
+               else if(Stricmp((char *)bd->marqueedirection,"down")==0)
                {  dy = bd->marqueescrollamount;
                }
                
@@ -2093,7 +2093,7 @@ static long Setbody(struct Body *bd,struct Amset *ams)
                
                /* Handle behavior and bounds */
                if(bd->marqueebehavior)
-               {  if(stricmp((char *)bd->marqueebehavior,"alternate")==0)
+               {  if(Stricmp((char *)bd->marqueebehavior,"alternate")==0)
                   {  /* Alternate: bounce back and forth */
                      if(!bd->marqueereversing)
                      {  /* Scrolling forward */
@@ -2115,7 +2115,7 @@ static long Setbody(struct Body *bd,struct Amset *ams)
                         }
                      }
                   }
-                  else if(stricmp((char *)bd->marqueebehavior,"slide")==0)
+                  else if(Stricmp((char *)bd->marqueebehavior,"slide")==0)
                   {  /* Slide: stop at end */
                      if(dx<0 && bd->marqueescrollx <= -(contentw-bd->aow))
                      {  bd->marqueescrollx = -(contentw-bd->aow);

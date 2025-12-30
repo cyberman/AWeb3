@@ -488,7 +488,7 @@ static struct Tagdes *Findtag(UBYTE *name)
    long c;
    while(a<=b)
    {  m=(a+b)/2;
-      c=stricmp(tags[m].name,name);
+      c=Stricmp(tags[m].name,name);
       if(c==0) return &tags[m];
       if(c<0) a=m+1;
       else b=m-1;
@@ -501,7 +501,7 @@ static struct Attrdes *Findattr(UBYTE *name)
    long c;
    while(a<=b)
    {  m=(a+b)/2;
-      c=stricmp(tagattrs[m].name,name);
+      c=Stricmp(tagattrs[m].name,name);
       if(c==0) return &tagattrs[m];
       if(c<0) a=m+1;
       else b=m-1;
