@@ -69,8 +69,10 @@ struct Application
    LIST(Child) usebrowser;
    LIST(Child) useoverlap;
    LIST(Child) wantblink;
+   LIST(Child) wantmarquee;
    UBYTE *savepath;
    void *blinktimer;
+   void *marqueetimer;
    void *animtimer;
    struct SignalSemaphore semaphore;
    short imagewidth,imageheight;
@@ -122,11 +124,19 @@ static LIST(Animgad) animgads;
 #define AOAPP_Blinktimer      (AOAPP_Dummy+128)
    /* (BOOL) Toggle blink status */
 
+#define AOAPP_Marqueetimer    (AOAPP_Dummy+130)
+   /* (BOOL) Update marquee scroll positions */
+
 #define AOAPP_Animtimer       (AOAPP_Dummy+129)
    /* (BOOL) Step continuous transfer anim */
 
 static struct TagItem blinktimermap[]=
 {  AOTIM_Ready,AOAPP_Blinktimer,
+   TAG_END,
+};
+
+static struct TagItem marqueetimermap[]=
+{  AOTIM_Ready,AOAPP_Marqueetimer,
    TAG_END,
 };
 
@@ -367,6 +377,9 @@ static LIST(Child) *Childlist(struct Application *app,long relation)
          break;
       case AOREL_APP_WANT_BLINK:
          list=&app->wantblink;
+         break;
+      case AOREL_APP_WANT_MARQUEE:
+         list=&app->wantmarquee;
          break;
    }
    return list;
@@ -1238,6 +1251,12 @@ static struct Application *Newapplication(struct Amset *ams)
          AOTIM_Waitseconds,prefs.blinkrate/10,
          AOTIM_Waitmicros,(prefs.blinkrate%10)*100000,
          TAG_END);
+      app->marqueetimer=Anewobject(AOTP_TIMER,
+         AOBJ_Target,app,
+         AOBJ_Map,marqueetimermap,
+         AOTIM_Waitseconds,0,
+         AOTIM_Waitmicros,50000,  /* 50ms default update rate */
+         TAG_END);
       app->animtimer=Anewobject(AOTP_TIMER,
          AOBJ_Target,app,
          AOBJ_Map,animtimermap,
@@ -1407,6 +1426,17 @@ static long Updateapplication(struct Application *app,struct Amset *ams)
                AOAPP_Blink,BOOLVAL(app->flags&APPF_BLINKON),
                TAG_END);
             break;
+         case AOAPP_Marqueetimer:
+            /* Update all marquee elements */
+            Broadcast(app,AOREL_APP_WANT_MARQUEE,
+               AOAPP_Marquee,TRUE,
+               TAG_END);
+            /* Restart timer */
+            Asetattrs(app->marqueetimer,
+               AOTIM_Waitseconds,0,
+               AOTIM_Waitmicros,50000,
+               TAG_END);
+            break;
          case AOAPP_Animtimer:
             if(prefs.contanim && (app->flags&APPF_ANIMON))
             {  Asetattrs(app->animtimer,
@@ -1572,8 +1602,13 @@ static void Disposeapplication(struct Application *app)
    {  Asetattrs(ch->object,AOBJ_Application,NULL,TAG_END);
       FREE(ch);
    }
+   while(ch=REMHEAD(&app->wantmarquee))
+   {  Asetattrs(ch->object,AOBJ_Application,NULL,TAG_END);
+      FREE(ch);
+   }
    if(app->animtimer) Adisposeobject(app->animtimer);
    if(app->blinktimer) Adisposeobject(app->blinktimer);
+   if(app->marqueetimer) Adisposeobject(app->marqueetimer);
    if(app->systemfont) CloseFont(app->systemfont);
    if(app->menus) Freemenus(app);
    if(app->windowport)

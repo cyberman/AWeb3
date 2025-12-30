@@ -220,6 +220,27 @@
 #define AOBDY_ListStyleImage (AOBDY_Dummy+67)  /* SET,GET */
    /* (UBYTE *) CSS list-style-image: url(...) value */
 
+#define AOBDY_MarqueeDirection (AOBDY_Dummy+68)  /* SET,GET */
+   /* (UBYTE *) Marquee direction: "left", "right", "up", "down" */
+
+#define AOBDY_MarqueeBehavior (AOBDY_Dummy+69)  /* SET,GET */
+   /* (UBYTE *) Marquee behavior: "scroll", "slide", "alternate" */
+
+#define AOBDY_MarqueeScrollAmount (AOBDY_Dummy+70)  /* SET,GET */
+   /* (long) Marquee scroll amount in pixels (default 6) */
+
+#define AOBDY_MarqueeScrollDelay (AOBDY_Dummy+71)  /* SET,GET */
+   /* (long) Marquee scroll delay in milliseconds (default 85) */
+
+#define AOBDY_MarqueeLoop (AOBDY_Dummy+72)  /* SET,GET */
+   /* (long) Marquee loop count (-1 for infinite) */
+
+#define AOBDY_MarqueeScrollX (AOBDY_Dummy+73)  /* SET,GET */
+   /* (long) Current horizontal scroll position */
+
+#define AOBDY_MarqueeScrollY (AOBDY_Dummy+74)  /* SET,GET */
+   /* (long) Current vertical scroll position */
+
 /*--- body support structures ---*/
 
 /* Forward declaration of Body structure (defined in body.c) */

@@ -27,6 +27,7 @@
 #include "window.h"
 #include "css.h"
 #include "html.h"
+#include "application.h"
 
 #include <proto/exec.h>
 #include <proto/dos.h>
@@ -117,6 +118,16 @@ struct Body
    long leftpercent;       /* CSS left position as percentage (0-10000 for 0-100%) */
    long marginright;       /* CSS margin-right value (can be negative) */
    long marginbottom;      /* CSS margin-bottom value (can be negative) */
+   /* Marquee support */
+   UBYTE *marqueedirection;  /* "left", "right", "up", "down" */
+   UBYTE *marqueebehavior;   /* "scroll", "slide", "alternate" */
+   long marqueescrollamount; /* Pixels per scroll (default 6) */
+   long marqueescrolldelay;  /* Milliseconds between scrolls (default 85) */
+   long marqueeloop;          /* Number of loops (-1 for infinite) */
+   long marqueescrollx;       /* Current horizontal scroll position */
+   long marqueescrolly;       /* Current vertical scroll position */
+   long marqueeloopcount;     /* Current loop count */
+   BOOL marqueereversing;     /* TRUE if in alternate mode and reversing */
 };
 
 #define BDYF_SUB           0x0001   /* subscript mode */
@@ -1511,11 +1522,58 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
          Erasebg(bd->cframe,coo,clipMinX,MAX(y,clipMinY),clipMaxX,clipMaxY);
          flags|=AMRF_CLEARBG;
       }
-      for(;child->next;child=child->next)
-      {  /* Apply overflow clipping to child rendering */
-         if(child->aox<=clipMaxX && child->aox+child->aow>clipMinX 
-         && child->aoy<=clipMaxY && child->aoy+child->aoh>clipMinY)
-         {  Arender(child,coo,clipMinX,clipMinY,clipMaxX,clipMaxY,flags,amr->text);
+      /* Apply marquee scroll offset if this is a marquee */
+      if(bd->marqueedirection)
+      {  /* Create modified coordinate structure with scroll offset */
+         struct Coords marquee_coo;
+         long marqueeMinX,marqueeMinY,marqueeMaxX,marqueeMaxY;
+         long finalMinX,finalMinY,finalMaxX,finalMaxY;
+         long childRastX,childRastY;
+         marquee_coo = *coo;
+         /* Add scroll offset to transform: children are positioned relative to body,
+          * coo->dx transforms from body-relative to rastport, so adding scrollx
+          * shifts all children by that amount in rastport coordinates */
+         marquee_coo.dx += bd->marqueescrollx;
+         marquee_coo.dy += bd->marqueescrolly;
+         /* Clipping: marquee viewport bounds in rastport coordinates */
+         /* Body position bd->aox is relative to parent, but coo->dx transforms from
+          * body-relative to rastport, so body's rastport position is coo->dx (when
+          * body is at 0,0 relative to itself). But we need the actual body position
+          * in rastport, which is bd->aox + coo->dx (if coo->dx transforms parent-relative
+          * to rastport) or just coo->dx (if coo->dx already includes bd->aox).
+          * Based on overflow clipping using bd->aox directly, amr->rect is in the same
+          * coordinate system as bd->aox. Since overflow clipping works, bd->aox must be
+          * in body-relative coordinates. So body viewport in body-relative is (0,0) to (aow,aoh).
+          * Convert to rastport: (coo->dx, coo->dy) to (coo->dx+aow, coo->dy+aoh) */
+         marqueeMinX = coo->dx;
+         marqueeMinY = coo->dy;
+         marqueeMaxX = coo->dx + bd->aow;
+         marqueeMaxY = coo->dy + bd->aoh;
+         /* Intersect with existing clip bounds (which are in rastport coords) */
+         finalMinX = MAX(clipMinX, marqueeMinX);
+         finalMinY = MAX(clipMinY, marqueeMinY);
+         finalMaxX = MIN(clipMaxX, marqueeMaxX);
+         finalMaxY = MIN(clipMaxY, marqueeMaxY);
+         for(;child->next;child=child->next)
+         {  /* Check visibility: child position with scroll offset in rastport coords */
+            /* child->aox is relative to body, marquee_coo.dx includes scroll offset,
+             * so child renders at child->aox + marquee_coo.dx in rastport */
+            childRastX = child->aox + marquee_coo.dx;
+            childRastY = child->aoy + marquee_coo.dy;
+            if(childRastX<=finalMaxX && childRastX+child->aow>finalMinX 
+            && childRastY<=finalMaxY && childRastY+child->aoh>finalMinY)
+            {  Arender(child,&marquee_coo,finalMinX,finalMinY,finalMaxX,finalMaxY,flags,amr->text);
+            }
+         }
+      }
+      else
+      {  /* Normal rendering without scroll offset */
+         for(;child->next;child=child->next)
+         {  /* Apply overflow clipping to child rendering */
+            if(child->aox<=clipMaxX && child->aox+child->aow>clipMinX 
+            && child->aoy<=clipMaxY && child->aoy+child->aoh>clipMinY)
+            {  Arender(child,coo,clipMinX,clipMinY,clipMaxX,clipMaxY,flags,amr->text);
+            }
          }
       }
       /* Render border if border width > 0 */
@@ -1604,6 +1662,13 @@ static long Setbody(struct Body *bd,struct Amset *ams)
             break;
          case AOBJ_Cframe:
             bd->cframe=(void *)tag->ti_Data;
+            /* Register marquee for animation when it becomes visible */
+            if(tag->ti_Data && bd->marqueedirection)
+            {  Aaddchild(Aweb(),bd,AOREL_APP_WANT_MARQUEE);
+            }
+            else if(!tag->ti_Data && bd->marqueedirection)
+            {  Aremchild(Aweb(),bd,AOREL_APP_WANT_MARQUEE);
+            }
             break;
          case AOBJ_Frame:
             /* AOBJ_Frame is set/cleared when in/out display.
@@ -1969,6 +2034,127 @@ static long Setbody(struct Body *bd,struct Amset *ams)
          case AOBDY_MarginBottom:
             bd->marginbottom = tag->ti_Data;
             break;
+         case AOBDY_MarqueeDirection:
+            if(bd->marqueedirection && bd->marqueedirection != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->marqueedirection);
+            }
+            bd->marqueedirection = (UBYTE *)tag->ti_Data;
+            break;
+         case AOBDY_MarqueeBehavior:
+            if(bd->marqueebehavior && bd->marqueebehavior != (UBYTE *)tag->ti_Data)
+            {  FREE(bd->marqueebehavior);
+            }
+            bd->marqueebehavior = (UBYTE *)tag->ti_Data;
+            break;
+         case AOBDY_MarqueeScrollAmount:
+            bd->marqueescrollamount = tag->ti_Data;
+            break;
+         case AOBDY_MarqueeScrollDelay:
+            bd->marqueescrolldelay = tag->ti_Data;
+            break;
+         case AOBDY_MarqueeLoop:
+            bd->marqueeloop = tag->ti_Data;
+            break;
+         case AOBDY_MarqueeScrollX:
+            bd->marqueescrollx = tag->ti_Data;
+            break;
+         case AOBDY_MarqueeScrollY:
+            bd->marqueescrolly = tag->ti_Data;
+            break;
+         case AOAPP_Marquee:
+            /* Update marquee scroll position */
+            if(bd->marqueedirection)
+            {  long dx=0,dy=0;
+               long contentw,contenth;
+               
+               /* Get content dimensions */
+               Agetattrs(bd,
+                  AOBJ_Width,&contentw,
+                  AOBJ_Height,&contenth,
+                  TAG_END);
+               
+               /* Calculate scroll delta based on direction */
+               if(stricmp((char *)bd->marqueedirection,"left")==0)
+               {  dx = -bd->marqueescrollamount;
+               }
+               else if(stricmp((char *)bd->marqueedirection,"right")==0)
+               {  dx = bd->marqueescrollamount;
+               }
+               else if(stricmp((char *)bd->marqueedirection,"up")==0)
+               {  dy = -bd->marqueescrollamount;
+               }
+               else if(stricmp((char *)bd->marqueedirection,"down")==0)
+               {  dy = bd->marqueescrollamount;
+               }
+               
+               /* Update scroll position */
+               bd->marqueescrollx += dx;
+               bd->marqueescrolly += dy;
+               
+               /* Handle behavior and bounds */
+               if(bd->marqueebehavior)
+               {  if(stricmp((char *)bd->marqueebehavior,"alternate")==0)
+                  {  /* Alternate: bounce back and forth */
+                     if(!bd->marqueereversing)
+                     {  /* Scrolling forward */
+                        if(dx<0 && bd->marqueescrollx <= -(contentw-bd->aow))
+                        {  bd->marqueereversing=TRUE;
+                           bd->marqueescrollx = -(contentw-bd->aow);
+                        }
+                     }
+                     else
+                     {  /* Scrolling backward */
+                        if(bd->marqueescrollx >= 0)
+                        {  bd->marqueereversing=FALSE;
+                           bd->marqueescrollx = 0;
+                        }
+                        else
+                        {  /* Reverse direction */
+                           dx = -dx;
+                           bd->marqueescrollx += dx*2;  /* Compensate for earlier addition */
+                        }
+                     }
+                  }
+                  else if(stricmp((char *)bd->marqueebehavior,"slide")==0)
+                  {  /* Slide: stop at end */
+                     if(dx<0 && bd->marqueescrollx <= -(contentw-bd->aow))
+                     {  bd->marqueescrollx = -(contentw-bd->aow);
+                        /* Stop scrolling - could unregister here */
+                     }
+                     else if(dx>0 && bd->marqueescrollx >= 0)
+                     {  bd->marqueescrollx = 0;
+                        /* Stop scrolling */
+                     }
+                  }
+                  else /* scroll - continuous */
+                  {  /* Wrap around */
+                     if(dx<0 && bd->marqueescrollx <= -(contentw-bd->aow))
+                     {  bd->marqueescrollx = bd->aow;
+                        if(bd->marqueeloop>0)
+                        {  bd->marqueeloopcount++;
+                           if(bd->marqueeloopcount>=bd->marqueeloop)
+                           {  /* Stop - could unregister */
+                           }
+                        }
+                     }
+                     else if(dx>0 && bd->marqueescrollx >= contentw)
+                     {  bd->marqueescrollx = -(contentw-bd->aow);
+                        if(bd->marqueeloop>0)
+                        {  bd->marqueeloopcount++;
+                           if(bd->marqueeloopcount>=bd->marqueeloop)
+                           {  /* Stop */
+                           }
+                        }
+                     }
+                  }
+               }
+               
+               /* Trigger render with new scroll position */
+               if(bd->frame)
+               {  Arender(bd,NULL,0,0,AMRMAX,AMRMAX,AMRF_CHANGED,NULL);
+               }
+            }
+            break;
       }
    }
    if(fontw) Pushfont(bd,fontstyle,fontsize,fontcolor,fontface,fontw);
@@ -2010,6 +2196,8 @@ static void Disposebody(struct Body *bd)
    if(bd->backgroundposition) FREE(bd->backgroundposition);
    if(bd->backgroundattachment) FREE(bd->backgroundattachment);
    if(bd->transform) FREE(bd->transform);
+   if(bd->marqueedirection) FREE(bd->marqueedirection);
+   if(bd->marqueebehavior) FREE(bd->marqueebehavior);
    Amethodas(AOTP_OBJECT,bd,AOM_DISPOSE);
 }
 
@@ -2062,6 +2250,15 @@ static struct Body *Newbody(struct Amset *ams)
       bd->marginleftauto = FALSE;
       bd->marginrightauto = FALSE;
       bd->lineheight = 0.0;  /* 0 means use default (no line-height specified) */
+      bd->marqueedirection = NULL;
+      bd->marqueebehavior = NULL;
+      bd->marqueescrollamount = 6;
+      bd->marqueescrolldelay = 85;
+      bd->marqueeloop = -1;
+      bd->marqueescrollx = 0;
+      bd->marqueescrolly = 0;
+      bd->marqueeloopcount = 0;
+      bd->marqueereversing = FALSE;
       if(Newbodybuild(bd))
       {  Pushfont(bd,STYLE_NORMAL,0,NULL,NULL,FONTW_STYLE);
          bd->bgcolor=-1;

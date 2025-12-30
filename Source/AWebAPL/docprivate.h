@@ -144,11 +144,21 @@ struct Document
    BOOL currentdivinline;     /* Current DIV is display:inline (prevents line breaks) */
    void *hoveredElement;      /* Currently hovered element (for :hover pseudo-class) */
    void *activeElement;       /* Currently active (clicked) element (for :active pseudo-class) */
+   /* Marquee temporary data (while parsing) */
+   void *marqueebody;         /* Body element for current marquee, or NULL */
+   UBYTE *marqueedirection;   /* "left", "right", "up", "down" */
+   UBYTE *marqueebehavior;   /* "scroll", "slide", "alternate" */
+   long marqueescrollamount;  /* Pixels per scroll (default 6) */
+   long marqueescrolldelay;   /* Milliseconds between scrolls (default 85) */
+   long marqueeloop;          /* Number of loops (-1 or 0 for infinite) */
+   long marqueewidth;         /* Viewport width */
+   long marqueeheight;        /* Viewport height */
 };
 
 #define DPF_PREFORMAT      0x00000001  /* doing PRE */
 #define DPF_RELOADVERIFY   0x00000002  /* make all embedded objects forced verify */
 #define DPF_BLINK          0x00000004  /* doing BLINK */
+#define DPF_MARQUEE        0x00001000  /* doing MARQUEE */
 #define DPF_OBJECTSHAPES   0x00000008  /* doing OBJECT with SHAPES */
 #define DPF_XMP            0x00000010  /* doing XMP */
 #define DPF_LISTING        0x00000020  /* doing LISTING */

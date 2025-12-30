@@ -127,6 +127,10 @@
     * relationship.
     * Prefs SET this if blink rate changes. */
 
+#define AOAPP_Marquee       (AOAPP_Dummy+35)
+   /* (BOOL) Update marquee scroll position. SET to childs in AOREL_APP_WANT_MARQUEE
+    * relationship when timer fires. */
+
 #define AOAPP_Processtype  (AOAPP_Dummy+35)  /* SET */
    /* (short) Object type for which the next AOAPP_Processfun is valid */
 
@@ -188,6 +192,9 @@
 
 #define AOREL_APP_WANT_BLINK     (AOREL_APP_DUMMY+5)
    /* Child wants blink events */
+
+#define AOREL_APP_WANT_MARQUEE   (AOREL_APP_DUMMY+6)
+   /* Child wants marquee scroll events */
 
 
 /*--- Application functions ---*/
