@@ -2201,8 +2201,9 @@ static BOOL Readdata(struct Httpinfo *hi)
                 gziplength = hi->blocklength - gzip_start;
                 
                   /* Track total compressed bytes read from network */
-                  /* For non-chunked, all data in blocklength after headers is compressed */
-                  total_compressed_read = hi->blocklength;
+                  /* For Content-Length validation, only count actual compressed gzip data, not any prefix */
+                  /* gziplength is the actual compressed data size (blocklength minus any prefix) */
+                  total_compressed_read = gziplength;
                   
                   /* For non-chunked gzip, allocate full buffer size since we don't know total size */
                   /* This prevents buffer overflow when appending more data later */
@@ -2237,7 +2238,8 @@ static BOOL Readdata(struct Httpinfo *hi)
                   gziplength = hi->blocklength;
                   
                   /* Track total compressed bytes read from network */
-                  total_compressed_read = hi->blocklength;
+                  /* For Content-Length validation, count actual compressed gzip data */
+                  total_compressed_read = gziplength;
                   
                   /* For non-chunked gzip, allocate full buffer size since we don't know total size */
                   /* This prevents buffer overflow when appending more data later */
@@ -3217,8 +3219,9 @@ static BOOL Readdata(struct Httpinfo *hi)
                
                /* For non-chunked responses with Content-Length, we need to read */
                /* exactly that much compressed data from network before exiting */
-               if(hi->partlength > 0)
-               {  /* We have a Content-Length - need to read that much compressed data total from network */
+               /* Note: Chunked encoding and Content-Length are mutually exclusive per HTTP spec */
+               if(!(hi->flags & HTTPIF_CHUNKED) && hi->partlength > 0)
+               {  /* We have a Content-Length for non-chunked response - need to read that much compressed data total from network */
                   debug_printf("DEBUG: Gzip decompression complete, read %ld/%ld compressed bytes from network so far\n", 
                          total_compressed_read, hi->partlength);
                   while(total_compressed_read < hi->partlength && Readblock(hi))
@@ -3231,6 +3234,14 @@ static BOOL Readdata(struct Httpinfo *hi)
                   }
                   debug_printf("DEBUG: Finished reading compressed data from network: %ld/%ld bytes\n", 
                          total_compressed_read, hi->partlength);
+                  
+                  /* Validate Content-Length: warn if we didn't read the expected amount */
+                  if(total_compressed_read != hi->partlength)
+                  {  debug_printf("DEBUG: WARNING - Content-Length mismatch: read %ld bytes, expected %ld bytes\n",
+                            total_compressed_read, hi->partlength);
+                     /* This could indicate a server error or connection issue, but don't fail the request */
+                     /* since decompression already completed successfully */
+                  }
                }
                else
                {  /* No Content-Length - read until EOF to consume remaining compressed data */
@@ -4404,6 +4415,14 @@ static BOOL Readdata(struct Httpinfo *hi)
                }
                debug_printf("DEBUG: Finished reading compressed data from network: %ld/%ld bytes\n", 
                       total_compressed_read, hi->partlength);
+               
+               /* Validate Content-Length: warn if we didn't read the expected amount */
+               if(total_compressed_read != hi->partlength)
+               {  debug_printf("DEBUG: WARNING - Content-Length mismatch: read %ld bytes, expected %ld bytes\n",
+                         total_compressed_read, hi->partlength);
+                  /* This could indicate a server error or connection issue, but don't fail the request */
+                  /* since decompression already completed successfully */
+               }
             }
             else
             {  debug_printf("DEBUG: Non-chunked gzip complete, no Content-Length, reading until EOF\n");
