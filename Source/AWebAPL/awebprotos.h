@@ -877,6 +877,9 @@ extern void Rebuildallbuttons(void);
    // Close and re-open all windows
 extern void Reopenallwindows(void);
 
+   // Update screen title for window
+extern void Updatescreentitle(struct Awindow *win);
+
    // Set or clear the busy pointer for all windows
 extern void Busypointer(BOOL busy);
 

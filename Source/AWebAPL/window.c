@@ -213,11 +213,83 @@ static void Setmenus(struct Awindow *win,struct NewMenu *nmenus)
       Checkmenu(nm,prefs.dobgsound);
 }
 
+/* Build screen title with version, portname, and available memory */
+static UBYTE *Makescreentitle(struct Awindow *win)
+{  UBYTE *screentitle;
+   ULONG availmem;
+   long len;
+   UBYTE *p;
+   
+   /* Calculate required length with generous buffer for safety */
+   len = strlen(awebversion) + 5; /* "AWeb " (5 chars) + version */
+   if(win->portname) len += strlen(win->portname) + 3; /* " - " + portname */
+   else len += 25; /* " - AWEB.%ld" (max 10 digits for key) */
+   len += 30; /* " | " + memory string (up to "999999M free") */
+   len += 1;  /* null terminator */
+   
+   screentitle = ALLOCTYPE(UBYTE, len, 0);
+   if(screentitle)
+   {  /* Ensure buffer is cleared and null-terminated */
+      screentitle[0] = '\0';
+      /* Start with version */
+      sprintf(screentitle, "AWeb %s", awebversion);
+      
+      /* Add portname */
+      if(win->portname)
+      {  strcat(screentitle, " - ");
+         strcat(screentitle, win->portname);
+      }
+      else
+      {  /* Use window key as fallback */
+         UBYTE keybuf[32];
+         sprintf(keybuf, " - (AWEB.%ld)", win->key);
+         strcat(screentitle, keybuf);
+      }
+      
+      /* Add available memory */
+      availmem = AvailMem(MEMF_TOTAL);
+      if(availmem >= 1048576)
+      {  /* Show in MB */
+         UBYTE membuf[32];
+         sprintf(membuf, "   %ldM free", availmem / 1048576);
+         strcat(screentitle, membuf);
+      }
+      else if(availmem >= 1024)
+      {  /* Show in KB */
+         UBYTE membuf[32];
+         sprintf(membuf, "   %ldK free", availmem / 1024);
+         strcat(screentitle, membuf);
+      }
+      else
+      {  /* Show in bytes */
+         UBYTE membuf[32];
+         sprintf(membuf, "   %ld bytes free", availmem);
+         strcat(screentitle, membuf);
+      }
+      printf("Makescreentitle: created screen title '%s' (len=%ld, allocated=%ld, strlen=%ld)\n", screentitle, len, len, strlen(screentitle));
+   }
+   else
+   {  printf("Makescreentitle: FAILED to allocate %ld bytes\n", len);
+   }
+   return screentitle;
+}
+
 /* Set a new window title */
 static void Settitle(struct Awindow *win,UBYTE *title)
 {  UBYTE *newtitle;
    if(newtitle=Windowtitle(win,(UBYTE *)Agetattr(win->frame,AOFRM_Name),title))
-   {  if(win->window) SetWindowTitles(win->window,newtitle,(UBYTE *)~0);
+   {  printf("Settitle: window title='%s'\n", newtitle);
+      /* Update window title, preserve screen title if it exists */
+      if(win->window)
+      {  if(win->screentitle)
+         {  /* Keep existing screen title when updating window title */
+            SetWindowTitles(win->window,newtitle,win->screentitle);
+         }
+         else
+         {  /* No screen title yet, just update window title */
+            SetWindowTitles(win->window,newtitle,(UBYTE *)~0);
+         }
+      }
       if(win->wintitle) FREE(win->wintitle);
       win->wintitle=newtitle;
    }
@@ -650,6 +722,8 @@ static BOOL Openwindow(struct Awindow *win)
    Settitle(win,AWEBSTR(MSG_AWEB_NODOCTITLE));
    Setactiveport(win->portname);
    activewindow=win;
+   /* Update screen title when window is first opened */
+   Updatescreentitle(win);
    win->window->UserData=(BYTE *)win;
    win->window->UserPort=windowport;
    /* Add IDCMP_EXTENDEDMOUSE if intuition.library v47+ supports mousewheel */
@@ -1261,6 +1335,8 @@ static long Setwindow(struct Awindow *win,struct Amset *ams)
             PGA_Visible,read,
             TAG_END);
       }
+      /* Screen title is updated when window becomes active, not on every status change
+       * to avoid corruption from frequent updates */
    }
    if(hpstatus!=(UBYTE *)~0)
    {  if(win->statushptext) FREE(win->statushptext);
@@ -1280,6 +1356,7 @@ static void Disposewindow(struct Awindow *win)
    Closearexxport(win->key);
    if(win->statustext) FREE(win->statustext);
    if(win->statushptext) FREE(win->statushptext);
+   if(win->screentitle) FREE(win->screentitle);
    if(win->activeurl) Aremchild(win->activeurl,win,AOREL_URL_WINDOW);
    if(win->frame) Adisposeobject(win->frame);
    while(p=RemHead(&win->urlpoplist)) FreeChooserNode(p);
@@ -1613,37 +1690,46 @@ void Setanimgad(BOOL onoff)
 }
 
 UBYTE *Windowtitle(struct Awindow *win,UBYTE *name,UBYTE *title)
-{  UBYTE *newtitle,*p;
+{  UBYTE *newtitle;
    long len=strlen(title)+1;
-#ifdef LOCALONLY
-   /* Skip portname in LOCALONLY builds */
-   if(name) len+=strlen(name)+3;  /* "[name] " = 3 extra chars */
-#else
-   if(name) len+=strlen(name)+4;
-   if(win->portname) len+=strlen(win->portname)+3;
-   else len+=20;
-#endif
+   /* Window title now shows only the URL/document title, not window ID */
    newtitle=ALLOCTYPE(UBYTE,len,0);
    if(newtitle)
-   {  p=newtitle;
-#ifdef LOCALONLY
-      /* Skip portname in LOCALONLY builds */
-      if(name)
-      {  p+=sprintf(newtitle,"[%s] %s",name,title);
-      }
-      else
-      {  strcpy(newtitle,title);
-      }
-#else
-      if(win->portname) p+=sprintf(newtitle,"%s",win->portname);
-      else p+=sprintf(newtitle,"(AWEB #%d)",win->key);
-      if(name)
-      {  p+=sprintf(p," [%s]",name);
-      }
-      sprintf(p," - %s",title);
-#endif
+   {  strcpy(newtitle,title);
    }
    return newtitle;
+}
+
+/* Update screen title for active window */
+void Updatescreentitle(struct Awindow *win)
+{  UBYTE *screentitle;
+   printf("Updatescreentitle: called for win=%p, window=%p\n", win, win?win->window:NULL);
+   if(win && win->window)
+   {  screentitle = Makescreentitle(win);
+      if(screentitle)
+      {  /* Only update if screen title has changed to avoid corruption from rapid updates */
+         if(!win->screentitle || strcmp(win->screentitle, screentitle) != 0)
+         {  printf("Updatescreentitle: calling SetWindowTitles with screen title='%s' (len=%ld, ptr=%p)\n", screentitle, strlen(screentitle), screentitle);
+            printf("Updatescreentitle: checking string bytes: ");
+            {  long i;
+               for(i=0; i<strlen(screentitle)+1 && i<50; i++)
+               {  printf("%02X ", (UBYTE)screentitle[i]);
+               }
+               printf("\n");
+            }
+            SetWindowTitles(win->window,(UBYTE *)~0,screentitle);
+            printf("Updatescreentitle: SetWindowTitles returned\n");
+            /* Store the screen title for comparison */
+            if(win->screentitle) FREE(win->screentitle);
+            win->screentitle = Dupstr(screentitle, -1);
+            printf("Updatescreentitle: stored screentitle='%s'\n", win->screentitle);
+         }
+         else
+         {  printf("Updatescreentitle: screen title unchanged, skipping update\n");
+         }
+         FREE(screentitle);
+      }
+   }
 }
 
 void *Activewindow(void)

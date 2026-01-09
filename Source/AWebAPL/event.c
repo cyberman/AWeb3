@@ -1002,6 +1002,7 @@ void Processwindow(void)
             case IDCMP_ACTIVEWINDOW:
                Setactiveport(win->portname);
                activewindow=win;
+               Updatescreentitle(win);
                break;
             case IDCMP_INACTIVEWINDOW:
                Tooltip(NULL,0,0);

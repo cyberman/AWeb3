@@ -78,6 +78,7 @@ struct Awindow
    struct AppWindow *appwindow; /* The AppWindow for this window or NULL */
    UBYTE *statustext;         /* Copy of status text */
    UBYTE *statushptext;       /* Copy of status HP text */
+   UBYTE *screentitle;        /* Last screen title set */
 };
 
 #define WINF_NOPROXY       0x0001   /* Don't use proxies. */
