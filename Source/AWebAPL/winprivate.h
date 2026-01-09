@@ -79,6 +79,7 @@ struct Awindow
    UBYTE *statustext;         /* Copy of status text */
    UBYTE *statushptext;       /* Copy of status HP text */
    UBYTE *screentitle;        /* Last screen title set */
+   short layoutstyle;         /* Layout style: 0=classic, 1=modern */
 };
 
 #define WINF_NOPROXY       0x0001   /* Don't use proxies. */

@@ -157,6 +157,9 @@
 #define AOWIN_Buttonbar    (AOWIN_Dummy+50)  /* NEW */
    /* (BOOL) If window should want userbutton bar */
 
+#define AOWIN_LayoutStyle   (AOWIN_Dummy+51)  /* NEW */
+   /* (short) Layout style: 0=classic, 1=modern */
+
 #define AOWIN_    (AOWIN_Dummy+)
 #define AOWIN_    (AOWIN_Dummy+)
 
