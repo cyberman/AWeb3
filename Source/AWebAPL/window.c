@@ -266,10 +266,6 @@ static UBYTE *Makescreentitle(struct Awindow *win)
          sprintf(membuf, "   %ld bytes free", availmem);
          strcat(screentitle, membuf);
       }
-      printf("Makescreentitle: created screen title '%s' (len=%ld, allocated=%ld, strlen=%ld)\n", screentitle, len, len, strlen(screentitle));
-   }
-   else
-   {  printf("Makescreentitle: FAILED to allocate %ld bytes\n", len);
    }
    return screentitle;
 }
@@ -278,7 +274,7 @@ static UBYTE *Makescreentitle(struct Awindow *win)
 static void Settitle(struct Awindow *win,UBYTE *title)
 {  UBYTE *newtitle;
    if(newtitle=Windowtitle(win,(UBYTE *)Agetattr(win->frame,AOFRM_Name),title))
-   {  printf("Settitle: window title='%s'\n", newtitle);
+   {  
       /* Update window title, preserve screen title if it exists */
       if(win->window)
       {  if(win->screentitle)
@@ -524,6 +520,218 @@ static void Rebuildbuttonrow(struct Awindow *win,struct DrawInfo *dri)
       }
       Setgadgetattrs(win->ubutgad,win->window,NULL,SPEEDBAR_Buttons,&win->userbutlist,TAG_END);
    }
+}
+
+/* Build classic layout with URL bar, status bar, and navigation buttons */
+static void *BuildClassicLayout(struct Awindow *win,struct DrawInfo *dri,UBYTE *urlname)
+{  return HLayoutObject,
+      LAYOUT_SpaceOuter,TRUE,
+      StartMember,VLayoutObject,
+         StartMember,HLayoutObject,
+            LAYOUT_SpaceInner,FALSE,
+            StartMember,win->urlgad=StringObject,
+               GA_ID,GID_URL,
+               GA_RelVerify,TRUE,
+               GA_Immediate,TRUE,
+               STRINGA_MaxChars,MAXSTRBUFCHARS,
+               STRINGA_Buffer,win->urlbuf,
+               STRINGA_UndoBuffer,buf2,
+               STRINGA_WorkBuffer,buf3,
+               STRINGA_TextVal,urlname?urlname:NULLSTRING,
+               REACTION_SpecialPens,&win->capens,
+            EndMember,
+            StartMember,win->urlpopgad=ChooserObject,
+               GA_ID,GID_URLPOP,
+               GA_RelVerify,TRUE,
+               CHOOSER_DropDown,TRUE,
+               CHOOSER_Labels,&win->urlpoplist,
+               CHOOSER_AutoFit,TRUE,
+               REACTION_SpecialPens,&win->capens,
+            EndMember,
+         EndMember,
+         StartMember,HLayoutObject,
+            LAYOUT_SpaceInner,FALSE,
+            StartMember,win->statusgad=NewObject(Stagadclass(),NULL,
+               STATGA_SpecialPens,&win->capens,
+               GA_Text,win->statustext,
+            EndMember,
+#ifndef DEMOVERSION
+            StartMember,win->securegad=ButtonObject,
+               GA_Image,win->unsecureimg,
+               GA_ReadOnly,TRUE,
+               REACTION_SpecialPens,&win->capens,
+            EndMember,
+            CHILD_WeightedWidth,0,
+#endif
+         EndMember,
+      EndMember,
+      StartMember,win->ledgad=Animgadget(Aweb(),&win->capens),
+      CHILD_WeightedHeight,0,
+      StartMember,VLayoutObject,
+         LAYOUT_InnerSpacing,1,
+         StartMember,HLayoutObject,
+            LAYOUT_InnerSpacing,1,
+            StartMember,win->backgad=ButtonObject,
+               GA_Image,win->backimg,
+               GA_Disabled,TRUE,
+               GA_ID,GID_NAV+0,
+               GA_RelVerify,TRUE,
+               GA_Immediate,TRUE,
+               REACTION_SpecialPens,&win->capens,
+            EndMember,
+            StartMember,win->fwdgad=ButtonObject,
+               GA_Image,win->fwdimg,
+               GA_Disabled,TRUE,
+               GA_ID,GID_NAV+1,
+               GA_RelVerify,TRUE,
+               GA_Immediate,TRUE,
+               REACTION_SpecialPens,&win->capens,
+            EndMember,
+            StartMember,win->homegad=ButtonObject,
+               GA_Image,win->homeimg,
+               GA_ID,GID_NAV+2,
+               GA_RelVerify,TRUE,
+               GA_Immediate,TRUE,
+               REACTION_SpecialPens,&win->capens,
+            EndMember,
+            StartMember,win->addhotgad=ButtonObject,
+               GA_Image,win->addhotimg,
+               GA_ID,GID_NAV+3,
+               GA_RelVerify,TRUE,
+               GA_Immediate,TRUE,
+               REACTION_SpecialPens,&win->capens,
+            EndMember,
+            StartMember,win->hotgad=ButtonObject,
+               GA_Image,win->hotimg,
+               GA_ID,GID_NAV+4,
+               GA_RelVerify,TRUE,
+               GA_Immediate,TRUE,
+               REACTION_SpecialPens,&win->capens,
+            EndMember,
+         EndMember,
+         StartMember,HLayoutObject,
+            LAYOUT_InnerSpacing,1,
+            StartMember,win->cancelgad=ButtonObject,
+               GA_Image,win->cancelimg,
+               GA_Disabled,!(win->flags&WINF_INPUT),
+               GA_ID,GID_NAV+5,
+               GA_RelVerify,TRUE,
+               GA_Immediate,TRUE,
+               REACTION_SpecialPens,&win->capens,
+            EndMember,
+            StartMember,win->nwsgad=ButtonObject,
+               GA_Image,win->nwsimg,
+               GA_ID,GID_NAV+6,
+               GA_RelVerify,TRUE,
+               GA_Immediate,TRUE,
+               REACTION_SpecialPens,&win->capens,
+            EndMember,
+            StartMember,win->searchgad=ButtonObject,
+               GA_Image,win->searchimg,
+               GA_ID,GID_NAV+7,
+               GA_RelVerify,TRUE,
+               GA_Immediate,TRUE,
+               REACTION_SpecialPens,&win->capens,
+            EndMember,
+            StartMember,win->rldgad=ButtonObject,
+               GA_Image,win->rldimg,
+               GA_ID,GID_NAV+8,
+               GA_RelVerify,TRUE,
+               GA_Immediate,TRUE,
+               REACTION_SpecialPens,&win->capens,
+            EndMember,
+            StartMember,win->imggad=ButtonObject,
+               GA_Image,win->imgimg,
+               GA_ID,GID_NAV+9,
+               GA_RelVerify,TRUE,
+               GA_Immediate,TRUE,
+               REACTION_SpecialPens,&win->capens,
+            EndMember,
+         EndMember,
+      EndMember,
+      CHILD_WeightedWidth,0,
+   EndMember;
+}
+
+/* Build modern Chrome-like layout: back, forward, reload, securegad, urlgad, addhot */
+static void *BuildModernLayout(struct Awindow *win,struct DrawInfo *dri,UBYTE *urlname)
+{  void *layout;
+   /* Validate required images exist before building layout */
+   if(!win->backimg || !win->fwdimg || !win->rldimg || !win->addhotimg)
+   {  return NULL;
+   }
+   if(!win->unsecureimg)
+   {  return NULL;
+   }
+   layout=HLayoutObject,
+      LAYOUT_SpaceOuter,TRUE,
+      LAYOUT_InnerSpacing,4,
+      LAYOUT_TopSpacing,4,
+      LAYOUT_BottomSpacing,4,
+      LAYOUT_LeftSpacing,4,
+      LAYOUT_RightSpacing,4,
+      StartMember,win->backgad=ButtonObject,
+         GA_Image,win->backimg,
+         GA_Disabled,TRUE,
+         GA_ID,GID_NAV+0,
+         GA_RelVerify,TRUE,
+         GA_Immediate,TRUE,
+         BUTTON_BevelStyle,BVS_NONE,
+         REACTION_SpecialPens,&win->capens,
+      EndMember,
+      CHILD_WeightedWidth,0,
+      StartMember,win->fwdgad=ButtonObject,
+         GA_Image,win->fwdimg,
+         GA_Disabled,TRUE,
+         GA_ID,GID_NAV+1,
+         GA_RelVerify,TRUE,
+         GA_Immediate,TRUE,
+         BUTTON_BevelStyle,BVS_NONE,
+         REACTION_SpecialPens,&win->capens,
+      EndMember,
+      CHILD_WeightedWidth,0,
+      StartMember,win->rldgad=ButtonObject,
+         GA_Image,win->rldimg,
+         GA_ID,GID_NAV+8,
+         GA_RelVerify,TRUE,
+         GA_Immediate,TRUE,
+         BUTTON_BevelStyle,BVS_NONE,
+         REACTION_SpecialPens,&win->capens,
+      EndMember,
+      CHILD_WeightedWidth,0,
+/* #ifndef DEMOVERSION */
+      StartMember,win->securegad=ButtonObject,
+         GA_Image,win->unsecureimg,
+         GA_ReadOnly,TRUE,
+         BUTTON_BevelStyle,BVS_NONE,
+         REACTION_SpecialPens,&win->capens,
+      EndMember,
+      CHILD_WeightedWidth,0,
+/*#endif DEMOVERSION */
+      StartMember,win->urlgad=StringObject,
+         GA_ID,GID_URL,
+         GA_RelVerify,TRUE,
+         GA_Immediate,TRUE,
+         STRINGA_MaxChars,MAXSTRBUFCHARS,
+         STRINGA_Buffer,win->urlbuf,
+         STRINGA_UndoBuffer,buf2,
+         STRINGA_WorkBuffer,buf3,
+         STRINGA_TextVal,urlname?urlname:NULLSTRING,
+         REACTION_SpecialPens,&win->capens,
+      EndMember,
+      CHILD_WeightedWidth,1,
+      StartMember,win->addhotgad=ButtonObject,
+         GA_Image,win->addhotimg,
+         GA_ID,GID_NAV+3,
+         GA_RelVerify,TRUE,
+         GA_Immediate,TRUE,
+         BUTTON_BevelStyle,BVS_NONE,
+         REACTION_SpecialPens,&win->capens,
+      EndMember,
+      CHILD_WeightedWidth,0,
+   EndMember;
+   if(!layout) return NULL;
+   return layout;
 }
 
 /* Open intuition window */
@@ -840,139 +1048,81 @@ static BOOL Openwindow(struct Awindow *win)
       TAG_END);
    if(!win->layoutgad) return FALSE;
    if(prefs.shownav && (win->flags&WINF_NAVS))
-   {  SetAttrs(win->layoutgad,
-         StartMember,HLayoutObject,
-            LAYOUT_SpaceOuter,TRUE,
-            StartMember,VLayoutObject,
-               StartMember,HLayoutObject,
-                  LAYOUT_SpaceInner,FALSE,
-                  StartMember,win->urlgad=StringObject,
-                     GA_ID,GID_URL,
-                     GA_RelVerify,TRUE,
-                     GA_Immediate,TRUE,
-                     STRINGA_MaxChars,MAXSTRBUFCHARS,
-                     STRINGA_Buffer,win->urlbuf,
-                     STRINGA_UndoBuffer,buf2,
-                     STRINGA_WorkBuffer,buf3,
-                     STRINGA_TextVal,urlname?urlname:NULLSTRING,
-                     REACTION_SpecialPens,&win->capens,
-                  EndMember,
-                  StartMember,win->urlpopgad=ChooserObject,
-                     GA_ID,GID_URLPOP,
-                     GA_RelVerify,TRUE,
-                     CHOOSER_DropDown,TRUE,
-                     CHOOSER_Labels,&win->urlpoplist,
-                     CHOOSER_AutoFit,TRUE,
-                     REACTION_SpecialPens,&win->capens,
-                  EndMember,
-               EndMember,
-               StartMember,HLayoutObject,
-                  LAYOUT_SpaceInner,FALSE,
-                  StartMember,win->statusgad=NewObject(Stagadclass(),NULL,
-                     STATGA_SpecialPens,&win->capens,
-                     GA_Text,win->statustext,
-                  EndMember,
-#ifndef DEMOVERSION
-                  StartMember,win->securegad=ButtonObject,
-                     GA_Image,win->unsecureimg,
-                     GA_ReadOnly,TRUE,
-                     REACTION_SpecialPens,&win->capens,
-                  EndMember,
-                  CHILD_WeightedWidth,0,
-#endif
-               EndMember,
-            EndMember,
-            StartMember,win->ledgad=Animgadget(Aweb(),&win->capens),
-            CHILD_WeightedHeight,0,
-            StartMember,VLayoutObject,
-               LAYOUT_InnerSpacing,1,
-               StartMember,HLayoutObject,
-                  LAYOUT_InnerSpacing,1,
-                  StartMember,win->backgad=ButtonObject,
-                     GA_Image,win->backimg,
-                     GA_Disabled,TRUE,
-                     GA_ID,GID_NAV+0,
-                     GA_RelVerify,TRUE,
-                     GA_Immediate,TRUE,
-                     REACTION_SpecialPens,&win->capens,
-                  EndMember,
-                  StartMember,win->fwdgad=ButtonObject,
-                     GA_Image,win->fwdimg,
-                     GA_Disabled,TRUE,
-                     GA_ID,GID_NAV+1,
-                     GA_RelVerify,TRUE,
-                     GA_Immediate,TRUE,
-                     REACTION_SpecialPens,&win->capens,
-                  EndMember,
-                  StartMember,win->homegad=ButtonObject,
-                     GA_Image,win->homeimg,
-                     GA_ID,GID_NAV+2,
-                     GA_RelVerify,TRUE,
-                     GA_Immediate,TRUE,
-                     REACTION_SpecialPens,&win->capens,
-                  EndMember,
-                  StartMember,win->addhotgad=ButtonObject,
-                     GA_Image,win->addhotimg,
-                     GA_ID,GID_NAV+3,
-                     GA_RelVerify,TRUE,
-                     GA_Immediate,TRUE,
-                     REACTION_SpecialPens,&win->capens,
-                  EndMember,
-                  StartMember,win->hotgad=ButtonObject,
-                     GA_Image,win->hotimg,
-                     GA_ID,GID_NAV+4,
-                     GA_RelVerify,TRUE,
-                     GA_Immediate,TRUE,
-                     REACTION_SpecialPens,&win->capens,
-                  EndMember,
-               EndMember,
-               StartMember,HLayoutObject,
-                  LAYOUT_InnerSpacing,1,
-                  StartMember,win->cancelgad=ButtonObject,
-                     GA_Image,win->cancelimg,
-                     GA_Disabled,!(win->flags&WINF_INPUT),
-                     GA_ID,GID_NAV+5,
-                     GA_RelVerify,TRUE,
-                     GA_Immediate,TRUE,
-                     REACTION_SpecialPens,&win->capens,
-                  EndMember,
-                  StartMember,win->nwsgad=ButtonObject,
-                     GA_Image,win->nwsimg,
-                     GA_ID,GID_NAV+6,
-                     GA_RelVerify,TRUE,
-                     GA_Immediate,TRUE,
-                     REACTION_SpecialPens,&win->capens,
-                  EndMember,
-                  StartMember,win->searchgad=ButtonObject,
-                     GA_Image,win->searchimg,
-                     GA_ID,GID_NAV+7,
-                     GA_RelVerify,TRUE,
-                     GA_Immediate,TRUE,
-                     REACTION_SpecialPens,&win->capens,
-                  EndMember,
-                  StartMember,win->rldgad=ButtonObject,
-                     GA_Image,win->rldimg,
-                     GA_ID,GID_NAV+8,
-                     GA_RelVerify,TRUE,
-                     GA_Immediate,TRUE,
-                     REACTION_SpecialPens,&win->capens,
-                  EndMember,
-                  StartMember,win->imggad=ButtonObject,
-                     GA_Image,win->imgimg,
-                     GA_ID,GID_NAV+9,
-                     GA_RelVerify,TRUE,
-                     GA_Immediate,TRUE,
-                     REACTION_SpecialPens,&win->capens,
-                  EndMember,
-               EndMember,
-            EndMember,
-            CHILD_WeightedWidth,0,
-         EndMember,
-         CHILD_WeightedHeight,0,
-         TAG_END);
+   {  void *navlayout;
+      if(win->layoutstyle==1)
+      {  
+         /* Initialize unused gadgets to NULL for modern layout before building */
+         win->urlpopgad=NULL;
+         win->statusgad=NULL;
+         win->ledgad=NULL;
+         win->homegad=NULL;
+         win->hotgad=NULL;
+         win->cancelgad=NULL;
+         win->nwsgad=NULL;
+         win->searchgad=NULL;
+         win->imggad=NULL;
+         navlayout=BuildModernLayout(win,drinfo,urlname);
+         if(navlayout)
+         {  
+            SetAttrs(win->layoutgad,
+               StartMember,navlayout,
+               CHILD_WeightedHeight,0,
+               TAG_END);
+         }
+         else
+         { 
+            win->backgad=NULL;
+            win->fwdgad=NULL;
+            win->rldgad=NULL;
+            win->homegad=NULL;
+            win->cancelgad=NULL;
+            win->hotgad=NULL;
+            win->imggad=NULL;
+            win->nwsgad=NULL;
+            win->urlgad=NULL;
+            win->urlpopgad=NULL;
+            win->statusgad=NULL;
+            win->searchgad=NULL;
+            win->ledgad=NULL;
+            win->addhotgad=NULL;
+            win->securegad=NULL;
+            return FALSE;
+         }
+      }
+      else
+      { 
+         navlayout=BuildClassicLayout(win,drinfo,urlname);
+         if(navlayout)
+         { 
+            SetAttrs(win->layoutgad,
+               StartMember,navlayout,
+               CHILD_WeightedHeight,0,
+               TAG_END);
+         }
+         else
+         {  
+            win->backgad=NULL;
+            win->fwdgad=NULL;
+            win->rldgad=NULL;
+            win->homegad=NULL;
+            win->cancelgad=NULL;
+            win->hotgad=NULL;
+            win->imggad=NULL;
+            win->nwsgad=NULL;
+            win->urlgad=NULL;
+            win->urlpopgad=NULL;
+            win->statusgad=NULL;
+            win->searchgad=NULL;
+            win->ledgad=NULL;
+            win->addhotgad=NULL;
+            win->securegad=NULL;
+            return FALSE;
+         }
+      }
    }
    else
-   {  win->backgad=NULL;
+   {
+      win->backgad=NULL;
       win->fwdgad=NULL;
       win->rldgad=NULL;
       win->homegad=NULL;
@@ -989,8 +1139,10 @@ static BOOL Openwindow(struct Awindow *win)
       win->securegad=NULL;
    }
    if(buttonrow)
-   {  if(!(prefs.shownav && (win->flags&WINF_NAVS)))
-      {  SetAttrs(win->layoutgad,
+   { 
+      if(!(prefs.shownav && (win->flags&WINF_NAVS)))
+      { 
+         SetAttrs(win->layoutgad,
             StartMember,SpaceObject,
             EndMember,
             CHILD_MinHeight,2,
@@ -1042,7 +1194,8 @@ static BOOL Openwindow(struct Awindow *win)
       }
    }
    if(buttonrow)
-   {  Completebuttonrow(win,drinfo);
+   {  
+      Completebuttonrow(win,drinfo);
    }
    AddGList(win->window,win->downarrow,-1,-1,NULL);
    ((struct ExtGadget *)win->layoutgad)->MoreFlags&=~GMORE_SCROLLRASTER;
@@ -1057,10 +1210,14 @@ static BOOL Openwindow(struct Awindow *win)
    Arender(win->frame,NULL,0,0,AMRMAX,AMRMAX,0,NULL);
    Adragrender(win->frame,NULL,NULL,0,NULL,0,AMDS_BEFORE);
    Sethisgadgets(win);
-   if(win->flags&WINF_ZOOMED) ZipWindow(win->window);
+   if(win->flags&WINF_ZOOMED)
+   {
+      ZipWindow(win->window);
+   }
    Addanimgad(win->window,win->ledgad);
    if(appwindowport=(struct MsgPort *)Agetattr(Aweb(),AOAPP_Appwindowport))
-   {  win->appwindow=AddAppWindow(win->key,0,win->window,appwindowport,TAG_END);
+   {
+      win->appwindow=AddAppWindow(win->key,0,win->window,appwindowport,TAG_END);
    }
    return TRUE;
 }
@@ -1321,6 +1478,9 @@ static long Setwindow(struct Awindow *win,struct Amset *ams)
          case AOWIN_Buttonbar:
             SETFLAG(win->flags,WINF_BUTTONS,tag->ti_Data);
             break;
+         case AOWIN_LayoutStyle:
+            win->layoutstyle=tag->ti_Data;
+            break;
       }
    }
    Setslider(win,&win->vslider,vtotal,vvis,vtop);
@@ -1380,6 +1540,7 @@ static struct Awindow *Newwindow(struct Amset *ams)
       win->capens.sp_DarkPen=-1;
       win->capens.sp_LightPen=-1;
       win->flags|=WINF_NAVS|WINF_BUTTONS;
+      win->layoutstyle=1;  /* Default to modern layout */
       SETFLAG(win->flags,WINF_CLIPDRAG,prefs.clipdrag);
       if(portname=Openarexxport(win->key))
       {  win->portname=Dupstr(portname,-1);
@@ -1703,29 +1864,15 @@ UBYTE *Windowtitle(struct Awindow *win,UBYTE *name,UBYTE *title)
 /* Update screen title for active window */
 void Updatescreentitle(struct Awindow *win)
 {  UBYTE *screentitle;
-   printf("Updatescreentitle: called for win=%p, window=%p\n", win, win?win->window:NULL);
    if(win && win->window)
    {  screentitle = Makescreentitle(win);
       if(screentitle)
       {  /* Only update if screen title has changed to avoid corruption from rapid updates */
          if(!win->screentitle || strcmp(win->screentitle, screentitle) != 0)
-         {  printf("Updatescreentitle: calling SetWindowTitles with screen title='%s' (len=%ld, ptr=%p)\n", screentitle, strlen(screentitle), screentitle);
-            printf("Updatescreentitle: checking string bytes: ");
-            {  long i;
-               for(i=0; i<strlen(screentitle)+1 && i<50; i++)
-               {  printf("%02X ", (UBYTE)screentitle[i]);
-               }
-               printf("\n");
-            }
-            SetWindowTitles(win->window,(UBYTE *)~0,screentitle);
-            printf("Updatescreentitle: SetWindowTitles returned\n");
+         {  SetWindowTitles(win->window,(UBYTE *)~0,screentitle);
             /* Store the screen title for comparison */
             if(win->screentitle) FREE(win->screentitle);
             win->screentitle = Dupstr(screentitle, -1);
-            printf("Updatescreentitle: stored screentitle='%s'\n", win->screentitle);
-         }
-         else
-         {  printf("Updatescreentitle: screen title unchanged, skipping update\n");
          }
          FREE(screentitle);
       }
