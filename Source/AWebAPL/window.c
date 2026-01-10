@@ -699,15 +699,6 @@ static void *BuildModernLayout(struct Awindow *win,struct DrawInfo *dri,UBYTE *u
          REACTION_SpecialPens,&win->capens,
       EndMember,
       CHILD_WeightedWidth,0,
-/* #ifndef DEMOVERSION */
-      StartMember,win->securegad=ButtonObject,
-         GA_Image,win->unsecureimg,
-         GA_ReadOnly,TRUE,
-         BUTTON_BevelStyle,BVS_NONE,
-         REACTION_SpecialPens,&win->capens,
-      EndMember,
-      CHILD_WeightedWidth,0,
-/*#endif DEMOVERSION */
       StartMember,win->urlgad=StringObject,
          GA_ID,GID_URL,
          GA_RelVerify,TRUE,
@@ -720,6 +711,15 @@ static void *BuildModernLayout(struct Awindow *win,struct DrawInfo *dri,UBYTE *u
          REACTION_SpecialPens,&win->capens,
       EndMember,
       CHILD_WeightedWidth,1,
+/* #ifndef DEMOVERSION */
+      StartMember,win->securegad=ButtonObject,
+         GA_Image,win->unsecureimg,
+         GA_ReadOnly,TRUE,
+         BUTTON_BevelStyle,BVS_NONE,
+         REACTION_SpecialPens,&win->capens,
+      EndMember,
+      CHILD_WeightedWidth,0,
+/*#endif DEMOVERSION */
       StartMember,win->addhotgad=ButtonObject,
          GA_Image,win->addhotimg,
          GA_ID,GID_NAV+3,
