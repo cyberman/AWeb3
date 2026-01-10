@@ -27,6 +27,7 @@ extern struct AwebPngBase *PluginBase;
 
 /* Library bases */
 extern struct Library *AwebPluginBase;
+extern struct GfxBase *GfxBase;
 
 /* Declarations of the OO dispatcher functions */
 extern __saveds __asm ULONG Dispatchsource(

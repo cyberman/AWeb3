@@ -30,6 +30,7 @@
 /* Library bases */
 struct Library *P96Base;
 struct Library *AwebPluginBase;
+struct GfxBase *GfxBase;
 
 ULONG Initpluginlib(struct AwebPngBase *base)
 {  GfxBase=(struct GfxBase *)OpenLibrary("graphics.library",39);

@@ -124,6 +124,7 @@ struct Pngsource
 #define PNGSF_MEMORY       0x0004   /* Our owner knows our memory size */
 #define PNGSF_READY        0x0010   /* Decoding is ready */
 #define PNGSF_LOWPRI       0x0020   /* Run decoder at low priority */
+#define PNGSF_DISPOSING    0x0040   /* Source is being disposed - decoder should exit */
 
 /*--------------------------------------------------------------------*/
 /* The decoder subtask                                                */
@@ -171,10 +172,7 @@ static UBYTE Readbyte(struct Decoder *decoder)
    struct Datablock *db;
    BOOL wait;
    UBYTE retval=0;
-   if(!decoder) return 0;
-   if(!decoder->source) return 0;
-   /* Check for EOF first - if already set, return immediately */
-   if(decoder->flags&DECOF_EOF) return 0;
+
    for(;;)
    {  wait=FALSE;
       while(!(decoder->flags&DECOF_STOP) && (tm=Gettaskmsg()))
@@ -200,7 +198,7 @@ static UBYTE Readbyte(struct Decoder *decoder)
              {  /* End of block reached */
                 ObtainSemaphore(&decoder->source->sema);
                 db=decoder->current->next;
-                if(db && db->next)
+                if(db->next)
                 {  decoder->current=db;
                    decoder->currentbyte=0;
                 }
@@ -216,13 +214,9 @@ static UBYTE Readbyte(struct Decoder *decoder)
           }
           else
           {  /* No current block yet */
-             if(!decoder->source)
-             {  decoder->flags|=DECOF_EOF;
-                return 0;
-             }
              ObtainSemaphore(&decoder->source->sema);
              db=decoder->source->data.first;
-             if(db && db->next)
+             if(db->next)
              {  decoder->current=db;
                 decoder->currentbyte=0;
              }
@@ -237,23 +231,7 @@ static UBYTE Readbyte(struct Decoder *decoder)
           }
       if(!wait)
       {  if(!(decoder->flags&DECOF_EOF))
-         {  if(!decoder->current)
-            {  decoder->flags|=DECOF_EOF;
-               return 0;
-            }
-            if(!decoder->current->data)
-            {  decoder->flags|=DECOF_EOF;
-               return 0;
-            }
-            if(decoder->currentbyte >= decoder->current->length)
-            {  decoder->flags|=DECOF_EOF;
-               return 0;
-            }
-            if(decoder->currentbyte < 0)
-            {  decoder->flags|=DECOF_EOF;
-               return 0;
-            }
-            retval=decoder->current->data[decoder->currentbyte];
+         {  retval=decoder->current->data[decoder->currentbyte];
          }
          break;
       }
@@ -316,7 +294,7 @@ static BOOL Readblock(struct Decoder *decoder,UBYTE *block,long length)
       else
       {  db=decoder->source->data.first;
       }
-      if(db && db->next)
+      if(db->next)
       {  /* We have a valid next block */
          decoder->current=db;
          decoder->currentbyte=0;
@@ -436,6 +414,15 @@ static BOOL Parsepngimage(struct Decoder *decoder)
    {  Aprintf("PNG: Parsepngimage called, decoder=0x%08lx\n", (ULONG)decoder);
    }
 #endif
+   /* Validate decoder and source pointers to prevent NULL pointer dereference */
+   if(!decoder || !decoder->source)
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
+      {  Aprintf("PNG: Parsepngimage: ERROR - decoder or decoder->source is NULL\n");
+      }
+      #endif
+      return FALSE;
+   }
    if((png=png_create_read_struct(PNG_LIBPNG_VER_STRING,NULL,NULL,NULL))
    && (pnginfo=png_create_info_struct(png)))
    {  #ifdef DEBUG_PLUGINS
@@ -485,6 +472,18 @@ static BOOL Parsepngimage(struct Decoder *decoder)
          if(!png_get_gAMA(png,pnginfo,&gamma))
          {  gamma=0.50;
          }
+         /* Check source is still valid and not being disposed before accessing */
+         if(!decoder->source)
+         {  error=TRUE;
+            goto cleanup;
+         }
+         ObtainSemaphore(&decoder->source->sema);
+         if(decoder->source->flags&PNGSF_DISPOSING)
+         {  ReleaseSemaphore(&decoder->source->sema);
+            error=TRUE;
+            goto cleanup;
+         }
+         ReleaseSemaphore(&decoder->source->sema);
          png_set_gamma(png,decoder->source->gamma,gamma);
          npass=png_set_interlace_handling(png);
          
@@ -497,10 +496,22 @@ static BOOL Parsepngimage(struct Decoder *decoder)
          /* Hereafter comes the image data. Allocate a bitmap first.
           * Always allocate a bitmap of depth >=8. Even if our source has less
           * planes, the colours may be remapped to pen numbers up to 255. */
+         /* Check source is still valid and not being disposed before accessing */
+         if(!decoder->source)
+         {  error=TRUE;
+            goto cleanup;
+         }
+         ObtainSemaphore(&decoder->source->sema);
+         if(decoder->source->flags&PNGSF_DISPOSING)
+         {  ReleaseSemaphore(&decoder->source->sema);
+            error=TRUE;
+            goto cleanup;
+         }
+         ReleaseSemaphore(&decoder->source->sema);
          if(P96Base)
          {  depth=p96GetBitMapAttr(decoder->source->friendbitmap,P96BMA_DEPTH);
             decoder->bitmap=p96AllocBitMap(decoder->width,decoder->height,depth,
-               BMF_MINPLANES|BMF_CLEAR,decoder->source->friendbitmap,RGBFB_NONE);
+               BMF_MINPLANES|BMF_CLEAR|BMF_DISPLAYABLE,decoder->source->friendbitmap,RGBFB_NONE);
             if(p96GetBitMapAttr(decoder->bitmap,P96BMA_ISP96))
             {  decoder->flags|=DECOF_P96MAP;
                if(depth>8)
@@ -509,7 +520,8 @@ static BOOL Parsepngimage(struct Decoder *decoder)
             }
          }
          else
-         {  decoder->bitmap=AllocBitMap(decoder->width,decoder->height,8,BMF_CLEAR,NULL);
+         {  decoder->bitmap=AllocBitMap(decoder->width,decoder->height,8,
+               BMF_CLEAR|BMF_DISPLAYABLE,decoder->source->friendbitmap);
          }
          if(!decoder->bitmap) return FALSE;
          if(decoder->flags&DECOF_TRANSPARENT)
@@ -524,11 +536,27 @@ static BOOL Parsepngimage(struct Decoder *decoder)
          }
 
          /* Save our bitmap and dimensions. */
+         /* Check source is still valid and not being disposed before accessing */
+         if(!decoder->source)
+         {  error=TRUE;
+            goto cleanup;
+         }
          ObtainSemaphore(&decoder->source->sema);
+         if(decoder->source->flags&PNGSF_DISPOSING)
+         {  ReleaseSemaphore(&decoder->source->sema);
+            error=TRUE;
+            goto cleanup;
+         }
          decoder->source->bitmap=decoder->bitmap;
          decoder->source->mask=decoder->mask;
          decoder->source->width=decoder->width;
          decoder->source->height=decoder->height;
+         /* Check disposing flag while holding semaphore to avoid race condition */
+         if(decoder->source->flags&PNGSF_DISPOSING)
+         {  ReleaseSemaphore(&decoder->source->sema);
+            error=TRUE;
+            goto cleanup;
+         }
          ReleaseSemaphore(&decoder->source->sema);
 
          Updatetaskattrs(
@@ -550,7 +578,7 @@ static BOOL Parsepngimage(struct Decoder *decoder)
              * for the PixelLine8 functions. */
             InitRastPort(&decoder->temprp);
             error=!(decoder->temprp.BitMap=AllocBitMap(
-                  8*(((decoder->width+15)>>4)<<1),1,8,0,decoder->bitmap))
+                  8*(((decoder->width+15)>>4)<<1),1,8,BMF_DISPLAYABLE,decoder->bitmap))
                || !(decoder->chunky=AllocVec(((decoder->width+15)>>4)<<4,MEMF_PUBLIC));
             /* Initialize RenderInfo for 8-bit mode */
             decoder->renderinfo.Memory=decoder->chunky;
@@ -724,13 +752,30 @@ static BOOL Parsepngimage(struct Decoder *decoder)
                      }
                   }
                   if(decoder->flags&DECOF_P96MAP)
-                  {  /* For Picasso96 8-bit mode, use WritePixelLine8 */
-                     WritePixelLine8(&decoder->rp,0,y,decoder->width,decoder->chunky,
-                        &decoder->temprp);
+                  {  /* For Picasso96 8-bit mode, use WriteChunkyPixels if available */
+                     if(GfxBase && GfxBase->lib_Version >= 40)
+                     {  /* Use WriteChunkyPixels for faster conversion (OS 3.1+) */
+                        WriteChunkyPixels(&decoder->rp,0,y,decoder->width-1,y,
+                           decoder->chunky,decoder->width);
+                     }
+                     else
+                     {  /* Fallback to WritePixelLine8 for OS 3.0 */
+                        WritePixelLine8(&decoder->rp,0,y,decoder->width,decoder->chunky,
+                           &decoder->temprp);
+                     }
                   }
                   else
-                  {  WritePixelLine8(&decoder->rp,0,y,decoder->width,decoder->chunky,
-                     &decoder->temprp);
+                  {  /* For standard bitmaps, use WriteChunkyPixels if available */
+                     if(GfxBase && GfxBase->lib_Version >= 40)
+                     {  /* Use WriteChunkyPixels for faster conversion (OS 3.1+) */
+                        WriteChunkyPixels(&decoder->rp,0,y,decoder->width-1,y,
+                           decoder->chunky,decoder->width);
+                     }
+                     else
+                     {  /* Fallback to WritePixelLine8 for OS 3.0 */
+                        WritePixelLine8(&decoder->rp,0,y,decoder->width,decoder->chunky,
+                           &decoder->temprp);
+                     }
                   }
                }
       
@@ -738,10 +783,16 @@ static BOOL Parsepngimage(struct Decoder *decoder)
                {  Updatetaskattrs(
                      AOPNG_Readyfrom,fromrow,
                      AOPNG_Readyto,y,
-                     AOPNG_Imgready,pass==npass-1 && y==decoder->height-1,
                      TAG_END);
                   decoder->progress=0;
                   fromrow=y+1;
+               }
+               if(pass==npass-1 && y==decoder->height-1)
+               {  Updatetaskattrs(
+                     AOPNG_Readyfrom,y,
+                     AOPNG_Readyto,y,
+                     AOPNG_Imgready,TRUE,
+                     TAG_END);
                }
             }
          }
@@ -751,6 +802,7 @@ static BOOL Parsepngimage(struct Decoder *decoder)
          error=TRUE;
       }
    }
+cleanup:
    png_destroy_read_struct(&png,&pnginfo,NULL);
    if(npass==1)
    {  if(buffer) FreeVec(buffer);
@@ -763,8 +815,8 @@ static BOOL Parsepngimage(struct Decoder *decoder)
          FreeVec(rows);
       }
    }
-   if(decoder->chunky) FreeVec(decoder->chunky);
-   if(decoder->temprp.BitMap) FreeBitMap(decoder->temprp.BitMap);
+   if(decoder && decoder->chunky) FreeVec(decoder->chunky);
+   if(decoder && decoder->temprp.BitMap) FreeBitMap(decoder->temprp.BitMap);
    return (BOOL)!error;
 }
 
@@ -793,6 +845,15 @@ static __saveds __asm void Decodetask(register __a0 struct Pngsource *is)
    {  Aprintf("PNG: Decodetask: decoder->source set to 0x%08lx\n", (ULONG)decoder->source);
    }
 #endif
+   /* Check source is still valid before accessing */
+   if(!decoder->source)
+   {  #ifdef DEBUG_PLUGINS
+      if(AwebPluginBase)
+      {  Aprintf("PNG: Decodetask: ERROR - decoder->source is NULL after assignment\n");
+      }
+      #endif
+      return;
+   }
    if(decoder->source->flags&PNGSF_LOWPRI)
    {  SetTaskPri(task,task->ln_Pri-1);
    }
@@ -860,6 +921,7 @@ static void Startdecoder(struct Pngsource *ps)
          AOTSK_Entry,Decodetask,
          AOTSK_Name,"AWebPng decoder",
          AOTSK_Userdata,ps,
+         AOTSK_Stacksize,128000,
          AOBJ_Target,ps,
          TAG_END))
       {  Asetattrs(ps->task,AOTSK_Start,TRUE,TAG_END);
@@ -1054,8 +1116,8 @@ static ULONG Srcupdatesource(struct Pngsource *ps,struct Amsrcupdate *amsrcupdat
       {  Aprintf("PNG: Srcupdatesource: Allocating datablock, datalength=%ld\n", datalength);
       }
 #endif
-      if(db=AllocVec(sizeof(struct Datablock),MEMF_PUBLIC|MEMF_CLEAR))
-      {  if(db->data=AllocVec(datalength,MEMF_PUBLIC))
+      if(db=AllocVec(sizeof(struct Datablock),MEMF_ANY|MEMF_CLEAR))
+      {  if(db->data=AllocVec(datalength,MEMF_ANY))
          {  memmove(db->data,data,datalength);
             db->length=datalength;
 #ifdef DEBUG_PLUGINS
@@ -1183,8 +1245,15 @@ static ULONG Addchildsource(struct Pngsource *ps,struct Amadd *amadd)
 }
 
 static void Disposesource(struct Pngsource *ps)
-{  if(ps->task)
+{  /* Set disposing flag to signal decoder task to exit */
+   if(ps)
+   {  ObtainSemaphore(&ps->sema);
+      ps->flags|=PNGSF_DISPOSING;
+      ReleaseSemaphore(&ps->sema);
+   }
+   if(ps->task)
    {  Adisposeobject(ps->task);
+      ps->task=NULL;
    }
    Releaseimage(ps);
    Releasedata(ps);

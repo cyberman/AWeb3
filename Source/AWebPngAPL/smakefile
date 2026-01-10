@@ -15,12 +15,12 @@ LDFLAGS= SD ND BATCH
 AR=oml
 RM=delete quiet
 
-# PNG library object files
+# PNG library object files (read-only - write support disabled to reduce size)
 PNG_OBJS = pnglib/png.o pnglib/pngset.o pnglib/pngget.o pnglib/pngrutil.o \
-           pnglib/pngtrans.o pnglib/pngwutil.o pnglib/pngpread.o \
-           pnglib/pngread.o pnglib/pngerror.o pnglib/pngwrite.o \
-           pnglib/pngrtran.o pnglib/pngwtran.o pnglib/pngrio.o \
-           pnglib/pngwio.o pnglib/pngmem.o
+           pnglib/pngtrans.o pnglib/pngpread.o \
+           pnglib/pngread.o pnglib/pngerror.o \
+           pnglib/pngrtran.o pnglib/pngrio.o \
+           pnglib/pngmem.o
 
 # Main plugin object files
 PLUGIN_OBJS = startup.o awebpng.o pngsource.o pngcopy.o
@@ -53,8 +53,7 @@ pnglib/pngrutil.o: pnglib/pngrutil.c pnglib/png.h pnglib/pngconf.h
 pnglib/pngtrans.o: pnglib/pngtrans.c pnglib/png.h pnglib/pngconf.h
    $(CC) $(CFLAGS) pnglib/pngtrans.c
 
-pnglib/pngwutil.o: pnglib/pngwutil.c pnglib/png.h pnglib/pngconf.h
-   $(CC) $(CFLAGS) pnglib/pngwutil.c
+# PNG write support disabled - removed pngwutil.o, pngwrite.o, pngwtran.o, pngwio.o
 
 pnglib/pngpread.o: pnglib/pngpread.c pnglib/png.h pnglib/pngconf.h
    $(CC) $(CFLAGS) pnglib/pngpread.c
@@ -65,20 +64,11 @@ pnglib/pngread.o: pnglib/pngread.c pnglib/png.h pnglib/pngconf.h
 pnglib/pngerror.o: pnglib/pngerror.c pnglib/png.h pnglib/pngconf.h
    $(CC) $(CFLAGS) pnglib/pngerror.c
 
-pnglib/pngwrite.o: pnglib/pngwrite.c pnglib/png.h pnglib/pngconf.h
-   $(CC) $(CFLAGS) pnglib/pngwrite.c
-
 pnglib/pngrtran.o: pnglib/pngrtran.c pnglib/png.h pnglib/pngconf.h
    $(CC) $(CFLAGS) pnglib/pngrtran.c
 
-pnglib/pngwtran.o: pnglib/pngwtran.c pnglib/png.h pnglib/pngconf.h
-   $(CC) $(CFLAGS) pnglib/pngwtran.c
-
 pnglib/pngrio.o: pnglib/pngrio.c pnglib/png.h pnglib/pngconf.h
    $(CC) $(CFLAGS) pnglib/pngrio.c
-
-pnglib/pngwio.o: pnglib/pngwio.c pnglib/png.h pnglib/pngconf.h
-   $(CC) $(CFLAGS) pnglib/pngwio.c
 
 pnglib/pngmem.o: pnglib/pngmem.c pnglib/png.h pnglib/pngconf.h
    $(CC) $(CFLAGS) pnglib/pngmem.c
@@ -98,6 +88,7 @@ pngcopy.o: pngcopy.c pluginlib.h awebpng.h
 # Clean target - remove object files only
 clean:
    $(RM) *.o pnglib/*.o
+   $(RM) pnglib/pngwutil.o pnglib/pngwtran.o pnglib/pngwrite.o pnglib/pngwio.o
 
 # Cleanall target - remove everything
 cleanall: clean

@@ -2551,6 +2551,10 @@ PNG_EXPORT(204, png_uint_32, png_get_uint_31, (png_const_structrp png_ptr,
 PNG_EXPORT(205, void, png_save_uint_32, (png_bytep buf, png_uint_32 i));
 #endif
 #ifdef PNG_SAVE_INT_32_SUPPORTED
+/* png_save_uint_32 is needed by png_save_int_32 even when write support is disabled */
+#ifndef PNG_WRITE_INT_FUNCTIONS_SUPPORTED
+PNG_EXPORT(205, void, png_save_uint_32, (png_bytep buf, png_uint_32 i));
+#endif
 PNG_EXPORT(206, void, png_save_int_32, (png_bytep buf, png_int_32 i));
 #endif
 

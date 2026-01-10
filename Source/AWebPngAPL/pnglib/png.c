@@ -691,6 +691,23 @@ png_init_io(png_structrp png_ptr, png_FILE_p fp)
 #  endif
 
 #  ifdef PNG_SAVE_INT_32_SUPPORTED
+/* Place a 32-bit number into a buffer in PNG byte order.
+ * This function is needed even when write support is disabled, as it's used
+ * for saving unknown chunks during read operations.
+ * Only define it here if it's not already defined by PNG_WRITE_INT_FUNCTIONS_SUPPORTED
+ * (which would be in pngwutil.c, but that file is not compiled when write support is disabled).
+ */
+#    ifndef PNG_WRITE_INT_FUNCTIONS_SUPPORTED
+void PNGAPI
+png_save_uint_32(png_bytep buf, png_uint_32 i)
+{
+   buf[0] = (png_byte)((i >> 24) & 0xffU);
+   buf[1] = (png_byte)((i >> 16) & 0xffU);
+   buf[2] = (png_byte)((i >>  8) & 0xffU);
+   buf[3] = (png_byte)( i        & 0xffU);
+}
+#    endif
+
 /* PNG signed integers are saved in 32-bit 2's complement format.  ANSI C-90
  * defines a cast of a signed integer to an unsigned integer either to preserve
  * the value, if it is positive, or to calculate:
