@@ -20,6 +20,7 @@
 
 #include "aweb.h"
 #include "element.h"
+#include "ttengine.h"
 #include <proto/exec.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>
@@ -364,16 +365,38 @@ long Textlengthext(struct RastPort *rp,UBYTE *text,long count,long *extent)
 {  long length=0,part;
    struct TextExtent te={0};
    if(extent) *extent=0;
-   while(count)
-   {  part=TextFit(rp,text,count,&te,NULL,1,32000,32000);
-      length+=te.te_Width;
-      text+=part;
-      count-=part;
-      if(extent) *extent+=te.MaxX+1;
+   /* Use ttengine wrapper if ttengine font is active, else use standard graphics.library function */
+   if(IsTTEngineFontActive(rp))
+   {  /* For ttengine, use TextExtent directly for the whole string - ttengine handles whole strings at once */
+      if(count > 0)
+      {  TTEngineTextExtent(rp,text,(WORD)count,&te);
+         length=te.te_Width;
+         if(extent) *extent=te.te_Extent.MaxX+1;
+      }
+   }
+   else
+   {  /* Standard graphics.library approach - use TextFit in a loop for very long strings */
+      while(count)
+      {  part=TextFit(rp,text,count,&te,NULL,1,32000,32000);
+         length+=te.te_Width;
+         text+=part;
+         count-=part;
+         if(extent) *extent+=te.MaxX+1;
+      }
    }
    return length;
 }
 
 long Textlength(struct RastPort *rp,UBYTE *text,long count)
-{  return Textlengthext(rp,text,count,NULL);
+{  /* Use ttengine wrapper if ttengine font is active, else use standard function */
+   if(IsTTEngineFontActive(rp))
+   {  /* ttengine handles whole strings at once - no need for loops */
+      if(count > 0)
+      {  return (long)TTEngineTextLength(rp,text,count);
+      }
+      return 0;
+   }
+   else
+   {  return Textlengthext(rp,text,count,NULL);
+   }
 }

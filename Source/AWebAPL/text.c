@@ -22,6 +22,8 @@
 #include "text.h"
 #include "link.h"
 #include "application.h"
+#include "body.h"
+#include "ttengine.h"
 #include <proto/exec.h>
 #include <proto/graphics.h>
 #include <proto/utility.h>
@@ -115,8 +117,11 @@ static BOOL Pointintext(struct Text *tx,long x,long y)
 static void Highlighttext(struct Text *tx,struct Coords *coo,long start,long end)
 {  struct Tsection *ts;
    long histart,hiend;  /* Pixels */
-   SetFont(coo->rp,tx->font);
-   SetSoftStyle(coo->rp,0,0x0f);
+   TTEngineSetFont(coo->rp,tx->font,NULL,tx->style);
+   if(!IsTTEngineFontActive(coo->rp))
+   {
+      SetSoftStyle(coo->rp,0,0x0f);
+   }
    SetDrMd(coo->rp,COMPLEMENT);
    for(ts=tx->sections;ts;ts=ts->next)
    {  if(ts->flags&TSF_ALIGNED)
@@ -155,11 +160,72 @@ static long Realwidth(struct Text *tx,long width,long realw)
 
 /*------------------------------------------------------------------------*/
 
+/* Get fontface from body context if available */
+static UBYTE *GetFontfaceFromBody(struct Text *tx)
+{
+   void *body;
+   void *cframe;
+   struct Aobject *obj;
+   UBYTE *fontface;
+   
+   if(!tx || !tx->cframe)
+   {
+      return NULL;
+   }
+   
+   cframe = tx->cframe;
+   obj = (struct Aobject *)cframe;
+   
+   /* cframe can be either a Body or Frame object */
+   if(obj)
+   {
+      /* Check if it's a Body object type */
+      if(obj->objecttype == AOTP_BODY)
+      {
+         /* cframe is already a Body, use it directly */
+         body = cframe;
+         fontface = (UBYTE *)Agetattr(body, AOBDY_Fontface);
+         if(fontface)
+         {
+            return fontface;
+         }
+      }
+      else if(obj->objecttype == AOTP_FRAME)
+      {
+         /* cframe is a Frame - try to get the Body from the Frame's cframe */
+         /* Frames have a cframe that points to their owner Body or Frame */
+         cframe = (void *)Agetattr(cframe, AOBJ_Cframe);
+         if(cframe)
+         {
+            obj = (struct Aobject *)cframe;
+            if(obj && obj->objecttype == AOTP_BODY)
+            {
+               body = cframe;
+               fontface = (UBYTE *)Agetattr(body, AOBDY_Fontface);
+               if(fontface)
+               {
+                  return fontface;
+               }
+            }
+         }
+      }
+   }
+   
+   /* If we couldn't find a Body with fontface, return NULL */
+   /* This will cause TTEngineSetFont to fall back to TextFont name mapping */
+   return NULL;
+}
+
+/*------------------------------------------------------------------------*/
+
 static long Measuretext(struct Text *tx,struct Ammeasure *amm)
 {  long w,width,realw;
    UBYTE *p,*q,*end;
-   SetFont(mrp,tx->font);
-   SetSoftStyle(mrp,tx->style,0x0f);
+   TTEngineSetFont(mrp,tx->font,NULL,tx->style);
+   if(!IsTTEngineFontActive(mrp))
+   {
+      SetSoftStyle(mrp,tx->style,0x0f);
+   }
    p=amm->text->buffer+tx->textpos;
    width=Textlengthext(mrp,p,tx->length,&realw);
    if(realw!=width) width=Realwidth(tx,width,realw);
@@ -218,7 +284,7 @@ static long Layouttext(struct Text *tx,struct Amlayout *aml)
          {  /* Space found. Shorten this section, but include the space. */
             ts->flags|=TSF_SPACE;  /* Don't include space in length */
             ts->length=q-p;
-            SetFont(mrp,tx->font);
+            TTEngineSetFont(mrp,tx->font,NULL,tx->style);
             SetSoftStyle(mrp,tx->style,0x0f);
             ts->w=Textlength(mrp,p,ts->length);
             /* See if this section (plus the trailing space) fits */
@@ -229,8 +295,11 @@ static long Layouttext(struct Text *tx,struct Amlayout *aml)
          else if(*q==SHY && !(tx->eltflags&(ELTF_NOBR|ELTF_PREFORMAT)))
          {  /* Soft hyphen found. Shorten this section and include the SHY. */
             ts->length=q-p+1;
-            SetFont(mrp,tx->font);
-            SetSoftStyle(mrp,tx->style,0x0f);
+            TTEngineSetFont(mrp,tx->font,NULL,tx->style);
+            if(!IsTTEngineFontActive(mrp))
+            {
+               SetSoftStyle(mrp,tx->style,0x0f);
+            }
             ts->w=Textlength(mrp,p,ts->length);
             /* See if this section fits */
             if(ts->textpos+ts->length<tx->textpos+tx->length) result=AMLR_MORE;
@@ -265,7 +334,9 @@ static long Layouttext(struct Text *tx,struct Amlayout *aml)
       length=tx->length-(pos-tx->textpos);
       p=aml->text->buffer+pos;
       if(length>0)
-      {  SetFont(mrp,tx->font);
+      {  /* For measurement, use standard SetFont to ensure consistent metrics */
+         /* We'll use ttengine for rendering later, but measurement needs standard font */
+         SetFont(mrp,tx->font);
          SetSoftStyle(mrp,tx->style,0x0f);
          width=Textlengthext(mrp,p,length,&realw);
          if(realw!=width) width=Realwidth(tx,width,realw);
@@ -293,6 +364,8 @@ static long Layouttext(struct Text *tx,struct Amlayout *aml)
       }
       else
       {  /* Text doesn't fit. Try to find a break position within target width. */
+         /* For word wrapping measurement, use standard TextFit() with standard font */
+         /* This ensures consistent word breaking regardless of rendering method */
          length=TextFit(mrp,p,length,&te,NULL,1,aml->width-aml->startx,tx->height);
          q=p+length;
          /* now q points to first character not to fit.
@@ -311,6 +384,12 @@ static long Layouttext(struct Text *tx,struct Amlayout *aml)
             {  result=AMLR_MORE;
             }
             length=q-p;
+            /* Make sure font is set before measuring */
+            TTEngineSetFont(mrp,tx->font,NULL,tx->style);
+            if(!IsTTEngineFontActive(mrp))
+            {
+               SetSoftStyle(mrp,tx->style,0x0f);
+            }
             width=Textlength(mrp,p,length);
             space=TRUE;
          }
@@ -451,8 +530,14 @@ static long Rendertext(struct Text *tx,struct Amrender *amr)
    if(coo->rp)
    {  rp=coo->rp;
       if(clip) clipkey=Clipto(rp,coo->minx,coo->miny,coo->maxx,coo->maxy);
-      SetFont(rp,tx->font);
-      SetSoftStyle(rp,tx->style,0x0f);
+      /* Get fontface from body context for ttengine CSS font-family support */
+      /* Pass tx->style (text element style flags) to TTEngineSetFont for bold/italic detection */
+      TTEngineSetFont(rp,tx->font,GetFontfaceFromBody(tx),tx->style);
+      /* Only use SetSoftStyle if ttengine is not active (ttengine handles styles via font selection) */
+      if(!IsTTEngineFontActive(rp))
+      {
+         SetSoftStyle(rp,tx->style,0x0f);
+      }
       if(tx->link)
       {  BOOL nodecoration;
          nodecoration = Agetattr(tx->link,AOLNK_NoDecoration);
@@ -520,7 +605,7 @@ static long Rendertext(struct Text *tx,struct Amrender *amr)
             }
             if(!blinkoff)
             {  Move(rp,ts->x+coo->dx,ts->y+tx->font->tf_Baseline+coo->dy);
-               Text(rp,tx->text->buffer+ts->textpos,ts->length);
+               TTEngineText(rp,tx->text->buffer+ts->textpos,ts->length);
                if(tx->style&FSF_STRIKE)
                {  Move(rp,ts->x+coo->dx,ts->y+tx->font->tf_YSize/2+coo->dy);
                   Draw(rp,ts->x+ts->w+coo->dx-1,ts->y+tx->font->tf_YSize/2+coo->dy);
@@ -669,8 +754,11 @@ static long Searchsettext(struct Text *tx,struct Amsearch *ams)
                {  ams->left=ts->x;
                }
                else
-               {  SetFont(mrp,tx->font);
-                  SetSoftStyle(mrp,tx->style,0x0f);
+               {  TTEngineSetFont(mrp,tx->font,NULL,tx->style);
+                  if(!IsTTEngineFontActive(mrp))
+                  {
+                     SetSoftStyle(mrp,tx->style,0x0f);
+                  }
                   ams->left=ts->x+
                      Textlength(mrp,ams->text->buffer+ts->textpos,ams->pos-ts->textpos);
                }
@@ -713,10 +801,20 @@ static long Dragtesttext(struct Text *tx,struct Amdragtest *amd)
             {  amd->amdr->objpos=ts->textpos;
             }
             else
-            {  SetFont(mrp,tx->font);
-               SetSoftStyle(mrp,0,0x0f);  /* No style because italics extension */
-               amd->amdr->objpos=ts->textpos+TextFit(mrp,
-                  tx->text->buffer+ts->textpos,ts->length,&te,NULL,1,x-ts->x,tx->height);
+            {  TTEngineSetFont(mrp,tx->font,NULL,0);  /* No style because italics extension */
+               if(!IsTTEngineFontActive(mrp))
+               {
+                  SetSoftStyle(mrp,0,0x0f);
+               }
+               /* Use ttengine wrapper if ttengine font is active, else use standard graphics.library function */
+               if(IsTTEngineFontActive(mrp))
+               {  amd->amdr->objpos=ts->textpos+TTEngineTextFit(mrp,
+                     tx->text->buffer+ts->textpos,ts->length,&te,NULL,1,x-ts->x,tx->height);
+               }
+               else
+               {  amd->amdr->objpos=ts->textpos+TextFit(mrp,
+                     tx->text->buffer+ts->textpos,ts->length,&te,NULL,1,x-ts->x,tx->height);
+               }
             }
          }
          break;
