@@ -66,7 +66,7 @@ static void Newbitmap(struct Imgcopy *img)
    && (img->swidth!=img->source->width || img->sheight!=img->source->height))
    {  /* Create our own scaled bitmap */
       if(img->bitmap=AllocBitMap(img->swidth,img->sheight,img->source->depth,
-         BMF_MINPLANES,img->source->bitmap))
+         BMF_MINPLANES|BMF_DISPLAYABLE,img->source->bitmap))
       {  struct BitScaleArgs bsa={0};
          int memfchip=0;
          bsa.bsa_SrcX=0;

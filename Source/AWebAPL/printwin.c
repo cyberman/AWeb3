@@ -117,7 +117,7 @@ static struct Pwindow *Newprintwindow(struct Amset *ams)
        * of the screen, else attempt to create a standard bitmap. */
       if(!(win->bitmap=AllocBitMap(win->width,win->height,
          GetBitMapAttr(screen->RastPort.BitMap,BMA_DEPTH),
-         (win->flags&PRWF_TURBOPRINT)?BMF_MINPLANES:0,
+         (win->flags&PRWF_TURBOPRINT)?(BMF_MINPLANES|BMF_DISPLAYABLE):0,
          (win->flags&PRWF_TURBOPRINT)?screen->RastPort.BitMap:NULL))) goto err;
       if(!(win->layerinfo=NewLayerInfo())) goto err;
       if(!(win->layer=CreateUpfrontLayer(win->layerinfo,win->bitmap,

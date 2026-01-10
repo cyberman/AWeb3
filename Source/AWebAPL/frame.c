@@ -2605,7 +2605,7 @@ struct RastPort *Obtainbgrp(struct Frame *fr,struct Coords *coo,
    }
    if((screen=(struct Screen *)Agetattr(Aweb(),AOAPP_Screen))
    && (bitmap=AllocBitMap(xmax-xmin+1,ymax-ymin+1,Agetattr(Aweb(),AOAPP_Screendepth),
-         BMF_MINPLANES,screen->RastPort.BitMap)))
+         BMF_MINPLANES|BMF_DISPLAYABLE,screen->RastPort.BitMap)))
    {  if(rp=ALLOCSTRUCT(RastPort,1,MEMF_PUBLIC|MEMF_CLEAR))
       {  InitRastPort(rp);
          rp->BitMap=bitmap;

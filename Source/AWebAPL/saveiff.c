@@ -585,7 +585,7 @@ static struct Saveiff *Newsaveiff(struct Amset *ams)
             else
             {  sif->type=SIFT_CYBER8;
                if(!(sif->temprp.BitMap=AllocBitMap(
-                  8*(((sif->w+15)>>4)<<1),1,8,0,sif->rp->BitMap))) goto err;
+                  8*(((sif->w+15)>>4)<<1),1,8,BMF_DISPLAYABLE,sif->rp->BitMap))) goto err;
                if(!(sif->rbuf=ALLOCTYPE(UBYTE,((sif->w+15)>>4)<<4,0))) goto err;
                if(!(sif->wbuf=ALLOCTYPE(UBYTE,sif->w16,MEMF_CLEAR))) goto err;
             }
