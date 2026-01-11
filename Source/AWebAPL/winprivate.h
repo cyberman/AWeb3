@@ -80,6 +80,7 @@ struct Awindow
    UBYTE *statushptext;       /* Copy of status HP text */
    UBYTE *screentitle;        /* Last screen title set */
    short layoutstyle;         /* Layout style: 0=classic, 1=modern */
+   ULONG statustime;          /* Timestamp when status was shown in screen title (0 = not showing) */
 };
 
 #define WINF_NOPROXY       0x0001   /* Don't use proxies. */
