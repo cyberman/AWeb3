@@ -575,11 +575,38 @@ static void Douserkey(struct Awindow *win,USHORT key)
 static void Donavbutton(struct Awindow *win,short nr)
 {  void *url;
    UBYTE *id,*title;
-   if(prefs.navs[nr].cmd)
+   UBYTE *cmd;
+   ULONG windowkey;
+   BOOL transferring;
+   /* For reload button (nr==8) in modern layout, check if we should cancel instead.
+    * This function is ONLY called when the user explicitly clicks a navigation button,
+    * so cancellation only happens on user interaction, never automatically. */
+   if(nr==8 && win->layoutstyle==1)
+   {  /* Check for active network transfers - this is the correct test */
+      windowkey=Agetattr(win,AOWIN_Key);
+      transferring=Windowtransferring(windowkey);
+      if(transferring)
+      {  /* Reload button acts as cancel when network transfer is in progress - user clicked button */
+         cmd="CANCEL";
+      }
+      else if(prefs.navs[nr].cmd)
+      {  cmd=prefs.navs[nr].cmd;
+      }
+      else
+      {  return;
+      }
+   }
+   else if(prefs.navs[nr].cmd)
+   {  cmd=prefs.navs[nr].cmd;
+   }
+   else
+   {  return;
+   }
+   if(cmd)
    {  url=(void *)Agetattr(win->whis,AOWHS_Url);
       if(id=Rexxframeid(win->focus?win->focus:win->frame))
       {  title=(UBYTE *)Agetattr(win->frame,AOFRM_Title);
-         Execarexxcmd(win->key,prefs.navs[nr].cmd,"unict",
+         Execarexxcmd(win->key,cmd,"unict",
             (UBYTE *)Agetattr(url,AOURL_Url),
             (UBYTE *)Agetattr(Aweb(),AOAPP_Screenname),
             id,

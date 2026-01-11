@@ -185,7 +185,8 @@ static BOOL Dobgsound(struct Arexxcmd *ac,struct Awindow *win,
 }
 
 static BOOL Docancel(struct Arexxcmd *ac,struct Awindow *win,long *ploadid,BOOL all)
-{  if(all)
+{  ULONG windowkey;
+   if(all)
    {  Cancelnetstatall();
    }
    else if(ploadid)
@@ -195,7 +196,9 @@ static BOOL Docancel(struct Arexxcmd *ac,struct Awindow *win,long *ploadid,BOOL 
       }
    }
    else if(win)
-   {  Auspecial(win->activeurl,AUMST_CANCELFETCH);
+   {  /* Cancel all fetches for this window - like CancelAll in network status window */
+      windowkey=Agetattr(win,AOWIN_Key);
+      Cancelwindowfetches(windowkey);
    }
    return TRUE;
 }

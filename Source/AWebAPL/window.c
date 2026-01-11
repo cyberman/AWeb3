@@ -26,6 +26,7 @@
 #include "winhis.h"
 #include "winprivate.h"
 #include "jslib.h"
+#include "fetch.h"
 #include <intuition/intuition.h>
 #include <intuition/imageclass.h>
 #include <intuition/gadgetclass.h>
@@ -161,7 +162,7 @@ static UWORD searchdata[]=
    0x0000,0x1f00,0x2080,0x4040,0x8080,0x8040,0x8040,0x8060,
    0x8098,0x5186,0x2e00,0x0000,0x0000,0x0000,
 };
-#ifndef DEMOVERSION
+/* #ifndef DEMOVERSION */
 static UWORD unsecuredata[]=
 {  0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
    0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
@@ -174,7 +175,7 @@ static UWORD securedata[]=
    0x0000,0x01c0,0x0200,0x0420,0x0420,0x0ff8,0x0800,0x0800,
    0x0800,0x0800,0x0800,0x0800,0x0800,0x0000,
 };
-#endif
+/* #endif DEMOVERSION */
 
 /*------------------------------------------------------------------------*/
 
@@ -251,13 +252,13 @@ static UBYTE *Makescreentitle(struct Awindow *win)
       if(availmem >= 1048576)
       {  /* Show in MB */
          UBYTE membuf[32];
-         sprintf(membuf, "   %ldM free", availmem / 1048576);
+         sprintf(membuf, "   %ldMB free", availmem / 1048576);
          strcat(screentitle, membuf);
       }
       else if(availmem >= 1024)
       {  /* Show in KB */
          UBYTE membuf[32];
-         sprintf(membuf, "   %ldK free", availmem / 1024);
+         sprintf(membuf, "   %ldKB free", availmem / 1024);
          strcat(screentitle, membuf);
       }
       else
@@ -322,16 +323,45 @@ static void Setcancel(struct Awindow *win,BOOL onoff)
    }
 }
 
+/* Update reload button image based on input state (for modern layout dual-function button) */
+static void Setreloadbutton(struct Awindow *win,BOOL isinput)
+{  if(win->window && win->rldgad && win->layoutstyle==1)
+   {  if(isinput)
+      {  /* Show cancel image when transfer is in progress */
+         if(win->cancelimg)
+         {  Setgadgetattrs(win->rldgad,win->window,NULL,
+               GA_Image,win->cancelimg,
+               TAG_END);
+         }
+      }
+      else
+      {  /* Show reload image when no transfer */
+         if(win->rldimg)
+         {  Setgadgetattrs(win->rldgad,win->window,NULL,
+               GA_Image,win->rldimg,
+               TAG_END);
+         }
+      }
+   }
+}
+
 /* Enable or disable the cancel gadget depending on if fetches are going on */
 static void Setwincancel(struct Awindow *win)
-{  BOOL input=Agetattr(win->whis,AOWHS_Input);
-   if(input && !(win->flags&WINF_INPUT))
+{  BOOL transferring;
+   ULONG windowkey;
+   /* Check for active network transfers for this window - this is the correct test */
+   windowkey=Agetattr(win,AOWIN_Key);
+   transferring=Windowtransferring(windowkey);
+   if(transferring && !(win->flags&WINF_INPUT))
    {  win->flags|=WINF_INPUT;
       Setcancel(win,TRUE);
+      Setreloadbutton(win,TRUE);
    }
-   else if(!input && (win->flags&WINF_INPUT))
-   {  win->flags&=~WINF_INPUT;
+   else if(!transferring && (win->flags&WINF_INPUT))
+   {  /* Only clear input flag when there are no active network transfers */
+      win->flags&=~WINF_INPUT;
       Setcancel(win,FALSE);
+      Setreloadbutton(win,FALSE);
    }
 }
 
@@ -555,14 +585,14 @@ static void *BuildClassicLayout(struct Awindow *win,struct DrawInfo *dri,UBYTE *
                STATGA_SpecialPens,&win->capens,
                GA_Text,win->statustext,
             EndMember,
-#ifndef DEMOVERSION
+/* #ifndef DEMOVERSION */
             StartMember,win->securegad=ButtonObject,
                GA_Image,win->unsecureimg,
                GA_ReadOnly,TRUE,
                REACTION_SpecialPens,&win->capens,
             EndMember,
             CHILD_WeightedWidth,0,
-#endif
+/* #endif */
          EndMember,
       EndMember,
       StartMember,win->ledgad=Animgadget(Aweb(),&win->capens),
@@ -970,10 +1000,10 @@ static BOOL Openwindow(struct Awindow *win)
       if(!(win->searchimg=Buttonimage(Aweb(),BUTF_SEARCH,searchdata,DEFAULTWIDTH,DEFAULTHEIGHT))) return FALSE;
       if(!(win->rldimg=Buttonimage(Aweb(),BUTF_RELOAD,rlddata,DEFAULTWIDTH,DEFAULTHEIGHT))) return FALSE;
       if(!(win->imgimg=Buttonimage(Aweb(),BUTF_LOADIMAGES,imgdata,DEFAULTWIDTH,DEFAULTHEIGHT))) return FALSE;
-#ifndef DEMOVERSION
+/*#ifndef DEMOVERSION */
       if(!(win->unsecureimg=Buttonimage(Aweb(),BUTF_UNSECURE,unsecuredata,DEFAULTWIDTH,DEFAULTHEIGHT))) return FALSE;
       if(!(win->secureimg=Buttonimage(Aweb(),BUTF_SECURE,securedata,DEFAULTWIDTH,DEFAULTHEIGHT))) return FALSE;
-#endif
+/* #endif DEMOVERSION */
    }
 
    if(!(win->downarrow=(struct Gadget *)NewObject(NULL,"buttongclass",
@@ -1210,6 +1240,11 @@ static BOOL Openwindow(struct Awindow *win)
    Arender(win->frame,NULL,0,0,AMRMAX,AMRMAX,0,NULL);
    Adragrender(win->frame,NULL,NULL,0,NULL,0,AMDS_BEFORE);
    Sethisgadgets(win);
+   /* Initialize reload button state for modern layout - start in reload mode */
+   if(win->layoutstyle==1)
+   {  win->flags&=~WINF_INPUT;  /* Ensure input flag is clear initially */
+      Setreloadbutton(win,FALSE);  /* Start in reload mode, not cancel */
+   }
    if(win->flags&WINF_ZOOMED)
    {
       ZipWindow(win->window);
@@ -1529,9 +1564,9 @@ static struct Awindow *Newwindow(struct Amset *ams)
 {  struct Awindow *win;
    UBYTE *portname;
    BOOL screenvalid;
-#ifdef DEMOVERSION
+/* #ifdef DEMOVERSION
    if(windows.first->next) return NULL;
-#endif
+#endif */
    if(win=Allocobject(AOTP_WINDOW,sizeof(struct Awindow),ams))
    {  NewList(&win->urlpoplist);
       NewList(&win->userbutlist);
@@ -1540,7 +1575,7 @@ static struct Awindow *Newwindow(struct Amset *ams)
       win->capens.sp_DarkPen=-1;
       win->capens.sp_LightPen=-1;
       win->flags|=WINF_NAVS|WINF_BUTTONS;
-      win->layoutstyle=1;  /* Default to modern layout */
+      win->layoutstyle=1;  /* 0 = Original layout, 1 = Modern layout */
       SETFLAG(win->flags,WINF_CLIPDRAG,prefs.clipdrag);
       if(portname=Openarexxport(win->key))
       {  win->portname=Dupstr(portname,-1);
@@ -1744,7 +1779,7 @@ struct Awindow *Nextwindow(struct Awindow *win,long d)
 /* Set the status of the secure gadget */
 void Setsecure(struct Awindow *win)
 {  
-#ifndef DEMOVERSION
+/* #ifndef DEMOVERSION */
    BOOL issecure;
    issecure=BOOLVAL(Agetattr(win->focus?win->focus:win->frame,AOBJ_Secure));
    if(win->securegad)
@@ -1752,7 +1787,7 @@ void Setsecure(struct Awindow *win)
          GA_Image,issecure?win->secureimg:win->unsecureimg,
          TAG_END);
    }
-#endif
+/* #endif DEMOVERSION */
 }
 
 /*------------------------------------------------------------------------*/

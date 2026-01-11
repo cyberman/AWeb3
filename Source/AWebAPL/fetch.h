@@ -99,11 +99,17 @@
 extern BOOL Transferring(void);
    /* Returns TRUE if any fetches are going on. */
 
+extern BOOL Windowtransferring(ULONG windowkey);
+   /* Returns TRUE if there are active network transfers for the specified window. */
+
 extern void Addwaitrequest(struct Arexxcmd *ac,ULONG windowkey,BOOL doc,BOOL img,void *url);
    /* Reply this ARexx command when selected transfers are ready */
 
 extern void Cancelfetchesbyreferer(UBYTE *refererurl);
    /* Cancel all fetches that have the specified referer URL string */
+
+extern void Cancelwindowfetches(ULONG windowkey);
+   /* Cancel all fetches for the specified window - like CancelAll but for one window */
 
 /*--- channel fetch ---*/
 

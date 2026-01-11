@@ -1297,6 +1297,37 @@ void Cancelfetchesbyreferer(UBYTE *refererurl)
    }
 }
 
+/* Cancel all fetches for a specific window - like CancelAll but for one window */
+void Cancelwindowfetches(ULONG windowkey)
+{  struct Fetch *fch,*next;
+   if(!windowkey) return;
+   /* Cancel all fetches in all lists for this window */
+   for(fch=running.first;fch->next;fch=next)
+   {  next=fch->next;
+      if(fch->windowkey==windowkey && !(fch->flags&FCHF_CANCELLED))
+      {  Asetattrs(fch,AOFCH_Cancel,TRUE,TAG_END);
+      }
+   }
+   for(fch=netqueue.first;fch->next;fch=next)
+   {  next=fch->next;
+      if(fch->windowkey==windowkey && !(fch->flags&FCHF_CANCELLED))
+      {  Asetattrs(fch,AOFCH_Cancel,TRUE,TAG_END);
+      }
+   }
+   for(fch=localqueue.first;fch->next;fch=next)
+   {  next=fch->next;
+      if(fch->windowkey==windowkey && !(fch->flags&FCHF_CANCELLED))
+      {  Asetattrs(fch,AOFCH_Cancel,TRUE,TAG_END);
+      }
+   }
+   for(fch=channels.first;fch->next;fch=next)
+   {  next=fch->next;
+      if(fch->windowkey==windowkey && !(fch->flags&FCHF_CANCELLED))
+      {  Asetattrs(fch,AOFCH_Cancel,TRUE,TAG_END);
+      }
+   }
+}
+
 BOOL Installfetch(void)
 {  NEWLIST(&netqueue);
    NEWLIST(&localqueue);
@@ -1310,6 +1341,37 @@ BOOL Installfetch(void)
 BOOL Transferring(void)
 {  return (BOOL)(!ISEMPTY(&running) || !ISEMPTY(&netqueue) || !ISEMPTY(&localqueue)
       || !ISEMPTY(&channels));
+}
+
+/* Check if there are active network transfers for a specific window */
+BOOL Windowtransferring(ULONG windowkey)
+{  struct Fetch *fch;
+   void *url;
+   if(!windowkey) return FALSE;
+   /* Check running fetches - these are actively transferring */
+   for(fch=running.first;fch->next;fch=fch->next)
+   {  if(fch->windowkey==windowkey && (fch->flags&FCHF_RUNNING) && !(fch->flags&FCHF_CANCELLED) && !(fch->flags&FCHF_DISPOSED))
+      {  /* Verify this is a network transfer, not just a local/cache operation */
+         url=(void *)Agetattr(fch,AOFCH_Url);
+         if(url && Agetattr(url,AOURL_Input))
+         {  return TRUE;
+         }
+      }
+   }
+   /* Check network queue - these are queued for network transfer */
+   for(fch=netqueue.first;fch->next;fch=fch->next)
+   {  if(fch->windowkey==windowkey && !(fch->flags&FCHF_CANCELLED) && !(fch->flags&FCHF_DISPOSED))
+      {  return TRUE;
+      }
+   }
+   /* Check channels - active channel transfers */
+   for(fch=channels.first;fch->next;fch=fch->next)
+   {  if(fch->windowkey==windowkey && (fch->flags&FCHF_RUNNING) && !(fch->flags&FCHF_CANCELLED) && !(fch->flags&FCHF_DISPOSED))
+      {  return TRUE;
+      }
+   }
+   /* Don't check localqueue - those are cache/local file operations, not network transfers */
+   return FALSE;
 }
 
 void Addwaitrequest(struct Arexxcmd *ac,ULONG windowkey,BOOL doc,BOOL img,void *url)
