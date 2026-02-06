@@ -27,6 +27,8 @@
 #include "jslib.h"
 #include "form.h"
 #include <clib/utility_protos.h>
+#include <proto/utility.h>
+#include <stdarg.h>
 
 /*------------------------------------------------------------------------*/
 
@@ -94,6 +96,53 @@ static LIST(Waitrequest) waitrequests;
 
 #define AOFCC_Arexxcmd     (AOFCC_Dummy+64)
 
+struct BoundedFmt
+{
+   UBYTE *buf;
+   long size;
+   long len;
+};
+
+static void PutChBounded(UBYTE ch, APTR data)
+{
+   struct BoundedFmt *bf = (struct BoundedFmt *)data;
+   if(!bf || !bf->buf || bf->size <= 0) return;
+
+   if(bf->len < bf->size - 1)
+   {
+      bf->buf[bf->len++] = ch;
+      bf->buf[bf->len] = '\0';
+   }
+}
+
+static long BVSNPrintf(UBYTE *dst, long dstsize, const UBYTE *fmt, va_list ap)
+{
+   struct BoundedFmt bf;
+
+   if(!dst || dstsize <= 0) return 0;
+   dst[0] = '\0';
+
+   bf.buf  = dst;
+   bf.size = dstsize;
+   bf.len  = 0;
+
+   VNewRawDoFmt((STRPTR)fmt, PutChBounded, (APTR)&bf, ap);
+
+   return bf.len;
+}
+
+static long BSNPrintf(UBYTE *dst, long dstsize, const UBYTE *fmt, ...)
+{
+   va_list ap;
+   long n;
+
+   va_start(ap, fmt);
+   n = BVSNPrintf(dst, dstsize, fmt, ap);
+   va_end(ap);
+
+   return n;
+}
+
 /*------------------------------------------------------------------------*/
 
 /* Error scheme task. The validate field is mis-used as msg id. */
@@ -106,18 +155,31 @@ void Errorschemetask(struct Fetchdriver *fd)
       else scheme=Dupstr(fd->name,-1);
       if(scheme)
       {  if(haiku)
-         {  strcpy(fd->block,"<html>");
+         {  length = BSNPrintf(fd->block, fd->blocksize, "<html>");
             switch(fd->validate)
-            {  case MSG_EPART_NOPROGRAM:strcat(fd->block,HAIKU9);break;
-               case MSG_EPART_NOAWEBLIB:strcat(fd->block,HAIKU14);break;
-               case MSG_EPART_ADDRSCHEME:strcat(fd->block,HAIKU15);break;
+            {  case MSG_EPART_NOPROGRAM:
+                  if(length < fd->blocksize)
+                      length += BSNPrintf(fd->block + length, fd->blocksize - length, "%s", HAIKU9);
+                  break;
+               case MSG_EPART_NOAWEBLIB:
+                  if(length < fd->blocksize)
+                      length += BSNPrintf(fd->block + length, fd->blocksize - length, "%s", HAIKU14);
+                  break;
+               case MSG_EPART_ADDRSCHEME:
+                  if(length < fd->blocksize)
+                      length += BSNPrintf(fd->block + length, fd->blocksize - length, "%s", HAIKU15);
+                  break;
             }
-            length=strlen(fd->block);
          }
          else
-         {  length=sprintf(fd->block,"<html><h1>%s</h1>%s %.1000s<p><strong>",
-               AWEBSTR(MSG_EPART_ERROR),AWEBSTR(MSG_EPART_RETURL),fd->name);
-            length+=sprintf(fd->block+length,AWEBSTR(fd->validate),scheme);
+         {  length = BSNPrintf(fd->block, fd->blocksize,
+                "<html><h1>%s</h1>%s %.1000s<p><strong>",
+                AWEBSTR(MSG_EPART_ERROR), AWEBSTR(MSG_EPART_RETURL), fd->name);
+
+            if(length < fd->blocksize)
+            {  length += BSNPrintf(fd->block + length, fd->blocksize - length,
+                (UBYTE *)AWEBSTR(fd->validate), scheme);
+            }
          }
          Updatetaskattrs(
             AOURL_Error,TRUE,
