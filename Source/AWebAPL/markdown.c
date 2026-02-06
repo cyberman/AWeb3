@@ -27,6 +27,8 @@
 
 #define MAXATTRS 40
 static struct Tagattr tagattr[MAXATTRS];
+/* Defensive helper: never silently overflow the attribute pool */
+#define GETATTR(doc, ta) do { (ta) = Nextattr((doc)); if(!(ta)) return FALSE; } while(0)
 
 static LIST(Tagattr) attrs;
 static short nextattr;
@@ -40,7 +42,7 @@ static void EscapeHtmlEntities(struct Document *doc, UBYTE *text, long length);
 /* Get next attribute structure */
 static struct Tagattr *Nextattr(struct Document *doc)
 {  struct Tagattr *ta;
-   if(nextattr==MAXATTRS) REMOVE(&tagattr[--nextattr]);
+   if(nextattr==MAXATTRS) return NULL;
    ta=&tagattr[nextattr++];
    ADDTAIL(&attrs,ta);
    ta->attr=0;
@@ -123,7 +125,7 @@ static BOOL ProcessMarkdownText(struct Document *doc, UBYTE *text, long length)
                {  p++;
                   /* Output text before image */
                   if(img_start>start)
-                  {  ta=Nextattr(doc);
+                  {  GETATTR(doc, ta);
                      ta->attr=TAGATTR_TEXT;
                      EscapeHtmlEntities(doc,start,img_start-start);
                      ta->length=doc->args.length-ta->valuepos;
@@ -134,12 +136,12 @@ static BOOL ProcessMarkdownText(struct Document *doc, UBYTE *text, long length)
                      doc->args.length=0;
                   }
                   /* Output image */
-                  ta=Nextattr(doc);
+                  GETATTR(doc, ta);
                   ta->attr=TAGATTR_ALT;
                   if(!Addtobuffer(&doc->args,img_alt_start,img_alt_end-img_alt_start)) return FALSE;
                   ta->length=img_alt_end-img_alt_start;
                   if(!Addtobuffer(&doc->args,"",1)) return FALSE;
-                  ta=Nextattr(doc);
+                  GETATTR(doc, ta);
                   ta->attr=TAGATTR_SRC;
                   if(!Addtobuffer(&doc->args,img_url_start,img_url_end-img_url_start)) return FALSE;
                   ta->length=img_url_end-img_url_start;
@@ -184,7 +186,7 @@ static BOOL ProcessMarkdownText(struct Document *doc, UBYTE *text, long length)
                {  p++;
                   /* Output text before link */
                   if(link_start>start)
-                  {  ta=Nextattr(doc);
+                  {  GETATTR(doc, ta);
                      ta->attr=TAGATTR_TEXT;
                      EscapeHtmlEntities(doc,start,link_start-start);
                      ta->length=doc->args.length-ta->valuepos;
@@ -195,7 +197,7 @@ static BOOL ProcessMarkdownText(struct Document *doc, UBYTE *text, long length)
                      doc->args.length=0;
                   }
                   /* Output link */
-                  ta=Nextattr(doc);
+                  GETATTR(doc, ta);
                   ta->attr=TAGATTR_HREF;
                   if(!Addtobuffer(&doc->args,link_url_start,link_url_end-link_url_start)) return FALSE;
                   ta->length=link_url_end-link_url_start;
@@ -225,7 +227,7 @@ static BOOL ProcessMarkdownText(struct Document *doc, UBYTE *text, long length)
       if(p<end-1 && *p=='`' && !in_code)
       {  /* Output text before code */
          if(p>start)
-         {  ta=Nextattr(doc);
+         {  GETATTR(doc, ta);
             ta->attr=TAGATTR_TEXT;
             EscapeHtmlEntities(doc,start,p-start);
             ta->length=doc->args.length-ta->valuepos;
@@ -248,10 +250,11 @@ static BOOL ProcessMarkdownText(struct Document *doc, UBYTE *text, long length)
             NEWLIST(&attrs);
             nextattr=0;
             doc->args.length=0;
-            ta=Nextattr(doc);
+            GETATTR(doc, ta);
             ta->attr=TAGATTR_TEXT;
-            if(!Addtobuffer(&doc->args,code_start,code_end-code_start)) return FALSE;
-            ta->length=code_end-code_start;
+            /* Escape code text so it cannot break HTML rendering */
+            EscapeHtmlEntities(doc,code_start,code_end-code_start);
+            ta->length=doc->args.length-ta->valuepos;
             if(!Addtobuffer(&doc->args,"",1)) return FALSE;
             Processhtml(doc,MARKUP_TEXT,attrs.first);
             /* Close code tag */
@@ -278,7 +281,7 @@ static BOOL ProcessMarkdownText(struct Document *doc, UBYTE *text, long length)
          UBYTE *bold_end;
          /* Output text before bold */
          if(p>start)
-         {  ta=Nextattr(doc);
+         {  GETATTR(doc, ta);
             ta->attr=TAGATTR_TEXT;
             EscapeHtmlEntities(doc,start,p-start);
             ta->length=doc->args.length-ta->valuepos;
@@ -329,7 +332,7 @@ static BOOL ProcessMarkdownText(struct Document *doc, UBYTE *text, long length)
          {  /* Found matching italic delimiter */
             /* Output text before italic */
             if(p>start)
-            {  ta=Nextattr(doc);
+            {  GETATTR(doc, ta);
                ta->attr=TAGATTR_TEXT;
                EscapeHtmlEntities(doc,start,p-start);
                ta->length=doc->args.length-ta->valuepos;
@@ -369,7 +372,7 @@ static BOOL ProcessMarkdownText(struct Document *doc, UBYTE *text, long length)
    
    /* Output remaining text */
    if(p>start)
-   {  ta=Nextattr(doc);
+   {  GETATTR(doc, ta);
       ta->attr=TAGATTR_TEXT;
       EscapeHtmlEntities(doc,start,p-start);
       ta->length=doc->args.length-ta->valuepos;
@@ -644,10 +647,11 @@ static BOOL ProcessMarkdownLine(struct Document *doc, UBYTE *line, long length, 
          NEWLIST(&attrs);
          nextattr=0;
          doc->args.length=0;
-         ta=Nextattr(doc);
+         GETATTR(doc, ta);
          ta->attr=TAGATTR_TEXT;
-         if(!Addtobuffer(&doc->args,code_start,end-code_start)) return FALSE;
-         ta->length=end-code_start;
+         /* Escape code block text */
+         EscapeHtmlEntities(doc,code_start,end-code_start);
+         ta->length=doc->args.length-ta->valuepos;
          if(!Addtobuffer(&doc->args,"",1)) return FALSE;
          Processhtml(doc,MARKUP_TEXT,attrs.first);
          /* Close pre tag */
@@ -681,13 +685,16 @@ BOOL Parsemarkdown(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos
 {  UBYTE *p=src->buffer+(*srcpos);
    UBYTE *end=src->buffer+src->length;
    UBYTE *line_start;
-   USHORT list_state=0;  /* 0=none, 1=unordered, 2=ordered */
    static BOOL in_fenced_code=FALSE;  /* Track fenced code block state */
    static BOOL in_paragraph=FALSE;  /* Track if we're inside a paragraph */
+   static struct Document *state_owner = NULL;
+   static USHORT list_state = 0;  /* 0=none, 1=unordered, 2=ordered */
    struct Tagattr *ta;
    
-   if((*srcpos)==0)
-   {  while(p<end && !*p) p++;
+   if(state_owner != doc || (*srcpos)==0)
+   { state_owner = doc;
+     list_state = 0;
+     while(p<end && !*p) p++;
       *srcpos=p-src->buffer;
       NEWLIST(&attrs);
       nextattr=0;
@@ -771,12 +778,12 @@ BOOL Parsemarkdown(struct Document *doc,struct Buffer *src,BOOL eof,long *srcpos
             NEWLIST(&attrs);
             nextattr=0;
             doc->args.length=0;
-            ta=Nextattr(doc);
+            GETATTR(doc, ta);
             ta->attr=TAGATTR_TEXT;
-            if(!Addtobuffer(&doc->args,line,line_length)) return FALSE;
-            ta->length=line_length;
+            /* Escape fenced code text */
+            EscapeHtmlEntities(doc,line,line_length);
             if(!Addtobuffer(&doc->args,"\n",1)) return FALSE;
-            ta->length++;
+            ta->length=doc->args.length-ta->valuepos;
             Processhtml(doc,MARKUP_TEXT,attrs.first);
          }
          else if(!is_empty_line)
