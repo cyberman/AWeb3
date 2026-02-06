@@ -16,6 +16,26 @@ Key to our approach is ensuring every project can be built with the same common 
 
 The original authors of the *AWeb* software are not affiliated with the amigazen project. This software is redistributed on terms described in the documentation, particularly the file LICENSE or LICENSE.md
 
+## Development status (where to start)
+
+This repository contains both the original AWeb 3.4 APL open source baseline and the
+ongoing AWeb 3.6 alpha work.
+
+- **Stable / baseline:** the `main` branch tracks the original **AWeb 3.4** source baseline.
+- **Current 3.6 alpha sources:** the latest **AWeb 3.6 alpha** sources are published as tags
+  (e.g. `AWeb3.6aX`). If you want the newest 3.6 code, check out the newest 3.6 alpha tag.
+
+Helpful links:
+- https://github.com/amigazen/AWeb3/releases
+- https://github.com/amigazen/AWeb3/tags
+
+Example:
+```sh
+git clone https://github.com/amigazen/AWeb3.git
+cd AWeb3
+git checkout AWeb3.6a6
+```
+
 Our philosophy is based on openness:
 
 *Open* to anyone and everyone	- *Open* source and free for all	- *Open* your mind and create!
