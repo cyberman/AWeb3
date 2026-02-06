@@ -22,6 +22,10 @@ Our philosophy is based on openness:
 
 PRs for all of our projects are gratefully received at [GitHub](https://github.com/amigazen/). While our focus now is on classic 68k software, we do intend that all amigazen project releases can be ported to other Amiga-like systems including AROS and MorphOS where feasible.
 
+## Developer documentation
+- AWeb API / classes index: [Source/AWebApiAPL/classes/index.html](Source/AWebApiAPL/classes/index.html)
+- AWeb API ReadMe: [Source/AWebApiAPL/ReadMe](Source/AWebApiAPL/ReadMe)
+
 ## About AWeb 3
 
 AWeb is one of the most sophisticated web browsers (for its time) ever released on the Amiga platform. The original author, Yvon Rozijn, kindly made AWeb open source under the AWeb Public License. 
