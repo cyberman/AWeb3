@@ -27,6 +27,56 @@
 #include "task.h"
 #include "awebtcp.h"
 #include <exec/resident.h>
+#include <proto/utility.h>
+#include <stdarg.h>
+
+struct BoundedFmt
+{
+   UBYTE *buf;
+   long size;
+   long len;
+};
+
+static void PutChBounded(UBYTE ch, APTR data)
+{
+   struct BoundedFmt *bf = (struct BoundedFmt *)data;
+   if(!bf || !bf->buf || bf->size <= 0) return;
+
+   /* Leave room for NUL */
+   if(bf->len < bf->size - 1)
+   {
+      bf->buf[bf->len++] = ch;
+      bf->buf[bf->len] = '\0';
+   }
+}
+
+static long BVSNPrintf(UBYTE *dst, long dstsize, const UBYTE *fmt, va_list ap)
+{
+   struct BoundedFmt bf;
+
+   if(!dst || dstsize <= 0) return 0;
+   dst[0] = '\0';
+
+   bf.buf  = dst;
+   bf.size = dstsize;
+   bf.len  = 0;
+
+   VNewRawDoFmt((STRPTR)fmt, PutChBounded, (APTR)&bf, ap);
+
+   return bf.len;
+}
+
+static long BSNPrintf(UBYTE *dst, long dstsize, const UBYTE *fmt, ...)
+{
+   va_list ap;
+   long n;
+
+   va_start(ap, fmt);
+   n = BVSNPrintf(dst, dstsize, fmt, ap);
+   va_end(ap);
+
+   return n;
+}
 
 #ifndef LOCALONLY
 
@@ -276,8 +326,8 @@ static void Builddir(struct Fetchdriver *fd,struct GResponse *resp,long read)
    long length=0;
    if(!Addtobuffer(&resp->buf,fd->block,read)) return;
    if(!resp->headerdone)
-   {  sprintf(fd->block,"<html><h1>%s</h1>",AWEBSTR(MSG_AWEB_GOPHERMENU));
-      length=strlen(fd->block);
+   {  length = BSNPrintf(fd->block, fd->blocksize,
+        "<html><h1>%s</h1>", AWEBSTR(MSG_AWEB_GOPHERMENU));
       resp->headerdone=TRUE;
    }
    for(;;)
@@ -315,15 +365,22 @@ static void Builddir(struct Fetchdriver *fd,struct GResponse *resp,long read)
          default: icon=NULL;
       }
       if(icon)
-      {  length+=sprintf(fd->block+length,
-            "<BR>%s <A HREF=\"gopher://%s:%s/%c%s\">%s</A>",
-            icon,host,hport,type,selector,descr);
-         if(length>INPUTBLOCKSIZE-1000)
+      {
+         /* Flush BEFORE appending, so we never write past fd->blocksize */
+         if(length > fd->blocksize - 1000)
          {  Updatetaskattrs(
-               AOURL_Data,fd->block,
-               AOURL_Datalength,length,
-               TAG_END);
-            length=0;
+              AOURL_Data,fd->block,
+              AOURL_Datalength,length,
+              TAG_END);
+            length = 0;
+            fd->block[0] = '\0';
+         }
+
+         /* Bounded append */
+         if(length < fd->blocksize)
+         {  length += BSNPrintf(fd->block + length, fd->blocksize - length,
+              "<BR>%s <A HREF=\"gopher://%s:%s/%c%s\">%s</A>",
+              icon,host,hport,type,selector,descr);
          }
       }
       p++;
@@ -349,14 +406,27 @@ static void Deleteperiods(struct Fetchdriver *fd,struct GResponse *resp,long rea
       begin=p;
       if(!(p=Findeol(p,end))) break;
       p++;
-      memmove(fd->block+length,begin,p-begin);
-      length+=p-begin;
-      if(length>INPUTBLOCKSIZE-1000)
-      {  Updatetaskattrs(
-            AOURL_Data,fd->block,
-            AOURL_Datalength,length,
-            TAG_END);
-         length=0;
+      {
+          long chunk = p - begin;
+
+          /* Flush BEFORE copying */
+          if(length > fd->blocksize - 1000)
+          {  Updatetaskattrs(
+                AOURL_Data,fd->block,
+                AOURL_Datalength,length,
+                TAG_END);
+             length = 0;
+          }
+
+          /* Bounded copy */
+          if(length < fd->blocksize)
+          {  long space = fd->blocksize - length;
+                if(chunk > space) chunk = space;
+                if(chunk > 0)
+                {  memmove(fd->block + length, begin, chunk);
+                   length += chunk;
+                }
+          }
       }
       Deleteinbuffer(&resp->buf,0,p-resp->buf.buffer);
    }
@@ -370,8 +440,8 @@ static void Deleteperiods(struct Fetchdriver *fd,struct GResponse *resp,long rea
 
 static void Makeindex(struct Fetchdriver *fd)
 {  long length;
-   sprintf(fd->block,"<html><h1>%s</h1><isindex>",AWEBSTR(MSG_AWEB_GOPHERINDEX));
-   length=strlen(fd->block);
+   length = BSNPrintf(fd->block, fd->blocksize,
+      "<html><h1>%s</h1><isindex>", AWEBSTR(MSG_AWEB_GOPHERINDEX));
    Updatetaskattrs(
       AOURL_Data,fd->block,
       AOURL_Datalength,length,
@@ -400,7 +470,7 @@ __saveds __asm void Fetchdrivertask(register __a0 struct Fetchdriver *fd)
                {  Updatetaskattrs(AOURL_Netstatus,NWS_CONNECT,TAG_END);
                   Tcpmessage(fd,TCPMSG_CONNECT,"Gopher",hent->h_name);
                   if(!a_connect(sock,hent,ha.port,SocketBase))
-                  {  length=sprintf(fd->block,"%s\r\n",ha.selector);
+                  {  length = BSNPrintf(fd->block, fd->blocksize, "%s\r\n", ha.selector);
                      result=(a_send(sock,fd->block,length,0,SocketBase)==length);
                      if(result)
                      {  Updatetaskattrs(AOURL_Netstatus,NWS_WAIT,TAG_END);
