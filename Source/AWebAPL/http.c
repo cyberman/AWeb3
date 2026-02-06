@@ -44,6 +44,8 @@ struct Httpinfo
    UBYTE *hostname;           /* Host name to match authorization for */
    UBYTE *abspath;            /* Abs path, or full url, to use in GET request */
    UBYTE *boundary;           /* Multipart boundary including leading "--" */
+   UBYTE *bdcopy;             /* Reusable boundary work buffer */
+   long bdcopysize;           /* Allocated size of bdcopy */
    struct Fetchdriver *fd;
    struct Library *socketbase;
    long sock;
@@ -629,17 +631,30 @@ static BOOL Readpartheaders(struct Httpinfo *hi)
 /* Read data and pass to main task. Returns FALSE if error or connection eof, TRUE if
  * multipart boundary found. */
 static BOOL Readdata(struct Httpinfo *hi)
-{  UBYTE *bdcopy=NULL;
-   long bdlength=0,blocklength;
+{  long bdlength=0,blocklength;
    BOOL result=FALSE,boundary,partial,eof;
    if(hi->boundary)
    {  bdlength=strlen(hi->boundary);
-      bdcopy=ALLOCTYPE(UBYTE,bdlength+1,0);
+      if(!hi->bdcopy || hi->bdcopysize < bdlength+1)
+      {  UBYTE *newbuf = ALLOCTYPE(UBYTE, bdlength+1, 0);
+         if(newbuf)
+         {  if(hi->bdcopy) FREE(hi->bdcopy);
+            hi->bdcopy = newbuf;
+            hi->bdcopysize = bdlength+1;
+         }
+         else
+         {  /* Allocation failed: disable boundary scratch buffer to avoid overflow */
+            if(hi->bdcopy) FREE(hi->bdcopy);
+              hi->bdcopy = NULL;
+              hi->bdcopysize = 0;
+         }
+      }
    }
+
    for(;;)
    {  if(hi->blocklength)
       {  boundary=partial=eof=FALSE;
-         if(bdcopy)
+         if(hi->bdcopy)
          {  /* Look for [CR]LF--<boundary>[--][CR]LF or any possible part thereof. */
             UBYTE *p=hi->fd->block,*end=p+hi->blocklength;
             for(;;)
@@ -655,11 +670,11 @@ static BOOL Readdata(struct Httpinfo *hi)
                {  if(*p=='-')
                   {  /* Create a copy of hi->boundary, with what we have
                       * in the block, copied over. */
-                     strcpy(bdcopy,hi->boundary);
-                     strncpy(bdcopy,p,MIN(bdlength,end-p));
+                     strcpy(hi->bdcopy,hi->boundary);
+                     strncpy(hi->bdcopy,p,MIN(bdlength,end-p));
                      /* If the result is equal to the boundary, we have a (at least
                       * partial possible) boundary. */
-                     if(STREQUAL(bdcopy,hi->boundary))
+                     if(STREQUAL(hi->bdcopy,hi->boundary))
                      {  /* Now check if it's complete and followed by [CR]LF. */
                         p+=bdlength;
                         if(p<end && *p=='-') p++;
@@ -694,7 +709,6 @@ static BOOL Readdata(struct Httpinfo *hi)
       }
       if(!Readblock(hi)) break;
    }
-   if(bdcopy) FREE(bdcopy);
    return result;
 }
 
@@ -1193,9 +1207,11 @@ void Httptask(struct Fetchdriver *fd)
    if(hi.hostport) FREE(hi.hostport);
    if(hi.abspath) FREE(hi.abspath);
    if(hi.hostname) FREE(hi.hostname);
+   if(hi.boundary) FREE(hi.boundary);
    if(hi.auth) Freeauthorize(hi.auth);
    if(hi.prxauth) Freeauthorize(hi.prxauth);
    if(hi.movedtourl) FREE(hi.movedtourl);
+   if(hi.bdcopy) FREE(hi.bdcopy);
    Updatetaskattrs(AOTSK_Async,TRUE,
       AOURL_Eof,TRUE,
       AOURL_Terminate,TRUE,
