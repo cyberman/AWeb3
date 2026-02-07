@@ -36,7 +36,7 @@ char version[]="\0$VER:AWebJS " AWEBVERSION " " __AMIGADATE__;
 __near long __stack=16348;
 
 static void *AWebJSBase;
-// Library base pointers are now provided by proto headers
+/* Library base pointers are now provided by proto headers */
 
 /* Standard I/O */
 static __saveds __asm void aWrite(register __a0 struct Jcontext *jc)

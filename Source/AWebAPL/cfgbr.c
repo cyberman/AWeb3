@@ -1368,7 +1368,7 @@ BOOL Openbrowser(void)
             WA_SizeGadget,TRUE,
             WA_Activate,TRUE,
             WA_IDCMP,IDCMP_RAWKEY|IDCMP_MENUPICK,
-//            WA_SimpleRefresh,TRUE,
+/*            WA_SimpleRefresh,TRUE, */
             WA_PubScreen,pubscreen,
             setprefs.brww?TAG_IGNORE:WINDOW_Position,WPOS_CENTERSCREEN,
             WINDOW_Layout,toplayout=VLayoutObject,
@@ -1391,7 +1391,7 @@ BOOL Openbrowser(void)
                      PAGE_Add,Makemimepage(),
                   EndMember,
                EndMember,
-               //--------------------------------- Save, Use, Cancel
+               /*--------------------------------- Save, Use, Cancel */
                StartMember,HLayoutObject,
                   LAYOUT_BevelStyle,BVS_SBAR_VERT,
                   LAYOUT_SpaceOuter,TRUE,

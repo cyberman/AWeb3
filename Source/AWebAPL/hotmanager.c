@@ -133,11 +133,11 @@ static struct DrawList hidedata[]=
 
 /*-----------------------------------------------------------------------*/
 
-// Add prototypes for memory allocation if needed
+/* Add prototypes for memory allocation if needed */
 extern APTR Allocmem(ULONG size, ULONG flags);
 extern void Freemem(APTR mem);
 
-// Local static declarations to avoid header conflicts
+/* Local static declarations to avoid header conflicts */
 static struct Node *Getnode(struct List *list, long n);
 static void Freechooserlist(struct List *list);
 static void Makechooserlist(struct List *list, UBYTE **labels);

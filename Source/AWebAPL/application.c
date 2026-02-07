@@ -1247,16 +1247,16 @@ static struct Application *Newapplication(struct Amset *ams)
          POINTERA_WordWidth,1,
          POINTERA_XOffset,-resizehorhot[0],
          POINTERA_YOffset,-resizehorhot[1],
-//         POINTERA_XResolution,POINTERXRESN_SCREENRES,
-//         POINTERA_YResolution,POINTERYRESN_SCREENRESASPECT,
+/*         POINTERA_XResolution,POINTERXRESN_SCREENRES, */
+/*         POINTERA_YResolution,POINTERYRESN_SCREENRESASPECT, */
          TAG_END);
       app->resizevertobj=NewObject(NULL,"pointerclass",
          POINTERA_BitMap,&resizevertbmap,
          POINTERA_WordWidth,1,
          POINTERA_XOffset,-resizeverthot[0],
          POINTERA_YOffset,-resizeverthot[1],
-//         POINTERA_XResolution,POINTERXRESN_SCREENRES,
-//         POINTERA_YResolution,POINTERYRESN_SCREENRESASPECT,
+/*         POINTERA_XResolution,POINTERXRESN_SCREENRES, */
+/*         POINTERA_YResolution,POINTERYRESN_SCREENRESASPECT, */
          TAG_END);
       app->handobj=NewObject(NULL,"pointerclass",
          POINTERA_BitMap,&handbmap,

@@ -244,7 +244,7 @@ printf("fh=%x\n",fil->fh);
       else
       {  fil->fh=Open(fil->name,MODE_NEWFILE);
          if(fil->fh) Close(fil->fh);
-         fil->fh=Open(fil->name,MODE_OLDFILE);  // Open in shared mode
+         fil->fh=Open(fil->name,MODE_OLDFILE);  /* Open in shared mode */
       }
       SetVBuf(fil->fh,NULL,BUF_FULL,2048);
       fil->flags&=~FILF_NEW;

@@ -50,7 +50,7 @@ static struct MsgPort *ttport;
 
 /*-----------------------------------------------------------------------*/
 
-// Copy text to ttbuf, wordwrapping as necessary.
+/* Copy text to ttbuf, wordwrapping as necessary. */
 static void Wordwrap(UBYTE *text)
 {  UBYTE *p;
    long line,lastsp;
@@ -80,7 +80,7 @@ static void Wordwrap(UBYTE *text)
    Addtobuffer(&ttbuf,"",1);
 }
 
-// Close tooltip window
+/* Close tooltip window */
 static void Closetooltip(void)
 {  if(ttwinobject)
    {  DisposeObject(ttwinobject);
@@ -95,13 +95,13 @@ static void Closetooltip(void)
    tttick=FALSE;
 }
 
-// Check the tooltip message queue
+/* Check the tooltip message queue */
 static void Processtooltip(void)
 {  ULONG result;
    while((result=RA_HandleInput(ttwinobject,NULL))!=WMHI_LASTMSG);
 }
 
-// Check if mouse is at same position for 0.5 seconds. If so, open tooltip.
+/* Check if mouse is at same position for 0.5 seconds. If so, open tooltip. */
 static void Ticktooltip(long x,long y)
 {  struct Screen *screen;
    struct DrawInfo *dri;
@@ -174,8 +174,8 @@ static void Ticktooltip(long x,long y)
    }
 }
 
-// Check if mouse is over tooltip window. If so, close tooltip and set ticking again.
-// But allow first time overlap when the tooltip window is opened.
+/* Check if mouse is over tooltip window. If so, close tooltip and set ticking again. */
+/* But allow first time overlap when the tooltip window is opened. */
 static void Checktooltip(long x,long y)
 {  if(ttwindow)
    {  if(x>=ttwindow->LeftEdge && x<ttwindow->LeftEdge+ttwindow->Width

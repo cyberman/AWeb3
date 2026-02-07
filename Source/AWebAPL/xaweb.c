@@ -155,7 +155,7 @@ static void Docommand(struct Fetchdriver *fd,UBYTE *cmd,BOOL arexx)
    ObtainSemaphore(&prefssema);
    commands=prefs.commands || (fd->flags&FDVF_COMMANDS);
    ReleaseSemaphore(&prefssema);
-//if(!fd->referer) fd->referer="file://";
+/*if(!fd->referer) fd->referer="file://"; */
    if(fd->referer
    && (STRNIEQUAL(fd->referer,"file://",7) || STRNIEQUAL(fd->referer,"x-aweb:",7))
    && (commands || Cmdwarnok(cmd,arexx)))

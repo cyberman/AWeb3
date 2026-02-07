@@ -337,7 +337,7 @@ struct Jobject *Newobject(struct Jcontext *jc)
       else
       {  ADDTAIL(&jc->objects,jo);
       }
-//debug(" NEW object %08lx\n",jo);
+/*debug(" NEW object %08lx\n",jo); */
    }
    return jo;
 }
@@ -355,7 +355,7 @@ void Disposeobject(struct Jobject *jo)
       if(jo->function)
       {  Jdispose(jo->function);
       }
-//debug ("FREE object %08lx\n",jo);
+/*debug ("FREE object %08lx\n",jo); */
       FREE(jo);
    }
 }

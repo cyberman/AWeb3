@@ -122,7 +122,7 @@ static UBYTE *useragentspoof="User-Agent: %s; (Spoofed by Amiga-AWeb/3.6; AmigaO
 
 static UBYTE *fixedheaders=
    "Accept: */*;q=1\r\nAccept-Encoding: gzip\r\n";
-//   "Accept: text/html;level=3, text/html;version=3.0, */*;q=1\r\n";
+/*   "Accept: text/html;level=3, text/html;version=3.0, */*;q=1\r\n"; */
 
 /* HTTP/1.1 specific headers */
 static UBYTE *connection="Connection: close\r\n";
@@ -1519,8 +1519,8 @@ static BOOL Readdata(struct Httpinfo *hi)
       {  debug_printf("DEBUG: Readdata loop: Processing data block, length=%ld, flags=0x%04X, parttype='%s'\n", 
                 hi->blocklength, hi->flags, hi->parttype[0] ? (char *)hi->parttype : "(none)");
          
-         // first block of the encoded data
-         // allocate buffer and initialize zlib
+         /* first block of the encoded data */
+         /* allocate buffer and initialize zlib */
          if((hi->flags & HTTPIF_GZIPENCODED) && !(hi->flags & HTTPIF_GZIPDECODING))
          {  int i;
             UBYTE *p;
@@ -2374,7 +2374,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                break;
             }
             
-            err=inflateInit2(&d_stream,16+15); // set zlib to expect 'gzip-header'
+            err=inflateInit2(&d_stream,16+15); /* set zlib to expect 'gzip-header' */
             if(err!=Z_OK) {
                debug_printf("DEBUG: zlib Init Fail: %d\n", err);
                if(gzipbuffer) FREE(gzipbuffer);
@@ -3782,7 +3782,7 @@ static BOOL Readdata(struct Httpinfo *hi)
             }
             hi->flags &= ~HTTPIF_GZIPENCODED;
             hi->flags &= ~HTTPIF_GZIPDECODING;
-            gzip_end=1; // Success break!
+            gzip_end=1; /* Success break! */
          }
          else if(err!=Z_OK)
          {  if(err==Z_DATA_ERROR) printf("zlib DATA ERROR - avail_in=%lu, avail_out=%lu\n", d_stream.avail_in, d_stream.avail_out);
@@ -4179,7 +4179,7 @@ static BOOL Readdata(struct Httpinfo *hi)
                } else {
                   debug_printf("DEBUG: End of gzip data stream\n");
                }
-               gzip_end=1; // Finished or Error
+               gzip_end=1; /* Finished or Error */
             }
             else
             {  d_stream.next_in=gzipbuffer;

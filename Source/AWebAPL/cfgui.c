@@ -1826,7 +1826,7 @@ BOOL Opengui(void)
                      PAGE_Add,Makenavspage(),
                   EndMember,
                EndMember,
-               //--------------------------------- Save, Use, Cancel
+               /*--------------------------------- Save, Use, Cancel */
                StartMember,HLayoutObject,
                   LAYOUT_BevelStyle,BVS_SBAR_VERT,
                   LAYOUT_SpaceOuter,TRUE,

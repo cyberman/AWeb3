@@ -312,7 +312,7 @@ static ULONG Dispatch(struct Aobject *ao,struct Amessage *amsg)
    return result;
 }
 
-// Emergency dispatcher in case of stack overflow
+/* Emergency dispatcher in case of stack overflow */
 static ULONG Emergencydisp(struct Amessage *amsg)
 {  switch(amsg->method)
    {  case AOM_LAYOUT:

@@ -121,7 +121,7 @@ static void __saveds Subtask(void)
       task->state=TSKS_DEAD;
       ReleaseSemaphore(&task->sema);
       DeleteMsgPort(port);
-//KPrintF("%08lx - Subtask ends\n",task);
+/*KPrintF("%08lx - Subtask ends\n",task); */
    }
    else
    {  task->state=TSKS_DEAD;
@@ -135,9 +135,9 @@ ULONG Waittask(ULONG signals)
    struct Atask *task=FindTask(NULL)->tc_UserData;
    if(!task->subport->lh_Head->ln_Succ)
    {  
-//KPrintF("%08lx - Wait for %08lx\n",task,signals);
+/*KPrintF("%08lx - Wait for %08lx\n",task,signals); */
       got=Wait(signals|(1<<task->subport->mp_SigBit)|SIGBREAKF_CTRL_C);
-//KPrintF("%08lx - Wait for %08lx got %08lx\n",task,signals,got);
+/*KPrintF("%08lx - Wait for %08lx got %08lx\n",task,signals,got); */
       if(got&SIGBREAKF_CTRL_C)
       {  /* Reset Ctrl-C flag after Wait() has cleared it... */
          SetSignal(SIGBREAKF_CTRL_C,SIGBREAKF_CTRL_C);
@@ -221,7 +221,7 @@ BOOL Obtaintasksemaphore(struct SignalSemaphore *sema)
    struct MsgPort *port=CreateMsgPort();
    if(port)
    {  smsg.mn_ReplyPort=port;
-//KPrintF("%08lx - Obtaintasksemaphore %08lx\n",FindTask(NULL)->tc_UserData,sema);
+/*KPrintF("%08lx - Obtaintasksemaphore %08lx\n",FindTask(NULL)->tc_UserData,sema); */
       Procure(sema,&smsg);
       for(;;)
       {  /* If break signal received, cancel the semaphore request. The message
@@ -229,7 +229,7 @@ BOOL Obtaintasksemaphore(struct SignalSemaphore *sema)
           * Reset the break signal if it was cleared by Wait(). */
          if(mask&SIGBREAKF_CTRL_C)
          {  Vacate(sema,&smsg);
-//KPrintF("%08lx - Obtaintasksemaphore %08lx got Ctrl-C\n",FindTask(NULL)->tc_UserData,sema);
+/*KPrintF("%08lx - Obtaintasksemaphore %08lx got Ctrl-C\n",FindTask(NULL)->tc_UserData,sema); */
             SetSignal(SIGBREAKF_CTRL_C,SIGBREAKF_CTRL_C);
          }
          /* See if our message has replied yet. If so, break the wait loop. */
@@ -239,7 +239,7 @@ BOOL Obtaintasksemaphore(struct SignalSemaphore *sema)
       }
    }
    if(port) DeleteMsgPort(port);
-//KPrintF("%08lx - Obtaintasksemaphore %08lx continue\n",FindTask(NULL)->tc_UserData,sema);
+/*KPrintF("%08lx - Obtaintasksemaphore %08lx continue\n",FindTask(NULL)->tc_UserData,sema); */
    return BOOLVAL(smsg.ssm_Semaphore);
 }
 
@@ -272,11 +272,11 @@ long Updatetask(struct Amessage *amsg)
          atm->task=task;
          atm->flags=TSMF_UPDATE;
          ObtainSemaphore(&portsema);
-//KPrintF("%08lx - Updatetask msg=%08lx\n",task,atm);
+/*KPrintF("%08lx - Updatetask msg=%08lx\n",task,atm); */
          PutMsg(taskport,atm);
          ReleaseSemaphore(&portsema);
          WaitPort(task->updport);
-//KPrintF("%08lx - Continues  msg=%08lx\n",task,atm);
+/*KPrintF("%08lx - Continues  msg=%08lx\n",task,atm); */
          atm=(struct Ataskmsg *)GetMsg(task->updport);
          result=atm->result;
          FREE(atm);
@@ -303,13 +303,13 @@ long UpdatetaskattrsA(struct TagItem *tags)
          atm->task=task;
          atm->flags=TSMF_UPDATE|TSMF_UPDATEATTRS;
          if(async) atm->flags|=TSMF_ASYNC;
-//KPrintF("%08lx - Updatetaskattrs msg=%08lx async=%d\n",task,atm,async);
+/*KPrintF("%08lx - Updatetaskattrs msg=%08lx async=%d\n",task,atm,async); */
          ObtainSemaphore(&portsema);
          PutMsg(taskport,atm);
          ReleaseSemaphore(&portsema);
          if(!async)
          {  WaitPort(task->updport);
-//KPrintF("%08lx - Continues  msg=%08lx\n",task,atm);
+/*KPrintF("%08lx - Continues  msg=%08lx\n",task,atm); */
             atm=(struct Ataskmsg *)GetMsg(task->updport);
             result=atm->result;
             FREE(atm);
@@ -340,7 +340,7 @@ static void Processreply(struct Ataskmsg *atm)
 {  struct Atask *task;
    if(atm)
    {  task=atm->task;
-//KPrintF("%08lx * Processreply msg=%08lx\n",task,atm);
+/*KPrintF("%08lx * Processreply msg=%08lx\n",task,atm); */
       if(atm->flags&TSMF_UPDATE)
       {  if(task->target)
          {  task->flags|=TSKF_PROCESSING;
@@ -363,7 +363,7 @@ static void Processreply(struct Ataskmsg *atm)
          }
          else
          {  
-//KPrintF("%08lx * Replied      msg=%08lx\n",task,atm);
+/*KPrintF("%08lx * Replied      msg=%08lx\n",task,atm); */
             ReplyMsg(atm);
          }
       }
@@ -474,11 +474,11 @@ static void Starttask(struct Atask *task)
 static void Stoptask(struct Atask *task,BOOL async)
 {  struct SemaphoreMessage smsg={0},*msg;
    ULONG mask;
-//KPrintF("%08lx * Stoptask\n",task);
+/*KPrintF("%08lx * Stoptask\n",task); */
    ObtainSemaphore(&task->sema);
    if(task->state!=TSKS_DEAD && task->state!=TSKS_NEW)
    {  
-//KPrintF("%08lx * Stoptask Signal Ctrl-C\n",task);
+/*KPrintF("%08lx * Stoptask Signal Ctrl-C\n",task); */
       Signal(task->proc,SIGBREAKF_CTRL_C);
    }
    ReleaseSemaphore(&task->sema);
@@ -491,8 +491,8 @@ static void Stoptask(struct Atask *task,BOOL async)
       Procure(&task->runsema,&smsg);
       for(;;)
       {  mask=Wait((1<<taskport->mp_SigBit)|(1<<semaport->mp_SigBit));
-//KPrintF("%08lx * Stoptask mask=%08lx (taskport=%08lx semaport=%08lx)\n",task,mask,
-//1<<taskport->mp_SigBit,1<<semaport->mp_SigBit);
+/*KPrintF("%08lx * Stoptask mask=%08lx (taskport=%08lx semaport=%08lx)\n",task,mask, */
+/*1<<taskport->mp_SigBit,1<<semaport->mp_SigBit); */
          if(mask&(1<<semaport->mp_SigBit))
          {  if((msg=(struct SemaphoreMessage *)GetMsg(semaport))
             && msg->ssm_Semaphore==&task->runsema)

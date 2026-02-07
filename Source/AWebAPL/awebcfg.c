@@ -23,12 +23,12 @@
 __near long __stack=8192;
 const char *stack_cookie = "$STACK: 8192";
 
-// Library base pointers - only declare those that don't have proto headers
-// Note: gradientslider.gadget doesn't have a proto file in the Amiga NDK
-// IntuitionBase, LocaleBase, GfxBase are provided by proto headers
+/* Library base pointers - only declare those that don't have proto headers */
+/* Note: gradientslider.gadget doesn't have a proto file in the Amiga NDK */
+/* IntuitionBase, LocaleBase, GfxBase are provided by proto headers */
 struct Library *IconBase,*GadToolsBase,*AslBase,*ColorWheelBase,*GradientSliderBase;
 
-// Class library base pointers - these are provided by proto headers
+/* Class library base pointers - these are provided by proto headers */
 struct ClassLibrary *WindowBase,*LayoutBase,*ButtonBase,
    *ListBrowserBase,*ChooserBase,*IntegerBase,*SpaceBase,*CheckBoxBase,
    *StringBase,*LabelBase,*PaletteBase,*GlyphBase,*ClickTabBase;
@@ -319,7 +319,7 @@ void Makeclicktablist(struct List *list,UBYTE **labels)
    {  if(node=AllocClickTabNode(
          TNA_Text,labels[i],
          TNA_Number,i,
-//         TNA_Enabled,TRUE,
+/*         TNA_Enabled,TRUE, */
          TNA_Spacing,4,
          TAG_END))
          AddTail(list,node);

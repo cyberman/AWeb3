@@ -288,7 +288,7 @@ static void Setpagegadgetattrs(struct Gadget *gad,void *page,struct Window *win,
 static void Editlbnode(struct Gadget *gad,struct Window *win,struct Requester *req,
    struct Node *node,...)
 {  if(DoGadgetMethod(gad,win,req,LBM_EDITNODE,NULL,node,VARARG(node)))
-   {  // RefreshGList(gad,win,req,1);
+   {  /* RefreshGList(gad,win,req,1); */
    }
 }
 

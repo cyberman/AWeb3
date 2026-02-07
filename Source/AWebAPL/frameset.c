@@ -119,7 +119,7 @@ static void Parsespec(struct Frameset *frs,UBYTE *spec)
       }
       if(*p) p++;
    }
-// if(nrc>1) frs->flags|=FRSF_SENSIBLE;
+/* if(nrc>1) frs->flags|=FRSF_SENSIBLE; */
    if(nrc>0) frs->flags|=FRSF_SENSIBLE;
 }
 

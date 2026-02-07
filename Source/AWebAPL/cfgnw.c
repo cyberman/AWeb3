@@ -1928,7 +1928,7 @@ BOOL Opennetwork(void)
                      PAGE_Add,Makemailpage(),
                   EndMember,
                EndMember,
-               //--------------------------------- Save, Use, Cancel
+               /*--------------------------------- Save, Use, Cancel */
                StartMember,HLayoutObject,
                   LAYOUT_BevelStyle,BVS_SBAR_VERT,
                   LAYOUT_SpaceOuter,TRUE,

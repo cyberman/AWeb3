@@ -104,7 +104,7 @@ static long Transparentgif(struct Imgprocess *imp)
                   break;
                }
                if(buf[0]==0x21)
-               {  pos+=2; // 3+buf[2];
+               {  pos+=2; /* 3+buf[2]; */
                   do
                   {  Seek(fh,pos,OFFSET_BEGINNING);
                      if(Read(fh,buf,1)!=1) buf[0]=0;

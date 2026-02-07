@@ -588,7 +588,7 @@ static long Handlekeytext(struct Textarea *txa,struct Coords *coo,
             }
             else if(buffer[0]==0x19)  /* Ctrl-Y */
             {  long start,length;
-//Unclipcoords(coo);coo=NULL; /* Prevent CPR lockup */
+/*Unclipcoords(coo);coo=NULL; /* Prevent CPR lockup */ */
                start=txa->pos;
                length=txa->length;
                /* Remove newline after line too. Except for last line,

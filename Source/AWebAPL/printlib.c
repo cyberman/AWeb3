@@ -28,7 +28,7 @@
 #include <proto/intuition.h>
 
 static void *AwebPluginBase;
-// Library base pointers are now provided by proto headers
+/* Library base pointers are now provided by proto headers */
 
 /*-----------------------------------------------------------------------*/
 /* AWebLib module startup */

@@ -199,7 +199,7 @@ static long Getelement(struct Element *elt,struct Amset *ams)
 static long Measureelement(struct Element *elt,struct Ammeasure *amm)
 {  if(amm->ammr)
    {  amm->ammr->width=elt->aow;
-//      if(elt->eltflags&ELTF_NOBR)
+/*      if(elt->eltflags&ELTF_NOBR) */
       if(elt->eltflags&(ELTF_NOBR|ELTF_PREFORMAT))
       {  amm->ammr->minwidth=amm->addwidth+elt->aow;
          amm->ammr->addwidth=amm->ammr->minwidth;

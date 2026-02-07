@@ -299,7 +299,7 @@ static void Methodopen(struct Jcontext *jc)
          Jasgobject(jc,NULL,nfr->jobject);
       }
       else if(nobanners)
-      {  // Don't show errors resulting from this function failing
+      {  /* Don't show errors resulting from this function failing */
          Jerrors(jc,prefs.jserrors,JERRORS_OFF,prefs.jswatch);
       }
       else if(njo=Jopenwindow(jc,fr->jobject,urlname,name,spec,fr->win))
@@ -1135,7 +1135,7 @@ BOOL Runjavascriptwith(struct Frame *fr,UBYTE *script,struct Jobject **jthisp,
 #ifndef DEMOVERSION
          Jdebug(jc,Agetattr(fr->win,AOWIN_Jsdebug));
 #endif
-// Jdumpobjects(jc);
+/* Jdumpobjects(jc); */
          result=Runjprogram(jc,fr->jobject,script,jthis,jgscope,fr->jprotect,(ULONG)fr);
          timer(clock);
          if(clock[0]>garbagetime)

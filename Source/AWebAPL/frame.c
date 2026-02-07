@@ -704,7 +704,7 @@ static void Updatecopy(struct Frame *fr,BOOL changed)
 {  UBYTE *fragment=NULL;
    long y=-1,left=fr->left,top=fr->top;
    BOOL moved;
-//printf("Updatecopy %08x\n",fr);
+/*printf("Updatecopy %08x\n",fr); */
    /* Don't attempt to layout when we are iconified. */
    if(!fr->win) return;
    if(changed)
@@ -960,7 +960,7 @@ static void Setnewwinhis(struct Frame *fr,void *whis,BOOL noreferer)
 /* Frame has been resized */
 static void Resizeframe(struct Frame *fr,long newaow,long newaoh)
 {  BOOL neww=(newaow!=fr->aow),newh=(newaoh!=fr->aoh);
-//printf("Resizeframe %08x w:%d->%d h:%d->%d\n",fr,fr->aow,newaow,fr->aoh,newaoh);
+/*printf("Resizeframe %08x w:%d->%d h:%d->%d\n",fr,fr->aow,newaow,fr->aoh,newaoh); */
    Busypointer(TRUE);
    fr->aow=newaow;
    fr->aoh=newaoh;
@@ -1895,7 +1895,7 @@ static long Layoutframe(struct Frame *fr,struct Amlayout *aml)
          if(fr->flags&FRMF_PIXELHEIGHT) newaoh=fr->height;
          else newaoh=fr->height*aml->height/100;
          if(newaoh<minh) newaoh=minh;
-//printf("Layoutframe %08x\n",fr);
+/*printf("Layoutframe %08x\n",fr); */
          fr->aox=aml->startx;
          fr->aoy=0;  /* For frameset compatibility */
          if(fr->aox+newaow>aml->width && !(aml->flags&AMLF_FORCE))

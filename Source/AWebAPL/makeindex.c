@@ -37,7 +37,7 @@
 #define ALLOCSTRUCT(s,n,f) ALLOCTYPE(struct s,n,f)
 #define FREE(p)            FreeVec(p)
 
-// Library base pointers are now provided by proto headers
+/* Library base pointers are now provided by proto headers */
 
 static void Writeindex(UBYTE t,UBYTE *line,long to)
 {  UBYTE buf[512];
