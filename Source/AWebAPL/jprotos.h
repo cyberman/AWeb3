@@ -21,23 +21,23 @@
 /*-- jslib --------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
 
-   // Duplicate string
+   /* Duplicate string */
 extern UBYTE *Jdupstr(UBYTE *str,long len,void *pool);
 
-   // Dynamic buffer, text is kept null-terminated
+   /* Dynamic buffer, text is kept null-terminated */
 extern struct Jbuffer *Newjbuffer(void *pool);
 extern void Freejbuffer(struct Jbuffer *jb);
 extern void Addtojbuffer(struct Jbuffer *jb,UBYTE *text,long length);
 
-   // Show error. Returns true if all errors are to be ignored cq debugger wanted.
-   // Set pos to <0 to show a runtime error requester.
+   /* Show error. Returns true if all errors are to be ignored cq debugger wanted. */
+   /* Set pos to <0 to show a runtime error requester. */
 extern BOOL Errorrequester(struct Jcontext *jc,long lnr,UBYTE *line,
    long pos,UBYTE *msg,UBYTE **args);
 
-   // Call feedback. Returns TRUE if continue, FALSE if break.
+   /* Call feedback. Returns TRUE if continue, FALSE if break. */
 extern BOOL Feedback(struct Jcontext *jc);
 
-   // Return TRUE if caller owns the active window
+   /* Return TRUE if caller owns the active window */
 extern BOOL Calleractive(void);
 
 /*-----------------------------------------------------------------------*/
@@ -46,16 +46,16 @@ extern BOOL Calleractive(void);
 
 extern void Initarray(struct Jcontext *jc);
 
-   // Create a new empty Array object, Useobject() it once.
+   /* Create a new empty Array object, Useobject() it once. */
 extern struct Jobject *Newarray(struct Jcontext *jc);
 
-   // Find the nth array element, or NULL
+   /* Find the nth array element, or NULL */
 extern struct Variable *Arrayelt(struct Jobject *jo,long n);
 
-   // Add an element to this array
+   /* Add an element to this array */
 extern struct Variable *Addarrayelt(struct Jcontext *jc,struct Jobject *jo);
 
-   // Tests if this object is an array
+   /* Tests if this object is an array */
 extern BOOL Isarray(struct Jobject *jo);
 
 /*-----------------------------------------------------------------------*/
@@ -64,33 +64,33 @@ extern BOOL Isarray(struct Jobject *jo);
 
 extern void Initboolean(struct Jcontext *jc);
 
-   // Create a new Boolean object, Useobject() it once.
+   /* Create a new Boolean object, Useobject() it once. */
 extern struct Jobject *Newboolean(struct Jcontext *jc,BOOL bvalue);
 
 /*-----------------------------------------------------------------------*/
 /*-- jcomp --------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
 
-   // Compile the source and construct an element tree
+   /* Compile the source and construct an element tree */
 extern void Jcompile(struct Jcontext *jc,UBYTE *source);
 
-   // Compile this source and make it into a function object.
+   /* Compile this source and make it into a function object. */
 struct Jobject *Jcompiletofunction(struct Jcontext *jc,UBYTE *source,UBYTE *name);
 
-   // Decompile the source
+   /* Decompile the source */
 extern struct Jbuffer *Jdecompile(struct Jcontext *jc,struct Element *elt);
 
-   // Dispose this element
+   /* Dispose this element */
 extern void Jdispose(struct Element *elt);
 
 /*-----------------------------------------------------------------------*/
 /*-- jdata --------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
 
-   // Call this property function
+   /* Call this property function */
 extern BOOL Callproperty(struct Jcontext *jc,struct Jobject *jo,UBYTE *name);
 
-   // Value processing
+   /* Value processing */
 extern void Clearvalue(struct Value *v);
 extern void Asgvalue(struct Value *to,struct Value *from);
 extern void Asgnumber(struct Value *to,UBYTE attr,double n);
@@ -99,41 +99,41 @@ extern void Asgstring(struct Value *to,UBYTE *s,void *pool);
 extern void Asgobject(struct Value *to,struct Jobject *jo);
 extern void Asgfunction(struct Value *to,struct Jobject *f,struct Jobject *fthis);
 
-   // WARNING: Tostring() cannot be called for ex->val directly.
+   /* WARNING: Tostring() cannot be called for ex->val directly. */
 extern void Tostring(struct Value *v,struct Jcontext *jc);
 extern void Tonumber(struct Value *v,struct Jcontext *jc);
 extern void Toboolean(struct Value *v,struct Jcontext *jc);
 extern void Toobject(struct Value *v,struct Jcontext *jc);
 extern void Tofunction(struct Value *v,struct Jcontext *jc);
 
-   // Default toString property function
+   /* Default toString property function */
 extern void Defaulttostring(struct Jcontext *jc);
 
-   // Variables
+   /* Variables */
 extern struct Variable *Newvar(UBYTE *name,void *pool);
 extern void Disposevar(struct Variable *var);
 
-   // Objects
+   /* Objects */
 extern struct Jobject *Newobject(struct Jcontext *jc);
 extern void Disposeobject(struct Jobject *jo);
 extern void Clearobject(struct Jobject *jo,UBYTE **except);
 extern struct Variable *Addproperty(struct Jobject *jo,UBYTE *name);
 extern struct Variable *Findproperty(struct Jobject *jo,UBYTE *name);
 
-   // Objhook for .prototype
+   /* Objhook for .prototype */
 extern BOOL Prototypeohook(struct Objhookdata *h);
 
-   // Variable hook for .prototype properties
+   /* Variable hook for .prototype properties */
 extern BOOL Protopropvhook(struct Varhookdata *h);
 
-   // General hook function for constants (that cannot change their value)
+   /* General hook function for constants (that cannot change their value) */
 extern BOOL Constantvhook(struct Varhookdata *h);
 
-   // Hook call functions
+   /* Hook call functions */
 extern BOOL Callvhook(struct Variable *var,struct Jcontext *jc,short code,struct Value *val);
 extern BOOL Callohook(struct Jobject *jo,struct Jcontext *jc,short code,UBYTE *name);
 
-   // Garbage collector
+   /* Garbage collector */
 extern void Keepobject(struct Jobject *jo,BOOL used);
 extern void Garbagecollect(struct Jcontext *jc);
 
@@ -145,65 +145,65 @@ extern void Dumpobjects(struct Jcontext *jc);
 
 extern void Initdate(struct Jcontext *jc);
 
-   // Get the current time in milliseconds
+   /* Get the current time in milliseconds */
 extern double Today(void);
 
 /*-----------------------------------------------------------------------*/
 /*-- jdebug -------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
 
-   // Start, stop the debugger
+   /* Start, stop the debugger */
 extern void Startdebugger(struct Jcontext *jc);
 extern void Stopdebugger(struct Jcontext *jc);
 
-   // Debug halt
+   /* Debug halt */
 extern void Setdebugger(struct Jcontext *jc,struct Element *elt);
 
 /*-----------------------------------------------------------------------*/
 /*-- jexe ---------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
 
-   // Jexecute a program
+   /* Jexecute a program */
 extern void Jexecute(struct Jcontext *jc,struct Jobject *jthis,struct Jobject **gwtab);
 
-   // Create a function object for this internal function.
-   // Varargs are argument names (UBYTE *) terminated by NULL.
+   /* Create a function object for this internal function. */
+   /* Varargs are argument names (UBYTE *) terminated by NULL. */
 extern struct Jobject *Internalfunction(struct Jcontext *jc,UBYTE *name,
    void (*code)(void *),...);
 extern struct Jobject *InternalfunctionA(struct Jcontext *jc,UBYTE *name,
    void (*code)(void *),UBYTE **args);
 
-   // Adds a function object to global variable list
+   /* Adds a function object to global variable list */
 extern void Addglobalfunction(struct Jcontext *jc,struct Jobject *f);
 
-   // Adds a function object to an object's properties
+   /* Adds a function object to an object's properties */
 extern struct Variable *Addinternalproperty(struct Jcontext *jc,
    struct Jobject *jo,struct Jobject *f);
 
-   // Adds the .prototype property to a function object
+   /* Adds the .prototype property to a function object */
 extern void Addprototype(struct Jcontext *jc,struct Jobject *jo);
 
-   // Add a function object to the object's prototype
+   /* Add a function object to the object's prototype */
 extern void Addtoprototype(struct Jcontext *jc,struct Jobject *jo,struct Jobject *f);
 
-   // Call this function without parameters with this object as "this"
+   /* Call this function without parameters with this object as "this" */
 extern void Callfunctionbody(struct Jcontext *jc,struct Elementfunc *func,
    struct Jobject *jthis);
 
-   // Call this function with supplied arguments (must be struct Value *, NULL terminated)
+   /* Call this function with supplied arguments (must be struct Value *, NULL terminated) */
 extern void Callfunctionargs(struct Jcontext *jc,struct Elementfunc *func,
    struct Jobject *jthis,...);
 
-   // Add .constructor, default .toString() and .prototype properties
+   /* Add .constructor, default .toString() and .prototype properties */
 extern void Initconstruct(struct Jcontext *jc,struct Jobject *jo,struct Jobject *fo);
 
-   // Evaluate this string
+   /* Evaluate this string */
 extern void Jeval(struct Jcontext *jc,UBYTE *s);
 
-   // Expand a Jcontext with run-time context
+   /* Expand a Jcontext with run-time context */
 extern BOOL Newexecute(struct Jcontext *jc);
 
-   // Free run-time context
+   /* Free run-time context */
 extern void Freeexecute(struct Jcontext *jc);
 
 /*-----------------------------------------------------------------------*/
@@ -222,36 +222,36 @@ extern void Initmath(struct Jcontext *jc);
 /*-- jparse -------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
 
-   // Extract the next token
+   /* Extract the next token */
 extern struct Token *Nexttoken(struct Parser *pa);
 
-   // Create a new parser
+   /* Create a new parser */
 extern void *Newparser(struct Jcontext *jc,UBYTE *source);
 extern void Freeparser(void *parser);
 
-   // Report error message. Total msg length must not exceed 127 characters.
+   /* Report error message. Total msg length must not exceed 127 characters. */
 extern void Errormsg(struct Parser *pa,UBYTE *msg,...);
 
-   // Return name of token
+   /* Return name of token */
 extern UBYTE *Tokenname(USHORT id);
 
-   // Get state ID, compare to see if parser has advanced.
+   /* Get state ID, compare to see if parser has advanced. */
 extern ULONG Parserstate(struct Parser *pa);
 
-   // Get current line number
+   /* Get current line number */
 extern long Plinenr(struct Parser *pa);
 
 /*-----------------------------------------------------------------------*/
 /*-- memory -------------------------------------------------------------*/
 /*-----------------------------------------------------------------------*/
 
-   // allocate in private pool. If pool==NULL, allocate unpooled
+   /* allocate in private pool. If pool==NULL, allocate unpooled */
 extern void *Pallocmem(long size,ULONG flags,void *pool);
 
-   // free memory, works for all pools and unpooled memory
+   /* free memory, works for all pools and unpooled memory */
 extern void Freemem(void *mem);
 
-   // get the pool used for a given memory block
+   /* get the pool used for a given memory block */
 extern void *Getpool(void *p);
 
 /*-----------------------------------------------------------------------*/
@@ -260,7 +260,7 @@ extern void *Getpool(void *p);
 
 extern void Initnumber(struct Jcontext *jc);
 
-   // Create a new Number object, Useobject() it once.
+   /* Create a new Number object, Useobject() it once. */
 extern struct Jobject *Newnumber(struct Jcontext *jc,UBYTE attr,double nvalue);
 
 /*-----------------------------------------------------------------------*/
@@ -275,7 +275,7 @@ extern void Initobject(struct Jcontext *jc);
 
 extern void Initstring(struct Jcontext *jc);
 
-   // Create a new String object, Useobject() it once.
+   /* Create a new String object, Useobject() it once. */
 extern struct Jobject *Newstring(struct Jcontext *jc,UBYTE *svalue);
 
 /*-----------------------------------------------------------------------*/
