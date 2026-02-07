@@ -29,15 +29,15 @@
 /*-----------------------------------------------------------------------*/
 
                            /* Select type of release: */
-// #define BETAKEYFILE        /* Beta testers version, needs aweb.betakey */     
-// #define DEMOVERSION        /* Demo version, no key but limited features */
+/* #define BETAKEYFILE        /* Beta testers version, needs aweb.betakey */      */
+/* #define DEMOVERSION        /* Demo version, no key but limited features */ */
 #define COMMERCIAL         /* Commercial version, no key */
-// #define OSVERSION          /* Special Edition; implies DEMOVERSION, NETDEMO, NEED35 */
+/* #define OSVERSION          /* Special Edition; implies DEMOVERSION, NETDEMO, NEED35 */ */
 
-// #define DEVELOPER       /* no initial about requester */
-// #define LOCALONLY       /* no network access */
-// #define LIMITED         /* limited version. Use /support/LimitDemo to insert string */
-// #define NEED35          /* needs OS 3.5 or higher */
+/* #define DEVELOPER       /* no initial about requester */ */
+/* #define LOCALONLY       /* no network access */ */
+/* #define LIMITED         /* limited version. Use /support/LimitDemo to insert string */ */
+/* #define NEED35          /* needs OS 3.5 or higher */ */
 
 /* Set these to the correct values when you create your own browser */
 #define EMAILADDRESS "your@email.here"
@@ -46,18 +46,18 @@
 /*-----------------------------------------------------------------------*/
 /* Special settings, normally not set here */
 
-// #define POPABOUT        /* is default for BETAVERSION unless DEVELOPER */
-// #define NOKEYFILE       /* set if DEMOVERSION or COMMERCIAL. Don't set here */
+/* #define POPABOUT        /* is default for BETAVERSION unless DEVELOPER */ */
+/* #define NOKEYFILE       /* set if DEMOVERSION or COMMERCIAL. Don't set here */ */
 
-// #define DEFAULTCFG      /* Path in ENV[ARC]: for default config */
+/* #define DEFAULTCFG      /* Path in ENV[ARC]: for default config */ */
 
-// #define LOCALDEMO       /* local-only no-net demo */
-// #define NETDEMO         /* network capable demo */
-// #define NOAREXXPORTS    /* no ARexx ports */
+/* #define LOCALDEMO       /* local-only no-net demo */ */
+/* #define NETDEMO         /* network capable demo */ */
+/* #define NOAREXXPORTS    /* no ARexx ports */ */
 
-// #define AWEBLIBVERSION  /* numeric library version */
-// #define AWEBLIBREVISION /* numeric library revision */
-// #define AWEBLIBVSTRING  /* library version string */
+/* #define AWEBLIBVERSION  /* numeric library version */ */
+/* #define AWEBLIBREVISION /* numeric library revision */ */
+/* #define AWEBLIBVSTRING  /* library version string */ */
 
 /*-----------------------------------------------------------------------*/
 
