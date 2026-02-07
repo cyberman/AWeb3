@@ -2085,13 +2085,6 @@ void ReapplyCSSToAllElements(struct Document *doc)
    /* Safety check: Don't apply CSS if document is being disposed or has no frame */
    /* If frame is NULL, the document might be disposed or not yet ready */
    /* This prevents hangs when AODOC_Docextready arrives after navigation starts */
-   if(!doc->frame)
-   {  if(httpdebug)
-      {  printf("[CSS] ReapplyCSSToAllElements: Skipped - document has no frame (may be disposed), doc=%p\n", doc);
-      }
-      return;
-   }
-   
    if(httpdebug)
    {  printf("[CSS] ReapplyCSSToAllElements: Starting - recursively applying CSS to all elements\n");
    }
