@@ -149,7 +149,7 @@ extern STRPTR __asm GetString(register __a0 struct LocaleInfo *li,
 extern void *maincatalog;
 extern UBYTE *Getmainstr(ULONG msg);
 
-// Library base pointers are now provided by proto headers
+/* Library base pointers are now provided by proto headers */
 
 extern UBYTE config[];              /* configuration name */
 extern struct Screen *pubscreen;
