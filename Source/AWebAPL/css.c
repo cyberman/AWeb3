@@ -145,8 +145,9 @@ void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
    
    if(!doc || !css) return;
    
-   css_debug_printf("MergeCSSStylesheet: Starting merge, CSS length=%ld bytes\n", strlen((char *)css));
-   
+   if(httpdebug)
+   {  printf("[CSS] MergeCSSStylesheet: Starting merge\n");
+   }
    /* Parse the new CSS */
    newSheet = ParseCSS(doc,css);
    if(!newSheet)
