@@ -697,7 +697,10 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
                            {  printf("[STYLE] AODOC_Docextready: Re-applying CSS to body, body=%p, stylesheet=%p\n",
                                     doc->body, doc->cssstylesheet);
                            }
+                           /* Existing behavior: apply BODY rules */
                            ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
+                           /* New: ensure CSS is applied to the full existing tree */
+                           ReapplyCSSToAllElements(doc);
                            /* Re-register colors to ensure link colors are updated */
                            if(doc->win && doc->frame)
                            {  Registerdoccolors(doc);
