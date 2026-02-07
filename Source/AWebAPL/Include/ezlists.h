@@ -16,7 +16,7 @@
  *
  **********************************************************************/
 
-// easy lists
+/* easy lists */
 
 #ifndef EZLISTS_H
 #define EZLISTS_H
