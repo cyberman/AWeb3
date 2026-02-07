@@ -221,7 +221,7 @@ static BOOL Pushfont(struct Body *bd,short style,short size,struct Colorinfo *ci
       else if(fi->next->next)
       {  fi->face=fi->next->face;
       }
-//printf("pushfont color=%08x\n",fi->color);
+/*printf("pushfont color=%08x\n",fi->color); */
    }
    return (BOOL)(fi!=NULL);
 }
@@ -233,7 +233,7 @@ static void Popfont(struct Body *bd)
    {  REMOVE(fi);
       if(fi->facestring) FREE(fi->facestring);
       FREE(fi);
-//printf("popfont color=%08x\n",bd->bld->font.first->color);
+/*printf("popfont color=%08x\n",bd->bld->font.first->color); */
    }
 }
 
