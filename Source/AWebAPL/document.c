@@ -697,14 +697,14 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
                         {  printf("[STYLE] AODOC_Docextready: CSS already merged via Dolink, skipping duplicate merge\n");
                         }
                         /* Apply link colors from CSS (a:link, a:visited) */
-                        ApplyCSSToLinkColors(doc);
+                        if(doc->cssstylesheet) ApplyCSSToLinkColors(doc);
                         /* Always re-apply CSS to body when external CSS loads */
                         if(doc->body && doc->cssstylesheet)
                         {  if(httpdebug)
                            {  printf("[STYLE] AODOC_Docextready: Re-applying CSS to body, body=%p, stylesheet=%p\n",
                                     doc->body, doc->cssstylesheet);
                            }
-hjuzzzzzzz                           /* Re-register colors to ensure link colors are updated */
+                           /* Re-register colors to ensure link colors are updated */
                            if(doc->win && doc->frame)
                            {  Registerdoccolors(doc);
                            }
