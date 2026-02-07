@@ -35,10 +35,10 @@
 #include <pragmas/exec_pragmas.h>
 #include <pragmas/locale_pragmas.h>
 
-// #define JSDEBUG
-// #define JSADDRESS
+/* #define JSDEBUG */
+/* #define JSADDRESS */
 
-// #define debug KPrintF
+/* #define debug KPrintF */
 #define debug / ## /KPrintF
 
 #define STRNIEQUAL(a,b,n)  !strnicmp(a,b,n)
