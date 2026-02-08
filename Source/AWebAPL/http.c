@@ -6228,6 +6228,7 @@ void Httptask(struct Fetchdriver *fd)
    if(hi.hostport) FREE(hi.hostport);
    if(hi.abspath) FREE(hi.abspath);
    if(hi.hostname) FREE(hi.hostname);
+   if(hi.boundary) FREE(hi.boundary); /* Fix memory leak of boundary element as reported in #33 */
    if(hi.auth) Freeauthorize(hi.auth);
    if(hi.prxauth) Freeauthorize(hi.prxauth);
    if(hi.movedtourl) FREE(hi.movedtourl);
