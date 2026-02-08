@@ -1529,26 +1529,34 @@ static long Renderbody(struct Body *bd,struct Amrender *amr)
          long marqueeMinX,marqueeMinY,marqueeMaxX,marqueeMaxY;
          long finalMinX,finalMinY,finalMaxX,finalMaxY;
          long childRastX,childRastY;
+         /* Copy parent coordinates - they already have correct textcolor, rastport, etc. */
          marquee_coo = *coo;
+         /* Always ensure textcolor is set from DrawInfo to guarantee correct pen */
+         /* Parent coo should have correct textcolor, but ensure it's valid */
+         if(marquee_coo.dri && (marquee_coo.textcolor <= 0 || marquee_coo.textcolor == marquee_coo.bgcolor))
+         {  marquee_coo.textcolor = marquee_coo.dri->dri_Pens[TEXTPEN];
+         }
+         if(marquee_coo.dri && marquee_coo.linkcolor <= 0)
+         {  marquee_coo.linkcolor = marquee_coo.dri->dri_Pens[TEXTPEN];
+         }
+         if(marquee_coo.dri && marquee_coo.vlinkcolor <= 0)
+         {  marquee_coo.vlinkcolor = marquee_coo.dri->dri_Pens[TEXTPEN];
+         }
+         if(marquee_coo.dri && marquee_coo.alinkcolor <= 0)
+         {  marquee_coo.alinkcolor = marquee_coo.dri->dri_Pens[TEXTPEN];
+         }
          /* Add scroll offset to transform: children are positioned relative to body,
-          * coo->dx transforms from body-relative to rastport, so adding scrollx
-          * shifts all children by that amount in rastport coordinates */
-         marquee_coo.dx += bd->marqueescrollx;
-         marquee_coo.dy += bd->marqueescrolly;
+          * coo->dx transforms from parent-relative to rastport, bd->aox is body position
+          * relative to parent, so transform from body-relative to rastport is:
+          * coo->dx + bd->aox + scroll offset */
+         marquee_coo.dx = coo->dx + bd->aox + bd->marqueescrollx;
+         marquee_coo.dy = coo->dy + bd->aoy + bd->marqueescrolly;
          /* Clipping: marquee viewport bounds in rastport coordinates */
-         /* Body position bd->aox is relative to parent, but coo->dx transforms from
-          * body-relative to rastport, so body's rastport position is coo->dx (when
-          * body is at 0,0 relative to itself). But we need the actual body position
-          * in rastport, which is bd->aox + coo->dx (if coo->dx transforms parent-relative
-          * to rastport) or just coo->dx (if coo->dx already includes bd->aox).
-          * Based on overflow clipping using bd->aox directly, amr->rect is in the same
-          * coordinate system as bd->aox. Since overflow clipping works, bd->aox must be
-          * in body-relative coordinates. So body viewport in body-relative is (0,0) to (aow,aoh).
-          * Convert to rastport: (coo->dx, coo->dy) to (coo->dx+aow, coo->dy+aoh) */
-         marqueeMinX = coo->dx;
-         marqueeMinY = coo->dy;
-         marqueeMaxX = coo->dx + bd->aow;
-         marqueeMaxY = coo->dy + bd->aoh;
+         /* Body's rastport position is coo->dx + bd->aox (parent->rastport + body offset) */
+         marqueeMinX = coo->dx + bd->aox;
+         marqueeMinY = coo->dy + bd->aoy;
+         marqueeMaxX = marqueeMinX + bd->aow;
+         marqueeMaxY = marqueeMinY + bd->aoh;
          /* Intersect with existing clip bounds (which are in rastport coords) */
          finalMinX = MAX(clipMinX, marqueeMinX);
          finalMinY = MAX(clipMinY, marqueeMinY);

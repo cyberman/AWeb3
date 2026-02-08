@@ -280,7 +280,6 @@ static void Settitle(struct Awindow *win,UBYTE *title)
       if(win->window)
       {  if(win->screentitle && win->screentitle[0])
          {  /* Keep existing screen title when updating window title */
-            printf("SCREENTITLE: '%s'\n", win->screentitle);
             SetWindowTitles(win->window,newtitle,win->screentitle);
          }
          else
@@ -1541,8 +1540,7 @@ static long Setwindow(struct Awindow *win,struct Amset *ams)
             win->statustime = tv.tv_secs;
             statustitle = Makestatusscreentitle(win, status);
             if(statustitle)
-            {  printf("SCREENTITLE: '%s'\n", statustitle);
-               SetWindowTitles(win->window,(UBYTE *)~0,statustitle);
+            {  SetWindowTitles(win->window,(UBYTE *)~0,statustitle);
                /* Store copy for comparison */
                if(win->screentitle) FREE(win->screentitle);
                win->screentitle = Dupstr(statustitle, -1);
@@ -1963,8 +1961,7 @@ void Updatescreentitle(struct Awindow *win)
       if(screentitle && screentitle[0])
       {  /* Always update if this is a different window, or if title changed */
          if(lastscreentitlewin != win || !win->screentitle || strcmp(win->screentitle, screentitle) != 0)
-         {  printf("SCREENTITLE: '%s'\n", screentitle);
-            SetWindowTitles(win->window,(UBYTE *)~0,screentitle);
+         {  SetWindowTitles(win->window,(UBYTE *)~0,screentitle);
             /* Store copy for comparison */
             if(win->screentitle) FREE(win->screentitle);
             win->screentitle = Dupstr(screentitle, -1);

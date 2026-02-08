@@ -164,6 +164,9 @@ static void *Docbodync(struct Document *doc)
    if(!body && !ISEMPTY(&doc->tables))
    {  body=(void *)Agetattr(doc->tables.first->table,AOTAB_Bodync);
    }
+   if(!body && (doc->pflags&DPF_MARQUEE) && doc->marqueebody)
+   {  body=doc->marqueebody;
+   }
    if(!body) body=doc->body;
    return body;
 }
@@ -2278,7 +2281,6 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
                {  printf("[STYLE] Dolink: CSS already merged via AODOC_Docextready, skipping duplicate merge\n");
                }
                /* CSS was already merged, just apply to body if needed */
-               /* Safety check: Only apply if document has a frame (not being disposed) */
                if(doc->body && doc->cssstylesheet)
                {  if(httpdebug)
                   {  printf("[STYLE] Dolink: Re-applying CSS to all elements (already merged), body=%p, stylesheet=%p, frame=%p\n",
@@ -2327,7 +2329,6 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
                   ApplyCSSToLinkColors(doc);
                }
                /* Always re-apply CSS to body when external CSS loads */
-               /* Safety check: Only apply if document has a frame (not being disposed) */
                if(doc->body && doc->cssstylesheet)
                {  if(httpdebug)
                   {  printf("[STYLE] Dolink: Re-applying CSS to all elements after external CSS load, body=%p, stylesheet=%p, frame=%p\n",
@@ -2907,13 +2908,21 @@ static BOOL Domarquee(struct Document *doc,struct Tagattr *ta)
    /* Default behavior is scroll if not specified */
    if(!behavior) behavior=Dupstr((UBYTE *)"scroll",-1);
    
-   /* Create body element for marquee container */
+   /* Create NEW body element for marquee container */
    Wantbreak(doc,1);
    if(!Ensurebody(doc)) return FALSE;
-   body=Docbodync(doc);
    
-   /* Set marquee as container with fixed dimensions and overflow hidden */
-   Asetattrs(body,
+   /* Get parent body to inherit frame/window settings */
+   body=Docbodync(doc);
+   if(!body) return FALSE;
+   
+   /* Create new body element for marquee container */
+   doc->marqueebody=Anewobject(AOTP_BODY,
+      AOBJ_Pool,doc->pool,
+      AOBJ_Frame,Agetattr(body,AOBJ_Frame),
+      AOBJ_Cframe,Agetattr(body,AOBJ_Cframe),
+      AOBJ_Window,Agetattr(body,AOBJ_Window),
+      AOBJ_Layoutparent,body,
       AOBDY_TagName,Dupstr((UBYTE *)"MARQUEE",-1),
       AOBDY_Overflow,Dupstr((UBYTE *)"hidden",-1),
       CONDTAG(wtag,width),
@@ -2927,9 +2936,16 @@ static BOOL Domarquee(struct Document *doc,struct Tagattr *ta)
       AOBDY_MarqueeScrollY,0,
       TAG_END);
    
-   /* Store marquee body reference in document for end tag */
-   doc->marqueebody=body;
+   if(!doc->marqueebody) return FALSE;
    
+   /* Temporarily clear DPF_MARQUEE flag so Addelement adds to parent body, not marquee body */
+   doc->pflags&=~DPF_MARQUEE;
+   /* Add marquee body to document as a child of current body */
+   if(!Addelement(doc,doc->marqueebody))
+   {  doc->marqueebody=NULL;
+      return FALSE;
+   }
+   /* Restore DPF_MARQUEE flag so subsequent content goes into marquee body */
    doc->pflags|=DPF_MARQUEE;
    Checkid(doc,ta);
    return TRUE;
