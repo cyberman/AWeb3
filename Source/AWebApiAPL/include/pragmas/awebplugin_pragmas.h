@@ -106,6 +106,11 @@
 /**/
 #pragma libcall AwebPluginBase Awebcommand 1bc 198004
 /**/
+/*--- CID registry (for cid: URLs)*/
+/**/
+#pragma libcall AwebPluginBase Registercidpart 1c2 198005
+#pragma libcall AwebPluginBase Unregistercidparts 1c8 801
+/**/
 
 #ifdef __SASC
 #pragma tagcall AwebPluginBase Amethod 1e 9802
