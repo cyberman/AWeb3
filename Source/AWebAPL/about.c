@@ -596,7 +596,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
             "<h2>License</h2>"
             "<p>AWeb is distributed under the <strong>AWeb Public License Version 1.0</strong>.</p>"
             "<p>Copyright &copy; 2002 Yvon Rozijn. All rights reserved.<br>"
-            "AWeb 3.6 Changes Copyright &copy; 2025 amigazen project</p>"
+            "AWeb 3.6 Changes Copyright &copy; 2026 amigazen project</p>"
             "<p>This program is free software; you can redistribute it and/or modify "
             "it under the terms of the AWeb Public License as included in this distribution.</p>"
             "<p>This software is provided \"as is\". No warranties are made, either "
@@ -608,7 +608,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
             "<p>The following image format plugins are included:</p>"
             "<ul>"
             "<li><strong>GIF Plugin:</strong> Copyright &copy; 2002 Yvon Rozijn. "
-            "Changes Copyright &copy; 2025 amigazen project. "
+            "Changes Copyright &copy; 2026 amigazen project. "
             "Distributed under the AWeb Public License.</li>"
             "<li><strong>JPEG/JFIF Plugin:</strong> Copyright &copy; 2002 Yvon Rozijn. "
             "Distributed under the AWeb Public License. "
@@ -693,7 +693,7 @@ static UBYTE *GenerateAboutPage(UBYTE *url)
             "supersede any condition above with which it is incompatible.</li>"
             "</ol>"
             "<hr>"
-            "<p><small>Copyright &copy; 2002 Yvon Rozijn. &nbsp; Changes Copyright &copy; 2025 amigazen project &nbsp; Amiga is a trademark of Amiga Corporation</small></p>"
+            "<p><small>Copyright &copy; 2002 Yvon Rozijn. &nbsp; Changes Copyright &copy; 2026 amigazen project</small></p>"
             "</body></html>",
             about_str,version_str);
       
