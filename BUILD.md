@@ -37,7 +37,6 @@ ToolKit
 Apart from this, a minimum ToolKit setup requires at least the following items:
 - A supported C compiler - one of SAS/C, GCC or VBCC depending on the project. In this case AWeb currently builds only with SAS/C
 - An Amiga Native Developer Kit - currently 3.2 Release 4
-- Any Third Party SDKs needed , installed into the 
 
 ### SDK-Startup
 
@@ -72,13 +71,21 @@ The latest NDK as of the time of writing is version 3.2 release 4 or 'NDK3.2R4.l
 
 Unpack the archive (again, SDK:NDK/ is recommended but not mandatory)
 
-TODO: ... (setup path, copy catcomp)
+Ensure the following directives are in your User-Startup or SDK-Startup script:
+- Assign lib: <NDK path>/lib ADD
+- Assign include: <NDK path>/Include_h ADD
+- Assign include: <NDK path>/Include_i ADD
+- Assign netinclude: <NDK path>/SANA+RoadshowTCP-IP/netinclude
+- Path <NDK path>/C ADD
+
+Copy Catcomp from the Tools/Catcomp directory in the NDK, to somewhere in your path, such as the C folder from the NDK. This will be needed to build the locale module.
 
 ### Third Party SDKs
 
 AWeb requires the following Third Party SDKs:
-- AmiSSL
-- P96
+- AmiSSL - unpack this to wherever you prefer, and set sslinclude: to point to the AmiSSL/Developer/include directory
+- P96 - TODO (but just make sure the header files are in your include path)
+- ttengine.library is used, but the header files are included in the AWeb project for convenience
 
 ## Prerequisites
 
@@ -208,16 +215,16 @@ To prepare a release build, run:
 smake install
 ```
 
-This will copy the newly created binaries into the correct locations in this project's Internet/AWeb/ directory (deliberately, not your system's Internet directory)
+This will copy the newly created binaries into the correct locations in this project's Internet/AWeb/ directory (deliberately, not your system's Internet directory). Note therefore that it is not 'installing' the build to the local system, the install target is simply preparing the 
 
-To make a release archive called for example 'target_file.lha' then run:
+To make a release archive called for example 'AWebXY.lha' then run:
 
 ```
 cd Internet
-lha -xer r target_file.lha AWeb AWeb.info 
+lha -xer r /archive/AWebXY.lha AWeb AWeb.info 
 ```
 
-This will create an archive containing the whole AWeb directory and it's icon called 'target_file.lha' suitable for distribution.
+This will create an archive containing the whole AWeb directory and it's icon called 'AWebXY.lha' suitable for distribution - it can simply be unpacked and AWeb is ready to run. No installer script required.
 
 ## How to Run
 
