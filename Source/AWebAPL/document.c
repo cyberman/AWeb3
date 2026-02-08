@@ -686,8 +686,7 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
                      extcss = Finddocext(doc,url,FALSE);
                      if(extcss && extcss != (UBYTE *)~0)
                      {  if(httpdebug)
-                        {  printf("[STYLE] AODOC_Docextready: CSS file loaded, length=%ld bytes, calling MergeCSSStylesheet\n",
-                                 strlen((char *)extcss));
+                        {  printf("[STYLE] AODOC_Docextready: CSS file loaded, calling MergeCSSStylesheet\n");
                         }
                         /* Check if this CSS was already merged via Dolink.
                          * If DPF_NORLDOCEXT is set AND stylesheet exists, it means Dolink already processed it.
@@ -703,14 +702,17 @@ static long Setdocument(struct Document *doc,struct Amset *ams)
                         {  printf("[STYLE] AODOC_Docextready: CSS already merged via Dolink, skipping duplicate merge\n");
                         }
                         /* Apply link colors from CSS (a:link, a:visited) */
-                        ApplyCSSToLinkColors(doc);
+                        if(doc->cssstylesheet) ApplyCSSToLinkColors(doc);
                         /* Always re-apply CSS to body when external CSS loads */
                         if(doc->body && doc->cssstylesheet)
                         {  if(httpdebug)
                            {  printf("[STYLE] AODOC_Docextready: Re-applying CSS to body, body=%p, stylesheet=%p\n",
                                     doc->body, doc->cssstylesheet);
                            }
+                           /* Existing behavior: apply BODY rules */
                            ApplyCSSToBody(doc,doc->body,NULL,NULL,"BODY");
+                           /* Ensure CSS is applied to the full existing tree */
+                           ReapplyCSSToAllElements(doc);
                            /* Re-register colors to ensure link colors are updated */
                            if(doc->win && doc->frame)
                            {  Registerdoccolors(doc);

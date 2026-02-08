@@ -148,8 +148,9 @@ void MergeCSSStylesheet(struct Document *doc,UBYTE *css)
    
    if(!doc || !css) return;
    
-   css_debug_printf("MergeCSSStylesheet: Starting merge, CSS length=%ld bytes\n", strlen((char *)css));
-   
+   if(httpdebug)
+   {  printf("[CSS] MergeCSSStylesheet: Starting merge\n");
+   }
    /* Parse the new CSS */
    newSheet = ParseCSS(doc,css);
    if(!newSheet)
@@ -2503,13 +2504,6 @@ void ReapplyCSSToAllElements(struct Document *doc)
    /* Safety check: Don't apply CSS if document is being disposed or has no frame */
    /* If frame is NULL, the document might be disposed or not yet ready */
    /* This prevents hangs when AODOC_Docextready arrives after navigation starts */
-   if(!doc->frame)
-   {  if(httpdebug)
-      {  printf("[CSS] ReapplyCSSToAllElements: Skipped - document has no frame (may be disposed), doc=%p\n", doc);
-      }
-      return;
-   }
-   
    if(httpdebug)
    {  printf("[CSS] ReapplyCSSToAllElements: Starting - recursively applying CSS to all elements\n");
    }

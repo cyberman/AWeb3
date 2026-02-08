@@ -2279,7 +2279,7 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
                }
                /* CSS was already merged, just apply to body if needed */
                /* Safety check: Only apply if document has a frame (not being disposed) */
-               if(doc->body && doc->cssstylesheet && doc->frame)
+               if(doc->body && doc->cssstylesheet)
                {  if(httpdebug)
                   {  printf("[STYLE] Dolink: Re-applying CSS to all elements (already merged), body=%p, stylesheet=%p, frame=%p\n",
                            doc->body, doc->cssstylesheet, doc->frame);
@@ -2319,13 +2319,16 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
                {  printf("[STYLE] Dolink: Merging CSS into stylesheet (existing=%p)\n", doc->cssstylesheet);
                }
                MergeCSSStylesheet(doc,extcss);
-               /* Set DPF_NORLDOCEXT to prevent duplicate merge if AODOC_Docextready is called later */
-               doc->pflags|=DPF_NORLDOCEXT;
+               /* Prevent duplicate merge if AODOC_Docextready is called later */
+               doc->pflags |= DPF_NORLDOCEXT;
                /* Apply link colors from CSS (a:link, a:visited) */
-               ApplyCSSToLinkColors(doc);
+               if(doc->cssstylesheet)
+               {
+                  ApplyCSSToLinkColors(doc);
+               }
                /* Always re-apply CSS to body when external CSS loads */
                /* Safety check: Only apply if document has a frame (not being disposed) */
-               if(doc->body && doc->cssstylesheet && doc->frame)
+               if(doc->body && doc->cssstylesheet)
                {  if(httpdebug)
                   {  printf("[STYLE] Dolink: Re-applying CSS to all elements after external CSS load, body=%p, stylesheet=%p, frame=%p\n",
                             doc->body, doc->cssstylesheet, doc->frame);
@@ -2349,7 +2352,7 @@ static BOOL Dolink(struct Document *doc,struct Tagattr *ta)
          {  printf("[STYLE] Dolink: External CSS not yet available, suspending parsing\n");
          }
          /* External CSS not yet available, suspend parsing */
-         doc->pflags|=DPF_SUSPEND|DPF_NORLDOCEXT;
+         doc->pflags |= DPF_SUSPEND;
       }
    }
    if(url)
