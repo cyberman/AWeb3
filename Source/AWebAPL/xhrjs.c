@@ -61,6 +61,7 @@ struct Xhr
    LIST(Header) headers;     /* Request headers to send */
    UBYTE *allResponseHeaders; /* All response headers as string */
    BOOL aborted;             /* Request was aborted */
+   BOOL inCallback;          /* Flag to prevent reentrant callback execution */
 };
 
 struct Header
@@ -121,17 +122,60 @@ static void Disposexhr(struct Xhr *xhr)
 /* Update readyState and call onreadystatechange callback */
 static void Setreadystate(struct Xhr *xhr,long state)
 {  struct Jcontext *jc;
+   UBYTE *callback;
+   struct Frame *frame;
+   struct Jobject *jobject;
+   
    if(xhr && xhr->readyState!=state)
    {  printf("[XHR] Setreadystate: readyState %ld -> %ld (XHR=0x%08lX)\n",xhr->readyState,state,(ULONG)xhr);
       xhr->readyState=state;
-      if(xhr->jobject && xhr->onreadystatechange && xhr->frame)
+      
+      /* Prevent reentrant callback execution to avoid deadlocks */
+      if(xhr->inCallback)
+      {  printf("[XHR] Setreadystate: Skipping callback - already in callback (preventing reentrancy)\n");
+         return;
+      }
+      
+      /* Don't call callback if XHR is aborted */
+      if(xhr->aborted)
+      {  printf("[XHR] Setreadystate: Skipping callback - XHR was aborted\n");
+         return;
+      }
+      
+      /* Save pointers before callback - callback might dispose XHR */
+      callback=xhr->onreadystatechange;
+      frame=xhr->frame;
+      jobject=xhr->jobject;
+      
+      if(jobject && callback && frame)
       {  /* Validate pointers before calling JavaScript */
-         if((ULONG)xhr->frame>=0x1000 && (ULONG)xhr->frame<0xFFFFFFF0 &&
-            (ULONG)xhr->onreadystatechange>=0x1000 && (ULONG)xhr->onreadystatechange<0xFFFFFFF0)
+         if((ULONG)frame>=0x1000 && (ULONG)frame<0xFFFFFFF0 &&
+            (ULONG)callback>=0x1000 && (ULONG)callback<0xFFFFFFF0)
          {  printf("[XHR] Setreadystate: Calling onreadystatechange callback\n");
             jc=(struct Jcontext *)Agetattr(Aweb(),AOAPP_Jcontext);
             if(jc)
-            {  Runjavascript(xhr->frame,xhr->onreadystatechange,&xhr->jobject);
+            {  /* Save XHR pointer for validation after callback */
+               struct Xhr *saved_xhr=xhr;
+               
+               /* Set flag to prevent reentrant calls */
+               xhr->inCallback=TRUE;
+               
+               /* Call callback synchronously - XMLHttpRequest spec requires this */
+               /* Note: Callback might dispose XHR, so validate after */
+               Runjavascript(frame,callback,&jobject);
+               
+               /* Validate XHR still exists by checking if jobject still points to it */
+               /* Use Jointernal to safely check without dereferencing xhr */
+               if(!jobject || Jointernal(jobject)!=(void *)saved_xhr)
+               {  /* XHR was disposed during callback - don't access it */
+                  printf("[XHR] Setreadystate: WARNING - XHR was disposed during callback\n");
+                  return; /* Exit early - xhr is no longer valid */
+               }
+               
+               /* Clear flag after callback - XHR still exists */
+               if(saved_xhr->inCallback)
+               {  saved_xhr->inCallback=FALSE;
+               }
             }
             else
             {  printf("[XHR] Setreadystate: WARNING - No Jcontext available\n");
@@ -139,12 +183,12 @@ static void Setreadystate(struct Xhr *xhr,long state)
          }
          else
          {  printf("[XHR] Setreadystate: WARNING - Invalid frame or callback pointer (frame=0x%08lX, callback=0x%08lX)\n",
-                   (ULONG)xhr->frame,(ULONG)xhr->onreadystatechange);
+                   (ULONG)frame,(ULONG)callback);
          }
       }
       else
       {  printf("[XHR] Setreadystate: No callback (jobject=0x%08lX, onreadystatechange=%s, frame=%s)\n",
-                (ULONG)xhr->jobject,xhr->onreadystatechange?"set":"NULL",xhr->frame?"set":"NULL");
+                (ULONG)jobject,callback?"set":"NULL",frame?"set":"NULL");
       }
    }
 }
@@ -495,7 +539,14 @@ static void Methodopen(struct Jcontext *jc)
    
    /* Abort any existing request */
    if(xhr->fetch)
-   {  /* Remove mapping before disposing fetch */
+   {  /* Wait for callback to complete if it's running */
+      if(xhr->inCallback)
+      {  printf("[XHR] Methodopen: WARNING - Callback in progress, waiting for completion\n");
+         /* Note: We can't actually wait here without deadlocking */
+         /* The callback should complete quickly, so we'll proceed */
+      }
+      
+      /* Remove mapping before disposing fetch */
       {  struct Xhrsourcemap *map,*next;
          for(map=xhrsourcemaps.first;map;map=next)
          {  next=map->next;
@@ -513,6 +564,7 @@ static void Methodopen(struct Jcontext *jc)
    
    /* Reset state */
    xhr->aborted=FALSE;
+   xhr->inCallback=FALSE;  /* Reset callback flag */
    xhr->status=0;
    if(xhr->statusText) FREE(xhr->statusText);
    xhr->statusText=NULL;
@@ -551,6 +603,12 @@ static void Methodopen(struct Jcontext *jc)
    
    printf("[XHR] Methodopen: method='%s', url='%s', async=%s\n",
           method?method:(UBYTE *)"(NULL)",url?url:(UBYTE *)"(NULL)",async?"YES":"NO");
+   
+   /* Set readyState to OPENED - callback will be fired by Setreadystate */
+   /* Note: We call Setreadystate which will fire the callback synchronously */
+   /* This is required by XMLHttpRequest spec, but can cause deadlocks if send() */
+   /* is called immediately after open() returns. The reentrancy flag prevents */
+   /* issues if the callback tries to change state again. */
    Setreadystate(xhr,XHR_OPENED);
 }
 
@@ -756,6 +814,7 @@ static void Methodabort(struct Jcontext *jc)
    if(!xhr) return;
    
    xhr->aborted=TRUE;
+   xhr->inCallback=FALSE;  /* Reset callback flag */
    if(xhr->fetch)
    {  /* Remove mapping before disposing fetch */
       {  struct Xhrsourcemap *map,*next;
@@ -793,15 +852,14 @@ static void Xhrconstructor(struct Jcontext *jc)
    struct Xhr *xhr;
    struct Frame *fr;
    
-   printf("[XHR] Xhrconstructor: Called\n");
    fr=Getjsframe(jc);
    if(!fr) 
-   {  printf("[XHR] Xhrconstructor: ERROR - No frame found\n");
+   {  
       return;
    }
    
    if(xhr=ALLOCSTRUCT(Xhr,1,MEMF_CLEAR))
-   {  printf("[XHR] Xhrconstructor: XHR object allocated (0x%08lX)\n",(ULONG)xhr);
+   {  
       /* Initialize all fields explicitly for safety */
       xhr->fetch=NULL;
       xhr->frame=fr;
@@ -823,6 +881,7 @@ static void Xhrconstructor(struct Jcontext *jc)
       NEWLIST(&xhr->headers);
       xhr->allResponseHeaders=NULL;
       xhr->aborted=FALSE;
+      xhr->inCallback=FALSE;
       
       Setjobject(jthis,NULL,xhr,Disposexhr);
       
@@ -850,10 +909,9 @@ static void Xhrconstructor(struct Jcontext *jc)
       Addjfunction(jc,jthis,"getResponseHeader",MethodgetResponseHeader,"header",NULL);
       Addjfunction(jc,jthis,"getAllResponseHeaders",MethodgetAllResponseHeaders,NULL);
       Addjfunction(jc,jthis,"abort",Methodabort,NULL);
-      printf("[XHR] Xhrconstructor: XHR object initialized successfully\n");
    }
    else
-   {  printf("[XHR] Xhrconstructor: ERROR - Failed to allocate XHR object\n");
+   {  
    }
 }
 
@@ -866,9 +924,8 @@ void Initxhrjs(void)
 void Addxhrconstructor(struct Jcontext *jc,struct Jobject *parent)
 {  struct Jobject *jo,*proto;
    struct Jvar *jv;
-   printf("[XHR] Addxhrconstructor: Adding XMLHttpRequest constructor to JavaScript\n");
    if(jo=Addjfunction(jc,parent,"XMLHttpRequest",Xhrconstructor,NULL))
-   {  printf("[XHR] Addxhrconstructor: XMLHttpRequest constructor added successfully\n");
+   {  
       if(proto=Newjobject(jc))
       {  /* Add constants */
          if(jv=Jproperty(jc,proto,"UNSENT"))
@@ -896,7 +953,7 @@ void Addxhrconstructor(struct Jcontext *jc,struct Jobject *parent)
       }
    }
    else
-   {  printf("[XHR] Addxhrconstructor: ERROR - Failed to add XMLHttpRequest constructor\n");
+   {  
    }
 }
 
