@@ -2,7 +2,7 @@
  * 
  * This file is part of the AWeb APL distribution
  *
- * Copyright (C) 2025 amigazen project
+ * Copyright (C) 2026 amigazen project
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the AWeb Public License as included in this
@@ -2501,9 +2501,6 @@ void ReapplyCSSToAllElements(struct Document *doc)
       return;
    }
    
-   /* Safety check: Don't apply CSS if document is being disposed or has no frame */
-   /* If frame is NULL, the document might be disposed or not yet ready */
-   /* This prevents hangs when AODOC_Docextready arrives after navigation starts */
    if(httpdebug)
    {  printf("[CSS] ReapplyCSSToAllElements: Starting - recursively applying CSS to all elements\n");
    }

@@ -27,7 +27,6 @@
 #include <graphics/text.h>
 #include <graphics/rastport.h>
 #include <utility/tagitem.h>
-#include <stdio.h>
 
 /* Include ttengine library headers */
 #include <libraries/ttengine.h>
@@ -45,30 +44,23 @@ static BOOL ttengine_available = FALSE;
 /* Initialize ttengine.library support */
 BOOL InitTTEngine(void)
 {
-   
    /* Try to open ttengine.library */
-   printf("[TTEngine] Attempting to open ttengine.library (min version %d)\n", TTENGINEMINVERSION);
    TTEngineBase = OpenLibrary("ttengine.library", TTENGINEMINVERSION);
    if(!TTEngineBase)
    {
-      printf("[TTEngine] Failed to open ttengine.library - using standard fonts\n");
       ttengine_available = FALSE;
       return FALSE;
    }
    
    /* Check version */
-   printf("[TTEngine] Opened ttengine.library, version %d\n", TTEngineBase->lib_Version);
    if(TTEngineBase->lib_Version < TTENGINEMINVERSION)
    {
-      printf("[TTEngine] Version too old (%d < %d) - closing library\n", 
-             TTEngineBase->lib_Version, TTENGINEMINVERSION);
       CloseLibrary(TTEngineBase);
       TTEngineBase = NULL;
       ttengine_available = FALSE;
       return FALSE;
    }
    
-   printf("[TTEngine] Successfully initialized ttengine.library\n");
    ttengine_available = TRUE;
    return TRUE;
 }
@@ -80,7 +72,6 @@ void FreeTTEngine(void)
 {
    if(TTEngineBase)
    {
-      printf("[TTEngine] Closing ttengine.library\n");
       CloseLibrary(TTEngineBase);
       TTEngineBase = NULL;
    }
@@ -436,12 +427,8 @@ static UBYTE *GetFontNameFromPrefs(struct TextFont *font)
    
    if(!font)
    {
-      printf("[TTEngine] GetFontNameFromPrefs: font is NULL\n");
       return NULL;
    }
-   
-   printf("[TTEngine] GetFontNameFromPrefs: Looking up font name for TextFont %p (name: %s, size: %d)\n", 
-          font, font->tf_Message.mn_Node.ln_Name, font->tf_YSize);
    
    /* Search through font alias list to find matching TextFont */
    for(fa = prefs.aliaslist.first; fa->next; fa = fa->next)
@@ -451,8 +438,6 @@ static UBYTE *GetFontNameFromPrefs(struct TextFont *font)
          if(fa->fp[i].font == font)
          {
             /* Found matching TextFont - return the font name from Fontprefs */
-         printf("[TTEngine] GetFontNameFromPrefs: Found in alias list: %s (size: %d)\n", 
-                fa->fp[i].fontname ? (char *)fa->fp[i].fontname : "(null)", fa->fp[i].fontsize);
             return fa->fp[i].fontname;
          }
       }
@@ -464,14 +449,11 @@ static UBYTE *GetFontNameFromPrefs(struct TextFont *font)
       if(prefs.font[0][i].font == font || prefs.font[1][i].font == font)
       {
          /* Found in default fonts - return the font name from Fontprefs */
-         printf("[TTEngine] GetFontNameFromPrefs: Found in default fonts: %s (size: %d)\n", 
-                prefs.font[0][i].fontname ? (char *)prefs.font[0][i].fontname : "(null)", prefs.font[0][i].fontsize);
          return prefs.font[0][i].fontname;
       }
    }
    
    /* Not found in Fontprefs - return NULL */
-   printf("[TTEngine] GetFontNameFromPrefs: Not found in Fontprefs\n");
    return NULL;
 }
 
@@ -497,13 +479,8 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
    
    if(!rp || !font)
    {
-      printf("[TTEngine] TTEngineSetFont: Invalid parameters (rp=%p, font=%p)\n", rp, font);
       return;
    }
-   
-   printf("[TTEngine] TTEngineSetFont: rp=%p, font=%p (name: %s, size: %d), fontface=%s, style=0x%04x\n", 
-          rp, font, font->tf_Message.mn_Node.ln_Name, font->tf_YSize, 
-          fontface ? (char *)fontface : "(null)", style);
    
    /* Always use normal SetFont first - let AWeb handle font sizing and selection */
    SetFont(rp, font);
@@ -518,30 +495,23 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
    /* Only use ttengine if available */
    if(ttengine_available && TTEngineBase)
    {
-      printf("[TTEngine] TTEngineSetFont: ttengine is available\n");
-      
       /* Get font name from fontface (CSS or HTML face attribute) or from Fontprefs */
       if(fontface && *fontface)
       {
          /* Use fontface directly (CSS font-family or HTML FONT face attribute) */
          /* CSS font-family strings are already in the correct format for ttengine */
          fontname = fontface;
-         printf("[TTEngine] TTEngineSetFont: Using fontface: %s\n", fontname);
       }
       else
       {
          /* No fontface - try to get font name from TextFont name */
          /* Convert TextFont name to TrueType family name */
-         printf("[TTEngine] TTEngineSetFont: No fontface, converting TextFont name: %s\n", 
-                font->tf_Message.mn_Node.ln_Name);
          if(GetTTFamilyName(font->tf_Message.mn_Node.ln_Name, workbuf, sizeof(workbuf)))
          {
-            printf("[TTEngine] TTEngineSetFont: Converted TextFont name to TrueType family: %s\n", workbuf);
             fontname = workbuf;
          }
          else
          {
-            printf("[TTEngine] TTEngineSetFont: Failed to convert TextFont name, using as-is\n");
             fontname = font->tf_Message.mn_Node.ln_Name;
          }
       }
@@ -573,22 +543,10 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
             fontstyle = TT_FontStyle_Regular;
          }
          
-         printf("[TTEngine] TTEngineSetFont: Opening font - name: %s, size: %ld, weight: %ld, style: %ld\n", 
-                fontname, fontsize, fontweight, fontstyle);
-         
          /* Parse comma-separated font family list (from CSS or HTML face attribute) */
          /* Or use single font name (already converted to TrueType family name if from Fontprefs) */
          ParseFontFamilyList(fontname, workbuf, sizeof(workbuf), 
                             familytable, sizeof(familytable)/sizeof(familytable[0]));
-         
-         /* Debug: print family table */
-         printf("[TTEngine] TTEngineSetFont: Family table: ");
-         for(i = 0; i < sizeof(familytable)/sizeof(familytable[0]) && familytable[i]; i++)
-         {
-            printf("%s", familytable[i]);
-            if(familytable[i+1]) printf(", ");
-         }
-         printf("\n");
          
          /* Build tag list using font name with same size as TextFont */
          tags[0].ti_Tag = TT_FamilyTable;
@@ -602,13 +560,10 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
          tags[4].ti_Tag = TAG_END;
          
          /* Try to open font using ttengine */
-         printf("[TTEngine] TTEngineSetFont: Calling TT_OpenFontA()\n");
          ttfont = TT_OpenFontA(tags);
          
          if(ttfont)
          {
-            printf("[TTEngine] TTEngineSetFont: Successfully opened ttengine font %p\n", ttfont);
-            
             /* Set up ttengine rendering environment */
             /* Try to get window from layer */
             if(rp->Layer && rp->Layer->Window)
@@ -619,7 +574,6 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
             /* If we have a window, use it for color mapping */
             if(window)
             {
-               printf("[TTEngine] TTEngineSetFont: Setting TT_Window for color mapping\n");
                attrtags[0].ti_Tag = TT_Window;
                attrtags[0].ti_Data = (ULONG)window;
                attrtags[1].ti_Tag = TT_Antialias;
@@ -635,7 +589,6 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
                screen = (struct Screen *)Agetattr(Aweb(), AOAPP_Screen);
                if(screen)
                {
-                  printf("[TTEngine] TTEngineSetFont: Setting TT_Screen for color mapping\n");
                   attrtags[0].ti_Tag = TT_Screen;
                   attrtags[0].ti_Data = (ULONG)screen;
                   attrtags[1].ti_Tag = TT_Antialias;
@@ -647,7 +600,6 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
                }
                else
                {
-                  printf("[TTEngine] TTEngineSetFont: Setting TT_Antialias and TT_DiskFontMetrics only\n");
                   /* Set antialiasing and disk font metrics */
                   attrtags[0].ti_Tag = TT_Antialias;
                   attrtags[0].ti_Data = TT_Antialias_Auto;
@@ -660,30 +612,19 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
             
             /* Set ttengine font on rastport */
             /* TT_SetFont returns TRUE on success */
-            printf("[TTEngine] TTEngineSetFont: Calling TT_SetFont()\n");
             if(TT_SetFont(rp, ttfont))
             {
-               printf("[TTEngine] TTEngineSetFont: Successfully set ttengine font on rastport\n");
                /* Success - ttengine font is now active on rastport */
                /* Use TT_Text() for rendering instead of Text() */
                return;
             }
             else
             {
-               printf("[TTEngine] TTEngineSetFont: TT_SetFont() failed, closing font and falling back\n");
                /* Failed to set, close and fall through to standard font */
                TT_CloseFont(ttfont);
             }
          }
-         else
-         {
-            printf("[TTEngine] TTEngineSetFont: TT_OpenFontA() returned NULL - font not found in ttengine database\n");
-         }
          /* If ttengine font not found, fall through to use standard TextFont */
-      }
-      else
-      {
-         printf("[TTEngine] TTEngineSetFont: No font name available\n");
       }
    }
    
@@ -695,13 +636,11 @@ void TTEngineSetFont(struct RastPort *rp, struct TextFont *font, UBYTE *fontface
       /* Check if ttengine font is still active (it shouldn't be if we failed to set a new one) */
       if(IsTTEngineFontActive(rp))
       {
-         printf("[TTEngine] TTEngineSetFont: Previous ttengine font still active, clearing it\n");
          /* Clear ttengine state on rastport - this will reset it to use standard fonts */
          TT_DoneRastPort(rp);
       }
    }
    
-   printf("[TTEngine] TTEngineSetFont: Using standard SetFont (normal AWeb font)\n");
    /* If ttengine not available or font not found, normal SetFont was already called above */
 }
 

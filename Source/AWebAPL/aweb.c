@@ -30,6 +30,7 @@
 #include "task.h"
 #include "locale.h"
 #include "cidregistry.h"
+#include "ttengine.h"
 #include <intuition/intuition.h>
 #include <intuition/intuitionbase.h>
 #include <intuition/gadgetclass.h>
@@ -1076,6 +1077,7 @@ static void Cleanup(void)
    Freehttp();    /* after Freeobject() because tasks must be stopped */
    Freenameserv();/* after Freeobject() because network tasks use hent structures freed here */
    Freeamissl();  /* after Freehttp() because all SSL connections must be closed first */
+   FreeTTEngine(); /* Cleanup ttengine.library support */
    Freesupport();
    Freememory();  /* MUST be the very last! */
    if(locale) CloseLocale(locale);
@@ -1336,6 +1338,8 @@ static BOOL Initall(void)
    if(!Initmime()) return FALSE;    /* must be inited before prefs */
    if(!Initdefprefs()) return FALSE;/* must be inited before prefs */
    if(!Initprefs()) return FALSE;   /* must be inited before window,layout, cache */
+   /* Initialize ttengine.library support (optional, non-fatal) */
+   InitTTEngine();
    if(!Initboopsi()) return FALSE;  /* must be inited before window */
    if(!Initrequest()) return FALSE; /* must be inited before io */
    if(!Installapplication()) return FALSE;   /* Opens the startup window */
