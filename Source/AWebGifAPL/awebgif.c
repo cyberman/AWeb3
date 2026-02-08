@@ -86,7 +86,7 @@ __asm __saveds ULONG Initplugin(register __a0 struct Plugininfo *pi)
    if(!PluginBase->sourcedriver)
    {  #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
-      {  Aprintf("GIF: Initplugin: Installing sourcedriver\n");
+   {  Aprintf("GIF: Initplugin: Installing sourcedriver\n");
       }
       #endif
       PluginBase->sourcedriver=Amethod(NULL,AOM_INSTALL,0,Dispatchsource);
@@ -99,14 +99,14 @@ __asm __saveds ULONG Initplugin(register __a0 struct Plugininfo *pi)
    else
    {  #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
-      {  Aprintf("GIF: Initplugin: sourcedriver already installed=0x%08lx\n", PluginBase->sourcedriver);
+   {  Aprintf("GIF: Initplugin: sourcedriver already installed=0x%08lx\n", PluginBase->sourcedriver);
       }
       #endif
    }
    if(!PluginBase->copydriver)
    {  #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
-      {  Aprintf("GIF: Initplugin: Installing copydriver\n");
+   {  Aprintf("GIF: Initplugin: Installing copydriver\n");
       }
       #endif
       PluginBase->copydriver=Amethod(NULL,AOM_INSTALL,0,Dispatchcopy);
@@ -119,7 +119,7 @@ __asm __saveds ULONG Initplugin(register __a0 struct Plugininfo *pi)
    else
    {  #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
-      {  Aprintf("GIF: Initplugin: copydriver already installed=0x%08lx\n", PluginBase->copydriver);
+   {  Aprintf("GIF: Initplugin: copydriver already installed=0x%08lx\n", PluginBase->copydriver);
       }
       #endif
    }
@@ -147,7 +147,7 @@ __asm __saveds void Queryplugin(register __a0 struct Pluginquery *pq)
    if(ISSAFE(pq,command)) 
    {  #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
-      {  Aprintf("GIF: Queryplugin: Setting command=TRUE\n");
+   {  Aprintf("GIF: Queryplugin: Setting command=TRUE\n");
       }
       #endif
       pq->command=TRUE;
@@ -155,8 +155,8 @@ __asm __saveds void Queryplugin(register __a0 struct Pluginquery *pq)
    else
    {  #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
-      {  Aprintf("GIF: Queryplugin: pq->command not safe to access\n");
-      }
+   {  Aprintf("GIF: Queryplugin: pq->command not safe to access\n");
+   }
       #endif
    }
 #ifdef DEBUG_PLUGINS
@@ -177,7 +177,7 @@ __asm __saveds void Commandplugin(register __a0 struct Plugincommand *pc)
    if(pc->structsize<sizeof(struct Plugincommand)) 
    {  #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
-      {  Aprintf("GIF: Commandplugin: structsize too small, returning\n");
+   {  Aprintf("GIF: Commandplugin: structsize too small, returning\n");
       }
       #endif
       return;
@@ -191,7 +191,7 @@ __asm __saveds void Commandplugin(register __a0 struct Plugincommand *pc)
    if(!Stricmp(pc->command,"STARTANIM"))
    {  #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
-      {  Aprintf("GIF: Commandplugin: STARTANIM\n");
+   {  Aprintf("GIF: Commandplugin: STARTANIM\n");
       }
       #endif
       animate=TRUE;
@@ -199,7 +199,7 @@ __asm __saveds void Commandplugin(register __a0 struct Plugincommand *pc)
    else if(!Stricmp(pc->command,"STOPANIM"))
    {  #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
-      {  Aprintf("GIF: Commandplugin: STOPANIM\n");
+   {  Aprintf("GIF: Commandplugin: STOPANIM\n");
       }
       #endif
       animate=FALSE;
@@ -207,7 +207,7 @@ __asm __saveds void Commandplugin(register __a0 struct Plugincommand *pc)
    else if(!Stricmp(pc->command,"ANIM"))
    {  #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
-      {  Aprintf("GIF: Commandplugin: ANIM, animate=%ld\n", animate);
+   {  Aprintf("GIF: Commandplugin: ANIM, animate=%ld\n", animate);
       }
       #endif
       pc->result=Dupstr(animate?"1":"0",-1);
@@ -220,7 +220,7 @@ __asm __saveds void Commandplugin(register __a0 struct Plugincommand *pc)
    else
    {  #ifdef DEBUG_PLUGINS
       if(AwebPluginBase)
-      {  Aprintf("GIF: Commandplugin: Unknown command, rc=10\n");
+   {  Aprintf("GIF: Commandplugin: Unknown command, rc=10\n");
       }
       #endif
       pc->rc=10;

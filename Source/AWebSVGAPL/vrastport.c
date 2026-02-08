@@ -955,7 +955,7 @@ LONG VDrawPolygon (struct VRastPort *vrp, struct Point32 *polygon, WORD vertices
 		LONG ret = FALSE;                             /* sukces funkcji */
 		struct Point32 *polygon_copy, *cliptable;
 		
-		/* zdobycie pamiëci na tablice */
+		/* zdobycie pamiï¿½ci na tablice */
 		if (polygon_copy = (struct Point32*)AllocVec (sizeof (struct Point32) * vertices,
 			MEMF_ANY))
 			{
@@ -1028,6 +1028,10 @@ LONG VAreaPolygon (struct VRastPort *vrp, struct Point32 *polygon, WORD vertices
 		WORD vcount;
 		LONG ret = FALSE;                             /* function result */
 		struct Point32 *polygon_copy, *cliptable;
+		
+		/* Limit vertices to prevent memory exhaustion - max 16380 per documentation */
+		if(vertices>16380) vertices=16380;
+		if(vertices<3) return FALSE;
 		
 		if (polygon_copy = (struct Point32*)AllocVec (sizeof (struct Point32) * vertices,
 			MEMF_ANY))
@@ -1196,8 +1200,8 @@ static LONG clip (struct Line *line, struct Rectangle *box)
 	}
 
 //-------------------------------------------------------------------------------------
-// Funkcja obcinajâca odcinek pod dowolnym kâtem ze wszystkich stron. Jeûeli odcinek
-// nie wymaga obciëcia z danej strony, to nie jest obcinany.
+// Funkcja obcinajï¿½ca odcinek pod dowolnym kï¿½tem ze wszystkich stron. Jeï¿½eli odcinek
+// nie wymaga obciï¿½cia z danej strony, to nie jest obcinany.
 
 static LONG clip_any (struct Line *line, struct Rectangle *box)
 	{
@@ -1206,18 +1210,18 @@ static LONG clip_any (struct Line *line, struct Rectangle *box)
 		
 		clipped = *line;
 
-		/* sprawdzam, czy prosta na której poîoûony jest odcinek przecina obszar okna */
+		/* sprawdzam, czy prosta na ktï¿½rej poï¿½oï¿½ony jest odcinek przecina obszar okna */
 		if (!check_section (line, box)) return (FALSE);
 		
-		/* porzâdkujë odcinek wedîug wspóîrzëdnej x */
+		/* porzï¿½dkujï¿½ odcinek wedï¿½ug wspï¿½ï¿½rzï¿½dnej x */
 		if (line->e.x < line->s.x) 
 			{ struct Point32 aux = line->s; line->s = line->e; line->e = aux;
 			                 aux = clipped.s; clipped.s = clipped.e; clipped.e = aux; }
 
-		/* eliminujë przypadki, gdy odcinek poîoûony jest caîkowicie po lewej lub po prawej */
+		/* eliminujï¿½ przypadki, gdy odcinek poï¿½oï¿½ony jest caï¿½kowicie po lewej lub po prawej */
 		if ((line->s.x > box->MaxX) || (line->e.x < box->MinX)) return (FALSE);
 
-		/* obcinam z lewej, jeûeli odcinek przecina prostâ x = MinX */
+		/* obcinam z lewej, jeï¿½eli odcinek przecina prostï¿½ x = MinX */
 		if (line->s.x < box->MinX)
 			{
 				best = search_best_y (box->MinY, box->MaxY, &line->s, &line->e, box->MinX);
@@ -1228,7 +1232,7 @@ static LONG clip_any (struct Line *line, struct Rectangle *box)
 					}
 			}
 			
-		/* obcinam z prawej, jeûli odcinek przecina prostâ x = MaxX */
+		/* obcinam z prawej, jeï¿½li odcinek przecina prostï¿½ x = MaxX */
 		if (line->e.x > box->MaxX)
 			{
 				best = search_best_y (box->MinY, box->MaxY, &line->s, &line->e, box->MaxX);
@@ -1239,15 +1243,15 @@ static LONG clip_any (struct Line *line, struct Rectangle *box)
 					}
 			}
 
-    /* porzâdkujë odcinek wedîug wspóîrzëdnej y */
+    /* porzï¿½dkujï¿½ odcinek wedï¿½ug wspï¿½ï¿½rzï¿½dnej y */
 		if (line->e.y < line->s.y) 
 			{ struct Point32 aux = line->s; line->s = line->e; line->e = aux;
 			                 aux = clipped.s; clipped.s = clipped.e; clipped.e = aux; }
 
-		/* eliminujë przypadki, gdy odcinek poîoûony jest w caîoôci nad lub pod oknem */			     
+		/* eliminujï¿½ przypadki, gdy odcinek poï¿½oï¿½ony jest w caï¿½oï¿½ci nad lub pod oknem */			     
 		if ((line->s.y > box->MaxY) || (line->e.y < box->MinY)) return (FALSE);
 
-		/* obcinam od góry, jeûeli odcinek przecina prostâ y = MinY */
+		/* obcinam od gï¿½ry, jeï¿½eli odcinek przecina prostï¿½ y = MinY */
 		if (line->s.y < box->MinY)
 			{
 				best = search_best_x (box->MinX, box->MaxX, &line->s, &line->e, box->MinY);
@@ -1258,7 +1262,7 @@ static LONG clip_any (struct Line *line, struct Rectangle *box)
 					}
 			}
 			
-		/* obcinam od doîu, jeûeli odcinek przecina prostâ y = MaxY */
+		/* obcinam od doï¿½u, jeï¿½eli odcinek przecina prostï¿½ y = MaxY */
 		if (line->e.y > box->MaxY)
 			{
 				best = search_best_x (box->MinX, box->MaxX, &line->s, &line->e, box->MaxY);
@@ -1274,39 +1278,39 @@ static LONG clip_any (struct Line *line, struct Rectangle *box)
 	}
 
 //-------------------------------------------------------------------------------------
-// Funkcja obcinajâca odcinek pionowy od góry i od doîu. Jeûeli odcinek nie wymaga
-// obciëcia z danej strony, to nie jest obcinany.
+// Funkcja obcinajï¿½ca odcinek pionowy od gï¿½ry i od doï¿½u. Jeï¿½eli odcinek nie wymaga
+// obciï¿½cia z danej strony, to nie jest obcinany.
 
 static LONG clip_vert (struct Line *line, struct Rectangle *box)
 	{
-		/* porzâdkujë koïce odcinka wedîug wspóîrzëdnej y. Poniewaû wspóîrzëdna x obu */
-		/* punktów jest ta sama, wystarczy zamieniaê wspóîrzëdne y */
+		/* porzï¿½dkujï¿½ koï¿½ce odcinka wedï¿½ug wspï¿½ï¿½rzï¿½dnej y. Poniewaï¿½ wspï¿½ï¿½rzï¿½dna x obu */
+		/* punktï¿½w jest ta sama, wystarczy zamieniaï¿½ wspï¿½ï¿½rzï¿½dne y */
 		if (line->e.y < line->s.y) 
 					{ LONG aux = line->s.y; line->s.y = line->e.y; line->e.y = aux; }
-		/* elimiujë linie leûâce w caîoôci po lewej i po prawej stronie okna */
+		/* elimiujï¿½ linie leï¿½ï¿½ce w caï¿½oï¿½ci po lewej i po prawej stronie okna */
 		if ((line->s.x < box->MinX) || (line->s.x > box->MaxX)) return (FALSE);
-		/* eliminujë linie leûâce w caîoôci ponad, lub pod oknem */
+		/* eliminujï¿½ linie leï¿½ï¿½ce w caï¿½oï¿½ci ponad, lub pod oknem */
 		if ((line->e.y < box->MinY) || (line->s.y > box->MaxY)) return (FALSE);
-		/* obcinam z doîu */
+		/* obcinam z doï¿½u */
 		if (line->e.y > box->MaxY) line->e.y = box->MaxY;
-		/* obcinam z góry */
+		/* obcinam z gï¿½ry */
 		if (line->s.y < box->MinY) line->s.y = box->MinY;
 		return (TRUE);
 	}
 
 //-------------------------------------------------------------------------------------
-// Funkcja obcinajâca odcinek poziomy z lewej i z prawej. Jeûeli odcinek nie wymaga
-// obciëcia z danej strony, to nie jest obcinany.
+// Funkcja obcinajï¿½ca odcinek poziomy z lewej i z prawej. Jeï¿½eli odcinek nie wymaga
+// obciï¿½cia z danej strony, to nie jest obcinany.
 
 static LONG clip_horiz (struct Line *line, struct Rectangle *box)
 	{
-		/* porzâdkujë koïce odcinka wedîug wspóîrzëdnej x. Poniewaû wspóîrzëdna y obu */
-		/* punktów jest ta sama, wystarczy zamieniaê wspóîrzëdne x */
+		/* porzï¿½dkujï¿½ koï¿½ce odcinka wedï¿½ug wspï¿½ï¿½rzï¿½dnej x. Poniewaï¿½ wspï¿½ï¿½rzï¿½dna y obu */
+		/* punktï¿½w jest ta sama, wystarczy zamieniaï¿½ wspï¿½ï¿½rzï¿½dne x */
 		if (line->e.x < line->s.x) 
 					{ LONG aux = line->s.x; line->s.x = line->e.x; line->e.x = aux; }
-		/* elimiujë linie leûâce w caîoôci ponad i pod oknem */
+		/* elimiujï¿½ linie leï¿½ï¿½ce w caï¿½oï¿½ci ponad i pod oknem */
 		if ((line->s.y < box->MinY) || (line->s.y > box->MaxY)) return (FALSE);
-		/* eliminujë linie leûâce w caîoôci po lewej lub po prawej stronie okna */
+		/* eliminujï¿½ linie leï¿½ï¿½ce w caï¿½oï¿½ci po lewej lub po prawej stronie okna */
 		if ((line->e.x < box->MinX) || (line->s.x > box->MaxX)) return (FALSE);
 		/* obcinam od prawej */
 		if (line->e.x > box->MaxX) line->e.x = box->MaxX;
@@ -1316,10 +1320,10 @@ static LONG clip_horiz (struct Line *line, struct Rectangle *box)
 	}
 
 //-------------------------------------------------------------------------------------
-// Funkcja okreôlajâca poîoûenie punktu P wzglëdem wektora SE. Jeûeli zmienna dev:
-//  - jest < 0, to punkt leûy po lewej stronie wektora,
-//  - jest = 0, to punkt leûy na wektorze,
-//  - jest > 0, to punkt leûy po prawej stronie wektora.
+// Funkcja okreï¿½lajï¿½ca poï¿½oï¿½enie punktu P wzglï¿½dem wektora SE. Jeï¿½eli zmienna dev:
+//  - jest < 0, to punkt leï¿½y po lewej stronie wektora,
+//  - jest = 0, to punkt leï¿½y na wektorze,
+//  - jest > 0, to punkt leï¿½y po prawej stronie wektora.
 
 static void calc_deviation (struct Point32 *s, struct Point32 *e, struct Point32 *p, 
                             Extended *dev)
@@ -1333,10 +1337,10 @@ static void calc_deviation (struct Point32 *s, struct Point32 *e, struct Point32
 	}
 
 //-------------------------------------------------------------------------------------
-// Funkcja dla danych punktów odcinka (uporzâdkowanych wedîug y) poszukuje punktu
-// przeciëcia z odcinkiem poziomym o wspóîrzëdnej y = y i kraïcach x1 = min, x2 = max.
-// Jeûeli nie ma przeciëcia, funkcja zwraca 0x80000000. Funkcja wykonuje mniej obli-
-// czeï, jeûeli odcinek poîoûony jest pod kâtem 45 stopni.
+// Funkcja dla danych punktï¿½w odcinka (uporzï¿½dkowanych wedï¿½ug y) poszukuje punktu
+// przeciï¿½cia z odcinkiem poziomym o wspï¿½ï¿½rzï¿½dnej y = y i kraï¿½cach x1 = min, x2 = max.
+// Jeï¿½eli nie ma przeciï¿½cia, funkcja zwraca 0x80000000. Funkcja wykonuje mniej obli-
+// czeï¿½, jeï¿½eli odcinek poï¿½oï¿½ony jest pod kï¿½tem 45 stopni.
 
 static LONG search_best_x (LONG min, LONG max, struct Point32 *s, struct Point32 *e,
                            LONG y)
@@ -1345,22 +1349,22 @@ static LONG search_best_x (LONG min, LONG max, struct Point32 *s, struct Point32
 		struct Point32 p;
 		Extended dmin, dmax, dmid;
 
-		/* liczë odchyîki graniczne */
+		/* liczï¿½ odchyï¿½ki graniczne */
 		p.y = y;
 		p.x = min;
 		calc_deviation (s, e, &p, &dmin);
 		p.x = max;
 		calc_deviation (s, e, &p, &dmax);
 
-		/* jeûeli odchyîki takiego samego znaku, to obcinanie zbëdne. */
+		/* jeï¿½eli odchyï¿½ki takiego samego znaku, to obcinanie zbï¿½dne. */
 		if ((tst64 (&dmin) > 0) && (tst64 (&dmax) > 0)) return (BOTH_POSITIVE);
 		if ((tst64 (&dmin) < 0) && (tst64 (&dmax) < 0)) return (BOTH_NEGATIVE);
 
-		/* sprawdzam nachylenie 45 stopni, jeûeli tak, to obcinam metodâ skróconâ */
+		/* sprawdzam nachylenie 45 stopni, jeï¿½eli tak, to obcinam metodï¿½ skrï¿½conï¿½ */
 		if (e->y - s->y == e->x - s->x) return (s->x + y - s->y);
 		if (e->y - s->y == s->x - e->x) return (s->x - y + s->y);
 
-		/* pëtla szukania najmniejszej odchyîki metodâ poîowienia przedziaîu */	
+		/* pï¿½tla szukania najmniejszej odchyï¿½ki metodï¿½ poï¿½owienia przedziaï¿½u */	
 		do
 			{
 			  LONG result;
@@ -1375,18 +1379,18 @@ static LONG search_best_x (LONG min, LONG max, struct Point32 *s, struct Point32
 			}
 		while (max - min > 1);
 
-		/* po zawëûeniu obszaru poszukiwaï do 2 pikseli wybieram ten z mniejszâ warto- */
-		/* ôciâ bezwzglëdnâ odchyîki */
+		/* po zawï¿½ï¿½eniu obszaru poszukiwaï¿½ do 2 pikseli wybieram ten z mniejszï¿½ warto- */
+		/* ï¿½ciï¿½ bezwzglï¿½dnï¿½ odchyï¿½ki */
 		abs64 (&dmin);
 		if (cmp64 (&dmin,&dmax) >= 0) return (max);
 		else return (min);
 	}
 
 //-------------------------------------------------------------------------------------
-// Funkcja dla danych punktów odcinka (uporzâdkowanych wedîug x) poszukuje punktu
-// przeciëcia z odcinkiem pionowym o wspóîrzëdnej x = x i kraïcach y1 = min, y2 = max.
-// Jeûeli nie ma przeciëcia, funkcja zwraca 0x80000000. Funkcja wykonuje mniej obli-
-// czeï, jeûeli odcinek poîoûony jest pod kâtem 45 stopni.
+// Funkcja dla danych punktï¿½w odcinka (uporzï¿½dkowanych wedï¿½ug x) poszukuje punktu
+// przeciï¿½cia z odcinkiem pionowym o wspï¿½ï¿½rzï¿½dnej x = x i kraï¿½cach y1 = min, y2 = max.
+// Jeï¿½eli nie ma przeciï¿½cia, funkcja zwraca 0x80000000. Funkcja wykonuje mniej obli-
+// czeï¿½, jeï¿½eli odcinek poï¿½oï¿½ony jest pod kï¿½tem 45 stopni.
 
 static LONG search_best_y (LONG min, LONG max, struct Point32 *s, struct Point32 *e,
                            LONG x)
@@ -1395,22 +1399,22 @@ static LONG search_best_y (LONG min, LONG max, struct Point32 *s, struct Point32
 		struct Point32 p;
 		Extended dmin, dmax, dmid;
 
-		/* liczë odchyîki graniczne */
+		/* liczï¿½ odchyï¿½ki graniczne */
 		p.x = x;
 		p.y = min;
 		calc_deviation (s, e, &p, &dmin);
 		p.y = max;
 		calc_deviation (s, e, &p, &dmax);
 
-		/* jeûeli odchyîki takiego samego znaku, to obcinanie zbëdne. */
+		/* jeï¿½eli odchyï¿½ki takiego samego znaku, to obcinanie zbï¿½dne. */
 		if ((tst64 (&dmin) > 0) && (tst64 (&dmax) > 0)) return (BOTH_POSITIVE);
 		if ((tst64 (&dmin) < 0) && (tst64 (&dmax) < 0)) return (BOTH_NEGATIVE);
 
-		/* sprawdzam nachylenie 45 stopni, jeûeli tak, to obcinam metodâ skróconâ */
+		/* sprawdzam nachylenie 45 stopni, jeï¿½eli tak, to obcinam metodï¿½ skrï¿½conï¿½ */
 		if (e->x - s->x == e->y - s->y) return (s->y + x - s->x);
 		if (e->x - s->x == s->y - e->y) return (s->y - x + s->x);
 
-		/* pëtla szukania najmniejszej odchyîki metodâ poîowienia przedziaîu */	
+		/* pï¿½tla szukania najmniejszej odchyï¿½ki metodï¿½ poï¿½owienia przedziaï¿½u */	
 		do
 			{
 			  LONG result;
@@ -1425,15 +1429,15 @@ static LONG search_best_y (LONG min, LONG max, struct Point32 *s, struct Point32
 			}
 		while (max - min > 1);
 
-		/* po zawëûeniu obszaru poszukiwaï do 2 pikseli wybieram ten z mniejszâ warto- */
-		/* ôciâ bezwzglëdnâ odchyîki */
+		/* po zawï¿½ï¿½eniu obszaru poszukiwaï¿½ do 2 pikseli wybieram ten z mniejszï¿½ warto- */
+		/* ï¿½ciï¿½ bezwzglï¿½dnï¿½ odchyï¿½ki */
 		abs64 (&dmin);
 		if (cmp64 (&dmin,&dmax) >= 0) return (max);
 		else return (min);
 	}
 
 //-------------------------------------------------------------------------------------
-// Funkcja sprawdza, czy prosta, na której leûy odcinek okreôlany przez 'line' przecina 
+// Funkcja sprawdza, czy prosta, na ktï¿½rej leï¿½y odcinek okreï¿½lany przez 'line' przecina 
 // obszar okna danego przez 'box'.
 
 static LONG check_section (struct Line *line, struct Rectangle *box)
@@ -1459,8 +1463,8 @@ static LONG check_section (struct Line *line, struct Rectangle *box)
 	}
 
 //-------------------------------------------------------------------------------------
-// Funkcja rysuje elipsë o ôrodku (x,y) i osiach a,b. Tryb wypeîniany lub nie (w zaleû-
-// noôci od parametru 'mode'.
+// Funkcja rysuje elipsï¿½ o ï¿½rodku (x,y) i osiach a,b. Tryb wypeï¿½niany lub nie (w zaleï¿½-
+// noï¿½ci od parametru 'mode'.
 
 static void ellipse_internal (struct VRastPort *vrp, LONG x, LONG y, LONG a, LONG b,
                        WORD mode)
@@ -1468,7 +1472,7 @@ static void ellipse_internal (struct VRastPort *vrp, LONG x, LONG y, LONG a, LON
 		LONG xp, yp, ap, bp, dx, dy, f[6];
 		Extended econst, dev[4];
 
-		/* przeliczenie wspóîrzëdnych */
+		/* przeliczenie wspï¿½ï¿½rzï¿½dnych */
 		xp = RealToRastX (vrp, x);
 		yp = RealToRastY (vrp, y);
 		ap = RealToRastX (vrp, a) - RealToRastX (vrp, 0);
@@ -1484,20 +1488,20 @@ static void ellipse_internal (struct VRastPort *vrp, LONG x, LONG y, LONG a, LON
 				return;
 			}
 
-		/* sprawdzenie obecnoôci elipsy na ekranie metodâ prostokâtów */
+		/* sprawdzenie obecnoï¿½ci elipsy na ekranie metodï¿½ prostokï¿½tï¿½w */
 		if (xp + ap < vrp->box.MinX) return;
 		if (xp - ap > vrp->box.MaxX) return;
 		if (yp + bp < vrp->box.MinY) return;
 		if (yp - bp > vrp->box.MaxY) return;
 
-		/* obliczenie wielkoôci staîych w pëtli rysowania */
+		/* obliczenie wielkoï¿½ci staï¿½ych w pï¿½tli rysowania */
 		f[2] = ap * ap;
 		f[3] = bp * bp;
 		mul64 (f[2], f[3], &econst);
 
 		dx = 0; dy = -bp;
 
-		/* pëtla rysujâca */
+		/* pï¿½tla rysujï¿½ca */
 		do
 			{
 				if (mode == ELLIPSE_MODE_PLOT)
@@ -1515,26 +1519,26 @@ static void ellipse_internal (struct VRastPort *vrp, LONG x, LONG y, LONG a, LON
 
 				f[0] = dx * dx;
 				f[1] = dy * dy;
-				f[4] = f[0] + (dx << 1) + 1;         /* (dx+1)² */
-				f[5] = f[1] + (dy << 1) + 1;         /* (dy+1)² */
+				f[4] = f[0] + (dx << 1) + 1;         /* (dx+1)ï¿½ */
+				f[5] = f[1] + (dy << 1) + 1;         /* (dy+1)ï¿½ */
 
-				mul64 (f[4], f[3], &dev[0]);         /* (dx+1)²b² */
-				mul64 (f[1], f[2], &dev[1]);         /* dy²a² */
-				mul64 (f[0], f[3], &dev[2]);         /* dx²b² */
-				mul64 (f[5], f[2], &dev[3]);         /* (dy+1)²a² */
+				mul64 (f[4], f[3], &dev[0]);         /* (dx+1)ï¿½bï¿½ */
+				mul64 (f[1], f[2], &dev[1]);         /* dyï¿½aï¿½ */
+				mul64 (f[0], f[3], &dev[2]);         /* dxï¿½bï¿½ */
+				mul64 (f[5], f[2], &dev[3]);         /* (dy+1)ï¿½aï¿½ */
 
 				add64 (&dev[0], &dev[1]);
-				sub64 (&econst, &dev[1]);            /* dev[1]=(dx+1)²b² + dy²a² - a²b² */
+				sub64 (&econst, &dev[1]);            /* dev[1]=(dx+1)ï¿½bï¿½ + dyï¿½aï¿½ - aï¿½bï¿½ */
 				add64 (&dev[3], &dev[2]);
-				sub64 (&econst, &dev[2]);            /* dev[2]=dx²b² + (dy+1)²a² - a²b² */
+				sub64 (&econst, &dev[2]);            /* dev[2]=dxï¿½bï¿½ + (dy+1)ï¿½aï¿½ - aï¿½bï¿½ */
 				add64 (&dev[0], &dev[3]);
-				sub64 (&econst, &dev[3]);            /* dev[2]=(dx+1)²b² + (dy+1)²a² - a²b² */
+				sub64 (&econst, &dev[3]);            /* dev[2]=(dx+1)ï¿½bï¿½ + (dy+1)ï¿½aï¿½ - aï¿½bï¿½ */
 
 				abs64 (&dev[1]);            /* lewo */
-				abs64 (&dev[2]);            /* dóî */
-				abs64 (&dev[3]);            /* lewo i dóî */
+				abs64 (&dev[2]);            /* dï¿½ï¿½ */
+				abs64 (&dev[3]);            /* lewo i dï¿½ï¿½ */
 
-				/* znalezienie najmniejszej wartoôci bezwzglëdnej odchyîki */
+				/* znalezienie najmniejszej wartoï¿½ci bezwzglï¿½dnej odchyï¿½ki */
 				if (cmp64 (&dev[1], &dev[2]) < 0)
 					{
 						dx++;
@@ -1552,8 +1556,8 @@ static void ellipse_internal (struct VRastPort *vrp, LONG x, LONG y, LONG a, LON
 	}
 
 //------------------------------------------------------------------------------------
-// Funkcja sprawdza, czy piksel (x,y) znajduje sië wewnâtrz prostokâta obcinania,
-// jeôli tak, stawia piksel.
+// Funkcja sprawdza, czy piksel (x,y) znajduje siï¿½ wewnï¿½trz prostokï¿½ta obcinania,
+// jeï¿½li tak, stawia piksel.
 
 static LONG pixel_internal (struct VRastPort *vrp, LONG x, LONG y)
 	{
@@ -1566,8 +1570,8 @@ static LONG pixel_internal (struct VRastPort *vrp, LONG x, LONG y)
 	}
 
 //------------------------------------------------------------------------------------
-// Funkcja rysuje wypeîniony prostokât o bokach równolegîych do osi ukîadu wspóîrzëd-
-// nych.W razie potrzeby jest przycinany.Obowiâzuje x1 >= x0 i y1 >= y0.
+// Funkcja rysuje wypeï¿½niony prostokï¿½t o bokach rï¿½wnolegï¿½ych do osi ukï¿½adu wspï¿½ï¿½rzï¿½d-
+// nych.W razie potrzeby jest przycinany.Obowiï¿½zuje x1 >= x0 i y1 >= y0.
 
 static void fbox_internal (struct VRastPort *vrp, LONG x0, LONG y0, LONG x1, LONG y1)
 	{
@@ -1584,11 +1588,11 @@ static void fbox_internal (struct VRastPort *vrp, LONG x0, LONG y0, LONG x1, LON
 	}
 
 //-------------------------------------------------------------------------------------
-// Funkcja sprawdza, czy naroûniki okna obcinania znajdujâ sië wewnâtrz wielokâta, a
-// jeûeli tak, dopisuje je do tablicy 'cliptable' na czterech ostatnich pozycjach,
-// jeûeli nie funkcja blokuje punkty ustawiajâc wspóîrzëdnâ x na 0x80000000. Nastëpnie
-// funkcja uswa wszystkie dublujâce sië i zablokowane punkty z tablicy 'cliptable'.
-// Ostatniâ czynnoôciâ jest uporzâdkowanie wierzchoîków w kolejnoôci rysowania.
+// Funkcja sprawdza, czy naroï¿½niki okna obcinania znajdujï¿½ siï¿½ wewnï¿½trz wielokï¿½ta, a
+// jeï¿½eli tak, dopisuje je do tablicy 'cliptable' na czterech ostatnich pozycjach,
+// jeï¿½eli nie funkcja blokuje punkty ustawiajï¿½c wspï¿½ï¿½rzï¿½dnï¿½ x na 0x80000000. Nastï¿½pnie
+// funkcja uswa wszystkie dublujï¿½ce siï¿½ i zablokowane punkty z tablicy 'cliptable'.
+// Ostatniï¿½ czynnoï¿½ciï¿½ jest uporzï¿½dkowanie wierzchoï¿½kï¿½w w kolejnoï¿½ci rysowania.
 
 static LONG prepare_filled_polygon (struct VRastPort *vrp, struct Point32 *polygon,
                                     struct Point32 *cliptable, WORD vertices)
@@ -1598,7 +1602,7 @@ static LONG prepare_filled_polygon (struct VRastPort *vrp, struct Point32 *polyg
 		Extended dev;
 		struct Point32 p;
 		
-		/* 1. naroûnik lewy górny */
+		/* 1. naroï¿½nik lewy gï¿½rny */
 		p.x = vrp->box.MinX;
 		p.y = vrp->box.MinY;
 		cliptable[vertices << 1] = p;
@@ -1614,7 +1618,7 @@ static LONG prepare_filled_polygon (struct VRastPort *vrp, struct Point32 *polyg
 					}
       }
 
-		/* 2. naroûnik lewy dolny */
+		/* 2. naroï¿½nik lewy dolny */
 		p.y = vrp->box.MaxY;
 		cliptable[(vertices << 1) + 1] = p;
 		calc_deviation (&polygon[0], &polygon[1], &p, &dev);
@@ -1629,7 +1633,7 @@ static LONG prepare_filled_polygon (struct VRastPort *vrp, struct Point32 *polyg
 					}
       }
 
-		/* 3. naroûnik prawy dolny */
+		/* 3. naroï¿½nik prawy dolny */
 		p.x = vrp->box.MaxX;
 		cliptable[(vertices << 1) + 2] = p;
 		calc_deviation (&polygon[0], &polygon[1], &p, &dev);
@@ -1644,7 +1648,7 @@ static LONG prepare_filled_polygon (struct VRastPort *vrp, struct Point32 *polyg
 					}
       }
 
-		/* 4. naroûnik prawy górny */
+		/* 4. naroï¿½nik prawy gï¿½rny */
 		p.y = vrp->box.MinY;
 		cliptable[(vertices << 1) + 3] = p;
 		calc_deviation (&polygon[0], &polygon[1], &p, &dev);
@@ -1659,7 +1663,7 @@ static LONG prepare_filled_polygon (struct VRastPort *vrp, struct Point32 *polyg
 					}
       }
 
-		/* usuniëcie powtarzajâcych sië i zablokowanych punktów z tablicy 'clipped' */
+		/* usuniï¿½cie powtarzajï¿½cych siï¿½ i zablokowanych punktï¿½w z tablicy 'clipped' */
 		vert = 0;
 		for (index = 0; index < (vertices << 1) + 4; index++)
 			{
@@ -1675,7 +1679,7 @@ static LONG prepare_filled_polygon (struct VRastPort *vrp, struct Point32 *polyg
 				if (!byl) cliptable[vert++] = cliptable[index];
 			}
 
-		/* uîoûenie punktów w wielokât wypukîy */
+		/* uï¿½oï¿½enie punktï¿½w w wielokï¿½t wypukï¿½y */
 		for (index = 0; index < vert - 2; index++)
 			{
 				for (i = 2 + index; i < vert; i++)
@@ -1695,30 +1699,30 @@ static LONG prepare_filled_polygon (struct VRastPort *vrp, struct Point32 *polyg
 	}
 
 //-------------------------------------------------------------------------------------
-// Funkcja wykonuje nastëpujâce zadania:
-// - przelicza wspóîrzëdne rzeczywiste wierzchoîków wielokâta na wspóîrzëdne rastrowe,
-// - na ich podstawie wypeînia tablicë odcinków
+// Funkcja wykonuje nastï¿½pujï¿½ce zadania:
+// - przelicza wspï¿½ï¿½rzï¿½dne rzeczywiste wierzchoï¿½kï¿½w wielokï¿½ta na wspï¿½ï¿½rzï¿½dne rastrowe,
+// - na ich podstawie wypeï¿½nia tablicï¿½ odcinkï¿½w
 // - przycina wszystkie odcinki do okna VRastPortu.
-// Jeûeli wielokât znajduje sië caîkowicie poza oknem, funkcja zwraca 0.
+// Jeï¿½eli wielokï¿½t znajduje siï¿½ caï¿½kowicie poza oknem, funkcja zwraca 0.
 // Parametry:
-// polygon - tablica wierzchoîków wielokâta (wspóîrzëdne rzeczywiste).
-// cliptable - tablica w której umieszczone bëdâ odcinki (wspóîrzëdne rastrowe).
-// vertices - iloôê wierzchoîków (co najmniej 3).
+// polygon - tablica wierzchoï¿½kï¿½w wielokï¿½ta (wspï¿½ï¿½rzï¿½dne rzeczywiste).
+// cliptable - tablica w ktï¿½rej umieszczone bï¿½dï¿½ odcinki (wspï¿½ï¿½rzï¿½dne rastrowe).
+// vertices - iloï¿½ï¿½ wierzchoï¿½kï¿½w (co najmniej 3).
 
 static LONG clip_polygon (struct VRastPort *vrp, struct Point32 *polygon,
                           struct Point32 *cliptable, WORD vertices)
 	{
-		LONG draw = FALSE;           /* okreôla czy bëdzie coô do narysowania */
+		LONG draw = FALSE;           /* okreï¿½la czy bï¿½dzie coï¿½ do narysowania */
 		LONG i;		
 
-		/* przeliczanie wspóîrzëdnych w tablicy 'polygon' */
+		/* przeliczanie wspï¿½ï¿½rzï¿½dnych w tablicy 'polygon' */
 		for (i = 0; i < vertices; i++)
 			{
 				polygon[i].x = RealToRastX (vrp, polygon[i].x);
 				polygon[i].y = RealToRastY (vrp, polygon[i].y);
 			}
 
-		/* wypeînianie tablicy odcinków 'cliptable' */
+		/* wypeï¿½nianie tablicy odcinkï¿½w 'cliptable' */
 
 		cliptable[0] = cliptable[(vertices << 1) - 1] = polygon[0];
 		for (i = 1; i < vertices; i++)
@@ -1771,15 +1775,18 @@ static LONG setup_ainfo (struct VRastPort *vrp, LONG vertices)
 	{
 		if (vrp->aitable)
 			{
-				if (vrp->aisize >= vertices) return (TRUE);
-				else free_ainfo (vrp);
-			}
-	 	if (vrp->aitable = AllocVec (vertices * 5, MEMF_ANY))
-			{
-				vrp->aisize = vertices;
-				return (TRUE);
-			}
-		return (FALSE);
+			if (vrp->aisize >= vertices) return (TRUE);
+			else free_ainfo (vrp);
+		}
+	/* Limit vertices to prevent memory exhaustion - max 16384 per documentation */
+	if(vertices>16384) vertices=16384;
+	if(vertices<3) return FALSE;
+ 	if (vrp->aitable = AllocVec (vertices * 5, MEMF_ANY))
+		{
+			vrp->aisize = vertices;
+			return (TRUE);
+		}
+	return (FALSE);
 	}
 
 //-------------------------------------------------------------------------------------

@@ -163,10 +163,60 @@ LONG XmlGetToken(struct XmlParser *parser)
    {  return XMLTOK_EOF;
    }
 
+   /* Safety check: ensure dataend is valid */
+   if (parser->dataend < parser->data)
+   {  parser->flags |= XMLPF_ERROR;
+      return XMLTOK_ERROR;
+   }
+
    XmlSkipWhitespace(parser);
 
    if (parser->data >= parser->dataend)
    {  return XMLTOK_EOF;
+   }
+
+   /* If we don't have a '<' at the start, this isn't valid XML - but try to skip to it */
+   if (*parser->data != '<')
+   {  /* Skip to first '<' */
+      while (parser->data < parser->dataend && *parser->data != '<')
+      {  parser->data++;
+      }
+      if (parser->data >= parser->dataend)
+      {  return XMLTOK_EOF;
+      }
+   }
+
+   /* Check for XML declaration <?xml ... ?> */
+   if (parser->dataend - parser->data >= 5 && 
+       parser->data[0] == '<' && parser->data[1] == '?' && 
+       parser->data[2] == 'x' && parser->data[3] == 'm' && parser->data[4] == 'l')
+   {  /* Skip XML declaration */
+      parser->data += 5;
+      while (parser->dataend - parser->data >= 2)
+      {  if (parser->data[0] == '?' && parser->data[1] == '>')
+         {  parser->data += 2;
+            return XmlGetToken(parser); /* Recursively get next token */
+         }
+         parser->data++;
+      }
+      parser->flags |= XMLPF_ERROR;
+      return XMLTOK_ERROR;
+   }
+
+   /* Check for processing instruction <?...?> */
+   if (parser->dataend - parser->data >= 2 && 
+       parser->data[0] == '<' && parser->data[1] == '?')
+   {  /* Skip processing instruction */
+      parser->data += 2;
+      while (parser->dataend - parser->data >= 2)
+      {  if (parser->data[0] == '?' && parser->data[1] == '>')
+         {  parser->data += 2;
+            return XmlGetToken(parser); /* Recursively get next token */
+         }
+         parser->data++;
+      }
+      parser->flags |= XMLPF_ERROR;
+      return XMLTOK_ERROR;
    }
 
    /* Check for comment */
@@ -220,6 +270,14 @@ LONG XmlGetToken(struct XmlParser *parser)
          return XMLTOK_ERROR;
       }
 
+      /* Debug: log what we're about to parse */
+      {  UBYTE *debug_start = parser->data;
+         UBYTE *debug_end = parser->dataend;
+         LONG debug_len = debug_end - debug_start;
+         if (debug_len > 20) debug_len = 20;
+         /* Note: Can't use Aprintf here as this is in xmlparse.c which doesn't include aweb headers */
+      }
+
       /* Check for end tag */
       if (*parser->data == '/')
       {  parser->data++;
@@ -253,6 +311,7 @@ LONG XmlGetToken(struct XmlParser *parser)
 
       parser->tokenstart = start;
       parser->tokenend = p;
+      parser->data = p;  /* Update parser->data to point after tag name */
 
       /* Check if empty tag */
       XmlSkipWhitespace(parser);
@@ -269,74 +328,90 @@ LONG XmlGetToken(struct XmlParser *parser)
       }
 
       /* Check for attributes */
-      if (parser->data < parser->dataend && *parser->data != '>')
-      {  /* We're in a tag with attributes, return attribute token */
-         parser->flags |= XMLPF_IN_ATTR;
-         XmlSkipWhitespace(parser);
-         if (parser->data >= parser->dataend || *parser->data == '>')
-         {  parser->flags &= ~XMLPF_IN_TAG;
-            parser->flags &= ~XMLPF_IN_ATTR;
-            if (parser->data < parser->dataend && *parser->data == '>')
-            {  parser->data++;
-            }
-            return XMLTOK_START_TAG;
+      XmlSkipWhitespace(parser);
+      if (parser->data >= parser->dataend || *parser->data == '>')
+      {  /* No attributes, end of tag */
+         parser->flags &= ~XMLPF_IN_TAG;
+         if (parser->data < parser->dataend && *parser->data == '>')
+         {  parser->data++;
          }
+         return XMLTOK_START_TAG;
+      }
+      
+      /* There are attributes - return START_TAG now, attributes will come on next calls */
+      /* Keep XMLPF_IN_TAG set so we know to parse attributes on subsequent calls */
+      return XMLTOK_START_TAG;
+   }
 
+   /* If we're still in a tag from a previous call, check for more attributes */
+   if (parser->flags & XMLPF_IN_TAG)
+   {  XmlSkipWhitespace(parser);
+      if (parser->data >= parser->dataend)
+      {  parser->flags |= XMLPF_ERROR;
+         return XMLTOK_ERROR;
+      }
+      if (*parser->data == '>')
+      {  /* End of tag, no more attributes */
+         parser->data++;
+         parser->flags &= ~XMLPF_IN_TAG;
+         parser->flags &= ~XMLPF_IN_ATTR;
+         /* Continue to get next token */
+      }
+      else
+      {  /* There's another attribute */
+         parser->flags |= XMLPF_IN_ATTR;
+         
          /* Read attribute name */
          start = parser->data;
          p = parser->data;
          while (p < parser->dataend && *p != '=' && *p != '>' && !XmlIsWhitespace(*p))
          {  p++;
          }
-         if (p >= parser->dataend || (p < parser->dataend && *p != '='))
-         {  parser->flags |= XMLPF_ERROR;
-            return XMLTOK_ERROR;
-         }
-         parser->attrname = start;
-         parser->attrnamelen = p - start;
-
-         /* Skip to = */
-         while (p < parser->dataend && *p != '=')
-         {  p++;
-         }
          if (p >= parser->dataend)
          {  parser->flags |= XMLPF_ERROR;
             return XMLTOK_ERROR;
          }
-         p++;
-         XmlSkipWhitespace(parser);
-
-         /* Read attribute value */
-         if (p >= parser->dataend || (*p != '"' && *p != '\''))
-         {  parser->flags |= XMLPF_ERROR;
-            return XMLTOK_ERROR;
+         if (*p != '=')
+         {  parser->flags &= ~XMLPF_IN_ATTR;
+            parser->flags &= ~XMLPF_IN_TAG;
+            if (*p == '>')
+            {  parser->data = p + 1;
+            }
+            /* Continue to get next token */
          }
-         quote_char = *p;
-         p++;
-         start = p;
-         while (p < parser->dataend && *p != quote_char)
-         {  p++;
-         }
-         if (p >= parser->dataend)
-         {  parser->flags |= XMLPF_ERROR;
-            return XMLTOK_ERROR;
-         }
-         parser->attrvalue = start;
-         parser->attrvaluelen = p - start;
-         parser->data = p + 1;
+         else
+         {  /* We found '=', so this is an attribute */
+            parser->attrname = start;
+            parser->attrnamelen = p - start;
+            parser->data = p + 1;
+            XmlSkipWhitespace(parser);
 
-         /* Unescape attribute value */
-         XmlUnescape(parser->attrvalue, &parser->attrvaluelen);
+            /* Read attribute value */
+            if (parser->data >= parser->dataend || (*parser->data != '"' && *parser->data != '\''))
+            {  parser->flags |= XMLPF_ERROR;
+               return XMLTOK_ERROR;
+            }
+            quote_char = *parser->data;
+            parser->data++;
+            start = parser->data;
+            while (parser->data < parser->dataend && *parser->data != quote_char)
+            {  parser->data++;
+            }
+            if (parser->data >= parser->dataend)
+            {  parser->flags |= XMLPF_ERROR;
+               return XMLTOK_ERROR;
+            }
+            parser->attrvalue = start;
+            parser->attrvaluelen = parser->data - start;
+            parser->data++;  /* Skip closing quote */
 
-         return XMLTOK_ATTR;
+            /* Unescape attribute value */
+            XmlUnescape(parser->attrvalue, &parser->attrvaluelen);
+
+            return XMLTOK_ATTR;
+         }
       }
-
-      /* Simple start tag */
-      if (parser->data < parser->dataend && *parser->data == '>')
-      {  parser->data++;
-         parser->flags &= ~XMLPF_IN_TAG;
-         return XMLTOK_START_TAG;
-      }
+   }
 
       parser->flags |= XMLPF_ERROR;
       return XMLTOK_ERROR;

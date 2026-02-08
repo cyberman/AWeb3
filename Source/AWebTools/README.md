@@ -4,9 +4,9 @@ AWebTools is a collection of standalone test tools for testing AWeb functionalit
 
 ## Tools
 
-### AWebGet
+### AWGet
 
-AWebGet is a comprehensive HTTP/network testing tool that exercises the complete set of networking functionality used by AWeb. It includes:
+AWGet is a comprehensive HTTP/network testing tool that exercises the complete set of networking functionality used by AWeb. It includes:
 
 - HTTP/HTTPS request testing
 - SSL/TLS connection testing
@@ -19,16 +19,16 @@ AWebGet is a comprehensive HTTP/network testing tool that exercises the complete
 
 ```bash
 # Run built-in test suite
-AWebGet
+AWGet
 
 # Test a specific URL
-AWebGet -u http://example.com/
+AWGet -u http://example.com/
 
 # Test HTTPS URL
-AWebGet -u https://www.google.com/
+AWGet -u https://www.google.com/
 
 # Show help
-AWebGet -h
+AWGet -h
 ```
 
 #### Features
@@ -41,7 +41,7 @@ AWebGet -h
 
 #### Debug Output
 
-AWebGet provides detailed debugging output including:
+AWGet provides detailed debugging output including:
 
 - TCP connection status
 - HTTP request/response headers
@@ -60,11 +60,11 @@ cd aweb36/AWebTools
 smake
 ```
 
-This will compile AWebGet and all its dependencies.
+This will compile AWGet and all its dependencies.
 
 ## Dependencies
 
-AWebGet requires:
+AWGet requires:
 
 - SAS/C compiler
 - AmigaOS 3.2 or higher

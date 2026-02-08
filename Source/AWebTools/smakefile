@@ -1,6 +1,6 @@
 # AWebTools makefile - Test suite for AWeb functionality
 
-# Invoke with `DEBUG = debug=sf' to compile selected files with debugging.
+# Invoke with `DEBUG=sf' to compile selected files with debugging.
 
 .c.o:
    @echo "        Compiling $*..."
@@ -10,58 +10,58 @@
 
 #-----------------------------------------------------------------------------
 
-all:        AWebGet
+all:        AWGet
 
-#- AWebGet - HTTP/Network testing tool --------------------------------------
+#- AWGet - HTTP/Network testing tool --------------------------------------
 
-AWebGet:    AWebGet.o http.o awebamitcp.o awebtcp.o amissl.o tcp.o tcperr.o nameserv.o author.o
-AWebGet:    AWebGet.lnk
-   slink with AWebGet.lnk
+AWGet:    AWGet.o http.o awebamitcp.o awebtcp.o amissl.o tcp.o tcperr.o nameserv.o author.o
+AWGet:    AWGet.lnk
+   slink with AWGet.lnk
 
-#- AWebGet constituents ----------------------------------------------------
+#- AWGet constituents ----------------------------------------------------
 
-AWebGet.o:  AWebGet.c ../AWebAPL/aweb.h ../AWebAPL/fetchdriver.h ../AWebAPL/awebtcp.h ../AWebAPL/tcperr.h ../AWebAPL/author.h
+AWGet.o:  AWGet.c /AWebAPL/aweb.h /AWebAPL/fetchdriver.h /AWebAPL/awebtcp.h /AWebAPL/tcperr.h /AWebAPL/authorlib.h
    @echo "        Compiling $*..."
-   @sc $(DEBUG) idir=../AWebAPL idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 $*.c
+   @sc $(DEBUG) idir=/AWebAPL idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 $*.c
 
 # Network modules from AWebAPL
-http.o:     ../AWebAPL/http.c ../AWebAPL/aweb.h ../AWebAPL/tcperr.h ../AWebAPL/fetchdriver.h ../AWebAPL/application.h ../AWebAPL/task.h ../AWebAPL/form.h ../AWebAPL/awebtcp.h
+http.o:     /AWebAPL/http.c /AWebAPL/aweb.h /AWebAPL/tcperr.h /AWebAPL/fetchdriver.h /AWebAPL/application.h /AWebAPL/task.h /AWebAPL/form.h /AWebAPL/awebtcp.h
    @echo "        Compiling $*..."
-   @sc idir=../AWebAPL idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 $*.c
+   @sc idir=/AWebAPL idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 $*.c
 
-awebamitcp.o: ../AWebAPL/awebamitcp.c
+awebamitcp.o: /AWebAPL/awebamitcp.c
    @echo "        Compiling $*..."
-   @sc idir=../AWebAPL idir=netinclude: $*.c
+   @sc idir=/AWebAPL idir=netinclude: $*.c
 
-awebtcp.o:  ../AWebAPL/awebtcp.c ../AWebAPL/awebtcp.h ../AWebAPL/awebssl.h
+awebtcp.o:  /AWebAPL/awebtcp.c /AWebAPL/awebtcp.h /AWebAPL/awebssl.h
    @echo "        Compiling $*..."
-   @sc idir=../AWebAPL idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 $*.c
+   @sc idir=/AWebAPL idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 $*.c
 
-amissl.o:   ../AWebAPL/amissl.c ../AWebAPL/aweb.h ../AWebAPL/awebssl.h
+amissl.o:   /AWebAPL/amissl.c /AWebAPL/aweb.h /AWebAPL/awebssl.h
    @echo "        Compiling $*..."
-   @sc idir=../AWebAPL idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 $*.c
+   @sc idir=/AWebAPL idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 $*.c
 
-tcp.o:      ../AWebAPL/tcp.c ../AWebAPL/aweb.h ../AWebAPL/awebtcp.h ../AWebAPL/tcperr.h
+tcp.o:      /AWebAPL/tcp.c /AWebAPL/aweb.h /AWebAPL/awebtcp.h /AWebAPL/tcperr.h
    @echo "        Compiling $*..."
-   @sc idir=../AWebAPL idir=netinclude: $*.c
+   @sc idir=/AWebAPL idir=netinclude: $*.c
 
-tcperr.o:   ../AWebAPL/tcperr.c ../AWebAPL/tcperr.h
+tcperr.o:   /AWebAPL/tcperr.c /AWebAPL/tcperr.h
    @echo "        Compiling $*..."
-   @sc idir=../AWebAPL $*.c
+   @sc idir=/AWebAPL $*.c
 
-nameserv.o: ../AWebAPL/nameserv.c ../AWebAPL/aweb.h ../AWebAPL/awebtcp.h
+nameserv.o: /AWebAPL/nameserv.c /AWebAPL/aweb.h /AWebAPL/awebtcp.h
    @echo "        Compiling $*..."
-   @sc idir=../AWebAPL idir=netinclude: $*.c
+   @sc idir=/AWebAPL idir=netinclude: $*.c
 
-author.o:   ../AWebAPL/author.c ../AWebAPL/aweb.h ../AWebAPL/authorlib.h
+author.o:   /AWebAPL/author.c /AWebAPL/aweb.h /AWebAPL/authorlib.h
    @echo "        Compiling $*..."
-   @sc idir=../AWebAPL $*.c
+   @sc idir=/AWebAPL $*.c
 
 #- Clean -------------------------------------------------------------------
 
 clean:
    @echo "        Cleaning AWebTools..."
-   @delete AWebGet.o
+   @delete AWGet.o
    @delete http.o
    @delete awebamitcp.o
    @delete awebtcp.o
@@ -70,4 +70,4 @@ clean:
    @delete tcperr.o
    @delete nameserv.o
    @delete author.o
-   @delete AWebGet 
+   @delete AWGet 

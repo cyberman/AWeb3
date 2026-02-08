@@ -32,15 +32,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include "../AWebAPL/aweb.h"
-#include "../AWebAPL/fetchdriver.h"
-#include "../AWebAPL/awebtcp.h"
-#include "../AWebAPL/tcperr.h"
-#include "../AWebAPL/author.h"
-#include "../AWebAPL/authorlib.h"
-#include "../AWebAPL/awebssl.h"
-#include "../AWebAPL/url.h"
-#include "../AWebAPL/object.h"
+#include "/AWebAPL/aweb.h"
+#include "/AWebAPL/fetchdriver.h"
+#include "/AWebAPL/awebtcp.h"
+#include "/AWebAPL/tcperr.h"
+#include "/AWebAPL/author.h"
+#include "/AWebAPL/authorlib.h"
+#include "/AWebAPL/awebssl.h"
+#include "/AWebAPL/url.h"
+#include "/AWebAPL/object.h"
 
 /* Global debug flags */
 BOOL httpdebug = TRUE;

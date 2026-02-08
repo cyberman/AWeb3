@@ -139,8 +139,8 @@ __asm __saveds struct Library *Initlib(
    if(!Initpluginlib(libbase))
       {  #ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
-         {  Aprintf("GIF: Initlib: Initpluginlib failed, expunging\n");
-         }
+      {  Aprintf("GIF: Initlib: Initpluginlib failed, expunging\n");
+      }
          #endif
       Expungepluginlib(libbase);
       /* olsen: the following line was missing. */
@@ -183,8 +183,8 @@ __asm __saveds struct SegList *Closelib(
    if(libbase->lib_OpenCnt==0 && (libbase->lib_Flags&LIBF_DELEXP))
       {  #ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
-         {  Aprintf("GIF: Closelib: Expunging library\n");
-         }
+      {  Aprintf("GIF: Closelib: Expunging library\n");
+      }
          #endif
       return Expungelib(libbase);
    }

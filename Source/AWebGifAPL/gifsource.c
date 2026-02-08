@@ -1054,7 +1054,7 @@ static BOOL Parsegifimage(struct Decoder *decoder)
       else
       {  #ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
-         {  Aprintf("GIF: Parsegifimage: P96 bitmap allocation failed, bitmap=0x%08lx\n", (ULONG)decoder->bitmap);
+      {  Aprintf("GIF: Parsegifimage: P96 bitmap allocation failed, bitmap=0x%08lx\n", (ULONG)decoder->bitmap);
          }
          #endif
       }
@@ -1145,8 +1145,8 @@ static BOOL Parsegifimage(struct Decoder *decoder)
          }
          #ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
-         {  Aprintf("GIF: Parsegifimage: Calling Buildgifimage\n");
-         }
+   {  Aprintf("GIF: Parsegifimage: Calling Buildgifimage\n");
+   }
          #endif
    error=!Buildgifimage(decoder);
 #ifdef DEBUG_PLUGINS
@@ -1549,8 +1549,8 @@ static struct Gifsource *Newsource(struct Amset *amset)
    if(gs=Allocobject(PluginBase->sourcedriver,sizeof(struct Gifsource),amset))
       {  #ifdef DEBUG_PLUGINS
          if(AwebPluginBase)
-         {  Aprintf("GIF: Newsource: Allocobject succeeded, gs=0x%08lx\n", (ULONG)gs);
-         }
+      {  Aprintf("GIF: Newsource: Allocobject succeeded, gs=0x%08lx\n", (ULONG)gs);
+      }
          #endif
       InitSemaphore(&gs->sema);
       NEWLIST(&gs->data);
