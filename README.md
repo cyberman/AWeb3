@@ -119,7 +119,7 @@ AWeb offers three HTML parsing modes to handle the wide variety of HTML found on
 
 ## JavaScript Support
 
-AWeb implements **JavaScript 1.1**, the version standardized by Netscape in 1996. This provides core JavaScript language features and browser object model support from the 1990s era.
+AWeb implements **JavaScript 1.5 (ECMA 262-3)**, providing comprehensive JavaScript language features and browser object model support. This includes all core JavaScript 1.1 features plus significant enhancements from the ECMAScript 3 standard.
 
 ### JavaScript Language Features
 
@@ -144,10 +144,10 @@ AWeb implements **JavaScript 1.1**, the version standardized by Netscape in 1996
 | `if`/`else` | ✅ Full | Conditional statements |
 | `while`, `do/while` | ✅ Full | Looping constructs |
 | `for`, `for/in` | ✅ Full | Iteration with `for` loops |
-| `switch` | ❌ | Multi-way branching not in JavaScript 1.1 |
+| `switch` | ✅ Full | Multi-way branching (JavaScript 1.5) |
 | `break`, `continue` | ✅ Full | Loop control |
 | `return` | ✅ Full | Function return values |
-| `try`/`catch` | ❌ | Exception handling not in JavaScript 1.1 |
+| `try`/`catch` | ✅ Full | Exception handling (JavaScript 1.5) |
 | **Functions** | | |
 | Function declarations | ✅ Full | Named and anonymous functions |
 | Arguments object | ✅ Full | Access to function arguments |
@@ -209,15 +209,15 @@ AWeb implements **JavaScript 1.1**, the version standardized by Netscape in 1996
 
 | Object | Support | Notes |
 |--------|---------|-------|
-| **String** | ✅ Full | String object and methods |
+| **String** | ✅ Full | String object and methods (including `match`, `replace`, `search`, `split` with RegExp support) |
 | **Number** | ✅ Full | Number object and methods |
 | **Boolean** | ✅ Full | Boolean object |
-| **Array** | ✅ Full | Array methods (`join`, `reverse`, `sort`, etc.) |
+| **Array** | ✅ Full | Array methods (`join`, `reverse`, `sort`, `concat`, `slice`, `splice`, `push`, `pop`, `shift`, `unshift`) |
 | **Math** | ✅ Full | Mathematical functions and constants |
 | **Date** | ✅ Full | Date and time handling |
-| **Object** | ✅ Full | Base object type |
-| **Function** | ✅ Full | Function constructor |
-| **RegExp** | ❌ | Regular expressions not in JavaScript 1.1 |
+| **Object** | ✅ Full | Base object type with prototype methods |
+| **Function** | ✅ Full | Function constructor with `apply()` and `call()` |
+| **RegExp** | ✅ Full | Regular expression objects (JavaScript 1.5) |
 
 ### JavaScript Event Handlers
 
@@ -230,19 +230,29 @@ AWeb implements **JavaScript 1.1**, the version standardized by Netscape in 1996
 | `onFocus`, `onBlur` | ✅ Full | Focus events |
 | `onMouseOver`, `onMouseOut` | ✅ Full | Mouse hover events |
 | `onSelect` | ✅ Full | Text selection events |
+| `onError`, `onAbort` | ✅ Full | Image and object error events |
+
+### JavaScript 1.5 (ECMA 262-3) Features
+
+AWeb implements the following JavaScript 1.5 enhancements beyond JavaScript 1.1:
+
+- ✅ `switch` statement - Multi-way branching
+- ✅ Regular Expressions (`RegExp` object) - Pattern matching with `test()`, `exec()`, and properties
+- ✅ Exception handling (`try`/`catch`) - Error handling with try/catch blocks
+- ✅ Enhanced `Array` methods - `concat()`, `slice()`, `splice()`, `push()`, `pop()`, `shift()`, `unshift()`
+- ✅ Enhanced `String` methods - `match()`, `replace()`, `search()`, `split()` with RegExp support
+- ✅ `Function.prototype.apply()` and `call()` - Function invocation methods
+- ✅ `Object.prototype` methods - `hasOwnProperty()`, `propertyIsEnumerable()`, `isPrototypeOf()`, `toLocaleString()`
+- ✅ Dynamic garbage collection - Automatic memory management during script execution
+- ✅ Fastidious and Omnivorous error modes - Configurable error handling behavior
 
 ### JavaScript Limitations
 
-Features **not** supported in JavaScript 1.1:
+Features **not** currently supported:
 
-- ❌ `switch` statement (multi-way branching)
-- ❌ Regular Expressions (`RegExp` object)
-- ❌ Exception handling (`try`/`catch`/`finally`)
-- ❌ Additional `Array` methods (`concat`, `slice`, `splice`, `push`, `pop`, `shift`, `unshift`)
-- ❌ Additional `String` methods (`match`, `replace`, `search`, `split`)
-- ❌ `Function.prototype.apply()` and `call()` methods
 - ❌ DOM manipulation methods (`getElementById`, `getElementsByTagName`, `createElement`, etc.)
 - ❌ XMLHttpRequest (AJAX) - asynchronous HTTP requests from JavaScript
+- ❌ `finally` clause in try/catch blocks
 
 ### JavaScript Tools
 
@@ -344,19 +354,37 @@ In this context, finishing the job means both completing support for the final v
 
 The following features from AWeb 3.5 have been reintegrated in **AWeb 3.6**:
 - Correct handling of caching or not-caching HTTP redirect (30x) responses
-- Correct use of GetBitMapAttrs() instead of direct access of private layers.library structures
+- Correct use of GetBitMapAttrs() instead of direct access of private layers.library structures - this prevents graphics corruption on OS4 on pages with background images for example
 - A fix for a bug where empty JavaScript files were still cached unnecessarily
-- The image format AWebPlugins have been updated to the slightly more recent versions found in AWeb 3.5
+- The image format AWebPlugins have been updated to the slightly more recent versions found in AWeb 3.5, and then in fact updated further to the latest version in the case of PNG
 - ETags support in the cache
 - Enhanced handling of 302 and 307 redirects 
 - Dynamic Garbage Collection of temporary objects in the JavaScript engine to reduce memory usage
 - Parsing of Content-Disposition headers to suggest filenames for saved downloads
+- All of the JavaScript enhancements bringing AWeb close to ECMAScript 3 compliance have been integrated and further enhanced
+- Mousewheel support for OS4
+- Copy image URL to clipboard is added to the popup menu
+- INS and DEL tags are recognised and rendered appropriately
+- INPUT and BUTTON form elements can exist outside of forms and be used with JavaScript events
+- Saved files will get a DefIcons provided icon image
+- 24-bit printing is available also with printer.device v44 or later, not just with TurboPrint
+- The enhancements to the gopher module that "finish" AWeb's implementation of the gopher protocol are all incorporated
 
 ### Are there any features from the various releases of AWeb 3.5 that are not going to be reintegrated into AWeb 3.6?
 
-The implementation of HTTP/1.1, gzip and chunked encoding in AWeb 3.6 is vastly more sophisticated than the simplistic version in AWeb 3.5, it is an all new implementation, so no code from the AWeb 3.5 version has been reintegrated.
+The implementation of HTTP/1.1, gzip and chunked encoding, as well as new features such as HTTP Range and keep-alive support, in AWeb 3.6 is vastly more sophisticated than the simplistic version in AWeb 3.5, it is an all new implementation, so no code from the AWeb 3.5 version has been reintegrated. Similarly the AmiSSL 5 integration is all new.
 
-3.5 had incomplete changes laying the groundwork for future utf-8 support, as well as the external Charset plugin that did provide a more comprehensive solution build on codesets.library. 3.6 already has more complete builtin utf-8 support in the parser that will cope with the most common 2 and 3 byte character to Latin1 encodings.
+3.5 had incomplete changes laying the groundwork for future utf-8 support, as well as the external Charset plugin that did provide a more comprehensive solution built on codesets.library. 3.6 already has more complete builtin utf-8 support in the parser that will cope with the most common 2 and 3 byte character to Latin1 encodings. 
+
+Other changes from AWeb 3.5 that have been reviewed and rejected are:
+- FTP module changes were integrated, tested, and found to be completely broken. Rather than fix the AWeb 3.5 code, which made unnecessary changes to otherwise already working code, the changes were reverted out completely. AWeb's original FTP module already worked correctly.
+- Support for multiple MIME entries for a given mime type was a kludge for a server side issue rarely encountered, and complicated the UI unnecessarily
+- New About dialog (erroneously called splash screen in the AWeb 3.5 documentation) was overcomplicated and ugly, AWeb 3.6 keeps the original AWeb 3.4 About dialog
+- Plugin API and version numbering was changed unnecessarily in AWeb 3.5. AWeb 3.6 Plugin API remains consistent with AWeb 3.4
+- Borders around images was made a user configurable setting with additional AWebCfg settings. This is both unnecessary - images should simply not have borders unless styled as such - and rendered it necessary to localise the new settings
+- Double buffering implementation was found to cause many regressions and removed from the AWeb 3.6 code after testing. This topic will be looked at again in the future
+
+As of AWeb 3.6 Alpha 7 the only significant remaining differences between AWeb 3.5 and AWeb 3.6 are the user interface layout changes and configuration settings
 
 ### What is amigazen project's plan for the future of AWeb?
 
