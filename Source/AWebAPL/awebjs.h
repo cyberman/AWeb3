@@ -40,7 +40,6 @@
 /* #define JSADDRESS */
 
 /* #define debug KPrintF */
-#define debug / ## /KPrintF
 
 #define STRNIEQUAL(a,b,n)  !strnicmp(a,b,n)
 #define STRNEQUAL(a,b,n)   !strncmp(a,b,n)
