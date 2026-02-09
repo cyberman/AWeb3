@@ -898,7 +898,11 @@ static BOOL Incompleterequest(struct Fetch *fch)
    len=strlen(p)+strlen(url)+80;
    if(buf=ALLOCTYPE(UBYTE,len,0))
    {  Lprintf(buf,p,url,fch->total,fch->sofar);
-      if(haiku) strcpy(buf,HAIKU22);
+      if(haiku)
+      {
+         strncpy(buf, HAIKU22, len - 1);
+         buf[len - 1] = '\0';
+      }
       ok=Asyncrequestcc(AWEBSTR(MSG_REQUEST_TITLE),buf,AWEBSTR(MSG_FILE_INCBUTTONS2),
          Incompletereturn,fch,url);
       if(ok)
