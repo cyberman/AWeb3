@@ -28,6 +28,12 @@ AWeb is one of the most sophisticated web browsers (for its time) ever released 
 
 This project's first aim is to update the code so it builds against the NDK3.2, which largely means replacing the ClassAct UI APIs with the equivalent ReAction versions, as well as updating the networking code to work properly with RoadShow and the latest AmiSSL, and ensuring it can be built easily out of the box against the ToolKit standard by anyone with an Amiga computer.
 
+## Status
+
+The main branch currently contains the code to AWeb 3.4 as last released by Yvon Rozijn.
+
+All active development is currently taking place on the AWeb 3.6 branch and contributions should be made as PRs to that branch. main branch will be updated when AWeb 3.6 reaches a stable release.
+
 ## Roadmap
 
 The first AWeb APL open source release was version 3.4, in 2003 from the _AWeb Open Source Development Team_.
