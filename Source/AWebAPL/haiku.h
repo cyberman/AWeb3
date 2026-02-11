@@ -19,90 +19,90 @@
 
 #ifndef DEMOVERSION
 
-//1: about req
+/*1: about req */
 #define HAIKU1 (UBYTE *)" \n \nA web suddenly,\nForty years meditation\nMinds awaken, free"
 
-//2: quit warning
+/*2: quit warning */
 #define HAIKU2 (UBYTE *)"Last window was closed.\nDo you want to quit AWeb?\nMake up your mind now."
 
-//3: EPART_NOLIB
+/*3: EPART_NOLIB */
 #define HAIKU3 (UBYTE *)"Oh, the World Wide Web<br>Is so near and yet so far<br>Without TCP."
 
-//4: EPART_NOHOST
+/*4: EPART_NOHOST */
 #define HAIKU4 (UBYTE *)"A host with this name<br>Might exist somewhere indeed,<br>But I can't find it."
 
-//5: EPART_NOCONNECT
+/*5: EPART_NOCONNECT */
 #define HAIKU5 (UBYTE *)"The Internet links<br>Countless computers but one:<br>This connection failed."
 
-//25: EPART_NOCONNECT_TIMEOUT
+/*25: EPART_NOCONNECT_TIMEOUT */
 #define HAIKU25 (UBYTE *)"Time passed slowly by,<br>Waiting for a connection,<br>But it never came."
 
-//26: EPART_NOCONNECT_REFUSED
+/*26: EPART_NOCONNECT_REFUSED */
 #define HAIKU26 (UBYTE *)"The server said no,<br>Refusing to let you in,<br>Connection denied."
 
-//27: EPART_NOCONNECT_RESET
+/*27: EPART_NOCONNECT_RESET */
 #define HAIKU27 (UBYTE *)"Connection was cut,<br>Reset by the other side,<br>Try again later."
 
-//28: EPART_NOCONNECT_UNREACH
+/*28: EPART_NOCONNECT_UNREACH */
 #define HAIKU28 (UBYTE *)"The network is far,<br>Unreachable from here now,<br>Check your connection."
 
-//29: EPART_NOCONNECT_HOSTUNREACH
+/*29: EPART_NOCONNECT_HOSTUNREACH */
 #define HAIKU29 (UBYTE *)"The host is distant,<br>No route can reach it from here,<br>Try another way."
 
-//6: EPART_NOFILE
+/*6: EPART_NOFILE */
 #define HAIKU6 (UBYTE *)"So big a hard disk,<br>But yet a file with this name<br>Is nowhere on it."
 
-//7: EPART_XAWEB
+/*7: EPART_XAWEB */
 #define HAIKU7 (UBYTE *)"X-aweb is fine,<br>But what followed it is not:<br>Please choose something else."
 
-//8: EPART_NOLOGIN
+/*8: EPART_NOLOGIN */
 #define HAIKU8 (UBYTE *)"Was it a typo<br>Or did you try something bad:<br>Login was denied."
 
-//9: EPART_NOPROGRAM:
+/*9: EPART_NOPROGRAM: */
 #define HAIKU9 (UBYTE *)"I'd like to obey<br>But I must know the program;<br>Without it won't go."
 
-//10: Unknown MIME type
+/*10: Unknown MIME type */
 #define HAIKU10 (UBYTE *)"Wonderful MIME type,\nBut what should I do with it:\nSave it or leave it?"
 
-//11: Can't make SSL connection
+/*11: Can't make SSL connection */
 #define HAIKU11 (UBYTE *)"SSL is nice,\nBut some sites don't support it;\nThis is one of them."
 
-//12: No SSL supported
+/*12: No SSL supported */
 #define HAIKU12 (UBYTE *)"Want security?\nThen you need the libraries,\nOr else it won't work."
 
-//13: Certificate not verified
+/*13: Certificate not verified */
 #define HAIKU13 (UBYTE *)"Nice certificate,\nBut I can't verify it\nSo who is this guy?"
 
-//14: EPART_NOAWEBLIB
+/*14: EPART_NOAWEBLIB */
 #define HAIKU14 (UBYTE *)"What the heck is wrong?<br>Did you mess with aweblibs,<br>There is one missing!"
 
-//15: EPART_ERRSCHEME
+/*15: EPART_ERRSCHEME */
 #define HAIKU15 (UBYTE *)"A rich fantasy!<br>Please restrict your URLs<br>To known address schemes"
 
-//16: Form unsecure warning
+/*16: Form unsecure warning */
 #define HAIKU16 (UBYTE *)"The things you typed here\nAre sent with no protection,\nUnless you cancel."
 
-//17: Del all images?
+/*17: Del all images? */
 #define HAIKU17 (UBYTE *)"Too many pictures\nFilling up the cache in vain\nSo they will be gone."
 
-//18: Del all documents?
+/*18: Del all documents? */
 #define HAIKU18 (UBYTE *)"Every document\nWill be gone from the cache\nWhen I am ready."
 
-//19: Del everything?
+/*19: Del everything? */
 #define HAIKU19 (UBYTE *)"Everything is void,\nEspecially the cached files,\nIf I continue."
 
-//20: Cleanup warning
+/*20: Cleanup warning */
 #define HAIKU20 (UBYTE *)"Cleaning up the cache\nWill delete all foreign files.\nShould I continue?"
 
-//21: Stop TCP too?
+/*21: Stop TCP too? */
 #define HAIKU21 (UBYTE *)"The TCP stack,\nCan't see any use for it,\nSo should I stop it?"
 
-//22: Incomplete file
+/*22: Incomplete file */
 #define HAIKU22 (UBYTE *)"File is incomplete:\nGot less bytes than expected.\nBeautiful bytes, though!"
 
-//23
+/*23 */
 
-//24: Can't close screen
+/*24: Can't close screen */
 #define HAIKU24 (UBYTE *)"Although I'd like to,\nI can't close the screen right now:\nWindows are open."
 
 #else
