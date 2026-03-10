@@ -32,23 +32,6 @@
 #include <proto/utility.h>
 #include <stdarg.h>
 
-static long SNPrintf(UBYTE *buf, long size, const UBYTE *fmt, ...)
-{
-   va_list ap;
-   long len;
-
-   if(!buf || size <= 0) return 0;
-
-   va_start(ap, fmt);
-   len = VSNPrintf((STRPTR)buf, size, (STRPTR)fmt, ap);
-   va_end(ap);
-
-   if(len < 0) len = 0;
-   if(len >= size) len = size - 1;
-   buf[len] = '\0';
-
-   return len;
-}
 
 #ifndef LOCALONLY
 
