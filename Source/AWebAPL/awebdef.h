@@ -134,10 +134,10 @@ extern BOOL has35;
 #define ALLOCSTRUCT(s,n,f)    ALLOCTYPE(struct s,n,f)
 #define FREE(p)            Freemem(p)
 
-#define STRNIEQUAL(a,b,n)  !strnicmp(a,b,n)
-#define STRNEQUAL(a,b,n)   !strncmp(a,b,n)
-#define STRIEQUAL(a,b)     !stricmp(a,b)
-#define STREQUAL(a,b)      !strcmp(a,b)
+#define STRNIEQUAL(a,b,n)  (Strnicmp((a),(b),(n)) == SAME)
+#define STRNEQUAL(a,b,n)   (strncmp((a),(b),(n)) == 0)
+#define STRIEQUAL(a,b)     (Stricmp((a),(b)) == SAME)
+#define STREQUAL(a,b)      (strcmp((a),(b)) == 0)
 
 #define BOOLVAL(x)         (BOOL)((x)!=0)
 
