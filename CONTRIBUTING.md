@@ -40,3 +40,15 @@ Sign off commits with:
 
 ```bash
 git commit -s -m "your commit message"
+```
+
+## Native API first
+
+For bug fixes, refactoring and hardening changes, prefer native AmigaOS APIs and libraries over libc functions whenever suitable system APIs already exist.
+
+Examples include:
+- `utility.library` for string and buffer handling where applicable
+- DOS/Exec APIs for filesystem, process and system services
+- Intuition/ReAction APIs for UI-related work
+
+If no suitable native API exists, libc may still be used, but native OS functionality should be considered first.
