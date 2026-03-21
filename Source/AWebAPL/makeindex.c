@@ -28,10 +28,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#define STRNIEQUAL(a,b,n)  !strnicmp(a,b,n)
-#define STRNEQUAL(a,b,n)   !strncmp(a,b,n)
-#define STRIEQUAL(a,b)     !stricmp(a,b)
-#define STREQUAL(a,b)      !strcmp(a,b)
+#include "awebcmp.h"
 
 #define ALLOCTYPE(t,n,f)   (t*)AllocVec((n)*sizeof(t),(f)|MEMF_PUBLIC)
 #define ALLOCSTRUCT(s,n,f) ALLOCTYPE(struct s,n,f)

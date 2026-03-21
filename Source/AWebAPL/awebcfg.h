@@ -113,12 +113,7 @@
 #define FREE(p)            Freemem(p)
 #endif
 
-#ifndef STREQUAL
-#define STRNIEQUAL(a,b,n)  !strnicmp(a,b,n)
-#define STRNEQUAL(a,b,n)   !strncmp(a,b,n)
-#define STRIEQUAL(a,b)     !stricmp(a,b)
-#define STREQUAL(a,b)      !strcmp(a,b)
-#endif
+#include "awebcmp.h"
 
 #ifndef BOOLVAL
 #define BOOLVAL(x)         (BOOL)((x)!=0)
