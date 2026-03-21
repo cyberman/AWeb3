@@ -1,0 +1,25 @@
+# AWebGet link file
+
+# Object files
+AWebGet.o
+http.o
+awebamitcp.o
+awebtcp.o
+amissl.o
+tcp.o
+tcperr.o
+nameserv.o
+author.o
+
+# Libraries
+lib:amiga.lib
+lib:utility.lib
+lib:dos.lib
+lib:intuition.lib
+lib:reaction.lib
+lib:locale.lib
+lib:bsdsocket.lib
+lib:amissl.library
+
+# Output
+TO AWebGet 

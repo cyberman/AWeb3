@@ -1,0 +1,8 @@
+FROM     startup.o awebsvg.o svgsource.o svgcopy.o xmlparse.o vrastport.o math64.o
+TO       awebsvg.awebplugin
+NODEBUG
+LIB      lib:debug.lib lib:amiga.lib
+LIB      lib:sc.lib
+MAP      awebsvg.map
+NOICONS
+

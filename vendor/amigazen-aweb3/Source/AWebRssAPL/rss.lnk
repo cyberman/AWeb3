@@ -1,0 +1,7 @@
+FROM     startup.o rss.o rssparse.o rssrender.o
+TO       awebrss.awebplugin
+NODEBUG
+LIB      lib:scm.lib lib:sc.lib
+DEFINE   @__chkabort=@__dummy
+NOICONS
+

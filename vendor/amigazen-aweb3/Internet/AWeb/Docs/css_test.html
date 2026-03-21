@@ -1,0 +1,914 @@
+<!--
+/**********************************************************************
+ * 
+ * This file is part of the AWeb distribution
+ *
+ * Copyright (C) 2025 amigazen project
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the AWeb Public License as included in this
+ * distribution.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * AWeb Public License for more details.
+ *
+ **********************************************************************/
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+<TITLE>AWeb CSS1/CSS2 Compatibility Test Page</TITLE>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=ISO-8859-1">
+<META NAME="Description" CONTENT="Comprehensive CSS1/CSS2 compatibility test for AWeb inline styles">
+<META NAME="Keywords" CONTENT="CSS, CSS1, CSS2, compatibility, test, AWeb, inline styles">
+</HEAD>
+<BODY BACKGROUND="awebbg.iff" BGCOLOR="#ffffff" TEXT="#000000" LINK="#0000ff" VLINK="#800080" ALINK="#ff0000">
+
+<H1><IMG SRC="aweb.iff" WIDTH="192" HEIGHT="93" ALT="(logo)">&nbsp; CSS1/CSS2 Compatibility Test</H1>
+
+<P>This page tests AWeb's support for <STRONG>CSS1 and CSS2</STRONG> properties via inline styles (STYLE attribute). Each section demonstrates supported CSS properties with explanatory text describing what you should see. Note that some properties have limitations due to AWeb's layout engine architecture - see the Summary section for details.</P>
+
+<HR>
+
+<A NAME="top"></A>
+<CENTER>
+<H2>Quick Navigation</H2>
+<A HREF="#text" STYLE="text-decoration: none; color: #0000ff;">Text Properties</A> |
+<A HREF="#colors" STYLE="text-decoration: none; color: #0000ff;">Colors</A> |
+<A HREF="#layout" STYLE="text-decoration: none; color: #0000ff;">Layout & Positioning</A> |
+<A HREF="#tables" STYLE="text-decoration: none; color: #0000ff;">Table Cell Styles</A> |
+<A HREF="#links" STYLE="text-decoration: none; color: #0000ff;">Link Styles</A> |
+<A HREF="#lists" STYLE="text-decoration: none; color: #0000ff;">List Styles</A> |
+<A HREF="#block" STYLE="text-decoration: none; color: #0000ff;">Block Elements</A> |
+<A HREF="#grid" STYLE="text-decoration: none; color: #0000ff;">Grid Layout</A> |
+<A HREF="#misc" STYLE="text-decoration: none; color: #0000ff;">Additional Properties</A> |
+<A HREF="stylesheet_test.html" STYLE="text-decoration: none; color: #0000ff;">External Stylesheet Tests</A>
+</CENTER>
+
+<HR>
+
+<A NAME="text"></A>
+<H2>Text Properties</H2>
+
+<H3>text-align - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Three paragraphs with different text alignment - left, center, and right.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="text-align: left; background-color: #e8e8e8; padding: 10px;">This paragraph should be left-aligned. The text should start at the left edge of the container.</P>
+<P STYLE="text-align: center; background-color: #e8e8e8; padding: 10px;">This paragraph should be center-aligned. The text should be centered within the container.</P>
+<P STYLE="text-align: right; background-color: #e8e8e8; padding: 10px;">This paragraph should be right-aligned. The text should end at the right edge of the container.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>font-family - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Text rendered in different font families. If the specified font is not available, AWeb should fall back to a default font.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="font-family: Georgia, Times, serif; padding: 10px; background-color: #e8e8e8;">This text should use Georgia font (or Times, or a serif font if neither is available). The font-family property supports comma-separated font lists.</P>
+<P STYLE="font-family: Arial, Helvetica, sans-serif; padding: 10px; background-color: #e8e8e8;">This text should use Arial font (or Helvetica, or a sans-serif font if neither is available).</P>
+<P STYLE="font-family: Courier, monospace; padding: 10px; background-color: #e8e8e8;">This text should use Courier font (or a monospace font if Courier is not available).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>font-size - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Text in various sizes using both absolute and relative font size keywords.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="font-size: xx-small; padding: 10px; background-color: #e8e8e8;">This text should be extra extra small (xx-small).</P>
+<P STYLE="font-size: x-small; padding: 10px; background-color: #e8e8e8;">This text should be extra small (x-small).</P>
+<P STYLE="font-size: small; padding: 10px; background-color: #e8e8e8;">This text should be small.</P>
+<P STYLE="font-size: medium; padding: 10px; background-color: #e8e8e8;">This text should be medium (default size).</P>
+<P STYLE="font-size: large; padding: 10px; background-color: #e8e8e8;">This text should be large.</P>
+<P STYLE="font-size: x-large; padding: 10px; background-color: #e8e8e8;">This text should be extra large (x-large).</P>
+<P STYLE="font-size: xx-large; padding: 10px; background-color: #e8e8e8;">This text should be extra extra large (xx-large).</P>
+<P STYLE="font-size: smaller; padding: 10px; background-color: #e8e8e8;">This text should be smaller than the base font size (relative).</P>
+<P STYLE="font-size: larger; padding: 10px; background-color: #e8e8e8;">This text should be larger than the base font size (relative).</P>
+<P STYLE="font-size: 12px; padding: 10px; background-color: #e8e8e8;">This text uses font-size: 12px (pixel value for body elements).</P>
+<P STYLE="font-size: 16px; padding: 10px; background-color: #e8e8e8;">This text uses font-size: 16px (pixel value for body elements).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>font-style - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Normal and italic text styles.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="font-style: normal; padding: 10px; background-color: #e8e8e8;">This text should be in normal (non-italic) style.</P>
+<P STYLE="font-style: italic; padding: 10px; background-color: #e8e8e8;">This text should be in italic style. The font should appear slanted.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>font-weight - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Normal and bold text weights.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="font-weight: normal; padding: 10px; background-color: #e8e8e8;">This text should be in normal weight (not bold).</P>
+<P STYLE="font-weight: bold; padding: 10px; background-color: #e8e8e8;">This text should be in bold weight. The text should appear thicker.</P>
+<P STYLE="font-weight: 700; padding: 10px; background-color: #e8e8e8;">This text uses font-weight: 700 (equivalent to bold).</P>
+<P STYLE="font-weight: 400; padding: 10px; background-color: #e8e8e8;">This text uses font-weight: 400 (equivalent to normal).</P>
+<P STYLE="font-weight: 600; padding: 10px; background-color: #e8e8e8;">This text uses font-weight: 600 (should be bold, >= 600).</P>
+<P STYLE="font-weight: 500; padding: 10px; background-color: #e8e8e8;">This text uses font-weight: 500 (should be normal, < 600).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>text-decoration - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Text with line-through decoration.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="text-decoration: line-through; padding: 10px; background-color: #e8e8e8;">This text should have a line through it (strikethrough).</P>
+<P STYLE="text-decoration: none; padding: 10px; background-color: #e8e8e8;">This text should have no decoration.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>text-transform - PASS</H3>
+<P><STRONG>Note:</STRONG> text-transform is parsed and stored, but full rendering support may be limited. The property is applied to document-level text transformation.</P>
+<P><STRONG>What you should see:</STRONG> Text transformed to uppercase, lowercase, and capitalize.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="text-transform: uppercase; padding: 10px; background-color: #e8e8e8;">this text should be in uppercase</P>
+<P STYLE="text-transform: lowercase; padding: 10px; background-color: #e8e8e8;">THIS TEXT SHOULD BE IN LOWERCASE</P>
+<P STYLE="text-transform: capitalize; padding: 10px; background-color: #e8e8e8;">this text should have the first letter of each word capitalized</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>white-space - PASS</H3>
+<P><STRONG>Note:</STRONG> white-space: nowrap is fully supported via the AOBDY_Nobr attribute.</P>
+<P><STRONG>What you should see:</STRONG> Text with nowrap preventing line breaks.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="white-space: nowrap; padding: 10px; background-color: #e8e8e8;">This is a very long line of text that should not wrap to multiple lines even if it extends beyond the container width because white-space is set to nowrap.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>line-height - PASS</H3>
+<P><STRONG>Note:</STRONG> line-height is parsed and stored. Rendering behavior may need verification.</P>
+<P><STRONG>What you should see:</STRONG> Text with different line heights. Higher line-height values create more space between lines.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="line-height: 1.0; padding: 10px; background-color: #e8e8e8;">This paragraph has line-height: 1.0 (tight spacing).<BR>This is the second line.<BR>This is the third line.</P>
+<P STYLE="line-height: 1.5; padding: 10px; background-color: #e8e8e8;">This paragraph has line-height: 1.5 (normal spacing).<BR>This is the second line.<BR>This is the third line.</P>
+<P STYLE="line-height: 2.0; padding: 10px; background-color: #e8e8e8;">This paragraph has line-height: 2.0 (loose spacing).<BR>This is the second line.<BR>This is the third line.</P>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
+
+<HR>
+
+<A NAME="colors"></A>
+<H2>Color Properties</H2>
+
+<H3>color - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Text in various colors specified using hex color codes.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="color: #ff0000; padding: 10px; background-color: #ffffff;">This text should be red (#ff0000).</P>
+<P STYLE="color: #00ff00; padding: 10px; background-color: #ffffff;">This text should be green (#00ff00).</P>
+<P STYLE="color: #0000ff; padding: 10px; background-color: #ffffff;">This text should be blue (#0000ff).</P>
+<P STYLE="color: #8B7355; padding: 10px; background-color: #ffffff;">This text should be a brown/tan color (#8B7355).</P>
+<P STYLE="color: #666666; padding: 10px; background-color: #ffffff;">This text should be gray (#666666).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>background-color - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Text with different background colors. Each paragraph should have a distinct background color.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="background-color: #ffcccc; padding: 10px;">This paragraph should have a light red background (#ffcccc).</P>
+<P STYLE="background-color: #ccffcc; padding: 10px;">This paragraph should have a light green background (#ccffcc).</P>
+<P STYLE="background-color: #ccccff; padding: 10px;">This paragraph should have a light blue background (#ccccff).</P>
+<P STYLE="background-color: #F0EDEA; padding: 10px;">This paragraph should have a beige/cream background (#F0EDEA).</P>
+<P STYLE="background-color: #E8E0D8; padding: 10px;">This paragraph should have a tan background (#E8E0D8).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>color (hex vs names) - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Text colors using both hex values and CSS color names. Each pair should show the same color.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="color: #ff0000; padding: 10px; background-color: #ffffff;">Hex: This text should be red (#ff0000).</P>
+<P STYLE="color: red; padding: 10px; background-color: #ffffff;">Name: This text should be red (color name).</P>
+<P STYLE="color: #0000ff; padding: 10px; background-color: #ffffff;">Hex: This text should be blue (#0000ff).</P>
+<P STYLE="color: blue; padding: 10px; background-color: #ffffff;">Name: This text should be blue (color name).</P>
+<P STYLE="color: #008000; padding: 10px; background-color: #ffffff;">Hex: This text should be green (#008000).</P>
+<P STYLE="color: green; padding: 10px; background-color: #ffffff;">Name: This text should be green (color name).</P>
+<P STYLE="color: #000000; padding: 10px; background-color: #ffffff;">Hex: This text should be black (#000000).</P>
+<P STYLE="color: black; padding: 10px; background-color: #ffffff;">Name: This text should be black (color name).</P>
+<P STYLE="color: #A52A2A; padding: 10px; background-color: #ffffff;">Hex: This text should be brown (#A52A2A).</P>
+<P STYLE="color: brown; padding: 10px; background-color: #ffffff;">Name: This text should be brown (color name).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>background-color (hex vs names) - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Background colors using both hex values and CSS color names. Each pair should show the same background color.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="background-color: #ffcccc; padding: 10px;">Hex: This paragraph should have a light red background (#ffcccc).</P>
+<P STYLE="background-color: #ffcccc; color: red; padding: 10px;">Name: This paragraph should have a light red background with red text (color name).</P>
+<P STYLE="background-color: #ccccff; padding: 10px;">Hex: This paragraph should have a light blue background (#ccccff).</P>
+<P STYLE="background-color: #ccccff; color: blue; padding: 10px;">Name: This paragraph should have a light blue background with blue text (color name).</P>
+<P STYLE="background-color: #ccffcc; padding: 10px;">Hex: This paragraph should have a light green background (#ccffcc).</P>
+<P STYLE="background-color: #ccffcc; color: green; padding: 10px;">Name: This paragraph should have a light green background with green text (color name).</P>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
+
+<HR>
+
+<A NAME="layout"></A>
+<H2>Layout & Positioning Properties</H2>
+
+<H3>padding - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Paragraphs with different padding amounts. More padding should create more space around the text.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="padding: 5px; background-color: #e8e8e8;">This paragraph has 5 pixels of padding. There should be a small amount of space around the text.</P>
+<P STYLE="padding: 15px; background-color: #e8e8e8;">This paragraph has 15 pixels of padding. There should be more space around the text.</P>
+<P STYLE="padding: 30px; background-color: #e8e8e8;">This paragraph has 30 pixels of padding. There should be a large amount of space around the text.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>position, top, left, right, bottom - PASS (parsed and stored)</H3>
+<P><STRONG>Note:</STRONG> Position properties are parsed and stored. Full CSS positioning model rendering may need verification.</P>
+<P><STRONG>What you should see:</STRONG> Elements positioned using absolute, relative, static, or fixed positioning. Right and bottom positioning are now supported.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DIV STYLE="position: static; background-color: #e8e8e8; padding: 10px; margin: 5px;">This DIV uses position: static (default positioning).</DIV>
+<DIV STYLE="position: relative; top: 10px; left: 20px; background-color: #e8e8e8; padding: 10px; margin: 5px;">This DIV uses position: relative with top: 10px and left: 20px offset.</DIV>
+<DIV STYLE="position: absolute; top: 0px; left: 0px; background-color: #e8e8e8; padding: 10px; margin: 5px;">This DIV uses position: absolute with top: 0px and left: 0px.</DIV>
+<DIV STYLE="position: fixed; top: 0px; right: 0px; background-color: #e8e8e8; padding: 10px; margin: 5px;">This DIV uses position: fixed with top: 0px and right: 0px.</DIV>
+<DIV STYLE="position: absolute; bottom: 0px; right: 0px; background-color: #ccccff; padding: 10px; margin: 5px; width: 200px;">This DIV uses position: absolute with bottom: 0px and right: 0px (positioned at bottom-right).</DIV>
+</TD>
+</TR>
+</TABLE>
+
+<H3>margin shorthand - PASS (top/left only)</H3>
+<P><STRONG>Note:</STRONG> Margin shorthand is parsed and applied. Top and left margins are fully supported. Right and bottom margins are parsed but not directly used in rendering.</P>
+<P><STRONG>What you should see:</STRONG> Paragraphs with margin shorthand property. The margin property can accept 1-4 values to set all margins at once. Top and left margins should be visible.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="margin: 10px; background-color: #e8e8e8; padding: 10px;">This paragraph has margin: 10px (all sides).</P>
+<P STYLE="margin: 10px 20px; background-color: #e8e8e8; padding: 10px;">This paragraph has margin: 10px 20px (top/bottom: 10px, left/right: 20px).</P>
+<P STYLE="margin: 10px 20px 30px; background-color: #e8e8e8; padding: 10px;">This paragraph has margin: 10px 20px 30px (top: 10px, left/right: 20px, bottom: 30px).</P>
+<P STYLE="margin: 10px 20px 30px 40px; background-color: #e8e8e8; padding: 10px;">This paragraph has margin: 10px 20px 30px 40px (top: 10px, right: 20px, bottom: 30px, left: 40px).</P>
+<P STYLE="margin: 0; background-color: #e8e8e8; padding: 10px;">This paragraph has margin: 0 (no margins).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>margin-top, margin-left - PASS</H3>
+<P><STRONG>Note:</STRONG> margin-top and margin-left are fully supported. margin-right and margin-bottom are parsed but not directly used in rendering.</P>
+<P><STRONG>What you should see:</STRONG> Paragraphs with different margin values creating space around elements. Top and left margins should be visible.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="margin-right: 50px; background-color: #e8e8e8; padding: 10px;">This paragraph has margin-right: 50px. There should be extra space on the right side.</P>
+<P STYLE="margin-left: 50px; background-color: #e8e8e8; padding: 10px;">This paragraph has margin-left: 50px. There should be extra space on the left side.</P>
+<P STYLE="margin-top: 30px; background-color: #e8e8e8; padding: 10px;">This paragraph has margin-top: 30px. There should be extra space above.</P>
+<P STYLE="margin-bottom: 30px; background-color: #e8e8e8; padding: 10px;">This paragraph has margin-bottom: 30px. There should be extra space below.</P>
+<P STYLE="margin-left: 1em; margin-right: 1em; background-color: #e8e8e8; padding: 10px;">This paragraph has margin-left: 1em and margin-right: 1em (using em units). Only left margin should be visible.</P>
+<P STYLE="margin: auto; background-color: #e8e8e8; padding: 10px; width: 300px;">This paragraph has margin: auto with width: 300px. It should be horizontally centered.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>padding individual sides - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Paragraphs with different padding on individual sides.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="padding-top: 20px; background-color: #e8e8e8;">This paragraph has padding-top: 20px. There should be extra space above the text.</P>
+<P STYLE="padding-right: 30px; background-color: #e8e8e8;">This paragraph has padding-right: 30px. There should be extra space on the right side.</P>
+<P STYLE="padding-bottom: 25px; background-color: #e8e8e8;">This paragraph has padding-bottom: 25px. There should be extra space below the text.</P>
+<P STYLE="padding-left: 35px; background-color: #e8e8e8;">This paragraph has padding-left: 35px. There should be extra space on the left side.</P>
+<P STYLE="padding-top: 10px; padding-right: 20px; padding-bottom: 15px; padding-left: 25px; background-color: #e8e8e8;">This paragraph has different padding on all four sides (top: 10px, right: 20px, bottom: 15px, left: 25px).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>border - PASS</H3>
+<P><STRONG>Note:</STRONG> Border properties are parsed and stored. Border rendering may need verification.</P>
+<P><STRONG>What you should see:</STRONG> Elements with borders of different widths, colors, and styles.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DIV STYLE="border: 1px solid #000000; padding: 10px; background-color: #e8e8e8; margin: 5px;">This DIV has a 1px solid black border.</DIV>
+<DIV STYLE="border: 3px solid #ff0000; padding: 10px; background-color: #e8e8e8; margin: 5px;">This DIV has a 3px solid red border.</DIV>
+<DIV STYLE="border: 2px dashed #0000ff; padding: 10px; background-color: #e8e8e8; margin: 5px;">This DIV has a 2px dashed blue border.</DIV>
+<DIV STYLE="border: 4px dotted #00ff00; padding: 10px; background-color: #e8e8e8; margin: 5px;">This DIV has a 4px dotted green border.</DIV>
+<DIV STYLE="border-width: 5px; border-style: solid; border-color: #8B7355; padding: 10px; background-color: #e8e8e8; margin: 5px;">This DIV uses separate border-width, border-style, and border-color properties.</DIV>
+<DIV STYLE="border: 2px solid #000000; padding: 10px; background-color: #ffcccc; margin: 5px;">This DIV has a border with background-color. The border should be visible around the colored background.</DIV>
+</TD>
+</TR>
+</TABLE>
+
+<H3>display property - PASS</H3>
+<P><STRONG>Note:</STRONG> display: none may not fully hide elements. display: inline, display: block, and display: grid are supported.</P>
+<P><STRONG>What you should see:</STRONG> Elements with different display values.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DIV STYLE="display: block; background-color: #e8e8e8; padding: 10px; margin: 5px;">This DIV uses display: block (default for DIV).</DIV>
+<DIV STYLE="display: inline; background-color: #ccccff; padding: 10px; margin: 5px;">This DIV uses display: inline and should appear on the same line as the next element.</DIV>
+<DIV STYLE="display: inline; background-color: #ccffcc; padding: 10px; margin: 5px;">This DIV also uses display: inline and should appear on the same line.</DIV>
+<DIV STYLE="display: none; background-color: #ffcccc; padding: 10px; margin: 5px;">This DIV uses display: none and should be hidden (may not work fully).</DIV>
+<DIV STYLE="display: block; background-color: #ffffcc; padding: 10px; margin: 5px;">This DIV uses display: block and should appear on a new line.</DIV>
+</TD>
+</TR>
+</TABLE>
+
+<H3>background-image - PASS (parsed)</H3>
+<P><STRONG>Note:</STRONG> background-image is parsed. Background image rendering may need verification.</P>
+<P><STRONG>What you should see:</STRONG> Elements with background images. Note: Requires a valid image URL to test.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="background-image: url('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'); padding: 20px; background-color: #e8e8e8;">This paragraph has a background image (1x1 transparent GIF). If the image loads, you should see it tiled behind the text.</P>
+<P STYLE="padding: 20px; background-color: #e8e8e8;">This paragraph has no background image for comparison.</P>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
+
+<HR>
+
+<A NAME="tables"></A>
+<H2>Table Cell Styles</H2>
+
+<H3>width and height - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Table cells with different widths and heights. Cells should be sized according to the CSS width and height properties.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1" CELLPADDING="5">
+<TR>
+<TD STYLE="width: 100px; background-color: #ffcccc; padding: 10px;">Width: 100px</TD>
+<TD STYLE="width: 200px; background-color: #ccffcc; padding: 10px;">Width: 200px</TD>
+<TD STYLE="width: 50%; background-color: #ccccff; padding: 10px;">Width: 50%</TD>
+</TR>
+<TR>
+<TD STYLE="height: 50px; background-color: #ffffcc; padding: 10px;">Height: 50px</TD>
+<TD STYLE="height: 80px; background-color: #ffccff; padding: 10px;">Height: 80px</TD>
+<TD STYLE="height: 30px; background-color: #ccffff; padding: 10px;">Height: 30px</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>text-align in table cells - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Table cells with different text alignment - left, center, and right.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1" CELLPADDING="10" WIDTH="400">
+<TR>
+<TD STYLE="text-align: left; background-color: #e8e8e8;">Left-aligned text in table cell</TD>
+</TR>
+<TR>
+<TD STYLE="text-align: center; background-color: #e8e8e8;">Center-aligned text in table cell</TD>
+</TR>
+<TR>
+<TD STYLE="text-align: right; background-color: #e8e8e8;">Right-aligned text in table cell</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>vertical-align in table cells - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Table cells with different vertical alignment - top, middle, bottom, and baseline.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1" CELLPADDING="5" HEIGHT="200">
+<TR>
+<TD STYLE="vertical-align: top; background-color: #ffcccc; padding: 10px;">Top-aligned cell</TD>
+<TD STYLE="vertical-align: middle; background-color: #ccffcc; padding: 10px;">Middle-aligned cell</TD>
+<TD STYLE="vertical-align: bottom; background-color: #ccccff; padding: 10px;">Bottom-aligned cell</TD>
+<TD STYLE="vertical-align: baseline; background-color: #ffffcc; padding: 10px;">Baseline-aligned cell</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>background-color in table cells - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Table cells with different background colors. Each cell should have a distinct background color.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1" CELLPADDING="10">
+<TR>
+<TD STYLE="background-color: #E8E0D8; padding: 10px;">Cell with tan background (#E8E0D8)</TD>
+<TD STYLE="background-color: #F0EDEA; padding: 10px;">Cell with beige background (#F0EDEA)</TD>
+</TR>
+<TR>
+<TD STYLE="background-color: #ffcccc; padding: 10px;">Cell with light red background (#ffcccc)</TD>
+<TD STYLE="background-color: #ccffcc; padding: 10px;">Cell with light green background (#ccffcc)</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>Combined table cell styles - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Table cells with multiple CSS properties applied simultaneously - width, height, alignment, background color, padding, and vertical-align.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1" CELLPADDING="5">
+<TR>
+<TD STYLE="width: 150px; height: 60px; text-align: center; vertical-align: middle; background-color: #E8E0D8; padding: 15px; color: #4A4A4A;">Combined styles: width, height, center alignment, middle vertical alignment, background color, padding, and text color.</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<H3>border-color - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Tables with different border colors specified via CSS.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<TABLE BORDER="1" STYLE="border-color: #ff0000;" CELLPADDING="5">
+<TR>
+<TD>Table with thin red border color</TD>
+</TR>
+</TABLE>
+<BR>
+<TABLE BORDER="4" STYLE="border-color: #00ff00;" CELLPADDING="5">
+<TR>
+<TD>Table with thick green border color</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
+
+<HR>
+
+<A NAME="links"></A>
+<H2>Link Styles</H2>
+
+<H3>text-decoration: none - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Links without underlines. The links should be clickable but not have the typical underline decoration.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P>Normal link (underline depends on user setting): <A HREF="#top">Click me</A></P>
+<P>Link without underline: <A HREF="#top" STYLE="text-decoration: none;">Click me (no underline)</A></P>
+<P>Link without underline and custom color: <A HREF="#top" STYLE="text-decoration: none; color: #8B7355;">Click me (no underline, brown color)</A></P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>color on links - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Links with custom text colors. The link text should appear in the specified color instead of the default link color.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P><A HREF="#top" STYLE="color: #ff0000;">Red link</A></P>
+<P><A HREF="#top" STYLE="color: #00ff00;">Green link</A></P>
+<P><A HREF="#top" STYLE="color: #0000ff;">Blue link</A></P>
+<P><A HREF="#top" STYLE="color: #8B7355;">Brown link (#8B7355)</A></P>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
+
+<HR>
+
+<A NAME="lists"></A>
+<H2>List Styles</H2>
+
+<H3>list-style-type for unordered lists - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Unordered lists with different bullet styles - disc, circle, square, and none.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<UL STYLE="list-style-type: disc;">
+<LI>Disc bullet (default for UL)</LI>
+<LI>Second item with disc</LI>
+</UL>
+<UL STYLE="list-style-type: circle;">
+<LI>Circle bullet</LI>
+<LI>Second item with circle</LI>
+</UL>
+<UL STYLE="list-style-type: square;">
+<LI>Square bullet</LI>
+<LI>Second item with square</LI>
+</UL>
+<UL STYLE="list-style-type: none;">
+<LI>No bullet (none)</LI>
+<LI>Second item with no bullet</LI>
+</UL>
+</TD>
+</TR>
+</TABLE>
+
+<H3>display: inline for horizontal lists - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Unordered lists displayed horizontally (inline) instead of vertically. List items should appear on the same line with spacing between them, and bullets should be removed.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<UL STYLE="display: inline; list-style-type: none;">
+<LI STYLE="margin-left: 1em; margin-right: 1em;">Home</LI>
+<LI STYLE="margin-left: 1em; margin-right: 1em;">About</LI>
+<LI STYLE="margin-left: 1em; margin-right: 1em;">Contact</LI>
+</UL>
+<P><STRONG>Note:</STRONG> The list items should appear horizontally on one line, with spacing between them (using margin-left and margin-right with em units). No bullets should be visible.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>list-style-type for ordered lists - PASS except for the 'no numbering' style which still shows numbering</H3>
+<P><STRONG>What you should see:</STRONG> Ordered lists with different numbering styles - decimal, lower-alpha, upper-alpha, lower-roman, upper-roman, and none.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<OL STYLE="list-style-type: decimal;">
+<LI>Decimal numbering (1, 2, 3...)</LI>
+<LI>Second item</LI>
+</OL>
+<OL STYLE="list-style-type: lower-alpha;">
+<LI>Lower alpha (a, b, c...)</LI>
+<LI>Second item</LI>
+</OL>
+<OL STYLE="list-style-type: upper-alpha;">
+<LI>Upper alpha (A, B, C...)</LI>
+<LI>Second item</LI>
+</OL>
+<OL STYLE="list-style-type: lower-roman;">
+<LI>Lower roman (i, ii, iii...)</LI>
+<LI>Second item</LI>
+</OL>
+<OL STYLE="list-style-type: upper-roman;">
+<LI>Upper roman (I, II, III...)</LI>
+<LI>Second item</LI>
+</OL>
+<OL STYLE="list-style-type: none;">
+<LI>No numbering (none)</LI>
+<LI>Second item with no number</LI>
+</OL>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
+
+<HR>
+
+<A NAME="block"></A>
+<H2>Block Element CSS Support</H2>
+
+<P>This section tests CSS class and id selector support for HTML4 block-level elements that were recently enhanced with CSS support.</P>
+
+<H3>OL and UL with class/id selectors - PASS</H3>
+<P><STRONG>What you should see:</STRONG> Ordered and unordered lists with CSS styles applied via class and id selectors from embedded stylesheets.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<STYLE>
+.menu-list { background-color: #e8e8e8; padding: 15px; margin: 10px; border: 1px solid #000000; }
+#navigation { background-color: #ccccff; padding: 20px; border: 2px solid #0000ff; }
+.step-list { background-color: #ccffcc; padding: 15px; margin-left: 30px; }
+#instructions { background-color: #ffcccc; padding: 15px; border: 1px dashed #ff0000; }
+</STYLE>
+<UL CLASS="menu-list">
+<LI>Menu item 1 (UL with class="menu-list")</LI>
+<LI>Menu item 2</LI>
+<LI>Menu item 3</LI>
+</UL>
+<UL ID="navigation">
+<LI>Nav item 1 (UL with id="navigation")</LI>
+<LI>Nav item 2</LI>
+</UL>
+<OL CLASS="step-list">
+<LI>First step (OL with class="step-list")</LI>
+<LI>Second step</LI>
+<LI>Third step</LI>
+</OL>
+<OL ID="instructions">
+<LI>Instruction 1 (OL with id="instructions")</LI>
+<LI>Instruction 2</LI>
+</OL>
+<P><STRONG>Note:</STRONG> Each list should have distinct background colors, padding, margins, and borders applied via CSS class or id selectors. This verifies that OL and UL elements correctly parse class/id attributes and apply CSS rules.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>CENTER element with class/id selectors - PASS</H3>
+<P><STRONG>What you should see:</STRONG> CENTER elements with CSS styles applied via class and id selectors from embedded stylesheets.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<STYLE>
+.centered-content { background-color: #e8e8e8; padding: 20px; border: 2px solid #000000; }
+#page-title { background-color: #ccccff; padding: 15px; color: #0000ff; font-weight: bold; }
+.centered-note { background-color: #ffffcc; padding: 10px; border: 1px solid #8B7355; }
+</STYLE>
+<CENTER CLASS="centered-content">
+<P>This CENTER element has class="centered-content" with gray background, padding, and border.</P>
+</CENTER>
+<CENTER ID="page-title">
+<H3>This CENTER element has id="page-title" with blue background and bold blue text.</H3>
+</CENTER>
+<CENTER CLASS="centered-note">
+<P>This CENTER element has class="centered-note" with yellow background and brown border.</P>
+</CENTER>
+<P><STRONG>Note:</STRONG> Each CENTER element should have distinct styling applied via CSS class or id selectors. This verifies that CENTER elements correctly parse class/id attributes and apply CSS rules while maintaining center alignment.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>ADDRESS element with class/id selectors - PASS</H3>
+<P><STRONG>What you should see:</STRONG> ADDRESS elements with CSS styles applied via class and id selectors from embedded stylesheets.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<STYLE>
+.contact-block { background-color: #e8e8e8; padding: 15px; font-style: italic; border: 1px solid #666666; }
+#business-address { background-color: #ffffcc; padding: 20px; border: 2px solid #8B7355; color: #4A4A4A; }
+.footer-contact { background-color: #f0f0f0; padding: 10px; color: #666666; font-size: small; }
+</STYLE>
+<ADDRESS CLASS="contact-block">
+Company Name<BR>
+123 Main Street<BR>
+City, State 12345<BR>
+Phone: (555) 123-4567<BR>
+(ADDRESS with class="contact-block")
+</ADDRESS>
+<ADDRESS ID="business-address">
+Corporate Headquarters<BR>
+456 Business Boulevard<BR>
+Metro City, ST 67890<BR>
+(ADDRESS with id="business-address")
+</ADDRESS>
+<ADDRESS CLASS="footer-contact">
+Footer Contact Information<BR>
+Email: info@example.com<BR>
+Web: www.example.com<BR>
+(ADDRESS with class="footer-contact")
+</ADDRESS>
+<P><STRONG>Note:</STRONG> Each ADDRESS element should have distinct styling applied via CSS class or id selectors. This verifies that ADDRESS elements correctly parse class/id attributes and apply CSS rules. The default italic style may be combined with custom styles.</P>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
+
+<HR>
+
+<A NAME="grid"></A>
+<H2>Grid Layout Properties</H2>
+
+<H3>display: grid</H3>
+<P><STRONG>What you should see:</STRONG> Definition lists (DL) displayed as a grid layout. The DT (term) elements should appear in the first column, and DD (description) elements with grid-column-start: 2 should appear in the second column.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DL STYLE="display: grid; grid-gap: 4px 16px; grid-template-columns: max-content;">
+<DT STYLE="font-weight: bold;">Term 1</DT>
+<DD STYLE="grid-column-start: 2; margin: 0;">Description for term 1. This should appear in the second column, aligned with the term.</DD>
+<DT STYLE="font-weight: bold;">Term 2</DT>
+<DD STYLE="grid-column-start: 2; margin: 0;">Description for term 2. This should also appear in the second column.</DD>
+<DT STYLE="font-weight: bold;">Longer Term Name</DT>
+<DD STYLE="grid-column-start: 2; margin: 0;">Description for the longer term. The grid layout should handle varying term lengths.</DD>
+</DL>
+<P><STRONG>Note:</STRONG> The grid layout creates a two-column structure where terms are in the first column and descriptions are in the second column, with spacing between them (grid-gap).</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>grid-gap</H3>
+<P><STRONG>What you should see:</STRONG> Grid layouts with different gap spacing between rows and columns.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DL STYLE="display: grid; grid-gap: 2px 8px; grid-template-columns: max-content;">
+<DT STYLE="font-weight: bold;">Small Gap</DT>
+<DD STYLE="grid-column-start: 2; margin: 0;">This grid has grid-gap: 2px 8px (small row gap, small column gap).</DD>
+</DL>
+<DL STYLE="display: grid; grid-gap: 4px 16px; grid-template-columns: max-content;">
+<DT STYLE="font-weight: bold;">Medium Gap</DT>
+<DD STYLE="grid-column-start: 2; margin: 0;">This grid has grid-gap: 4px 16px (medium row gap, medium column gap).</DD>
+</DL>
+<DL STYLE="display: grid; grid-gap: 8px 32px; grid-template-columns: max-content;">
+<DT STYLE="font-weight: bold;">Large Gap</DT>
+<DD STYLE="grid-column-start: 2; margin: 0;">This grid has grid-gap: 8px 32px (large row gap, large column gap).</DD>
+</DL>
+</TD>
+</TR>
+</TABLE>
+
+<H3>grid-template-columns</H3>
+<P><STRONG>What you should see:</STRONG> Grid layouts with different column template definitions. The max-content value sizes columns based on their content.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DL STYLE="display: grid; grid-gap: 4px 16px; grid-template-columns: max-content;">
+<DT STYLE="font-weight: bold;">Short</DT>
+<DD STYLE="grid-column-start: 2; margin: 0;">Description with max-content column sizing.</DD>
+<DT STYLE="font-weight: bold;">Much Longer Term Name</DT>
+<DD STYLE="grid-column-start: 2; margin: 0;">The first column should size to fit the longest term.</DD>
+</DL>
+<P><STRONG>Note:</STRONG> grid-template-columns: max-content sizes the first column to fit the widest content.</P>
+</TD>
+</TR>
+</TABLE>
+
+<H3>grid-column-start, grid-column-end, grid-row-start, grid-row-end</H3>
+<P><STRONG>What you should see:</STRONG> Grid items positioned using grid-column-start and grid-row-start properties. grid-column-start: 2 places items in the second column.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DL STYLE="display: grid; grid-gap: 4px 16px; grid-template-columns: max-content;">
+<DT STYLE="font-weight: bold;">Column 1</DT>
+<DD STYLE="grid-column-start: 2; margin: 0;">This DD starts at column 2 (grid-column-start: 2).</DD>
+<DT STYLE="font-weight: bold;">Another Term</DT>
+<DD STYLE="grid-column-start: 2; margin: 0;">This DD also starts at column 2.</DD>
+</DL>
+<P><STRONG>Note:</STRONG> grid-column-start: 2 positions the element in the second column of the grid. grid-column-end, grid-row-start, and grid-row-end are parsed but may have limited rendering support.</P>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
+
+<HR>
+
+<A NAME="misc"></A>
+<H2>Additional Supported Properties</H2>
+
+<H3>overflow - PASS (hidden)</H3>
+<P><STRONG>Note:</STRONG> overflow: hidden is supported. overflow: scroll is not implemented.</P>
+<P><STRONG>What you should see:</STRONG> Elements with overflow: hidden should clip content that extends beyond the element boundaries.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DIV STYLE="overflow: hidden; width: 200px; height: 100px; background-color: #e8e8e8; padding: 10px; border: 1px solid #000000;">This DIV has overflow: hidden with fixed width and height. Any content that extends beyond these dimensions should be clipped. This is a test of overflow behavior with a fixed size container.</DIV>
+<DIV STYLE="overflow: visible; width: 200px; background-color: #ccccff; padding: 10px; border: 1px solid #000000;">This DIV has overflow: visible (default). Content should extend beyond the container if needed.</DIV>
+</TD>
+</TR>
+</TABLE>
+
+<H3>z-index - PASS (parsed and stored)</H3>
+<P><STRONG>Note:</STRONG> z-index is parsed and stored. Stacking context handling may need verification.</P>
+<P><STRONG>What you should see:</STRONG> Elements with different z-index values. Higher z-index elements should appear above lower z-index elements.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<DIV STYLE="position: relative; z-index: 1; background-color: #ffcccc; padding: 10px; margin: 5px;">This DIV has z-index: 1 (lower).</DIV>
+<DIV STYLE="position: relative; z-index: 10; background-color: #ccffcc; padding: 10px; margin: 5px;">This DIV has z-index: 10 (higher, should appear above).</DIV>
+<DIV STYLE="position: relative; z-index: 5; background-color: #ccccff; padding: 10px; margin: 5px;">This DIV has z-index: 5 (middle).</DIV>
+</TD>
+</TR>
+</TABLE>
+
+<H3>background-repeat, background-position, background-attachment - PASS (parsed and stored)</H3>
+<P><STRONG>Note:</STRONG> These background properties are parsed and stored, but rendering may not fully use them yet.</P>
+<P><STRONG>What you should see:</STRONG> Elements with different background repeat, position, and attachment values.</P>
+
+<TABLE BORDER="1" BGCOLOR="#f0f0f0" CELLPADDING="10" WIDTH="100%">
+<TR>
+<TD>
+<STRONG>Test:</STRONG><BR>
+<P STYLE="background-repeat: repeat; background-color: #e8e8e8; padding: 20px;">This paragraph has background-repeat: repeat (default, tiles image).</P>
+<P STYLE="background-repeat: no-repeat; background-color: #e8e8e8; padding: 20px;">This paragraph has background-repeat: no-repeat (image appears once).</P>
+<P STYLE="background-repeat: repeat-x; background-color: #e8e8e8; padding: 20px;">This paragraph has background-repeat: repeat-x (tiles horizontally).</P>
+<P STYLE="background-repeat: repeat-y; background-color: #e8e8e8; padding: 20px;">This paragraph has background-repeat: repeat-y (tiles vertically).</P>
+<P STYLE="background-position: center; background-color: #e8e8e8; padding: 20px;">This paragraph has background-position: center.</P>
+<P STYLE="background-position: top right; background-color: #e8e8e8; padding: 20px;">This paragraph has background-position: top right.</P>
+<P STYLE="background-attachment: scroll; background-color: #e8e8e8; padding: 20px;">This paragraph has background-attachment: scroll (default, scrolls with content).</P>
+<P STYLE="background-attachment: fixed; background-color: #e8e8e8; padding: 20px;">This paragraph has background-attachment: fixed (viewport-relative, may not work fully).</P>
+</TD>
+</TR>
+</TABLE>
+
+<P><A HREF="#top" STYLE="text-decoration: none; color: #0000ff;">Back to top</A></P>
+
+<HR>
+    
+</BODY>
+</HTML>
+
+

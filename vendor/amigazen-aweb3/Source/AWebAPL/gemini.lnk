@@ -1,0 +1,9 @@
+FROM     gemini.o
+TO       aweblib/gemini.aweblib
+NODEBUG
+LIB      lib:scnb.lib
+MAP      gemini.map
+NOICONS
+
+DEFINE   @__chkabort=@__dummy
+

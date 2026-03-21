@@ -1,0 +1,57 @@
+## SAS/C makefile for awebsvg aweb plugin module
+
+# Compiler and flags
+CC=sc
+CFLAGS= NOSTKCHK PARMS=REG OPTIMIZE OPTGO OPTPEEP OPTINLOCAL OPTINL\
+        OPTLOOP OPTRDEP=4 OPTDEP=4 OPTCOMP=4
+
+# Linker and flags
+LN=slink
+LDFLAGS= SD ND BATCH
+
+# Library tools
+AR=oml
+RM=delete quiet
+
+# Main plugin object files
+PLUGIN_OBJS = startup.o awebsvg.o svgsource.o svgcopy.o xmlparse.o vrastport.o math64.o
+
+# Default target
+all: awebsvg.awebplugin
+
+# Build the main plugin
+awebsvg.awebplugin: $(PLUGIN_OBJS) awebsvg.lnk
+   $(LN) with awebsvg.lnk
+
+# Individual object file rules
+startup.o: startup.c pluginlib.h
+   $(CC) startup.c
+
+awebsvg.o: awebsvg.c pluginlib.h awebsvg.h
+   $(CC) awebsvg.c
+
+svgsource.o: svgsource.c pluginlib.h awebsvg.h xmlparse.h
+   $(CC) svgsource.c
+
+svgcopy.o: svgcopy.c pluginlib.h awebsvg.h vrastport.h
+   $(CC) svgcopy.c
+
+xmlparse.o: xmlparse.c xmlparse.h
+   $(CC) xmlparse.c
+
+vrastport.o: vrastport.c vrastport.h math64.h
+   $(CC) vrastport.c
+
+math64.o: math64.a
+   asm math64.a
+
+# Clean targets
+clean:
+   $(RM) *.o
+
+cleanall: clean
+   $(RM) awebsvg.awebplugin
+
+install: awebsvg.awebplugin
+   - copy clone awebsvg.awebplugin TO //Internet/AWeb/awebplugin/awebsvg.awebplugin
+

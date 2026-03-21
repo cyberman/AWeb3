@@ -1,0 +1,50 @@
+## SAS/C makefile for awebgif aweb plugin module
+
+# Compiler and flags
+CC=sc
+CFLAGS= NOSTKCHK PARMS=REG OPTIMIZE OPTGO OPTPEEP OPTINLOCAL OPTINL\
+        OPTLOOP OPTRDEP=4 OPTDEP=4 OPTCOMP=4
+
+# Linker and flags
+LN=slink
+LDFLAGS= SD ND BATCH
+
+# Library tools
+AR=oml
+RM=delete quiet
+
+# Main plugin object files
+PLUGIN_OBJS = startup.o awebgif.o gifsource.o gifcopy.o
+
+# Default target
+all: awebgif.awebplugin
+
+# Build the main plugin
+awebgif.awebplugin: $(PLUGIN_OBJS) awebgif.lnk
+   $(LN) with awebgif.lnk
+
+# Individual object file rules
+startup.o: startup.c pluginlib.h
+   $(CC) startup.c
+
+awebgif.o: awebgif.c pluginlib.h awebgif.h
+   $(CC) awebgif.c
+
+gifsource.o: gifsource.c pluginlib.h awebgif.h
+   $(CC) gifsource.c
+
+gifcopy.o: gifcopy.c pluginlib.h awebgif.h
+   $(CC) gifcopy.c
+
+# Clean targets
+clean:
+   $(RM) *.o
+
+cleanall: clean
+   $(RM) awebgif.awebplugin
+
+install: awebgif.awebplugin
+   - copy clone awebgif.awebplugin TO //Internet/AWeb/awebplugin/awebgif.awebplugin
+   - copy clone awebgif.awebrx TO //Internet/AWeb/Docs/awebgif.awebrx
+   - copy clone awebgif.html TO //Internet/AWeb/Docs/awebgif.html
+

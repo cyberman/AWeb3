@@ -1,0 +1,572 @@
+# AWeb makefile
+#
+# Invoke with `DEBUG = debug=sf' to compile selected files with debugging.
+
+#-----------------------------------------------------------------------------
+
+# Generic rule: compile .c → .o
+.c.o:
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $*.c to $*.o
+
+# Dummy header rule (avoid accidental rebuilds)
+.h.h:
+
+#-----------------------------------------------------------------------------
+
+all:        aweb
+all:        awebview
+all:        awebcfg
+all:        aweblib/arexx.aweblib
+all:        aweblib/about.aweblib
+all:        aweblib/authorize.aweblib
+all:        aweblib/cachebrowser.aweblib
+all:        aweblib/ftp.aweblib
+all:        aweblib/gemini.aweblib
+all:        aweblib/gopher.aweblib
+all:        aweblib/history.aweblib
+all:        aweblib/hotlist.aweblib
+all:        aweblib/mail.aweblib
+all:        aweblib/news.aweblib
+all:        aweblib/print.aweblib
+all:        aweblib/startup.aweblib
+all:        awebjs
+all:        aweblib/awebjs.aweblib
+all:        docs/makeindex
+all:        docs/searchindex
+
+#- AWeb ----------------------------------------------------------------------
+
+aweb:       aweb.o locale.o memory.o version.o boopsi.o support.o
+aweb:       request.o asyncio.o simplerexx.o arexx.o clip.o tooltip.o
+aweb:       prefs.o defprefs.o
+#  General objects
+aweb:       object.o task.o scroller.o application.o file.o filereq.o editor.o
+aweb:       timer.o
+#  Display related objects
+aweb:       window.o event.o winrexx.o winhis.o frame.o framejs.o
+aweb:       popup.o search.o print.o printwin.o info.o saveiff.o
+#  Secondary window objects
+aweb:       netstat.o hotlist.o whiswin.o cabrowse.o
+#  Url related objects
+aweb:       url.o source.o copy.o copyjs.o cache.o cookie.o fetch.o mime.o
+aweb:       local.o http.o xaweb.o ciddataurls.o cidregistry.o xhrjs.o
+#  TCP/SSL drivers
+aweb:       tcp.o tcperr.o nameserv.o author.o awebamitcp.o awebtcp.o amissl.o
+#  zlib compression library
+aweb:       /zlib/adler32.o /zlib/crc32.o /zlib/deflate.o /zlib/inflate.o /zlib/inftrees.o /zlib/inffast.o /zlib/trees.o /zlib/zutil.o
+#  Source drivers
+aweb:       sourcedriver.o docsource.o imgsource.o extprog.o saveas.o
+aweb:       soundsource.o docext.o
+#  Copy drivers
+aweb:       copydriver.o document.o imgcopy.o soundcopy.o docjs.o
+#  Document objects
+aweb:       parse.o markdown.o html.o frameset.o body.o link.o map.o area.o form.o
+aweb:       element.o break.o text.o ruler.o bullet.o table.o name.o css.o
+aweb:       field.o input.o checkbox.o radio.o select.o textarea.o button.o
+aweb:       hidden.o filefield.o
+#  Font rendering support
+aweb:       ttengine.o
+#  Link
+aweb:       aweb.lnk
+    slink with aweb.lnk
+
+#-----------------------------------------------------------------------------
+
+author.o:   author.c aweb.h url.h fetch.h application.h task.h fetchdriver.h authorlib.h
+    @echo "        Compiling $*.c..."
+    @sc idir=netinclude: $*.c to $*.o
+
+aweb.o:     aweb.c aweb.h url.h application.h window.h profile.h source.h frame.h startup.h task.h
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $*.c to $*.o
+
+awebamitcp.o: awebamitcp.c
+    @echo "        Compiling $*.c..."
+    @sc idir=netinclude: $*.c to $*.o
+
+awebgst:    gst.c
+    @echo "        Compiling gst.c..."
+    @sc MAKEGLOBALSYMBOLTABLE=awebgst ignore=105 gst.c
+
+awebtcp.o:  awebtcp.c awebtcp.h
+    @echo "        Compiling $*.c..."
+    @sc idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 $*.c to $*.o
+
+amissl.o:   amissl.c aweb.h task.h awebssl.h
+    @echo "        Compiling $*.c..."
+    @sc idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 IGNORE=101 IGNORE=63 IGNORE=84 $*.c to $*.o
+
+framejs.o:  framejs.c aweb.h frame.h frprivate.h application.h window.h copy.h url.h winhis.h timer.h
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $*.c to $*.o
+
+xhrjs.o:    xhrjs.c aweb.h frame.h frprivate.h fetch.h url.h jslib.h xhrjs.h
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $*.c to $*.o
+
+http.o:     http.c aweb.h awebtcp.h tcperr.h fetchdriver.h application.h task.h form.h /zlib/zlib.h
+    @echo "        Compiling $*.c..."
+    @sc idir=netinclude: idir=sslinclude: $*.c to $*.o
+
+locale.o: aweb.cd
+   catcomp aweb.cd cfile locale.h objfile locale.o
+
+nameserv.o: nameserv.c aweb.h awebtcp.h
+    @echo "        Compiling $*.c..."
+    @sc idir=netinclude: $*.c to $*.o
+
+object.o:   object.c aweb.h object.h
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $*.c to $*.o
+
+print.o:    print.c aweb.h print.h window.h frame.h printwin.h application.h winhis.h
+    @echo "        Compiling $*.c..."
+    @sc $(DEBUG) $*.c to $*.o
+
+tcp.o:      tcp.c aweb.h tcperr.h application.h awebtcp.h
+    @echo "        Compiling $*.c..."
+    @sc idir=netinclude: $*.c to $*.o
+
+ttengine.o:      ttengine.c ttengine.h aweb.h
+    @echo "        Compiling ttengine.c..."
+    @sc idir=SDK:Include_h ttengine.c OBJNAME=ttengine.o
+
+version.o:  version.c aweb.h
+    @echo "        Compiling version.c..."
+    @sc strsect=code version.c to version.o
+
+versionview.o:  version.c aweb.h
+    @echo "        Compiling version.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY strsect=code version.c OBJNAME=versionview.o
+
+whiswin.o:  whiswin.c aweb.h winhis.h whisprivate.h application.h window.h task.h
+
+window.h:   object.h
+window.o:   window.c aweb.h winprivate.h frame.h winhis.h application.h url.h window.h 
+
+winhis.h:   object.h
+winhis.o:   winhis.c aweb.h winhis.h url.h whisprivate.h 
+
+winrexx.o:  winrexx.c winprivate.h
+winrexx.o:  aweb.h arexx.h frame.h winhis.h url.h window.h application.h source.h
+winrexx.o:  copy.h fetch.h cache.h copydriver.h filereq.h plugin.h
+
+xaweb.o:    xaweb.c aweb.h tcperr.h fetchdriver.h file.h task.h
+
+ciddataurls.o: ciddataurls.c aweb.h fetchdriver.h cidregistry.h tcperr.h task.h
+
+cidregistry.o: cidregistry.c aweb.h cidregistry.h
+
+
+#- AWebView ------------------------------------------------------------------
+
+awebview:       awebview.o locale.o memory.o versionview.o boopsi.o supportview.o
+awebview:       requestview.o asyncio.o simplerexx.o arexxview.o clip.o tooltip.o
+awebview:       prefs.o defprefsview.o
+#  General objects
+awebview:       object.o task.o scroller.o applicationview.o file.o filereq.o editor.o
+awebview:       timer.o
+#  Display related objects
+awebview:       windowview.o eventview.o winrexx.o winhis.o frame.o framejs.o
+awebview:       popup.o search.o print.o printwin.o info.o saveiff.o
+#  Secondary window objects
+awebview:       netstat.o hotlist.o whiswin.o cabrowse.o
+#  Url related objects
+awebview:       urlview.o source.o copy.o copyjs.o cacheview.o cookieview.o fetchview.o mime.o
+awebview:       local.o httpview.o xawebview.o ciddataurls.o cidregistry.o
+#  TCP/SSL drivers (compiled with LOCALONLY)
+awebview:       tcpview.o tcperr.o nameservview.o authorview.o
+awebview:       awebtcpview.o awebamitcpview.o amisslview.o
+#  zlib compression library
+awebview:       /zlib/adler32.o /zlib/crc32.o /zlib/deflate.o /zlib/inflate.o /zlib/inftrees.o /zlib/inffast.o /zlib/trees.o /zlib/zutil.o
+#  Source drivers
+awebview:       sourcedriver.o docsource.o imgsource.o extprog.o saveas.o
+awebview:       soundsource.o docext.o
+#  Copy drivers
+awebview:       copydriver.o document.o docjs.o imgcopy.o soundcopy.o
+#  Document objects
+awebview:       parse.o markdown.o html.o body.o frameset.o link.o map.o area.o form.o
+awebview:       element.o break.o text.o ruler.o bullet.o table.o name.o
+awebview:       field.o input.o checkbox.o radio.o select.o textarea.o button.o
+awebview:       hidden.o filefield.o
+#  Link
+awebview:       awebview.lnk
+    slink with awebview.lnk
+
+#- AWebView specific compilation rules ---------------------------------------
+
+# Compile awebview.c with LOCALONLY defined
+awebview.o:     awebview.c aweb.h url.h application.h window.h profile.h source.h frame.h startup.h task.h
+    @echo "        Compiling awebview.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY awebview.c OBJNAME=awebview.o
+
+# Compile fetch.c with LOCALONLY (network code excluded)
+fetchview.o:    fetch.c aweb.h url.h source.h cache.h fetchdriver.h application.h task.h
+    @echo "        Compiling fetch.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY fetch.c OBJNAME=fetchview.o
+
+# Compile cache.c with LOCALONLY (network cache code excluded)
+cacheview.o:    cache.c aweb.h url.h source.h fetch.h application.h task.h
+    @echo "        Compiling cache.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY cache.c OBJNAME=cacheview.o
+
+# Compile cookie.c with LOCALONLY (network cookie code excluded)
+cookieview.o:   cookie.c aweb.h url.h fetch.h application.h task.h
+    @echo "        Compiling cookie.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY cookie.c OBJNAME=cookieview.o
+
+# Compile application.c with LOCALONLY (no network init)
+applicationview.o: application.c aweb.h object.h application.h url.h window.h task.h
+    @echo "        Compiling application.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY application.c OBJNAME=applicationview.o
+
+# Compile network-related files with LOCALONLY (network code excluded at compile time)
+httpview.o:     http.c aweb.h awebtcp.h tcperr.h fetchdriver.h application.h task.h form.h /zlib/zlib.h
+    @echo "        Compiling http.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY idir=netinclude: idir=sslinclude: http.c OBJNAME=httpview.o
+
+tcpview.o:      tcp.c aweb.h tcperr.h application.h awebtcp.h
+    @echo "        Compiling tcp.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY idir=netinclude: tcp.c OBJNAME=tcpview.o
+
+awebtcpview.o:  awebtcp.c awebtcp.h
+    @echo "        Compiling awebtcp.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 awebtcp.c OBJNAME=awebtcpview.o
+
+awebamitcpview.o: awebamitcp.c
+    @echo "        Compiling awebamitcp.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY idir=netinclude: awebamitcp.c OBJNAME=awebamitcpview.o
+
+amisslview.o:   amissl.c aweb.h task.h awebssl.h
+    @echo "        Compiling amissl.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY idir=netinclude: idir=sslinclude: MemorySize=h IdentifierLength=100 IGNORE=101 IGNORE=63 IGNORE=84 amissl.c OBJNAME=amisslview.o
+
+nameservview.o: nameserv.c aweb.h awebtcp.h
+    @echo "        Compiling nameserv.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY idir=netinclude: nameserv.c OBJNAME=nameservview.o
+
+authorview.o:   author.c aweb.h url.h fetch.h application.h task.h fetchdriver.h authorlib.h
+    @echo "        Compiling author.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY idir=netinclude: author.c OBJNAME=authorview.o
+
+xawebview.o:    xaweb.c aweb.h tcperr.h fetchdriver.h file.h task.h
+    @echo "        Compiling xaweb.c (LOCALONLY)..."
+    @sc DEF=LOCALONLY xaweb.c OBJNAME=xawebview.o
+
+eventview.o:    event.c aweb.h frame.h winhis.h url.h window.h winprivate.h application.h filereq.h source.h copy.h
+    @echo "        Compiling event.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY event.c OBJNAME=eventview.o
+
+requestview.o:  request.c aweb.h application.h window.h fetch.h
+    @echo "        Compiling request.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY request.c OBJNAME=requestview.o
+
+arexxview.o:   arexx.c aweb.h arexx.h simplerexx.h application.h
+    @echo "        Compiling arexx.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY arexx.c OBJNAME=arexxview.o
+
+defprefsview.o: defprefs.c awebcfg.h awebprefs.h keyfile.h ezlists.h locale.h
+    @echo "        Compiling defprefs.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY defprefs.c OBJNAME=defprefsview.o
+
+urlview.o:      url.c aweb.h url.h link.h source.h cache.h fetch.h window.h
+    @echo "        Compiling url.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY url.c OBJNAME=urlview.o
+
+windowview.o:   window.c aweb.h winprivate.h frame.h winhis.h application.h url.h window.h
+    @echo "        Compiling window.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY window.c OBJNAME=windowview.o
+
+supportview.o:  support.c aweb.h object.h task.h source.h
+    @echo "        Compiling support.c (LOCALONLY)..."
+    @sc $(DEBUG) DEF=LOCALONLY support.c OBJNAME=supportview.o
+
+# Note: AWebView uses separate object files (*view.o) for files that differ
+# when LOCALONLY is defined. This allows building both AWeb and AWebView
+# in the same smake run without conflicts. All network code is excluded
+# at compile time via LOCALONLY, but all object files are linked to
+# satisfy symbol dependencies.
+
+
+#- AWebCfg -------------------------------------------------------------------
+
+awebcfg:    cfglocale.o cfgmainstr.o awebcfg.o cfgnw.o cfgpr.o cfgbr.o cfgui.o
+awebcfg:    memory.o defprefs.o awebcfg.lnk
+   slink with awebcfg.lnk
+
+cfglocale.o: awebcfg.cd
+   catcomp awebcfg.cd cfile cfglocale.h objfile cfglocale.o
+
+awebcfg.h:  keyfile.h awebprefs.h
+awebcfg.o:  awebcfg.c awebcfg.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+cfgbr.o:    cfgbr.c awebcfg.h
+
+cfgpr.o:    cfgpr.c awebcfg.h
+
+cfgnw.o:    cfgnw.c awebcfg.h
+
+cfgui.o:    cfgui.c awebcfg.h
+
+cfgmainstr.o: cfgmainstr.c awebcfg.h locale.h
+
+
+#- AWebLib Modules -----------------------------------------------------------
+
+#- arexx ---------
+
+aweblib/arexx.aweblib: cfgrexx.o arexx.lnk
+   c/remlib >nil: arexx.aweblib
+   slink with arexx.lnk
+
+cfgrexx.o:  cfgrexx.c aweblib.h arexx.h
+
+#- authorize -----
+
+aweblib/authorize.aweblib: authorlib.o authorize.lnk
+   c/remlib >nil: authorize.aweblib
+   slink with authorize.lnk
+
+authorlib.o: authorlib.c aweblib.h authorlib.h
+
+#- cachebrowser --
+
+aweblib/cachebrowser.aweblib: cabrtask.o cachebrowser.lnk
+   c/remlib >nil: cachebrowser.aweblib
+   slink with cachebrowser.lnk
+
+cabrtask.o: cabrtask.c aweblib.h task.h caprivate.h url.h
+
+#- ftp -----------
+
+aweblib/ftp.aweblib: ftp.o ftp.lnk
+   c/remlib >nil: ftp.aweblib
+   slink with ftp.lnk
+
+ftp.o:      ftp.c aweblib.h tcperr.h fetchdriver.h task.h application.h awebtcp.h
+   @echo "        Compiling $*..."
+   @sc idir=netinclude: $*
+
+#- about --------
+
+aweblib/about.aweblib: about.o about.lnk
+   c/remlib >nil: about.aweblib
+   slink with about.lnk
+
+about.o:   about.c aweblib.h fetchdriver.h task.h
+   @echo "        Compiling $*..."
+   @sc idir=sslinclude: MemorySize=h IdentifierLength=100 $*
+
+#- gopher --------
+
+aweblib/gopher.aweblib: gopher.o gopher.lnk
+   c/remlib >nil: gopher.aweblib
+   slink with gopher.lnk
+
+gopher.o:   gopher.c aweblib.h tcperr.h fetchdriver.h task.h awebtcp.h
+   @echo "        Compiling $*..."
+   @sc idir=netinclude: $*
+
+#- gemini --------
+
+aweblib/gemini.aweblib: gemini.o gemini.lnk
+   c/remlib >nil: gemini.aweblib
+   slink with gemini.lnk
+
+gemini.o:   gemini.c aweblib.h tcperr.h fetchdriver.h task.h awebtcp.h awebssl.h
+   @echo "        Compiling $*..."
+   @sc idir=netinclude: $*
+
+#- history -------
+
+aweblib/history.aweblib: whistask.o history.lnk
+   c/remlib >nil: history.aweblib
+   slink with history.lnk
+
+whistask.o: whistask.c aweblib.h task.h whisprivate.h url.h
+
+#- hotlist -------
+
+aweblib/hotlist.aweblib: hotlisttask.o hotviewer.o hotmanager.o hotlist.lnk
+   c/remlib >nil: hotlist.aweblib
+   slink with hotlist.lnk
+
+hotlisttask.o: hotlisttask.c aweblib.h 
+
+hotviewer.o:   hotviewer.c aweblib.h task.h hotlist.h hotlisttask.h
+
+hotmanager.o:  hotmanager.c aweblib.h task.h hotlist.h hotlisttask.h
+
+#- mail ----------
+
+aweblib/mail.aweblib: mail.o mail.lnk
+   c/remlib >nil: mail.aweblib
+   slink with mail.lnk
+
+mail.o:     mail.c aweblib.h tcperr.h fetchdriver.h task.h application.h awebtcp.h
+   @echo "        Compiling $*..."
+   @sc idir=netinclude: $*
+
+#- news ----------
+
+aweblib/news.aweblib: news.o news.lnk
+   c/remlib >nil: news.aweblib
+   slink with news.lnk
+
+news.o:     news.c aweblib.h tcperr.h fetchdriver.h task.h application.h awebtcp.h
+   @echo "        Compiling $*..."
+   @sc idir=netinclude: $*
+
+#- print -------
+
+aweblib/print.aweblib: printlib.o print.lnk
+   c/remlib >nil: print.aweblib
+   slink with print.lnk
+
+printlib.o:  printlib.c aweblib.h print.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) noutillib $*.c
+
+#- startup -------
+
+aweblib/startup.aweblib: startup.o startup.lnk
+   c/remlib >nil: startup.aweblib
+   slink with startup.lnk
+
+startup.o:  startup.c aweblib.h startup.h
+
+#- docs index ----------------------------------------------------------------
+
+docs/makeindex: makeindex.c
+   sc link makeindex
+   @copy makeindex docs/
+
+docs/searchindex: searchindex.c
+   sc link searchindex
+   @copy searchindex docs/
+
+
+#- AWebJS --------------------------------------------------------------------
+
+awebjs:     awebjs.o arexxjs.o
+awebjs:     awebjs.lnk
+   slink with awebjs.lnk
+
+awebjs.o:   awebjs.c jslib.h keyfile.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+#- awebjs.aweblib ------------------------------------------------------------
+
+aweblib/awebjs.aweblib:   jslib.o jparse.o jcomp.o jdata.o jexe.o jmemory.o jobject.o jdebug.o
+aweblib/awebjs.aweblib:   jarray.o jboolean.o jdate.o jerror.o jfunction.o jmath.o jnumber.o jstring.o jregexp.o
+aweblib/awebjs.aweblib:   regexp/pcre.o
+aweblib/awebjs.aweblib:   jslib.lnk
+   c/remlib awebjs.aweblib
+   slink with jslib.lnk
+
+#- AWebJS.aweblib constituents, alphabetically -------------------------------
+
+jarray.o:   jarray.c awebjs.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+jboolean.o: jboolean.c awebjs.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+jcomp.o:    jcomp.c awebjs.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+jdata.o:    jdata.c awebjs.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+jdate.o:    jdate.c awebjs.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+jdebug.o:   jdebug.c awebjs.h keyfile.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+jexe.o:     jexe.c awebjs.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+jerror.o:   jerror.c awebjs.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+jfunction.o: jfunction.c awebjs.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+jmath.o:    jmath.c awebjs.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+jmemory.o:  jmemory.c
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+jnumber.o:  jnumber.c awebjs.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+jobject.o:  jobject.c awebjs.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+jparse.o:   jparse.c awebjs.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+jregexp.o:  jregexp.c awebjs.h regexp.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+regexp/pcre.o:   regexp/pcre.c regexp/pcre.h regexp/internal.h regexp/config.h regexp/chartables.c
+   @echo "        Compiling regexp/pcre..."
+   @sc $(DEBUG) idir=regexp: regexp/pcre.c to regexp/pcre.o
+
+markdown.o: markdown.c aweb.h html.h application.h docprivate.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+jslib.o:    jslib.c awebjs.h keyfile.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+jstring.o:  jstring.c awebjs.h
+   @echo "        Compiling $*..."
+   @sc $(DEBUG) $*.c
+
+
+install:
+   -copy clone AWeb TO //Internet/AWeb/AWeb
+   -copy clone AWebView TO //Internet/AWeb/AWebView
+   -copy clone AWebCfg TO //Internet/AWeb/AWebCfg
+   -copy clone AWebJS TO //Internet/AWeb/AWebJS
+   -copy clone aweblib/arexx.aweblib TO //Internet/AWeb/aweblib/arexx.aweblib
+   -copy clone aweblib/about.aweblib TO //Internet/AWeb/aweblib/about.aweblib
+   -copy clone aweblib/authorize.aweblib TO //Internet/AWeb/aweblib/authorize.aweblib
+   -copy clone aweblib/cachebrowser.aweblib TO //Internet/AWeb/aweblib/cachebrowser.aweblib
+   -copy clone aweblib/ftp.aweblib TO //Internet/AWeb/aweblib/ftp.aweblib
+   -copy clone aweblib/gemini.aweblib TO //Internet/AWeb/aweblib/gemini.aweblib
+   -copy clone aweblib/gopher.aweblib TO //Internet/AWeb/aweblib/gopher.aweblib
+   -copy clone aweblib/history.aweblib TO //Internet/AWeb/aweblib/history.aweblib
+   -copy clone aweblib/hotlist.aweblib TO //Internet/AWeb/aweblib/hotlist.aweblib
+   -copy clone aweblib/mail.aweblib TO //Internet/AWeb/aweblib/mail.aweblib
+   -copy clone aweblib/news.aweblib TO //Internet/AWeb/aweblib/news.aweblib
+   -copy clone aweblib/print.aweblib TO //Internet/AWeb/aweblib/print.aweblib
+   -copy clone aweblib/startup.aweblib TO //Internet/AWeb/aweblib/startup.aweblib
+   -copy clone aweblib/awebjs.aweblib TO //Internet/AWeb/aweblib/awebjs.aweblib
+
+release:
+   cd //Internet
+   lha -xer r /archive/AWeb36a5.lha AWeb AWeb.info 
