@@ -542,10 +542,14 @@ static void Loadprefs(struct Saveformat *svf,long fh,void *prf)
       item=(char *)prf+s->offset;
       switch(s->format)
       {  case SVF_SHORT:
-            sscanf(iobuf+4," %hd",item);
+            {  short *sp=(short *)item;
+               sscanf(iobuf+4," %hd",sp);
+            }
             break;
          case SVF_LONG:
-            sscanf(iobuf+4," %ld",item);
+            {  long *lp=(long *)item;
+               sscanf(iobuf+4," %ld",lp);
+            }
             break;
          case SVF_COLOR:
             {  struct Colorprefs *cp=(struct Colorprefs *)item;
@@ -727,7 +731,10 @@ static void Loadprefs(struct Saveformat *svf,long fh,void *prf)
                flagsp=iobuf+5;
                if(p=strchr(flagsp,SEPARATOR))
                {  *p='\0';
-                  sscanf(flagsp,"%hd",&flags);
+                  {  short tmpflags=0;
+                     sscanf(flagsp,"%hd",&tmpflags);
+                     flags=(USHORT)tmpflags;
+                  }
                   title=p+1;
                   if(p=strchr(title,SEPARATOR))
                   {  *p='\0';
@@ -941,12 +948,12 @@ static void Saveprefsfmt(struct Saveformat *svf,long fh,void *prf,short pass)
                sprintf(iobuf,"%s %d\n",s->label,*(short *)item);
                break;
             case SVF_LONG:
-               sprintf(iobuf,"%s %d\n",s->label,*(long *)item);
+               sprintf(iobuf,"%s %ld\n",s->label,(long)*(long *)item);
                break;
             case SVF_COLOR:
                {  struct Colorprefs *cp=(struct Colorprefs *)item;
-                  sprintf(iobuf,"%s %08X %08X %08X\n",s->label,
-                     cp->red,cp->green,cp->blue);
+                  sprintf(iobuf,"%s %08lX %08lX %08lX\n",s->label,
+                     (unsigned long)cp->red,(unsigned long)cp->green,(unsigned long)cp->blue);
                }
                break;
             case SVF_STRING:
@@ -972,9 +979,9 @@ static void Saveprefsfmt(struct Saveformat *svf,long fh,void *prf,short pass)
                   {  for(fa=bp->aliaslist.first;fa->next;fa=fa->next)
                      {  if(fa->alias && *fa->alias)
                         {  for(i=0;i<NRFONTS;i++)
-                           {  sprintf(iobuf,"FONA %s%c%d%c%s%c%d\n",
-                                 fa->alias,SEPARATOR,i+1,SEPARATOR,fa->fp[i].fontname,
-                                 SEPARATOR,fa->fp[i].fontsize);
+                           {  sprintf(iobuf,"FONA %s%c%ld%c%s%c%ld\n",
+                                 fa->alias,(int)SEPARATOR,(long)(i+1), (int)SEPARATOR,
+                                 fa->fp[i].fontname,(int)SEPARATOR,(long)fa->fp[i].fontsize);
                               Write(fh,iobuf,strlen(iobuf));
                            }
                         }
@@ -994,16 +1001,18 @@ static void Saveprefsfmt(struct Saveformat *svf,long fh,void *prf,short pass)
                break;
             case SVF_SCRM:
                {  struct Programprefs *pp=(struct Programprefs *)prf;
-                  sprintf(iobuf,"SCRM %08x %d %d %d\n",pp->screenmode,
-                     pp->screendepth,pp->screenwidth,pp->screenheight);
+                  sprintf(iobuf,"SCRM %08lX %d %d %d\n",
+                     (unsigned long)pp->screenmode,
+                     (int)pp->screendepth,(int)pp->screenwidth,(int)pp->screenheight);
                }
                break;
             case SVF_PALL:
                {  struct Programprefs *pp=(struct Programprefs *)prf;
                   for(i=0;i<8;i++)
-                  {  sprintf(iobuf,"PALL %d %08X %08X %08X\n",i,
-                        pp->scrpalette[3*i],pp->scrpalette[3*i+1],
-                        pp->scrpalette[3*i+2]);
+                  {  sprintf(iobuf,"PALL %ld %08lX %08lX %08lX\n",(long)i,
+                        (unsigned long)pp->scrpalette[3*i],
+                        (unsigned long)pp->scrpalette[3*i+1],
+                        (unsigned long)pp->scrpalette[3*i+2]);
                      Write(fh,iobuf,strlen(iobuf));
                   }
                   *iobuf='\0';
@@ -1049,8 +1058,8 @@ static void Saveprefsfmt(struct Saveformat *svf,long fh,void *prf,short pass)
                {  LIST(Popupitem) *list=item;
                   struct Popupitem *pi;
                   for(pi=list->first;pi->next;pi=pi->next)
-                  {  sprintf(iobuf,"%s %d%c%s%c%s\n",s->label,
-                        pi->flags,SEPARATOR,pi->title,SEPARATOR,pi->cmd);
+                  {  sprintf(iobuf,"%s %ld%c%s%c%s\n",s->label,
+                        (long)pi->flags,(int)SEPARATOR,pi->title,(int)SEPARATOR,pi->cmd);
                      Write(fh,iobuf,strlen(iobuf));
                   }
                   *iobuf='\0';
