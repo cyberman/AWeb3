@@ -1,6 +1,7 @@
 # AmiWeb
 
-This repository is the active development of AmiWeb for classic AmigaOS 3.2+ only.
+AmiWeb targets AmigaOS 3.2 and newer only.
+Older AmigaOS versions are intentionally out of scope and should continue using classic AWeb.
 
 The repository root contains the primary development tree.
 A reference snapshot of the AWeb 3.6 upstream codebase is tracked separately under `vendor/amigazen-aweb3/`.
