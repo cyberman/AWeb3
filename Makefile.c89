@@ -17,7 +17,7 @@ $(CFG_STAMP): $(CFG_OBJ_FILES) $(CFG_CATCOMP_OBJ)
 	@touch $@
 
 tools:
-	@echo "TODO: wire docs/makeindex and docs/searchindex"
+	@echo "TODO: docs/makeindex and docs/searchindex are AmigaOS binaries and need hosted Linux replacements"
 
 clean:
 	rm -rf $(BUILD_DIR)
